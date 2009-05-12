@@ -3334,7 +3334,7 @@ KXKextManagerError _KXKextManagerAddRepositoryFromCacheFile(
                 goto finish;
             }
             zstream.next_out  = data + zstream.total_out;
-            zstream.avail_out = data_length;
+            zstream.avail_out = data_length - zstream.total_out;
         } else {
             break;
         }

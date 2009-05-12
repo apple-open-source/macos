@@ -17,8 +17,9 @@ CFLAGS=-O0 $(RC_CFLAGS)
 #
 
 PROJECT_NAME=clamav
-OS_VER=0.94
+OS_VER=0.94.2
 CLAMAV_TAR_GZ=clamav-$(OS_VER).tar.gz
+CLAMAV_DIFF_5876278=clamav-$(OS_VER)-5876278.diff
 
 CLAMAV_BUILD_DIR=/clamav/clamav-$(OS_VER)
 ETC_DIR=/private/etc
@@ -46,12 +47,12 @@ USR_OS_VERSION=$(USR_LOCAL)/OpenSourceVersions
 USR_OS_LICENSE=$(USR_LOCAL)/OpenSourceLicenses
 
 SETUP_EXTRAS_SRC_DIR=clamav.SetupExtras
-SETUP_EXTRAS_DST_DIR=/System/Library/ServerSetup/SetupExtras
-MIGRATION_EXTRAS_DST_DIR=/System/Library/ServerSetup/MigrationExtras
+COMMON_EXTRAS_DST_DIR=/System/Library/ServerSetup/CommonExtras
 
 STRIP=/usr/bin/strip
 GNUTAR=/usr/bin/gnutar
 CHOWN=/usr/sbin/chown
+PATCH=/usr/bin/patch
 
 # Clam Antivirus config
 #
@@ -104,6 +105,9 @@ make_clamav :
 	$(SILENT) if [ -e "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_TAR_GZ)" ]; then\
 		$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT)" && $(GNUTAR) -xzpf "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_TAR_GZ)") ; \
 	fi
+	#$(SILENT) if [ -e "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_DIFF_5876278)" ]; then\
+	#	$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && $(PATCH) -p1 < "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_DIFF_5876278)") ; \
+	#fi
 	$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && ./configure $(CLAMAV_CONFIG))
 	$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && make CFLAGS="$(CFLAGS)")
 
@@ -112,6 +116,9 @@ make_clamav_install :
 	$(SILENT) $(ECHO) "------------ Make Install Clam AV ------------"
 	$(SILENT) if [ -e "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_TAR_GZ)" ]; then\
 		$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT)" && $(GNUTAR) -xzpf "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_TAR_GZ)") ; \
+	fi
+	$(SILENT) if [ -e "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_DIFF_5876278)" ]; then\
+		$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && $(PATCH) -p1 < "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_DIFF_5876278)") ; \
 	fi
 
 
@@ -126,8 +133,7 @@ make_clamav_install :
 	install -d -m 0755 "$(DSTROOT)$(LAUNCHDDIR)"
 	install -d -m 0755 "$(DSTROOT)$(USR_OS_VERSION)"
 	install -d -m 0755 "$(DSTROOT)$(USR_OS_LICENSE)"
-	install -d -m 0755 "$(DSTROOT)$(SETUP_EXTRAS_DST_DIR)"
-	install -d -m 0755 "$(DSTROOT)$(MIGRATION_EXTRAS_DST_DIR)"
+	install -d -m 0755 "$(DSTROOT)$(COMMON_EXTRAS_DST_DIR)"
 
 	# Install defautl config files
 	install -m 0644 "$(SRCROOT)/$(CONFIG_DIR)/clamd.conf" "$(DSTROOT)$(ETC_DIR)/clamd.conf"
@@ -169,8 +175,7 @@ make_clamav_install :
 	chown -R 82 "$(DSTROOT)$(VAR_CLAM)"
 
 	# Install Setup Extras
-	install -m 0555 "$(SRCROOT)/$(SETUP_EXTRAS_SRC_DIR)/clamav" "$(DSTROOT)$(SETUP_EXTRAS_DST_DIR)/clamav"
-	install -m 0555 "$(SRCROOT)/$(SETUP_EXTRAS_SRC_DIR)/clamav" "$(DSTROOT)$(MIGRATION_EXTRAS_DST_DIR)/clamav"
+	install -m 0755 "$(SRCROOT)/$(SETUP_EXTRAS_SRC_DIR)/clamav" "$(DSTROOT)$(COMMON_EXTRAS_DST_DIR)/SetupClamAV.sh"
 	install -m 0644 "$(SRCROOT)/$(LD_SRC_DIR)/org.clamav.clamd.plist" "$(DSTROOT)/$(LAUNCHDDIR)/org.clamav.clamd.plist"
 	install -m 0644 "$(SRCROOT)/$(LD_SRC_DIR)/org.clamav.freshclam.plist" "$(DSTROOT)/$(LAUNCHDDIR)/org.clamav.freshclam.plist"
 

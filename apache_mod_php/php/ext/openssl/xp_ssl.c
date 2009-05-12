@@ -16,7 +16,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: xp_ssl.c,v 1.22.2.3.2.11 2008/04/08 14:11:49 jorton Exp $ */
+/* $Id: xp_ssl.c,v 1.22.2.3.2.14 2008/11/16 23:12:38 pajoye Exp $ */
 
 #include "php.h"
 #include "ext/standard/file.h"
@@ -198,13 +198,12 @@ static size_t php_openssl_sockop_write(php_stream *stream, const char *buf, size
 				break;
 			}
 		} while(retry);
-		
+
+		if (didwrite > 0) {
+			php_stream_notify_progress_increment(stream->context, didwrite, 0);
+		}
 	} else {
 		didwrite = php_stream_socket_ops.write(stream, buf, count TSRMLS_CC);
-	}
-	
-	if (didwrite > 0) {
-		php_stream_notify_progress_increment(stream->context, didwrite, 0);
 	}
 
 	if (didwrite < 0) {
@@ -234,14 +233,14 @@ static size_t php_openssl_sockop_read(php_stream *stream, char *buf, size_t coun
 				break;
 			}
 		} while (retry);
+
+		if (nr_bytes > 0) {
+			php_stream_notify_progress_increment(stream->context, nr_bytes, 0);
+		}
 	}
 	else
 	{
 		nr_bytes = php_stream_socket_ops.read(stream, buf, count TSRMLS_CC);
-	}
-
-	if (nr_bytes > 0) {
-		php_stream_notify_progress_increment(stream->context, nr_bytes, 0);
 	}
 
 	if (nr_bytes < 0) {
@@ -418,7 +417,7 @@ static inline int php_openssl_enable_crypto(php_stream *stream,
 				n = SSL_connect(sslsock->ssl_handle);
 				gettimeofday(&tve, &tz);
 
-				timeout -= (tve.tv_sec + tve.tv_usec / 1000000) - (tvs.tv_sec + tvs.tv_usec / 1000000);
+				timeout -= (tve.tv_sec + (float) tve.tv_usec / 1000000) - (tvs.tv_sec + (float) tvs.tv_usec / 1000000);
 				if (timeout < 0) {
 					php_error_docref(NULL TSRMLS_CC, E_WARNING, "SSL: connection timeout");
 					return -1;
@@ -558,6 +557,9 @@ static inline int php_openssl_tcp_sockop_accept(php_stream *stream, php_openssl_
 			xparam->outputs.client = php_stream_alloc_rel(stream->ops, clisockdata, NULL, "r+");
 			if (xparam->outputs.client) {
 				xparam->outputs.client->context = stream->context;
+				if (stream->context) {
+					zend_list_addref(stream->context->rsrc_id);
+				}
 			}
 		}
 

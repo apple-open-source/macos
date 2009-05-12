@@ -41,6 +41,8 @@
 #define DEFAULT_MAX_SIZE 51200000
 #define DEFAULT_TTL 2
 
+#define LONGTTL_TMP_FILE "LongTTL.new"
+
 typedef struct name_list_s
 {
 	char *name;
@@ -405,7 +407,8 @@ main(int argc, const char *argv[])
 
 	while ((dent = readdir(dp)) != NULL)
 	{
-		if (!strncmp(dent->d_name, "LongTTL.", 8)) list = add_to_list(list, dent->d_name, 0);
+		if (!strcmp(dent->d_name, LONGTTL_TMP_FILE)) unlink(LONGTTL_TMP_FILE);
+		else if (!strncmp(dent->d_name, "LongTTL.", 8)) list = add_to_list(list, dent->d_name, 0);
 	}
 
 	closedir(dp);
@@ -428,9 +431,9 @@ main(int argc, const char *argv[])
 		}
 		else
 		{
-			status = do_match(e->name, "LongTTL.new", 1, now);
+			status = do_match(e->name, LONGTTL_TMP_FILE, 1, now);
 			unlink(e->name);
-			if (status == ASL_STATUS_OK) rename("LongTTL.new", e->name);
+			if (status == ASL_STATUS_OK) rename(LONGTTL_TMP_FILE, e->name);
 		}
 
 		e = e->next;

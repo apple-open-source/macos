@@ -2123,7 +2123,8 @@ void IOAudioEngineUserClient::sendFormatChangeNotification(IOAudioStream *audioS
 {
     audioDebugIOLog(3, "IOAudioEngineUserClient[%p]::sendFormatChangeNotification(%p)", this, audioStream);
 
-    if (audioStream && notificationMessage && (notificationMessage->messageHeader.msgh_remote_port != MACH_PORT_NULL)) {
+	//  <rdar://problems/6674310&6687920>
+    if ( ( !isInactive () ) && audioStream && notificationMessage && ( notificationMessage->messageHeader.msgh_remote_port != MACH_PORT_NULL ) ) {
         io_object_t clientStreamRef;
         
         audioStream->retain();

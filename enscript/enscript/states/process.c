@@ -1,6 +1,6 @@
 /*
  * Process input according to the specified rules.
- * Copyright (c) 1997 Markku Rossi.
+ * Copyright (c) 1997-1999 Markku Rossi.
  *
  * Author: Markku Rossi <mtr@iki.fi>
  */
@@ -25,6 +25,22 @@
  */
 
 #include "defs.h"
+
+/*
+ * Prototypes for static functions.
+ */
+
+/*
+ * Evaluate the begin rules of state <state>.  The begin rules are
+ * evaluated from parent to child.
+ */
+static Node *eval_begin_rules ___P ((State *state, int *return_seen));
+
+/*
+ * Evaluate the end rules of state <state>.  The end rules are
+ * evaluated from child to parent.
+ */
+static Node *eval_end_rules ___P ((State *state, int *found_return));
 
 /*
  * Global functions.
@@ -82,7 +98,8 @@ Node *
 execute_state (name)
      char *name;
 {
-  List *state;
+  State *state;
+  State *s;
   int to_read, got;
   ListItem *rule, *first_rule;
   unsigned int first_idx;
@@ -94,25 +111,17 @@ execute_state (name)
   int idx;
 
   /* Lookup state. */
-  if (!strhash_get (ns_states, name, strlen (name), (void **) &state))
+  state = lookup_state (name);
+  if (state == NULL)
     {
       fprintf (stderr, _("%s: undefined state `%s'\n"), program, name);
       exit (1);
     }
 
-  /* Begin rule? */
-  for (rule = state->head; rule; rule = rule->next)
-    {
-      r = (Cons *) rule->data;
-      if (r->car == RULE_BEGIN)
-	{
-	  node_free (result);
-	  result = eval_statement_list ((List *) r->cdr, NULL, &return_seen);
-	  if (return_seen)
-	    goto out;
-	  break;
-	}
-    }
+  /* Begin rules. */
+  result = eval_begin_rules (state, &return_seen);
+  if (return_seen)
+    goto out;
 
   /* Execute this state. */
   while (1)
@@ -142,7 +151,7 @@ execute_state (name)
       /* Find the end of the input line. */
       for (eol = bufpos; eol < data_in_buffer && inbuf[eol] != '\n'; eol++)
 	;
-      if (inbuf[eol] == '\n')
+      if (eol < data_in_buffer && inbuf[eol] == '\n')
 	eol++;
       if (eol >= data_in_buffer && !eof_seen && bufpos > 0)
 	{
@@ -165,54 +174,59 @@ execute_state (name)
       match_len = 0;
       first_rule = NULL;
       current_match = NULL;
-      for (rule = state->head; rule; rule = rule->next)
+
+      for (s = state; s; s = s->super)
 	{
-	  int err;
-
-	  r = (Cons *) rule->data;
-	  exp = (Node *) r->car;
-	  if (exp == RULE_BEGIN || exp == RULE_END)
-	    continue;
-
-	  if (exp->type == nSYMBOL)
+	  for (rule = s->rules->head; rule; rule = rule->next)
 	    {
-	      Node *n;
+	      int err;
 
-	      /* Lookup this variable by hand from global variables. */
-	      if (!strhash_get (ns_vars, exp->u.sym, strlen (exp->u.sym),
-				(void **) &n))
-		{
-		  fprintf (stderr, _("%s: error: undefined variable `%s'\n"),
-			   program, exp->u.sym);
-		  exit (1);
-		}
-	      if (n->type != nREGEXP)
-		/* Skip this rule */
+	      r = (Cons *) rule->data;
+	      exp = (Node *) r->car;
+	      if (exp == RULE_BEGIN || exp == RULE_END)
 		continue;
 
-	      exp = n;
-	    }
+	      if (exp->type == nSYMBOL)
+		{
+		  Node *n;
 
-	  err = re_search (REGEXP (exp), inbuf, eol, bufpos,
-			   eol - bufpos, &exp->u.re.matches);
-	  if (err < 0)
-	    /* No mach. */
-	    continue;
+		  /* Lookup this variable by hand from global variables. */
+		  if (!strhash_get (ns_vars, exp->u.sym, strlen (exp->u.sym),
+				    (void **) &n))
+		    {
+		      fprintf (stderr,
+			       _("%s: error: undefined variable `%s'\n"),
+			       program, exp->u.sym);
+		      exit (1);
+		    }
+		  if (n->type != nREGEXP)
+		    /* Skip this rule */
+		    continue;
 
-	  idx = exp->u.re.matches.start[0];
-	  if (idx >= 0
-	      && (idx < first_idx
-		  || (idx == first_idx
-		      && (exp->u.re.matches.end[0]
-			  - exp->u.re.matches.start[0]
-			  > match_len))))
-	    {
-	      first_idx = idx;
-	      first_rule = rule;
-	      match_len = (exp->u.re.matches.end[0]
-			   - exp->u.re.matches.start[0]);
-	      current_match = &exp->u.re.matches;
-	      current_match_buf = inbuf;
+		  exp = n;
+		}
+
+	      err = re_search (REGEXP (exp), inbuf, eol, bufpos,
+			       eol - bufpos, &exp->u.re.matches);
+	      if (err < 0)
+		/* No mach. */
+		continue;
+
+	      idx = exp->u.re.matches.start[0];
+	      if (idx >= 0
+		  && (idx < first_idx
+		      || (idx == first_idx
+			  && (exp->u.re.matches.end[0]
+			      - exp->u.re.matches.start[0]
+			      > match_len))))
+		{
+		  first_idx = idx;
+		  first_rule = rule;
+		  match_len = (exp->u.re.matches.end[0]
+			       - exp->u.re.matches.start[0]);
+		  current_match = &exp->u.re.matches;
+		  current_match_buf = inbuf;
+		}
 	    }
 	}
 
@@ -237,16 +251,97 @@ execute_state (name)
 
 out:
 
-  /* End rule? */
-  for (rule = state->head; rule; rule = rule->next)
+  /* End rules. */
+  {
+    int found = 0;
+    Node *result2;
+
+    result2 = eval_end_rules (state, &found);
+    if (found)
+      {
+	node_free (result);
+	result = result2;
+      }
+  }
+
+  return result;
+}
+
+
+/*
+ * Static functions.
+ */
+
+static Node *
+eval_begin_rules (state, return_seen)
+     State *state;
+     int *return_seen;
+{
+  Node *result = nvoid;
+  Cons *r;
+  ListItem *rule;
+
+  /* The begin rules are evaluated from the parent to child. */
+
+  /* Autoload the super if needed. */
+  if (state->super_name && state->super == NULL)
     {
-      r = (Cons *) rule->data;
-      if (r->car == RULE_END)
+      state->super = lookup_state (state->super_name);
+      if (state->super == NULL)
 	{
-	  node_free (result);
-	  result = eval_statement_list ((List *) r->cdr, NULL, &return_seen);
+	  fprintf (stderr, _("%s: undefined super state `%s'\n"),
+		   program, state->super_name);
+	  exit (1);
 	}
     }
+
+  if (state->super)
+    {
+      result = eval_begin_rules (state->super, return_seen);
+      if (*return_seen)
+	return result;
+    }
+
+  /* Eval our begin rule. */
+  for (rule = state->rules->head; rule; rule = rule->next)
+    {
+      r = (Cons *) rule->data;
+      if (r->car == RULE_BEGIN)
+	{
+	  node_free (result);
+	  result = eval_statement_list ((List *) r->cdr, NULL, return_seen);
+	  if (*return_seen)
+	    break;
+	}
+    }
+
+  return result;
+}
+
+
+static Node *
+eval_end_rules (state, found_return)
+     State *state;
+     int *found_return;
+{
+  ListItem *rule;
+  Cons *r;
+  Node *result = nvoid;
+  int return_seen;
+
+  /* The end rules are evaluated from child to parent. */
+
+  for (; state; state = state->super)
+    for (rule = state->rules->head; rule; rule = rule->next)
+      {
+	r = (Cons *) rule->data;
+	if (r->car == RULE_END)
+	  {
+	    *found_return = 1;
+	    node_free (result);
+	    result = eval_statement_list ((List *) r->cdr, NULL, &return_seen);
+	  }
+      }
 
   return result;
 }

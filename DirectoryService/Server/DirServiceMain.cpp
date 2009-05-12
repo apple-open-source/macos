@@ -109,7 +109,7 @@ DSEventSemaphore	gPluginRunLoopEvent;
 extern CDSLocalPlugin	*gLocalNode;
 
 #warning VERIFY the version string before each software release
-const char* gStrDaemonAppleVersion = "5.6"; //match this with x.y in 10.x.y
+const char* gStrDaemonAppleVersion = "5.7"; //match this with x.y in 10.x.y
 
 const char* gStrDaemonBuildVersion = "unlabeled/engineering";
 

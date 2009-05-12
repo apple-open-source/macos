@@ -141,8 +141,14 @@ DiskRep::Writer *FileDiskRep::writer()
 //
 void FileDiskRep::Writer::component(CodeDirectory::SpecialSlot slot, CFDataRef data)
 {
+	try {
 	fd().setAttr(attrName(CodeDirectory::canonicalSlotName(slot)),
 		CFDataGetBytePtr(data), CFDataGetLength(data));
+	} catch (const UnixError &error) {
+		if (error.error == ERANGE)
+			MacOSError::throwMe(errSecCSCMSTooLarge);
+		throw;
+	}
 }
 
 

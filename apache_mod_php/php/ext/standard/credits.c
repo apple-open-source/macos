@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: credits.c,v 1.36.2.4.2.6 2008/04/10 05:32:26 philip Exp $ */
+/* $Id: credits.c,v 1.36.2.4.2.7 2008/06/18 05:21:08 philip Exp $ */
 
 #include "php.h"
 #include "info.h"
@@ -114,7 +114,7 @@ PHPAPI void php_print_credits(int flag TSRMLS_DC)
 		/* Website Team */
 		php_info_print_table_start();
 		php_info_print_table_header(1, "PHP Website Team");
-		php_info_print_table_row(1, "Hannes Magnusson, Colin Viebrock, Jim Winstead");
+		php_info_print_table_row(1, "Rasmus Lerdorf, Hannes Magnusson, Philip Olson");
 		php_info_print_table_end();
 	}
 

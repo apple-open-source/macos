@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: link.c,v 1.52.2.1.2.4 2007/12/31 07:20:12 sebastian Exp $ */
+/* $Id: link.c,v 1.52.2.1.2.6 2008/08/11 15:31:01 lbarnaud Exp $ */
 
 #include "php.h"
 #include "php_filestat.h"
@@ -49,6 +49,7 @@
 
 #include "safe_mode.h"
 #include "php_link.h"
+#include "php_string.h"
 
 /* {{{ proto string readlink(string filename)
    Return the target of a symbolic link */
@@ -115,6 +116,8 @@ PHP_FUNCTION(symlink)
 	int ret;
 	char source_p[MAXPATHLEN];
 	char dest_p[MAXPATHLEN];
+	char dirname[MAXPATHLEN];
+	size_t len;
 
 	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &topath, &frompath) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -122,7 +125,15 @@ PHP_FUNCTION(symlink)
 	convert_to_string_ex(topath);
 	convert_to_string_ex(frompath);
 
-	if (!expand_filepath(Z_STRVAL_PP(frompath), source_p TSRMLS_CC) || !expand_filepath(Z_STRVAL_PP(topath), dest_p TSRMLS_CC)) {
+	if (!expand_filepath(Z_STRVAL_PP(frompath), source_p TSRMLS_CC)) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "No such file or directory");
+		RETURN_FALSE;
+	}
+
+	memcpy(dirname, source_p, sizeof(source_p));
+	len = php_dirname(dirname, strlen(dirname));
+
+	if (!expand_filepath_ex(Z_STRVAL_PP(topath), dest_p, dirname, len TSRMLS_CC)) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "No such file or directory");
 		RETURN_FALSE;
 	}
@@ -150,11 +161,11 @@ PHP_FUNCTION(symlink)
 		RETURN_FALSE;
 	}
 
-#ifndef ZTS
-	ret = symlink(Z_STRVAL_PP(topath), Z_STRVAL_PP(frompath));
-#else 
-	ret = symlink(dest_p, source_p);
-#endif	
+	/* For the source, an expanded path must be used (in ZTS an other thread could have changed the CWD).
+	 * For the target the exact string given by the user must be used, relative or not, existing or not.
+	 * The target is relative to the link itself, not to the CWD. */
+	ret = symlink(Z_STRVAL_PP(topath), source_p);
+
 	if (ret == -1) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", strerror(errno));
 		RETURN_FALSE;

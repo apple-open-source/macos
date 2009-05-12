@@ -126,15 +126,16 @@ APU_DECLARE(apr_status_t) apr_dbd_get_driver(apr_pool_t *pool, const char *name,
  *  keys, each followed by an equal sign and a value. Such key/value pairs can
  *  be delimited by space, CR, LF, tab, semicolon, vertical bar or comma.
  *  @remarks MySQL: the params can have "host", "port", "user", "pass",
- *  "dbname", "sock", "flags" "fldsz" and "group" keys, each followed by an
- *  equal sign and a value. Such key/value pairs can be delimited by space,
- *  CR, LF, tab, semicolon, vertical bar or comma. For now, "flags" can only
- *  recognise CLIENT_FOUND_ROWS (check MySQL manual for details). The value
- *  associated with "fldsz" determines maximum amount of memory (in bytes) for
- *  each of the fields in the result set of prepared statements. By default,
- *  this value is 1 MB. The value associated with "group" determines which
- *  group from configuration file to use (see MYSQL_READ_DEFAULT_GROUP option
- *  of mysql_options() in MySQL manual).
+ *  "dbname", "sock", "flags" "fldsz", "group" and "reconnect" keys, each
+ *  followed by an equal sign and a value. Such key/value pairs can be
+ *  delimited by space, CR, LF, tab, semicolon, vertical bar or comma. For
+ *  now, "flags" can only recognise CLIENT_FOUND_ROWS (check MySQL manual for
+ *  details). The value associated with "fldsz" determines maximum amount of
+ *  memory (in bytes) for each of the fields in the result set of prepared
+ *  statements. By default, this value is 1 MB. The value associated with
+ *  "group" determines which group from configuration file to use (see
+ *  MYSQL_READ_DEFAULT_GROUP option of mysql_options() in MySQL manual).
+ *  Reconnect is set to 1 by default (i.e. true).
  *  @remarks FreeTDS: the params can have "username", "password", "appname",
  *  "dbname", "host", "charset", "lang" and "server" keys, each followed by an
  *  equal sign and a value.

@@ -3,7 +3,7 @@
   error.c -
 
   $Author: shyouhei $
-  $Date: 2007-08-22 10:57:22 +0900 (Wed, 22 Aug 2007) $
+  $Date: 2008-08-04 12:16:55 +0900 (Mon, 04 Aug 2008) $
   created at: Mon Aug  9 16:11:34 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -334,7 +334,7 @@ rb_exc_new3(etype, str)
     VALUE etype, str;
 {
     StringValue(str);
-    return rb_exc_new(etype, RSTRING(str)->ptr, RSTRING(str)->len);
+    return rb_funcall(etype, rb_intern("new"), 1, str);
 }
 
 /*

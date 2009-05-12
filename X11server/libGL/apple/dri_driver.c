@@ -70,6 +70,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "dri_driver.h"
 #include "x-list.h"
 #include "x-hash.h"
+#include "patch_dispatch.h"
 
 /* Context binding */
 static Bool driMesaBindContext(Display *dpy, int scrn,
@@ -497,12 +498,21 @@ static Bool driMesaBindContext(Display *dpy, int scrn,
 	   want to catch that call to glViewport in our wrappers. */
 	unwrap_context (pcp);
 
-	if (pdp->surface_id == 0)
+	if(pdp->surface_id == 0) {
 	    CGLClearDrawable (pcp->ctx);
-	else if (xp_attach_gl_context (pcp->ctx, pdp->surface_id) == Success)
-	    pcp->surface_id = pdp->surface_id;
-	else
-	    fprintf (stderr, "failed to bind to surface\n");
+	} else {
+	    xp_error error = xp_attach_gl_context(pcp->ctx, pdp->surface_id);
+
+	    if (!error) {
+		pcp->surface_id = pdp->surface_id;
+	    } else {
+		fprintf(stderr, "error: failed to bind to surface.  "
+			"error code: %d\n", error);
+		fprintf(stderr, "pcp->ctx is %p\n", (void *)pcp->ctx);
+		fprintf(stderr, "pdp->surface_id %u\n", 
+			(unsigned int)pdp->surface_id);
+	    }
+	}
 
 	wrap_context (pcp);
 
@@ -681,6 +691,7 @@ driCreatePixelFormat (Display *dpy, __DRIscreenPrivate *psp,
     int i;
     CGLPixelFormatAttribute attr[64]; // currently uses max of 30
     CGLPixelFormatObj result;
+    CGLError error;
     GLint n_formats;
 
     i = 0;
@@ -697,7 +708,12 @@ driCreatePixelFormat (Display *dpy, __DRIscreenPrivate *psp,
     attr[i++] = kCGLPFAColorSize;
     attr[i++] = config->redSize + config->greenSize + config->blueSize;
     attr[i++] = kCGLPFAAlphaSize;
-    attr[i++] = 1; /* FIXME: ignoring config->alphaSize which is always 0 */
+
+    if (config->alphaSize >= 0) {
+	attr[i++] = config->alphaSize;
+    } else {
+	attr[i++] = 0;
+    }
 
     if (config->accumRedSize + config->accumGreenSize
 	+ config->accumBlueSize + config->accumAlphaSize > 0)
@@ -722,13 +738,25 @@ driCreatePixelFormat (Display *dpy, __DRIscreenPrivate *psp,
 	attr[i++] = config->auxBuffers;
     }
 
+    if (config->nMultiSampleBuffers > 0 && config->multiSampleSize > 0) {
+	attr[i++] = kCGLPFASampleBuffers;
+	attr[i++] = config->nMultiSampleBuffers;
+	attr[i++] = kCGLPFASamples;
+	attr[i++] = config->multiSampleSize;
+    }
+
     /* FIXME: things we don't handle: color/alpha masks, level,
        visualrating, transparentFoo */
 
     attr[i++] = 0;
 
     result = NULL;
-    CGLChoosePixelFormat(attr, &result, &n_formats);
+    error = CGLChoosePixelFormat(attr, &result, &n_formats);
+    if (error) {
+	fprintf(stderr, "error: creating pixel format %s\n", 
+		CGLErrorString(error));
+	return NULL;
+    }
 
     return result;
 }
@@ -741,6 +769,7 @@ static void *driMesaCreateContext(Display *dpy, XVisualInfo *vis, void *shared,
     __DRIcontextPrivate *pshare = (__DRIcontextPrivate *)shared;
     __DRIscreenPrivate *psp;
     int i;
+    CGLError error = 0;
 
     if (!(pDRIScreen = __glXFindDRIScreen(dpy, vis->screen))) {
 	/* ERROR!!! */
@@ -776,8 +805,16 @@ static void *driMesaCreateContext(Display *dpy, XVisualInfo *vis, void *shared,
     pcp->ctx = NULL;
     for (i = 0; pcp->ctx == NULL && i < psp->numVisuals; i++) {
         if (psp->visuals[i].vid == vis->visualid) {
-	    CGLCreateContext (psp->visuals[i].pixel_format,
-			      pshare ? pshare->ctx : NULL, &pcp->ctx);
+	    if(NULL == psp->visuals[i].pixel_format)
+		continue;
+
+	    error = CGLCreateContext (psp->visuals[i].pixel_format,
+				      pshare ? pshare->ctx : NULL, &pcp->ctx);
+	    
+  	    if(error) {
+		fprintf(stderr, "error: %s\n", CGLErrorString(error));
+		break; /*fall through*/
+	    }
         }
     }
 
@@ -785,6 +822,8 @@ static void *driMesaCreateContext(Display *dpy, XVisualInfo *vis, void *shared,
 	Xfree(pcp);
 	return NULL;
     }
+
+    
 
     pctx->destroyContext = driMesaDestroyContext;
     pctx->bindContext    = driMesaBindContext;
@@ -795,6 +834,8 @@ static void *driMesaCreateContext(Display *dpy, XVisualInfo *vis, void *shared,
     pthread_mutex_lock (&psp->mutex);
     __driMesaGarbageCollectDrawables(pcp->driScreenPriv->drawHash);
     pthread_mutex_unlock (&psp->mutex);
+
+    __glApplePatchDispatch(pcp->ctx);
 
     return pcp;
 }
@@ -822,6 +863,7 @@ static void *driMesaCreateScreen(Display *dpy, int scrn, __DRIscreen *psc,
     __DRIscreenPrivate *psp;
     XVisualInfo visTmpl, *visinfo;
     pthread_mutexattr_t attr;
+    int configCount = 0;
 
     if (!XAppleDRIQueryDirectRenderingCapable(dpy, scrn, &directCapable)) {
 	return NULL;
@@ -852,30 +894,42 @@ static void *driMesaCreateScreen(Display *dpy, int scrn, __DRIscreen *psc,
 	return NULL;
     }
 #endif
+    visTmpl.screen = scrn;
+
+    visinfo = XGetVisualInfo(dpy, VisualScreenMask, &visTmpl, &n);
+
+    if(NULL == visinfo) {
+	Xfree(psp);
+	return NULL; 
+    }
 
     /*
      * Allocate space for an array of visual records and initialize them.
      */
-    psp->visuals = (__DRIvisualPrivate *)Xmalloc(numConfigs *
-						 sizeof(__DRIvisualPrivate));
+    psp->visuals = (__DRIvisualPrivate *)Xmalloc(n * sizeof(__DRIvisualPrivate));
     if (!psp->visuals) {
 	Xfree(psp);
 	return NULL;
     }
 
-    visTmpl.screen = scrn;
-    visinfo = XGetVisualInfo(dpy, VisualScreenMask, &visTmpl, &n);
-    if (n != numConfigs) {
-	Xfree(psp);
-	return NULL;
-    }
-
     psp->numVisuals = 0;
-    for (i = 0; i < numConfigs; i++, config++) {
-	psp->visuals[psp->numVisuals].vid = visinfo[i].visualid;
-        psp->visuals[psp->numVisuals].pixel_format =
-                 driCreatePixelFormat (dpy, psp, &visinfo[i], config);
-	if (psp->visuals[psp->numVisuals].pixel_format != NULL) {
+
+    for(i = 0; i < n && configCount < numConfigs; ++i) {
+	/* We only support TrueColor GLX visuals (for now) in the X server. 
+	 */
+       	if(visinfo[i].visualid == config->vid) {
+	    psp->visuals[psp->numVisuals].vid = visinfo[i].visualid;
+	    psp->visuals[psp->numVisuals].pixel_format =
+		driCreatePixelFormat (dpy, psp, &visinfo[i], config);
+	    
+	    if (psp->visuals[psp->numVisuals].pixel_format) {
+		psp->numVisuals++;
+	    }   
+	    ++config;
+	    ++configCount;
+	} else {
+	    psp->visuals[psp->numVisuals].vid = visinfo[i].visualid;
+	    psp->visuals[psp->numVisuals].pixel_format = NULL;
 	    psp->numVisuals++;
 	}
     }
@@ -947,6 +1001,9 @@ static void driAppleSurfaceNotify (Display *dpy, unsigned int uid, int kind)
 	    all_safe = TRUE;
 	    for (pcp = pdp->driContextPriv; pcp != NULL; pcp = pcp->next)
 	    {
+		/* 
+		 * gstaplin: this comparison of thread_id to 0 isn't right. 
+		 */
 		if (pcp->thread_id != 0 && pcp->thread_id != self) {
 		    all_safe = FALSE;
 		    break;

@@ -1,3 +1,130 @@
+1999-09-17  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* main.c (handle_options): New option --footer to set the page
+	footer string.
+	(main): Modified the config file reading to be more user-tolerant.
+	If the config file reading still fails, the enscript prints a
+	verbose error message describing the situation.  Enscript also
+	suggest some workarounds for the problem.  Hopefully this helps
+	users to overcome their problems concerning the installation of
+	the program.
+
+	* psgen.c (dump_ps_page_header): Added support for user supplied
+	footer strings.
+
+	* main.c: Removed the obsolete --list-options option.
+
+1999-09-13  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* main.c (handle_options): New option --extended-return-values to
+	enable the extended return values.
+
+1999-09-07  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* psgen.c (process_file): Added an argument `is_toc' to specify
+	whether the file to process is a table of contents file.
+
+1999-08-26  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* util.c (format_user_string): New escape `$p' for number of pages
+	processed so far.
+
+1999-07-16  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* Finished the static to dynamic memory buffer conversion.  Now
+	the enscript sources should not have any buffer overrun bugs.
+
+1999-07-13  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* Converted many static buffers to dynamically allocated buffers.
+	There are still more work in this area.
+
+1999-07-09  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* main.c: Started to fix some possible buffer overflows.  This
+	needs still more work.
+
+	* util.c: Implemented buffer_clear().
+
+1999-07-08  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* prt_lpr.c: Fixed to use the new memory buffer routines.
+
+	* util.c: Implemented new dynamic memory buffer handling routines
+	buffer_{{un,}init,alloc,free,append{,_len},ptr,len}().
+
+1999-07-05  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* main.c (handle_options): New option `--nup-columnwise' to layout
+	pages in the N-up printing columnwise.
+	(handle_options): New option `--swap-even-page-margins' to swap
+	left and right side page marginals for even numbered pages.
+
+1999-03-29  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* main.c (close_output_file): Check the return value of fclose on
+	a written file, and warn if necessary. (John Bley,
+	jbb6@acpub.duke.edu)
+
+1999-03-12  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* main.c: Renamed all `pretty-print' options to the corresponding
+	`highlight' ones.
+
+1999-01-07  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* util.c (parse_font_spec): Cleaned up the font specification
+	parsing.
+
+	* main.c (main): Fixed the non-installation runs to preserve the
+	PATH_SEPARATOR.
+	(handle_options): New options -3, -4, -5, -6, -7, -8, -9 to select
+	3-9 columns.
+
+1998-12-23  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* main.c (encodings): Added ISO-8859-{9,10} encodings.
+
+	* psgen.c (process_file): Swapped the order in which the line
+	numbers and line shading are printed.  Now the line numbers won't
+	be overwritten by the shading.
+
+1998-12-07  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* main.c (main): Added a xgettext `no-c-format' string.
+
+1998-10-29  Markku Rossi  <mtr@ngs.fi>
+
+	* main.c (main): Fixed the `--help-pretty-print' option to work
+	with the new highlighting scheme.
+
+1998-10-23  Markku Rossi  <mtr@ngs.fi>
+
+	* util.c (read_font_info): Added the `encoding' value to the font
+	info cache key.
+
+	* psgen.c (process_file): New special escape ^@bgcolor{} to set
+	the text background color.
+
+	* main.c: Changed enscript to use the new highlighting style.  All
+	states related options were changed.
+
+1998-10-16  Markku Rossi  <mtr@ngs.fi>
+
+	* psgen.c: Added support for the user specified input encoding in
+	the ^@font{} escapes.
+
+	* util.c (parse_font_spec): Added support for the encoding
+	specification in the font spec.  All uses changed.
+
+	* gsint.h: New the EncodingRegistry to hold the known input
+	encodings.
+	Made the encodings a global variable.
+
+1998-09-07  Markku Rossi  <mtr@ngs.fi>
+
+	* main.c (main): Fixed to honor the HOME environment variable.
+
 1998-06-25  Markku Rossi  <mtr@ngs.fi>
 
 	* main.c (handle_options): New option `--rotate-even-pages' to

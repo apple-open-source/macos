@@ -38,7 +38,7 @@
 #include <IOKit/graphics/IOFramebuffer.h>
 #include <IOKit/graphics/IODisplay.h>
 #include <IOKit/i2c/IOI2CInterface.h>
-#ifdef __ppc__
+#if defined(__ppc__) && !defined(OSTYPES_K64_REV)
 #include <IOKit/i2c/PPCI2CInterface.h>
 #endif
 #include <IOKit/acpi/IOACPIPlatformExpert.h>
@@ -62,6 +62,8 @@
 #define DOANIO	      0
 #define VRAM_SAVE     1
 #define VRAM_COMPRESS 1
+
+enum { kIOFBVRAMCompressSpeed = 0 };
 
 #ifdef __i386__
 enum { kIOFBMapCacheMode = kIOMapWriteCombineCache }; 
@@ -2697,6 +2699,7 @@ IOReturn IOFramebuffer::handleEvent( IOIndex event, void * info )
                     && ((this != gIOFBConsoleFramebuffer)
                             || (kOSBooleanTrue != getPMRootDomain()->getProperty(kIOHibernatePreviewBufferKey))))
                     {
+                        setAttribute(kIOFBSpeedAttribute, kIOFBVRAMCompressSpeed);
 #if VRAM_COMPRESS
                         DecompressData( (UInt8 *) __private->saveFramebuffer, (UInt8 *) frameBuffer,
                                         0, 0, __private->framebufferWidth, __private->framebufferHeight, rowBytes);
@@ -2704,6 +2707,7 @@ IOReturn IOFramebuffer::handleEvent( IOIndex event, void * info )
                         bcopy_nc( __private->saveFramebuffer, (void *) frameBuffer, __private->saveLength );
 #endif
                         DEBG(thisIndex, " screen drawn\n");
+                        setAttribute(kIOFBSpeedAttribute, __private->reducedSpeed);
 
 			if (__private->gammaDataLen && __private->gammaData && !__private->scaledMode)
 			{
@@ -2944,12 +2948,14 @@ IOOptionBits IOFramebuffer::checkPowerWork( void )
                 if (__private->saveFramebuffer)
                 {
 #if VRAM_COMPRESS
+                    setAttribute(kIOFBSpeedAttribute, kIOFBVRAMCompressSpeed);
                     DEBG(thisIndex, " compressing\n");
                     dLen = CompressData( (UInt8 *) frameBuffer, bytesPerPixel,
                                          __private->framebufferWidth, __private->framebufferHeight, rowBytes,
                                          (UInt8 *) __private->saveFramebuffer, __private->saveLength );
 
                     DEBG(thisIndex, " compressed to %d%%\n", (dLen * 100) / sLen);
+                    setAttribute(kIOFBSpeedAttribute, __private->reducedSpeed);
 
                     dLen = round_page_32( dLen );
                     if (__private->saveLength > dLen)
@@ -6711,7 +6717,7 @@ void IOFramebuffer::dpProcessInterrupt(void)
 	bits = data[1];
 	if (!bits)
           break;
-	IOLog("dp events: 0x%02lx\n", bits);
+	DEBG(thisIndex, "dp events: 0x%02lx\n", bits);
 
 	if (kDPIRQRemoteControlCommandPending & bits)
 	{
@@ -6959,7 +6965,7 @@ IOReturn IOFramebufferI2CInterface::startIO( IOI2CRequest * request )
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-#if __ppc__
+#if defined(__ppc__) && !defined(OSTYPES_K64_REV)
 
 class AppleOnboardI2CInterface : public IOI2CInterface
 {
@@ -7080,7 +7086,7 @@ IOReturn AppleOnboardI2CInterface::startIO( IOI2CRequest * request )
     return (err);
 }
 
-#endif	/* __ppc__ */
+#endif	/* __ppc__ && !defined(OSTYPES_K64_REV) */
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -7120,7 +7126,8 @@ IOReturn IOFramebufferI2CInterface::create( IOFramebuffer * framebuffer )
     }
     while (false);
 
-#if __ppc__
+#if defined(__ppc__) && !defined(OSTYPES_K64_REV)
+
     OSData * data = OSDynamicCast( OSData, framebuffer->getProvider()->getProperty("iic-address"));
     if (data && (!framebuffer->getProperty(kIOFBDependentIDKey))
             && (0x8c == *((UInt32 *) data->getBytesNoCopy())) /*iMac*/)
@@ -7143,7 +7150,7 @@ IOReturn IOFramebufferI2CInterface::create( IOFramebuffer * framebuffer )
         }
         while (false);
     }
-#endif
+#endif /* defined(__ppc__) && !defined(OSTYPES_K64_REV) */
 
     if (ok && interfaceIDArray->getCount())
         framebuffer->setProperty(kIOFBI2CInterfaceIDsKey, interfaceIDArray);

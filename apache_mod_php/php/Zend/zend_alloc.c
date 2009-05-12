@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_alloc.c,v 1.144.2.3.2.47 2008/02/14 14:46:48 dmitry Exp $ */
+/* $Id: zend_alloc.c,v 1.144.2.3.2.50 2008/10/30 08:55:09 dmitry Exp $ */
 
 #include "zend.h"
 #include "zend_alloc.h"
@@ -1061,16 +1061,26 @@ ZEND_API zend_mm_heap *zend_mm_startup_ex(const zend_mm_mem_handlers *handlers, 
 	}
 	if (internal) {
 		int i;
-		zend_mm_free_block *p;
+		zend_mm_free_block *p, *q, *orig;
 		zend_mm_heap *mm_heap = _zend_mm_alloc_int(heap, sizeof(zend_mm_heap)  ZEND_FILE_LINE_CC ZEND_FILE_LINE_EMPTY_CC);
 
 		*mm_heap = *heap;
 
 		p = ZEND_MM_SMALL_FREE_BUCKET(mm_heap, 0);
+		orig = ZEND_MM_SMALL_FREE_BUCKET(heap, 0);
 		for (i = 0; i < ZEND_MM_NUM_BUCKETS; i++) {
-			p->prev_free_block->next_free_block = p;
-			p->next_free_block->prev_free_block = p;
+			q = p;
+			while (q->prev_free_block != orig) {
+				q = q->prev_free_block;
+			}
+			q->prev_free_block = p;
+			q = p;
+			while (q->next_free_block != orig) {
+				q = q->next_free_block;
+			}
+			q->next_free_block = p;
 			p = (zend_mm_free_block*)((char*)p + sizeof(zend_mm_free_block*) * 2);
+			orig = (zend_mm_free_block*)((char*)orig + sizeof(zend_mm_free_block*) * 2);
 			if (mm_heap->large_free_buckets[i]) {
 				mm_heap->large_free_buckets[i]->parent = &mm_heap->large_free_buckets[i];
 			}
@@ -1115,7 +1125,10 @@ ZEND_API zend_mm_heap *zend_mm_startup(void)
 	if (tmp) {
 		seg_size = zend_atoi(tmp, 0);
 		if (zend_mm_low_bit(seg_size) != zend_mm_high_bit(seg_size)) {
-			fprintf(stderr, "ZEND_MM_SEG_SIZE must be a power ow two.\n");
+			fprintf(stderr, "ZEND_MM_SEG_SIZE must be a power of two\n");
+			exit(255);
+		} else if (seg_size < ZEND_MM_ALIGNED_SEGMENT_SIZE + ZEND_MM_ALIGNED_HEADER_SIZE) {
+			fprintf(stderr, "ZEND_MM_SEG_SIZE is too small\n");
 			exit(255);
 		}
 	} else {

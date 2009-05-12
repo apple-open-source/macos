@@ -1,0 +1,307 @@
+--- src/build.c	2006-09-30 01:13:00.000000000 -0700
++++ src/build.c	2008-08-18 23:42:31.000000000 -0700
+@@ -223,7 +223,7 @@
+     if (strcmp(currentdir, home) == 0) {
+ 	strcpy(newdir, "$HOME");
+     } else if (strncmp(currentdir, home, strlen(home)) == 0) {
+-	sprintf(newdir, "$HOME%s", currentdir + strlen(home));
++	snprintf(newdir, sizeof(newdir), "$HOME%s", currentdir + strlen(home));
+     }
+     /* sort the source file names (needed for rebuilding) */
+     qsort(srcfiles, nsrcfiles, sizeof(char *), compare);
+@@ -454,7 +454,7 @@
+ 	}
+ 	fstat(fileno(postings), &statstruct);
+ 	fclose(postings);
+-	sprintf(sortcommand, "env LC_ALL=C sort -T %s %s", tmpdir, temp1);
++	snprintf(sortcommand, sizeof(sortcommand), "env LC_ALL=C sort -T %s %s", tmpdir, temp1);
+ 	if ((postings = mypopen(sortcommand, "r")) == NULL) {
+ 	    fprintf(stderr, "cscope: cannot open pipe to sort command\n");
+ 	    cannotindex();
+--- src/command.c	2006-09-30 01:13:00.000000000 -0700
++++ src/command.c	2008-08-18 23:43:16.000000000 -0700
+@@ -739,7 +739,7 @@
+ 				
+ 		/* make sure it can be changed */
+ 		if (access(newfile, WRITE) != 0) {
+-		    sprintf(msg, "Cannot write to file %s", newfile);
++		    snprintf(msg, sizeof(msg), "Cannot write to file %s", newfile);
+ 		    postmsg(msg);
+ 		    anymarked = NO;
+ 		    break;
+--- src/dir.c	2006-09-30 01:13:00.000000000 -0700
++++ src/dir.c	2008-08-18 23:44:26.000000000 -0700
+@@ -139,7 +139,7 @@
+ 			
+ 	    /* compute its path from higher view path source dirs */
+ 	    for (i = 1; i < nvpsrcdirs; ++i) {
+-		sprintf(path, "%.*s/%s",
++		snprintf(path, sizeof(path), "%.*s/%s",
+ 			PATHLEN - 2 - dir_len,
+ 			srcdirs[i], dir);
+ 		addsrcdir(path);
+@@ -207,7 +207,7 @@
+ 			
+ 	    /* compute its path from higher view path source dirs */
+ 	    for (i = 1; i < nvpsrcdirs; ++i) {
+-		sprintf(path, "%.*s/%s", 
++		snprintf(path, sizeof(path), "%.*s/%s", 
+ 			PATHLEN - 2 - dir_len,
+ 			srcdirs[i], dir);
+ 		addincdir(dir, path);
+@@ -494,7 +494,7 @@
+ 			    && (strcmp("..",entry->d_name) != 0)) {
+ 				struct stat buf;
+ 
+-				sprintf(path,"%s/%.*s", adir,
++				snprintf(path, sizeof(path), "%s/%.*s", adir,
+ 					PATHLEN - 2 - adir_len,
+ 					entry->d_name);
+ 
+@@ -604,14 +604,14 @@
+ 	/* search for the file in the #include directory list */
+ 	for (i = 0; i < nincdirs; ++i) {
+ 	    /* don't include the file from two directories */
+-	    sprintf(name, "%.*s/%s",
++	    snprintf(name, sizeof(name), "%.*s/%s",
+ 		    PATHLEN - 2 - file_len, incnames[i],
+ 		    file);
+ 	    if (infilelist(name) == YES) {
+ 		break;
+ 	    }
+ 	    /* make sure it exists and is readable */
+-	    sprintf(path, "%.*s/%s",
++	    snprintf(path, sizeof(path), "%.*s/%s",
+ 		    PATHLEN - 2 - file_len, incdirs[i],
+ 		    file);
+ 	    if (access(compath(path), READ) == 0) {
+@@ -659,7 +659,7 @@
+ 
+ 	/* compute its path from higher view path source dirs */
+ 	for (i = 1; i < nvpsrcdirs; ++i) {
+-	    sprintf(path, "%.*s/%s",
++	    snprintf(path, sizeof(path), "%.*s/%s",
+ 		    PATHLEN - 2 - file_len, srcdirs[i],
+ 		    file);
+ 	    if (access(compath(path), READ) == 0) {
+--- src/display.c	2006-09-30 01:13:00.000000000 -0700
++++ src/display.c	2008-08-18 23:46:26.000000000 -0700
+@@ -478,20 +478,20 @@
+ 	/* see if it is empty */
+ 	if ((c = getc(refsfound)) == EOF) {
+ 		if (findresult != NULL) {
+-			(void) sprintf(lastmsg, "Egrep %s in this pattern: %s", 
++			(void) snprintf(lastmsg, sizeof(lastmsg), "Egrep %s in this pattern: %s", 
+ 				       findresult, Pattern);
+ 		} else if (rc == NOTSYMBOL) {
+-			(void) sprintf(lastmsg, "This is not a C symbol: %s", 
++			(void) snprintf(lastmsg, sizeof(lastmsg), "This is not a C symbol: %s", 
+ 				       Pattern);
+ 		} else if (rc == REGCMPERROR) {
+-			(void) sprintf(lastmsg, "Error in this regcomp(3) regular expression: %s", 
++			(void) snprintf(lastmsg, sizeof(lastmsg), "Error in this regcomp(3) regular expression: %s", 
+ 				       Pattern);
+ 			
+ 		} else if (funcexist == NO) {
+-			(void) sprintf(lastmsg, "Function definition does not exist: %s", 
++			(void) snprintf(lastmsg, sizeof(lastmsg), "Function definition does not exist: %s", 
+ 				       Pattern);
+ 		} else {
+-			(void) sprintf(lastmsg, "Could not find the %s: %s", 
++			(void) snprintf(lastmsg, sizeof(lastmsg), "Could not find the %s: %s", 
+ 				       fields[field].text2, Pattern);
+ 		}
+ 		return(NO);
+@@ -527,17 +527,17 @@
+ 			move(MSGLINE, 0);
+ 			clrtoeol();
+ 			addstr(what);
+-			sprintf(msg, "%ld", current);
++			snprintf(msg, sizeof(msg), "%ld", current);
+ 			move(MSGLINE, (COLS / 2) - (strlen(msg) / 2));
+ 			addstr(msg);
+-			sprintf(msg, "%ld", max);
++			snprintf(msg, sizeof(msg), "%ld", max);
+ 			move(MSGLINE, COLS - strlen(msg));
+ 			addstr(msg);
+ 			refresh();
+ 		}
+ 		else if (verbosemode == YES)
+ 		{
+-			sprintf(msg, "> %s %ld of %ld", what, current, max);
++			snprintf(msg, sizeof(msg), "> %s %ld of %ld", what, current, max);
+ 		}
+ 
+ 		start = now;
+@@ -575,7 +575,7 @@
+ 		s = sys_errlist[errno];
+ 	}
+ #endif
+-	(void) sprintf(msg, "%s: %s", text, s);
++	(void) snprintf(msg, sizeof(msg), "%s: %s", text, s);
+ 	postmsg(msg);
+ }
+ 
+@@ -647,11 +647,7 @@
+         (void) vfprintf(stderr, msg, ap); 
+ 	(void) fputc('\n', stderr);
+     } else {
+-#if HAVE_VSNPRINTF
+         vsnprintf(errbuf, sizeof(errbuf), msg, ap);
+-#else
+-        vsprintf(errbuf, msg, ap);
+-#endif
+         postmsg2(errbuf); 
+     }
+ }
+@@ -664,11 +660,7 @@
+ 	char errbuf[MSGLEN];
+ 
+ 	va_start(ap, msg);
+-#if HAVE_VSNPRINTF
+ 	vsnprintf(errbuf, sizeof(errbuf), msg, ap);
+-#else
+-	vsprintf(errbuf, msg, ap);
+-#endif
+ 	/* restore the terminal to its original mode */
+ 	if (incurses == YES) {
+ 		exitcurses();
+--- src/edit.c	2006-09-30 01:13:00.000000000 -0700
++++ src/edit.c	2008-08-18 23:46:56.000000000 -0700
+@@ -105,9 +105,9 @@
+ 	char	*s;
+ 
+ 	file = filepath(file);
+-	(void) sprintf(msg, "%s +%s %s", mybasename(editor), linenum, file);
++	(void) snprintf(msg, sizeof(msg), "%s +%s %s", mybasename(editor), linenum, file);
+ 	postmsg(msg);
+-	(void) sprintf(plusnum, lineflag, linenum);
++	(void) snprintf(plusnum, sizeof(plusnum), lineflag, linenum);
+ 	/* if this is the more or page commands */
+ 	if (strcmp(s = mybasename(editor), "more") == 0 || strcmp(s, "page") == 0) {
+ 		
+@@ -132,7 +132,7 @@
+ 	static	char	path[PATHLEN + 1];
+ 	
+ 	if (prependpath != NULL && *file != '/') {
+-		(void) sprintf(path, "%s/%s", prependpath, file);
++		(void) snprintf(path, sizeof(path), "%s/%s", prependpath, file);
+ 		file = path;
+ 	}
+ 	return(file);
+--- src/exec.c	2006-09-30 01:13:00.000000000 -0700
++++ src/exec.c	2008-08-18 23:47:19.000000000 -0700
+@@ -123,7 +123,7 @@
+ 
+     /* execute the program or shell script */
+     execvp(a, args);	/* returns only on failure */
+-    sprintf(msg, "\nCannot exec %s", a);
++    snprintf(msg, sizeof(msg), "\nCannot exec %s", a);
+     perror(msg);		/* display the reason */
+     askforreturn();		/* wait until the user sees the message */
+     myexit(1);		/* exit the child */
+--- src/find.c	2006-09-30 01:13:00.000000000 -0700
++++ src/find.c	2008-08-18 23:47:50.000000000 -0700
+@@ -673,7 +673,7 @@
+ 		/* must be an exact match */
+ 		/* note: regcomp doesn't recognize ^*keypad$ as a syntax error
+ 		         unless it is given as a single arg */
+-		(void) sprintf(buf, "^%s$", s);
++		(void) snprintf(buf, sizeof(buf), "^%s$", s);
+ 		if (regcomp (&regexp, buf, REG_EXTENDED | REG_NOSUB) != 0) {
+ 			return(REGCMPERROR);
+ 		}
+--- src/main.c	2006-09-30 01:13:00.000000000 -0700
++++ src/main.c	2008-08-18 23:49:58.000000000 -0700
+@@ -359,7 +359,7 @@
+     /* create the temporary file names */
+     orig_umask = umask(S_IRWXG|S_IRWXO);
+     pid = getpid();
+-    sprintf(tempdirpv, "%s/cscope.%d", tmpdir, pid);
++    snprintf(tempdirpv, sizeof(tempdirpv), "%s/cscope.%d", tmpdir, pid);
+     if(mkdir(tempdirpv,S_IRWXU)) {
+ 	fprintf(stderr, "\
+ cscope: Could not create private temp dir %s\n",
+@@ -368,8 +368,8 @@
+     }
+     umask(orig_umask);
+ 
+-    sprintf(temp1, "%s/cscope.1", tempdirpv);
+-    sprintf(temp2, "%s/cscope.2", tempdirpv);
++    snprintf(temp1, sizeof(temp1), "%s/cscope.1", tempdirpv);
++    snprintf(temp2, sizeof(temp2), "%s/cscope.2", tempdirpv);
+ 
+     /* if running in the foreground */
+     if (signal(SIGINT, SIG_IGN) != SIG_IGN) {
+@@ -389,12 +389,12 @@
+ 	 * used instead of failing to open a non-existant database in
+ 	 * the home directory
+ 	 */
+-	sprintf(path, "%s/%s", home, reffile);
++	snprintf(path, sizeof(path), "%s/%s", home, reffile);
+ 	if (isuptodate == NO || access(path, READ) == 0) {
+ 	    reffile = my_strdup(path);
+-	    sprintf(path, "%s/%s", home, invname);
++	    snprintf(path, sizeof(path), "%s/%s", home, invname);
+ 	    invname = my_strdup(path);
+-	    sprintf(path, "%s/%s", home, invpost);
++	    snprintf(path, sizeof(path), "%s/%s", home, invpost);
+ 	    invpost = my_strdup(path);
+ 	}
+     }
+@@ -728,22 +728,12 @@
+ void
+ cannotwrite(char *file)
+ {
+-#if HAVE_SNPRINTF
+     char	msg[MSGLEN + 1];
+ 
+     snprintf(msg, sizeof(msg), "Removed file %s because write failed", file);
+-#else
+-    char *msg = mymalloc(50 + strlen(file));
+-
+-    sprintf(msg, "Removed file %s because write failed", file);
+-#endif
+ 
+     myperror(msg);	/* display the reason */
+ 
+-#if !HAVE_SNPRINTF
+-    free(msg);
+-#endif
+-
+     unlink(file);
+     myexit(1);	/* calls exit(2), which closes files */
+ }
+--- src/vpaccess.c	2000-05-03 15:02:10.000000000 -0700
++++ src/vpaccess.c	2008-08-18 23:50:54.000000000 -0700
+@@ -49,7 +49,7 @@
+ 	if ((returncode = access(path, amode)) == -1 && path[0] != '/') {
+ 		vpinit(NULL);
+ 		for (i = 1; i < vpndirs; i++) {
+-			(void) sprintf(buf, "%s/%s", vpdirs[i], path);
++			(void) snprintf(buf, sizeof(buf), "%s/%s", vpdirs[i], path);
+ 			if ((returncode = access(buf, amode)) != -1) {
+ 				break;
+ 			}
+--- src/vpfopen.c	2001-03-27 06:09:19.000000000 -0800
++++ src/vpfopen.c	2008-08-18 23:51:18.000000000 -0700
+@@ -53,7 +53,7 @@
+ 		) {
+ 		vpinit(NULL);
+ 		for (i = 1; i < vpndirs; i++) {
+-			(void) sprintf(buf, "%s/%s", vpdirs[i], filename);
++			(void) snprintf(buf, sizeof(buf), "%s/%s", vpdirs[i], filename);
+ 			if ((returncode = myfopen(buf, type)) != NULL) {
+ 				break;
+ 			}
+--- src/vpopen.c	2002-07-28 08:40:07.000000000 -0700
++++ src/vpopen.c	2008-08-18 23:51:10.000000000 -0700
+@@ -52,7 +52,7 @@
+ 	    oflag == OPENFLAG_READ) {
+ 		vpinit(NULL);
+ 		for (i = 1; i < vpndirs; i++) {
+-			(void) sprintf(buf, "%s/%s", vpdirs[i], path);
++			(void) snprintf(buf, sizeof(buf), "%s/%s", vpdirs[i], path);
+ 			if ((returncode = myopen(buf, oflag, 0666)) != -1) {
+ 				break;
+ 			}

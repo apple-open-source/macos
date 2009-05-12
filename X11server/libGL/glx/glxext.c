@@ -363,8 +363,10 @@ FillInVisuals( __GLXscreenConfigs * psc )
     glx_visual_count = 0;
     for ( i = 0 ; i < psc->numConfigs ; i++ ) {
 	if ( (psc->configs[i].visualID != GLX_DONT_CARE)
+#if 0
 	     && (psc->configs[i].sampleBuffers == 0)
 	     && (psc->configs[i].samples == 0)
+#endif
 	     && (psc->configs[i].drawableType == GLX_WINDOW_BIT)
 	     && ((psc->configs[i].xRenderable == GL_TRUE)
 		 || (psc->configs[i].xRenderable == GLX_DONT_CARE)) ) {
@@ -381,8 +383,10 @@ FillInVisuals( __GLXscreenConfigs * psc )
     glx_visual_count = 0;
     for ( i = 0 ; i < psc->numConfigs ; i++ ) {
 	if ( (psc->configs[i].visualID != GLX_DONT_CARE)
+#if 0
 	     && (psc->configs[i].sampleBuffers == 0)
 	     && (psc->configs[i].samples == 0)
+#endif
 	     && (psc->configs[i].drawableType == GLX_WINDOW_BIT)
 	     && ((psc->configs[i].xRenderable == GL_TRUE)
 		 || (psc->configs[i].xRenderable == GLX_DONT_CARE)) ) {
@@ -421,6 +425,9 @@ FillInVisuals( __GLXscreenConfigs * psc )
 	    COPY_VALUE( transparentAlpha, transparentAlpha );
 	    COPY_VALUE( transparentIndex, transparentIndex );
 
+	    COPY_VALUE( samples, multiSampleSize );
+	    COPY_VALUE( sampleBuffers, nMultiSampleBuffers );
+
 #undef COPY_VALUE
 
 	    glx_visual_count++;
@@ -432,12 +439,18 @@ FillInVisuals( __GLXscreenConfigs * psc )
 }
 
 
-void 
+void
 __glXInitializeVisualConfigFromTags( __GLcontextModes *config, int count, 
 				     const INT32 *bp, Bool tagged_only,
 				     Bool fbconfig_style_tags )
 {
     int i;
+//#define DEBUG 1
+
+#ifdef DEBUG
+    printf("tagged_only %d fbconfig_style_tags %d\n", tagged_only, 
+	   fbconfig_style_tags);
+#endif
 
     if (!tagged_only) {
 	/* Copy in the first set of properties */
@@ -474,24 +487,42 @@ __glXInitializeVisualConfigFromTags( __GLcontextModes *config, int count,
 	    ? GL_TRUE /* glXChooseFBConfig() */
 	    : GL_FALSE; /* glXChooseVisual() */
 
+	/* 
+	 * These are defaults for when the user doesn't specify 
+	 * GLX_RED_SIZE, GLX_GREEN_SIZE, GLX_BLUE_SIZE, or GLX_ALPHA_SIZE.
+	 */
+#if 0
+	config->redBits = GLX_DONT_CARE;
+	config->greenBits = GLX_DONT_CARE;
+	config->blueBits = GLX_DONT_CARE;
+	config->alphaBits = GLX_DONT_CARE;
+#else
 	config->redBits = 0;
 	config->greenBits = 0;
 	config->blueBits = 0;
 	config->alphaBits = 0;
+#endif
+
 	config->accumRedBits = 0;
 	config->accumGreenBits = 0;
 	config->accumBlueBits = 0;
 	config->accumAlphaBits = 0;
 
+	/*
+	 * When GLX_DOUBLEBUFFER is passed to glXChooseVisual we only
+	 * consider double buffers.
+	 * If GLX_DOUBLEBUFFER is not passed, only consider single buffers.
+	 */
 	config->doubleBufferMode = ( fbconfig_style_tags )
 	    ? GLX_DONT_CARE /* glXChooseFBConfig() */
 	    : GL_FALSE; /* glXChooseVisual() */
+
 	config->stereoMode = GL_FALSE;
 
 	config->rgbBits = 0;
 	config->depthBits = 0;
 	config->stencilBits = 0;
-	config->numAuxBuffers = 0;
+	config->numAuxBuffers = GLX_DONT_CARE;
 	config->level = 0;
     }
 
@@ -529,6 +560,8 @@ __glXInitializeVisualConfigFromTags( __GLcontextModes *config, int count,
     config-> tag = ( fbconfig_style_tags ) ? *bp++ : 1
 
     for (i = 0; i < count; i += 2 ) {
+	INT32 tag = *bp;
+
 	switch(*bp++) {
 	  case GLX_RGBA:
 	    FETCH_OR_SET( rgbMode );
@@ -579,7 +612,12 @@ __glXInitializeVisualConfigFromTags( __GLcontextModes *config, int count,
 	  case GLX_ACCUM_ALPHA_SIZE:
 	    config->accumAlphaBits = *bp++;
 	    break;
+	    /*
+	     This used to use: 
 	  case GLX_VISUAL_CAVEAT_EXT:
+	     The GLX code in the xserver writes GLX_CONFIG_CAVEAT.
+	    */
+   	  case GLX_CONFIG_CAVEAT:
 	    config->visualRating = *bp++;    
 	    break;
 	  case GLX_X_VISUAL_TYPE:
@@ -645,10 +683,13 @@ __glXInitializeVisualConfigFromTags( __GLcontextModes *config, int count,
 	  case GLX_SAMPLES_SGIS:
 	    config->samples = *bp++;
 	    break;
+	  case GLX_USE_GL:
+	    break;
 	  case None:
 	    i = count;
 	    break;
 	  default:
+	      fprintf(stderr, "WARNING: unknown visual config tag: %ld\n", (long int) tag);
 	    break;
 	}
     }
@@ -719,6 +760,10 @@ static Bool AllocAndFetchScreenConfigs(Display *dpy, __GLXdisplayPrivate *priv)
 	    }
 	}
 
+
+#ifdef DEBUG
+	printf("supported_request %d\n", supported_request);
+#endif
 
 	LockDisplay(dpy);
 	switch( supported_request ) {
@@ -799,6 +844,7 @@ static Bool AllocAndFetchScreenConfigs(Display *dpy, __GLXdisplayPrivate *priv)
 	    props = (INT32 *) Xmalloc(prop_size);
  	} 
 
+  
 	/* Read each config structure and convert it into our format */
 	config = psc->configs;
 	for (j = 0; j < reply.numVisuals; j++, config++) {
@@ -806,7 +852,7 @@ static Bool AllocAndFetchScreenConfigs(Display *dpy, __GLXdisplayPrivate *priv)
 
 	    __glXInitializeVisualConfigFromTags( config, nprops, props,
 						 (supported_request != 3),
-						 GL_TRUE );
+						 GL_TRUE);
 	    config->screen = i;
 	}
 	if (props != buf) {

@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mbstring.h,v 1.66.2.4.2.6 2007/12/31 07:20:07 sebastian Exp $ */
+/* $Id: mbstring.h,v 1.66.2.4.2.8 2008/09/12 23:56:06 moriyoshi Exp $ */
 
 /*
  * PHP 4 Multibyte String module "mbstring" (currently only for Japanese)
@@ -118,8 +118,6 @@ PHP_FUNCTION(mb_strimwidth);
 PHP_FUNCTION(mb_convert_encoding);
 PHP_FUNCTION(mb_detect_encoding);
 PHP_FUNCTION(mb_list_encodings);
-PHP_FUNCTION(mb_list_encodings_alias_names);
-PHP_FUNCTION(mb_list_mime_names);
 PHP_FUNCTION(mb_convert_kana);
 PHP_FUNCTION(mb_encode_mimeheader);
 PHP_FUNCTION(mb_decode_mimeheader);
@@ -163,7 +161,6 @@ MBSTRING_API int php_mb_stripos(int mode, char *old_haystack, int old_haystack_l
 
 ZEND_BEGIN_MODULE_GLOBALS(mbstring)
 	enum mbfl_no_language language;
-	enum mbfl_no_language current_language;
 	enum mbfl_no_encoding internal_encoding;
 	enum mbfl_no_encoding current_internal_encoding;
 #ifdef ZEND_MULTIBYTE

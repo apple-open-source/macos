@@ -261,16 +261,14 @@ See remaining rules for examples.
 		</dict>
 		<key>system.print.admin</key>
 		<dict>
+			<key>allow-root</key>
+			<true/>
 			<key>class</key>
-			<string>rule</string>
-			<key>k-of-n</key>
-			<integer>1</integer>
-			<key>rule</key>
-			<array>
-				<string>is-lpadmin</string>
-				<string>is-admin</string>
-				<string>default</string>
-			</array>
+			<string>user</string>
+			<key>group</key>
+			<string>_lpadmin</string>
+			<key>shared</key>
+			<true/>
 		</dict>
 		<key>system.identity.write.</key>
 		<dict>
@@ -668,17 +666,6 @@ See remaining rules for examples.
 			<false/>
 			<key>shared</key>
 			<string>true</string>
-		</dict>
-		<key>is-lpadmin</key>
-		<dict>
-			<key>class</key>
-			<string>user</string>
-			<key>comment</key>
-			<string>Verify that the user asking for authorization is an lp administrator.</string>
-			<key>group</key>
-			<string>lpadmin</string>
-			<key>authenticate-user</key>
-			<false/>
 		</dict>
 		<key>is-root</key>
 		<dict>

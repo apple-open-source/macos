@@ -1,0 +1,420 @@
+\input texinfo   @c -*-texinfo-*-
+@c %**start of header
+@setfilename enscript.info
+@settitle enscript
+@setchapternewpage on
+@c %**end of header
+
+@include version.texi
+
+@dircategory Utilities
+@direntry
+* Enscript: (enscript).		    GNU Enscript
+@end direntry
+
+@c Combine function and variable indexes to the Concept index.
+@synindex fn cp
+@synindex vr cp
+
+@ifinfo
+This file documents GNU enscript @value{VERSION}
+
+Copyright (C) 1995-1999 Markku Rossi.
+
+Permission is granted to make and distribute verbatim copies of
+this manual provided the copyright notice and this permission notice
+are preserved on all copies.
+
+@ignore
+Permission is granted to process this file through TeX and print the
+results, provided the printed document carries copying permission
+notice identical to this one except for the removal of this paragraph
+
+
+@end ignore
+Permission is granted to copy and distribute modified versions of this
+manual under the conditions for verbatim copying, provided that the entire
+resulting derived work is distributed under the terms of a permission
+notice identical to this one.
+
+Permission is granted to copy and distribute translations of this manual
+into another language, under the above conditions for modified versions,
+except that this permission notice may be stated in a translation approved
+by the Foundation.
+@end ifinfo
+
+
+@titlepage
+@title GNU enscript
+@subtitle For version @value{VERSION}, @value{UPDATED}
+@author Markku Rossi
+
+@page
+@vskip 0pt plus 1filll
+Copyright @copyright{} 1995-1998 Markku Rossi.
+@sp 2
+This is the first edition of the GNU enscript documentation,@*
+and is consistent with GNU enscript @value{VERSION}.@*
+
+Permission is granted to make and distribute verbatim copies of
+this manual provided the copyright notice and this permission notice
+are preserved on all copies.
+
+Permission is granted to copy and distribute modified versions of this
+manual under the conditions for verbatim copying, provided that the entire
+resulting derived work is distributed under the terms of a permission
+notice identical to this one.
+
+Permission is granted to copy and distribute translations of this manual
+into another language, under the above conditions for modified versions,
+except that this permission notice may be stated in a translation
+approved by the Free Software Foundation.
+@end titlepage
+
+@ifinfo
+@node Top, Introduction, (dir), (dir)
+@comment  node-name,  next,  previous,  up
+@top GNU enscript
+
+This file documents the GNU enscript program.  This edition documents
+version @value{VERSION}.
+
+@menu
+* Introduction::
+* Invoking Enscript::
+* Basic Printing::
+* Advanced Usage::
+* Configuration Files::
+* Customization::
+* The states Program::
+* Writing New Highlighting Definitions::
+* Index::
+@end menu
+
+@end ifinfo
+
+@c ----------------------------------------------------------------------
+@node Introduction, Invoking Enscript, Top, Top
+@chapter Introduction
+
+@itemize @bullet
+@item overall
+@item design
+@end itemize
+
+@c ----------------------------------------------------------------------
+@node Invoking Enscript, Basic Printing, Introduction, Top
+@chapter Invoking Enscript
+
+@c ----------------------------------------------------------------------
+@node Basic Printing, Advanced Usage, Invoking Enscript, Top
+@chapter Basic Printing
+
+@menu
+* Input Encodings::
+* Selecting Fonts::
+* Page Headers::
+* Page Handling::
+* Highlighting::
+@end menu
+
+@node Input Encodings, Selecting Fonts, Basic Printing, Basic Printing
+@section Input Encodings
+
+@node Selecting Fonts, Page Headers, Input Encodings, Basic Printing
+@section Selecting Fonts
+
+@node Page Headers, Page Handling, Selecting Fonts, Basic Printing
+@section Page Headers
+
+@node Page Handling, Highlighting, Page Headers, Basic Printing
+@section Page Handling
+
+@menu
+* Page Orientation::
+* N-up Printing::
+* Fitting Text to Page::
+@end menu
+
+@node Page Orientation, N-up Printing, Page Handling, Page Handling
+@subsection Page Orientation
+
+@node N-up Printing, Fitting Text to Page, Page Orientation, Page Handling
+@subsection N-up Printing
+
+@node Fitting Text to Page,  , N-up Printing, Page Handling
+@subsection Fitting Text to Page
+
+@node Highlighting,  , Page Handling, Basic Printing
+@section Highlighting
+
+@menu
+* Different Output Languages::
+@end menu
+
+@node Different Output Languages,  , Highlighting, Highlighting
+@subsection Different Output Languages
+
+@c ----------------------------------------------------------------------
+@node Advanced Usage, Configuration Files, Basic Printing, Top
+@chapter Advanced Usage
+
+@menu
+* Selecting Pages::
+* Escape Sequences::
+* Input Filters::
+* Slice Printing::
+* PostScript Printer Controlling::
+* Pass-Through Mode::
+@end menu
+
+@node Selecting Pages, Escape Sequences, Advanced Usage, Advanced Usage
+@section Selecting Pages
+
+@node Escape Sequences, Input Filters, Selecting Pages, Advanced Usage
+@section Escape Sequences
+
+@node Input Filters, Slice Printing, Escape Sequences, Advanced Usage
+@section Input Filters
+
+@node Slice Printing, PostScript Printer Controlling, Input Filters, Advanced Usage
+@section Slice Printing
+
+@node PostScript Printer Controlling, Pass-Through Mode, Slice Printing, Advanced Usage
+@section PostScript Printer Controlling
+
+@node Pass-Through Mode,  , PostScript Printer Controlling, Advanced Usage
+@section Pass-Through Mode
+
+@c ----------------------------------------------------------------------
+@node Configuration Files, Customization, Advanced Usage, Top
+@chapter Configuration Files
+
+@c ----------------------------------------------------------------------
+@node Customization, The states Program, Configuration Files, Top
+@chapter Customization
+
+@menu
+* Output Media::
+* User-Defined Fancy Headers::
+@end menu
+
+@node Output Media, User-Defined Fancy Headers, Customization, Customization
+@section Output Media
+
+@node User-Defined Fancy Headers,  , Output Media, Customization
+@section User-Defined Fancy Headers
+
+
+@c ----------------------------------------------------------------------
+@node The states Program, Writing New Highlighting Definitions, Customization, Top
+@chapter The @samp{states} Program
+
+@c ----------------------------------------------------------------------
+@node Writing New Highlighting Definitions, Index, The states Program, Top
+@chapter Writing New Highlighting Definitions
+
+The highlighting works in three separate phases.  First, the
+@dfn{highlighing rules} process the input stream and parse it into
+logical components.  The components are called @dfn{faces}.  A face
+presents one logical component of the input language, for example, a
+keyword, a comment, etc..  The enscript's highlighting model defines the
+following faces:
+
+@table @b
+@item bold
+@itemx italic
+@itemx bold_italic
+Hard-coded faces for the bold, italic, and bold-italice text types.
+These faces define the exact presentation of the face font, so the style
+files have very little power in customizing their outlook.  These faces
+should be avoided as much as possible.
+
+@item comment
+A comment, normally in a programming language.
+
+@item function_name
+A function name.  The function names are normally recognized from
+function definitions, not from an use of the function.
+
+@item variable_name
+A variable name.  The variable names are normally recognized from
+function, type, and variable definitions.
+
+@item keyword
+A reserved keyword.  Normally, all occurrences of the keywords are
+recognized.
+
+@item reference
+A reference to another location in a file or to another file or
+resource.  For example, in the C-language, the goto targets are
+references.
+
+@item string
+A string literal.
+
+@item builtin
+A builtin function or property.  Normally, all occurrences of the
+builtins are recognized.
+
+@item type
+A type specifier.  The types are normally recognized from function,
+type, and variable definitions.
+
+@end table
+
+As the second step, the @dfn{output style} specifies how the faces are
+presented in the generated output.  Each face has the following
+properties:
+
+@table @b
+@item fontname
+The PostScript font name of the the font that is used for the face.
+This property is used only for the PostScript outputs.
+
+@item boldp
+A boolean flag which tells whether the face should be printed in bold
+font.  This property is used for all output languages except for the
+PostScript which uses the fontname property.
+
+@item italicp
+A boolean flag which tells whether the face shuold be printed with
+italic font.  This property is used for all output languages except for
+the PostScript which uses the fontname property.
+
+@item fg_color
+The foreground color of the face.
+
+@item bg_color
+The background color of the face.  This property is not implemented on
+all output languages.
+@end table
+
+Finally, the @dfn{output language} describes how the faces and other
+text are presented in the output language.  The output language defines
+a set of functions which are called to generate the output.
+
+@menu
+* Highlighting Rules::
+* Styles::
+* Output Languages::
+@end menu
+
+@node Highlighting Rules, Styles, Writing New Highlighting Definitions, Writing New Highlighting Definitions
+@section Highlighting Rules
+
+
+@node Styles, Output Languages, Highlighting Rules, Writing New Highlighting Definitions
+@section Styles
+
+@node Output Languages,  , Styles, Writing New Highlighting Definitions
+@section Output Languages
+
+@deffn Function map_color (r, g, b)
+@end deffn
+
+@deffn Function language_print (string)
+@end deffn
+
+@deffn Function language_symbol (symbol)
+@end deffn
+
+@deffn Function header ()
+@end deffn
+
+@deffn Function trailer ()
+@end deffn
+
+@deffn Function face_on (face)
+@end deffn
+
+@deffn Function face_off (face)
+@end deffn
+
+@defvr Variable LANGUAGE_SPECIALS
+@end defvr
+
+The following example creates a new output language @code{simple_html}
+that creates simple HTML outputs.  The output language is defined in a
+file called @file{lang_simple_html.st}.  The file must define a state
+called @code{lang_simple_html}.  The file can be located in any
+directory that is in the load path of the states program.
+
+The output language definitions are defined in the @code{BEGIN} block of
+the @code{lang_simple_html} state.  Please, note that the @code{BEGIN}
+block is ended with a @code{return}-statement.  This statement will
+return the control to the calling state that is the start state of the
+enscript highlight program.  If the @code{return}-statement was omitted,
+the states would start processing the input with the
+@code{lang_simple_html} state which is obviously a wrong choice.
+
+@example
+state lang_simple_html
+@{
+  BEGIN @{
+    sub map_color (r, g, b)
+    @{
+      return sprintf ("#%02X%02X%02X", r, g, b);
+    @}
+
+    sub language_print (str)
+    @{
+      str = regsuball (str, /\&/, "&amp;");
+      str = regsuball (str, /</, "&lt;");
+      str = regsuball (str, />/, "&gt;");
+      str = regsuball (str, /\"/, "&quot;");
+      print (str);
+    @}
+
+    sub language_symbol (symbol)
+    @{
+      return false;
+    @}
+
+    sub header ()
+    @{
+      print ("<html>\n<head>\n<title>Simple HTML Output</title>\n");
+      print ("</head>\n<body>\n");
+    @}
+
+    sub trailer ()
+    @{
+      print ("</body>\n</html>\n");
+    @}
+
+    sub fase_on (face)
+    @{
+      if (face(boldp])
+        print ("<B>");
+      if (face(italicp])
+        print ("<I>");
+      if (face[fg_color])
+        print ("<FONT COLOR=\", face[fg_color], "\">");
+    @}
+
+    sub face_off (face)
+    @{
+      if (face[fg_color])
+        print ("</FONT>");
+      if (face[italicp])
+        print ("</I>");
+      if (face[boldp])
+        print ("</B>");
+    @}
+
+    LANGUAGE_SPECIALS = /[<>\&\"]/;
+
+    return;
+  @}
+@}
+@end example
+
+@c ----------------------------------------------------------------------
+@page
+@node Index,  , Writing New Highlighting Definitions, Top
+@unnumbered Index
+
+@printindex cp
+
+@contents
+@bye

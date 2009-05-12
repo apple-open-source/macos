@@ -7,6 +7,8 @@
 MAN3 += assert.3 bitstring.3 stdarg.3
 .ifdef FEATURE_LEGACY_UTMP_APIS
 MAN5 += utmp.5
+MLINKS += utmp.5 lastlog.5
+MLINKS += utmp.5 wtmp.5
 .endif
 MAN7 += environ.7
 

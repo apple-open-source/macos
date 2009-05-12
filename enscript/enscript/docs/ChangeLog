@@ -1,0 +1,27 @@
+1999-09-17  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* enscript.man (files): Documented `--footer' option and its
+	`user_footer_{p,{left,center,right}_str}' PostScript variables.
+
+1999-09-13  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* enscript.man (are): Documented `--extended-return-values'
+	option.
+
+1999-08-26  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* enscript.man: Documented new user string format `$p'.
+
+1998-12-31  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* enscript.texi: Added documentation about the highlighting
+	definitions.
+
+1998-10-23  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.texi: Started to write Texinfo documentation.
+
+	* Makefile.am: The manual pages are now created during the
+	compilation, not during the configuration.
+
+	* New directory to hold the enscript documentation.

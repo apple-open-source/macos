@@ -96,7 +96,9 @@ struct pci_dev
     uint8_t             secBusNum;  // bridge only
     uint8_t             subBusNum;  // bridge only
     IORegistryEntry *   dtNub;
+#if ACPI_SUPPORT
     IORegistryEntry *   acpiDevice;
+#endif
 };
 
 typedef struct pci_dev * pci_dev_t;
@@ -151,8 +153,9 @@ protected:
     static void configProbeCallback( void * refcon );
 
     static void matchDTEntry( IORegistryEntry * dtEntry, void * _context );
+#if ACPI_SUPPORT
     static void matchACPIEntry( IORegistryEntry * dtEntry, void * _context );
-
+#endif
     void    checkPCIConfiguration( void );
     void    pciBridgeScanBus( pci_dev_t bridge, 
 			                  UInt8 busNum, UInt8 * nextBusNum, UInt8 lastBusNum );

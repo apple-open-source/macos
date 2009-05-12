@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: interface.c,v 1.62.2.14.2.34 2008/01/06 17:12:29 iliaa Exp $ */
+/* $Id: interface.c,v 1.62.2.14.2.37 2008/11/27 17:01:29 iliaa Exp $ */
 
 #define ZEND_INCLUDE_FULL_WINDOWS_HEADERS
 
@@ -786,7 +786,7 @@ static size_t curl_read(char *data, size_t size, size_t nmemb, void *ctx)
 {
 	php_curl       *ch = (php_curl *) ctx;
 	php_curl_read  *t  = ch->handlers->read;
-	int             length = -1;
+	int             length = 0;
 
 	switch (t->method) {
 		case PHP_CURL_DIRECT:
@@ -833,7 +833,9 @@ static size_t curl_read(char *data, size_t size, size_t nmemb, void *ctx)
 			ch->in_callback = 0;
 			if (error == FAILURE) {
 				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Cannot call the CURLOPT_READFUNCTION"); 
-				length = -1;
+#if LIBCURL_VERSION_NUM >= 0x070c01 /* 7.12.1 */
+				length = CURL_READFUNC_ABORT;
+#endif
 			} else if (retval_ptr) {
 				if (Z_TYPE_P(retval_ptr) == IS_STRING) {
 					length = MIN(size * nmemb, Z_STRLEN_P(retval_ptr));
@@ -1419,7 +1421,7 @@ static int _php_curl_setopt(php_curl *ch, long option, zval **zvalue, zval *retu
 		case CURLOPT_READFUNCTION:
 			if (ch->handlers->read->func_name) {
 				zval_ptr_dtor(&ch->handlers->read->func_name);
-				ch->handlers->write->fci_cache = empty_fcall_info_cache;
+				ch->handlers->read->fci_cache = empty_fcall_info_cache;
 			}
 			zval_add_ref(zvalue);
 			ch->handlers->read->func_name = *zvalue;
@@ -1428,7 +1430,7 @@ static int _php_curl_setopt(php_curl *ch, long option, zval **zvalue, zval *retu
 		case CURLOPT_HEADERFUNCTION:
 			if (ch->handlers->write_header->func_name) {
 				zval_ptr_dtor(&ch->handlers->write_header->func_name);
-				ch->handlers->write->fci_cache = empty_fcall_info_cache;
+				ch->handlers->write_header->fci_cache = empty_fcall_info_cache;
 			}
 			zval_add_ref(zvalue);
 			ch->handlers->write_header->func_name = *zvalue;
@@ -1479,17 +1481,37 @@ static int _php_curl_setopt(php_curl *ch, long option, zval **zvalue, zval *retu
 					 * must be explicitly cast to long in curl_formadd
 					 * use since curl needs a long not an int. */
 					if (*postval == '@') {
+						char *type;
 						++postval;
+
+						if ((type = php_memnstr(postval, ";type=", sizeof(";type=") - 1, postval + strlen(postval)))) {
+							*type = '\0';
+						}
 						/* safe_mode / open_basedir check */
 						if (php_check_open_basedir(postval TSRMLS_CC) || (PG(safe_mode) && !php_checkuid(postval, "rb+", CHECKUID_CHECK_MODE_PARAM))) {
+							if (type) {
+								*type = ';';
+							}
 							RETVAL_FALSE;
 							return 1;
 						}
-						error = curl_formadd(&first, &last, 
+						if (type) {
+							type++;
+							error = curl_formadd(&first, &last, 
 											 CURLFORM_COPYNAME, string_key,
 											 CURLFORM_NAMELENGTH, (long)string_key_len - 1,
-											 CURLFORM_FILE, postval, 
+											 CURLFORM_FILE, postval,
+											 CURLFORM_CONTENTTYPE, type,
 											 CURLFORM_END);
+							*(type - 1) = ';';
+						} else {
+							error = curl_formadd(&first, &last, 
+											 CURLFORM_COPYNAME, string_key,
+											 CURLFORM_NAMELENGTH, (long)string_key_len - 1,
+											 CURLFORM_FILE, postval,
+											 CURLFORM_END);
+
+						}
 					} else {
 						error = curl_formadd(&first, &last, 
 											 CURLFORM_COPYNAME, string_key,

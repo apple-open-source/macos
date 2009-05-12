@@ -4,7 +4,7 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>1999-04-20</string>
+		<string>2008-11-19</string>
 		<key>OpenSourceLicense</key>
 		<string>GPL</string>
 		<key>OpenSourceLicenseFile</key>
@@ -12,13 +12,17 @@
 		<key>OpenSourceProject</key>
 		<string>enscript</string>
 		<key>OpenSourceSHA1</key>
-		<string>f99e21a8366baf331daaa6675d7c9d2dc026eb27</string>
+		<string>9dd7128a508d4c9671659b9520028d12add50cfa</string>
 		<key>OpenSourceURL</key>
-		<string>http://ftp.gnu.org/gnu/enscript/enscript-1.6.1.tar.gz</string>
+		<string>http://www.iki.fi/mtr/genscript/enscript-1.6.4.tar.gz</string>
 		<key>OpenSourceVersion</key>
-		<string>1.6.1</string>
+		<string>1.6.4</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.gnu.org/software/enscript/</string>
+		<string>http://www.codento.com/people/mtr/genscript/</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>CVE-2008-3863 patch from http://cvs.fedoraproject.org/viewvc/devel/enscript/enscript-CVE-2008-3863%2BCVE-2008-4306.patch?revision=1.1</string>
+		</array>
 	</dict>
 </array>
 </plist>

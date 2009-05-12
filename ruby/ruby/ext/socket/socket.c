@@ -3,7 +3,7 @@
   socket.c -
 
   $Author: shyouhei $
-  $Date: 2007-05-23 00:08:43 +0900 (Wed, 23 May 2007) $
+  $Date: 2008-06-08 01:44:17 +0900 (Sun, 08 Jun 2008) $
   created at: Thu Mar 31 12:21:29 JST 1994
 
   Copyright (C) 1993-2001 Yukihiro Matsumoto
@@ -1464,6 +1464,24 @@ tcp_svr_init(argc, argv, sock)
 	return init_inetsock(sock, Qnil, arg1, Qnil, Qnil, INET_SERVER);
 }
 
+static void
+make_fd_nonblock(int fd)
+{
+    int flags;
+#ifdef F_GETFL
+    flags = fcntl(fd, F_GETFL);
+    if (flags == -1) {
+        rb_sys_fail(0);
+    }
+#else
+    flags = 0;
+#endif
+    flags |= O_NONBLOCK;
+    if (fcntl(fd, F_SETFL, flags) == -1) {
+        rb_sys_fail(0);
+    }
+}
+
 static VALUE
 s_accept_nonblock(VALUE klass, OpenFile *fptr, struct sockaddr *sockaddr, socklen_t *len)
 {
@@ -1475,6 +1493,7 @@ s_accept_nonblock(VALUE klass, OpenFile *fptr, struct sockaddr *sockaddr, sockle
     if (fd2 < 0) {
         rb_sys_fail("accept(2)");
     }
+    make_fd_nonblock(fd2);
     return init_sock(rb_obj_alloc(klass), fd2);
 }
 

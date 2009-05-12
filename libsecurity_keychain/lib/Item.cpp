@@ -151,7 +151,7 @@ ItemImpl::ItemImpl(ItemImpl &item) :
 			item.modifiedData()->Length);
 }
 
-ItemImpl::~ItemImpl() throw()
+ItemImpl::~ItemImpl()
 {
 	// SecCFRuntime is already holding globals().apiLock for us.
 	if (mKeychain && *mPrimaryKey)

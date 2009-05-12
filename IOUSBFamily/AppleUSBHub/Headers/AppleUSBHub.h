@@ -112,6 +112,7 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
 	thread_call_t						_checkForActivePortsThread;
 	thread_call_t						_waitForPortResumesThread;
 	thread_call_t						_ensureUsabilityThread;
+	thread_call_t						_initialDelayThread;
 
     // Port stuff
     UInt8								_readBytes;
@@ -224,6 +225,9 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
 	IOReturn			GetPortPower(UInt16 port, UInt32 *on);
 	IOReturn			SetPortPower(UInt16 port, UInt32 on);
 	
+	// local function for an initial delay
+	void				InitialDelay(void);
+	
 	static const char *	HubMessageToString(UInt32 message);
 	
 public:
@@ -257,7 +261,10 @@ public:
 	
 	// static entry for EnsureUsability to make sure we are outside of the gate when we do it
     static void				EnsureUsabilityEntry(OSObject *target);
-
+	
+	// static entry for InitialDelay to not Lower the Hub Power State until some time has passed (5 seconds)
+    static void				InitialDelayEntry(OSObject *target);
+	
 	// inline method
     IOUSBDevice * GetDevice(void) { return _device; }
 

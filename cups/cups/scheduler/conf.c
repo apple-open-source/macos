@@ -3,7 +3,7 @@
  *
  *   Configuration routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -17,10 +17,12 @@
  *   cupsdCheckPermissions()  - Fix the mode and ownership of a file or
  *                              directory.
  *   cupsdReadConfiguration() - Read the cupsd.conf file.
+ *   add_alias()              - Add a ServerAlias.
+ *   free_aliases()           - Free all of the ServerAlias entries.
  *   get_address()            - Get an address + port number from a line.
  *   get_addr_and_mask()      - Get an IP address and netmask.
- *   parse_aaa()              - Parse authentication, authorization, and
- *                              access control lines.
+ *   parse_aaa()              - Parse authentication, authorization, and access
+ *                              control lines.
  *   parse_groups()           - Parse system group names in a string.
  *   parse_protocols()        - Parse browse protocols in a string.
  *   read_configuration()     - Read a configuration file.
@@ -187,6 +189,9 @@ static const unsigned	zeros[4] =
 /*
  * Local functions...
  */
+
+static void		add_alias(const char *name);
+static void		free_aliases(void);
 static http_addrlist_t	*get_address(const char *value, int defport);
 static int		get_addr_and_mask(const char *value, unsigned *ip,
 			                  unsigned *mask);
@@ -216,6 +221,7 @@ cupsdCheckPermissions(
   int		dir_created = 0;	/* Did we create a directory? */
   char		pathname[1024];		/* File name with prefix */
   struct stat	fileinfo;		/* Stat buffer */
+  int		is_symlink;		/* Is "filename" a symlink? */
 
 
  /*
@@ -232,7 +238,7 @@ cupsdCheckPermissions(
   * See if we can stat the file/directory...
   */
 
-  if (stat(filename, &fileinfo))
+  if (lstat(filename, &fileinfo))
   {
     if (errno == ENOENT && create_dir)
     {
@@ -253,14 +259,25 @@ cupsdCheckPermissions(
         return (-1);
       }
 
-      dir_created = 1;
+      dir_created      = 1;
+      fileinfo.st_mode = mode | S_IFDIR;
     }
     else
       return (create_dir ? -1 : 1);
   }
 
+  if ((is_symlink = S_ISLNK(fileinfo.st_mode)) != 0)
+  {
+    if (stat(filename, &fileinfo))
+    {
+      cupsdLogMessage(CUPSD_LOG_ERROR, "\"%s\" is a bad symlink - %s",
+                      filename, strerror(errno));
+      return (-1);
+    }
+  }
+
  /*
-  * Make sure it's a regular file...
+  * Make sure it's a regular file or a directory as needed...
   */
 
   if (!dir_created && !is_dir && !S_ISREG(fileinfo.st_mode))
@@ -278,6 +295,13 @@ cupsdCheckPermissions(
 
     return (-1);
   }
+
+ /*
+  * If the filename is a symlink, do not change permissions (STR #2937)...
+  */
+
+  if (is_symlink)
+    return (0);
 
  /*
   * Fix owner, group, and mode as needed...
@@ -395,12 +419,16 @@ cupsdReadConfiguration(void)
 
   cupsdDeleteAllListeners();
 
+  RemoteAccessEnabled = 0;
+
  /*
   * String options...
   */
 
-  cupsdSetString(&ServerName, httpGetHostname(NULL, temp, sizeof(temp)));
-  cupsdSetStringf(&ServerAdmin, "root@%s", temp);
+  free_aliases();
+
+  cupsdClearString(&ServerName);
+  cupsdClearString(&ServerAdmin);
   cupsdSetString(&ServerBin, CUPS_SERVERBIN);
   cupsdSetString(&RequestRoot, CUPS_REQUESTS);
   cupsdSetString(&CacheDir, CUPS_CACHEDIR);
@@ -608,13 +636,67 @@ cupsdReadConfiguration(void)
 
   RunUser = getuid();
 
+  cupsdLogMessage(CUPSD_LOG_INFO, "Remote access is %s.",
+                  RemoteAccessEnabled ? "enabled" : "disabled");
+
  /*
   * See if the ServerName is an IP address...
   */
 
+  if (!ServerName)
+  {
+    if (gethostname(temp, sizeof(temp)))
+    {
+      cupsdLogMessage(CUPSD_LOG_ERROR, "Unable to get hostname: %s",
+                      strerror(errno));
+      strlcpy(temp, "localhost", sizeof(temp));
+    }
+
+    cupsdSetString(&ServerName, temp);
+    add_alias(temp);
+
+    if (HostNameLookups || RemoteAccessEnabled)
+    {
+      struct hostent	*host;		/* Host entry to get FQDN */
+
+      if ((host = gethostbyname(temp)) != NULL)
+      {
+        if (strcasecmp(temp, host->h_name))
+        {
+	  cupsdSetString(&ServerName, host->h_name);
+	  add_alias(host->h_name);
+	}
+
+        if (host->h_aliases)
+	{
+          for (i = 0; host->h_aliases[i]; i ++)
+	    if (strcasecmp(temp, host->h_aliases[i]))
+	      add_alias(host->h_aliases[i]);
+	}
+      }
+    }
+
+   /*
+    * Make sure we have the base hostname added as an alias, too!
+    */
+
+    if ((slash = strchr(temp, '.')) != NULL)
+    {
+      *slash = '\0';
+      add_alias(temp);
+    }
+  }
+
   for (slash = ServerName; isdigit(*slash & 255) || *slash == '.'; slash ++);
 
   ServerNameIsIP = !*slash;
+
+ /*
+  * Make sure ServerAdmin is initialized...
+  */
+
+  if (!ServerAdmin)
+    cupsdSetStringf(&ServerAdmin, "root@%s", ServerName);
 
  /*
   * Use the default system group if none was supplied in cupsd.conf...
@@ -754,21 +836,18 @@ cupsdReadConfiguration(void)
   if (ServerCertificate[0] != '/')
     cupsdSetStringf(&ServerCertificate, "%s/%s", ServerRoot, ServerCertificate);
 
-  if (!strncmp(ServerRoot, ServerCertificate, strlen(ServerRoot)))
-  {
-    chown(ServerCertificate, RunUser, Group);
-    chmod(ServerCertificate, 0600);
-  }
+  if (!strncmp(ServerRoot, ServerCertificate, strlen(ServerRoot)) &&
+      cupsdCheckPermissions(ServerCertificate, NULL, 0600, RunUser, Group,
+                            0, 0) < 0)
+    return (0);
 
 #  if defined(HAVE_LIBSSL) || defined(HAVE_GNUTLS)
   if (ServerKey[0] != '/')
     cupsdSetStringf(&ServerKey, "%s/%s", ServerRoot, ServerKey);
 
-  if (!strncmp(ServerRoot, ServerKey, strlen(ServerRoot)))
-  {
-    chown(ServerKey, RunUser, Group);
-    chmod(ServerKey, 0600);
-  }
+  if (!strncmp(ServerRoot, ServerKey, strlen(ServerRoot)) &&
+      cupsdCheckPermissions(ServerKey, NULL, 0600, RunUser, Group, 0, 0) < 0)
+    return (0);
 #  endif /* HAVE_LIBSSL || HAVE_GNUTLS */
 #endif /* HAVE_SSL */
 
@@ -1227,6 +1306,52 @@ cupsdReadConfiguration(void)
   cupsdClearString(&old_requestroot);
 
   return (1);
+}
+
+
+/*
+ * 'add_alias()' - Add a ServerAlias.
+ */
+
+static void
+add_alias(const char *name)		/* I - Name to add */
+{
+  cupsd_alias_t	*a;			/*  New alias */
+  size_t	namelen;		/* Length of name */
+
+
+  namelen = strlen(name);
+
+  if ((a = (cupsd_alias_t *)malloc(sizeof(cupsd_alias_t) + namelen)) == NULL)
+    return;
+
+  if (!ServerAlias)
+    ServerAlias = cupsArrayNew(NULL, NULL);
+
+  a->namelen = namelen;
+  strcpy(a->name, name);		/* OK since a->name is allocated */
+
+  cupsArrayAdd(ServerAlias, a);
+}
+
+
+/*
+ * 'free_aliases()' - Free all of the ServerAlias entries.
+ */
+
+static void
+free_aliases(void)
+{
+  cupsd_alias_t	*a;			/* Current alias */
+
+
+  for (a = (cupsd_alias_t *)cupsArrayFirst(ServerAlias);
+       a;
+       a = (cupsd_alias_t *)cupsArrayNext(ServerAlias))
+    free(a);
+
+  cupsArrayDelete(ServerAlias);
+  ServerAlias = NULL;
 }
 
 
@@ -2231,6 +2356,9 @@ read_configuration(cups_file_t *fp)	/* I - File to read from */
 #endif /* AF_LOCAL */
 	cupsdLogMessage(CUPSD_LOG_INFO, "Listening to %s:%d (IPv4)", temp,
                         ntohs(lis->address.ipv4.sin_port));
+
+        if (!httpAddrLocalhost(&(lis->address)))
+	  RemoteAccessEnabled = 1;
       }
 
      /*
@@ -2962,6 +3090,8 @@ read_configuration(cups_file_t *fp)	/* I - File to read from */
 	    break;
       }
     }
+    else if (!strcasecmp(line, "ServerAlias") && value)
+      add_alias(value);
     else if (!strcasecmp(line, "SetEnv") && value)
     {
      /*

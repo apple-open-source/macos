@@ -1,0 +1,38 @@
+--- enscript/docs/enscript.man.orig	2003-03-04 23:26:17.000000000 -0800
++++ enscript/docs/enscript.man	2008-11-19 11:33:44.000000000 -0800
+@@ -159,7 +159,7 @@
+ 
+ prints file foo.txt in duplex (two side) mode.
+ 
+-Page device operators are implementation dependant but they are
++Page device operators are implementation dependent but they are
+ standardized.  See section \f3PAGE DEVICE OPTIONS\f1 for the details.
+ .TP 8
+ .B \-e\f1[\f2char\f1]\f3, \-\-escapes\f1[\f3=\f2char\f1]\f3
+@@ -338,7 +338,7 @@
+ Pass a statusdict definition to the generated PostScript output.  If
+ no value is given, the key \f2key\f1 is removed from the definitions.
+ 
+-The statusdict operators are implementation dependant; see the
++The statusdict operators are implementation dependent; see the
+ printer's documentation for the details.
+ 
+ For example, the command
+@@ -739,7 +739,7 @@
+ the user's home directory.
+ .TP 8
+ .B MarkWrappedLines: \f2style\f3
+-Mark wraped lines in the output with the style \f2style\f1.  The
++Mark wrapped lines in the output with the style \f2style\f1.  The
+ possible values for the \f2format\f1 are the same which can be given
+ for the \f3\-\-mark\-wrapped\-lines\f1 option.
+ .TP 8
+@@ -1327,7 +1327,7 @@
+ Print file to two columns and rotate output 90 degrees (landscape).
+ .TP 8
+ .B enscript \-DDuplex:true foo.txt
+-Print file in duplex (two side) mode (printer dependant).
++Print file in duplex (two side) mode (printer dependent).
+ .TP 8
+ .B enscript \-G2rE \-U2 foo.c
+ My default code printing command: gaudy header, two columns,

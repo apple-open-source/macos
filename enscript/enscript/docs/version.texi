@@ -1,0 +1,4 @@
+@set UPDATED 14 January 1999
+@set UPDATED-MONTH January 1999
+@set EDITION 1.6.4
+@set VERSION 1.6.4

@@ -26,7 +26,7 @@
    | PHP 4.0 updates:  Zeev Suraski <zeev@zend.com>                       |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_imap.c,v 1.208.2.7.2.31 2008/04/17 11:04:49 felipe Exp $ */
+/* $Id: php_imap.c,v 1.208.2.7.2.37 2008/10/16 16:20:53 dmitry Exp $ */
 
 #define IMAP41
 
@@ -40,6 +40,7 @@
 #include "ext/standard/php_string.h"
 #include "ext/standard/info.h"
 #include "ext/standard/file.h"
+#include "ext/standard/php_smart_str.h"
 
 #ifdef ERROR
 #undef ERROR
@@ -66,10 +67,11 @@ MAILSTREAM DEFAULTPROTO;
 #define SENDBUFLEN 16385
 #endif
 
+
 static void _php_make_header_object(zval *myzvalue, ENVELOPE *en TSRMLS_DC);
 static void _php_imap_add_body(zval *arg, BODY *body TSRMLS_DC);
-static void _php_imap_parse_address(ADDRESS *addresslist, char **fulladdress, zval *paddress TSRMLS_DC);
-static int _php_imap_address_size(ADDRESS *addresslist);
+static char* _php_imap_parse_address(ADDRESS *addresslist, zval *paddress TSRMLS_DC);
+static char* _php_rfc822_write_address(ADDRESS *addresslist TSRMLS_DC);
 
 /* the gets we use */
 static char *php_mail_gets(readfn_t f, void *stream, unsigned long size, GETS_DATA *md);
@@ -717,23 +719,26 @@ PHP_RSHUTDOWN_FUNCTION(imap)
 }
 /* }}} */
 
+#if !defined(CCLIENTVERSION)
+#if HAVE_IMAP2004
+#define CCLIENTVERSION "2004"
+#elif HAVE_IMAP2001
+#define CCLIENTVERSION "2001"
+#elif HAVE_IMAP2000
+#define CCLIENTVERSION "2000"
+#elif defined(IMAP41)
+#define CCLIENTVERSION "4.1"
+#else
+#define CCLIENTVERSION "4.0"
+#endif
+#endif
 
 /* {{{ PHP_MINFO_FUNCTION
  */
 PHP_MINFO_FUNCTION(imap)
 {
 	php_info_print_table_start();
-#if HAVE_IMAP2004
-	php_info_print_table_row(2, "IMAP c-Client Version", "2004");
-#elif HAVE_IMAP2001
-	php_info_print_table_row(2, "IMAP c-Client Version", "2001");
-#elif HAVE_IMAP2000
-	php_info_print_table_row(2, "IMAP c-Client Version", "2000");
-#elif defined(IMAP41)
-	php_info_print_table_row(2, "IMAP c-Client Version", "4.1");
-#else
-	php_info_print_table_row(2, "IMAP c-Client Version", "4.0");
-#endif
+	php_info_print_table_row(2, "IMAP c-Client Version", CCLIENTVERSION);
 #if HAVE_IMAP_SSL
 	php_info_print_table_row(2, "SSL Support", "enabled");
 #endif
@@ -1451,7 +1456,7 @@ PHP_FUNCTION(imap_list_full)
 }
 /* }}} */
 
-/* {{{ proto array imap_scan(resource stream_id, string ref, string pattern, string content)
+/* {{{ proto array imap_listscan(resource stream_id, string ref, string pattern, string content)
    Read list of mailboxes containing a certain string */
 PHP_FUNCTION(imap_listscan)
 {
@@ -1575,7 +1580,7 @@ PHP_FUNCTION(imap_headerinfo)
 	pils *imap_le_struct;
 	MESSAGECACHE *cache;
 	ENVELOPE *en;
-	char dummy[2000], fulladdress[MAILTMPLEN];
+	char dummy[2000], fulladdress[MAILTMPLEN + 1];
 	int myargc = ZEND_NUM_ARGS();
 	
 	if (myargc < 2 || myargc > 5 || zend_get_parameters_ex(myargc, &streamind, &msgno, &fromlength, &subjectlength, &defaulthost) == FAILURE) {
@@ -1587,8 +1592,8 @@ PHP_FUNCTION(imap_headerinfo)
 	convert_to_long_ex(msgno);
 	if (myargc >= 3) {
 		convert_to_long_ex(fromlength);
-		if (Z_LVAL_PP(fromlength) < 0 || Z_LVAL_PP(fromlength) >= MAILTMPLEN) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "From length has to be between 1 and %i", MAILTMPLEN);
+		if (Z_LVAL_PP(fromlength) < 0 || Z_LVAL_PP(fromlength) > MAILTMPLEN) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "From length has to be between 0 and %d", MAILTMPLEN);
 			RETURN_FALSE;
 		}
 	} else {
@@ -1596,8 +1601,8 @@ PHP_FUNCTION(imap_headerinfo)
 	}
 	if (myargc >= 4) {
 		convert_to_long_ex(subjectlength);
-		if (Z_LVAL_PP(subjectlength) < 0 || Z_LVAL_PP(subjectlength) >= MAILTMPLEN) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Subject length has to be between 1 and %i", MAILTMPLEN);
+		if (Z_LVAL_PP(subjectlength) < 0 || Z_LVAL_PP(subjectlength) > MAILTMPLEN) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Subject length has to be between 0 and %d", MAILTMPLEN);
 			RETURN_FALSE;
 		}
 	} else {
@@ -2109,7 +2114,7 @@ PHP_FUNCTION(imap_rfc822_write_address)
 {
 	zval **mailbox, **host, **personal;
 	ADDRESS *addr;
-	char string[MAILTMPLEN];
+	char *string;
 
 	if (ZEND_NUM_ARGS() != 3 || zend_get_parameters_ex(3, &mailbox, &host, &personal) == FAILURE) {
 		ZEND_WRONG_PARAM_COUNT();
@@ -2137,13 +2142,12 @@ PHP_FUNCTION(imap_rfc822_write_address)
 	addr->error=NIL;
 	addr->adl=NIL;
 
-	if (_php_imap_address_size(addr) >= MAILTMPLEN) {
+	string = _php_rfc822_write_address(addr TSRMLS_CC);
+	if (string) {
+		RETVAL_STRING(string, 0);
+	} else {
 		RETURN_FALSE;
 	}
-
-	string[0]='\0';
-	rfc822_write_address(string, addr);
-	RETVAL_STRING(string, 1);
 }
 /* }}} */
 
@@ -2154,7 +2158,8 @@ PHP_FUNCTION(imap_rfc822_parse_adrlist)
 	zval **str, **defaulthost, *tovals;
 	ADDRESS *addresstmp;
 	ENVELOPE *env;
-	
+	char *str_copy;
+
 	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &str, &defaulthost) == FAILURE) {
 		ZEND_WRONG_PARAM_COUNT();
 	}
@@ -2165,7 +2170,10 @@ PHP_FUNCTION(imap_rfc822_parse_adrlist)
 
 	env = mail_newenvelope();
 
-	rfc822_parse_adrlist(&env->to, Z_STRVAL_PP(str), Z_STRVAL_PP(defaulthost));
+	/* rfc822_parse_adrlist() modifies passed string. Copy it. */
+	str_copy = estrndup(Z_STRVAL_PP(str), Z_STRLEN_PP(str));
+	rfc822_parse_adrlist(&env->to, str_copy, defaulthost);
+	efree(str_copy);
 
 	array_init(return_value);
 
@@ -2873,7 +2881,7 @@ PHP_FUNCTION(imap_fetch_overview)
  	zval **streamind, **sequence, **pflags;
 	pils *imap_le_struct;
 	zval *myoverview;
-	char address[MAILTMPLEN];
+	char *address;
 	long status, flags=0L;
 	int myargc = ZEND_NUM_ARGS();
 	
@@ -2908,17 +2916,19 @@ PHP_FUNCTION(imap_fetch_overview)
 				if (env->subject) {
 					add_property_string(myoverview, "subject", env->subject, 1);
 				}
-				if (env->from && _php_imap_address_size(env->from) < MAILTMPLEN) {
+				if (env->from) {
 					env->from->next=NULL;
-					address[0] = '\0';
-					rfc822_write_address(address, env->from);
-					add_property_string(myoverview, "from", address, 1);
+					address =_php_rfc822_write_address(env->from TSRMLS_CC);
+					if (address) {
+						add_property_string(myoverview, "from", address, 0);
+					}
 				}
-				if (env->to && _php_imap_address_size(env->to) < MAILTMPLEN) {
+				if (env->to) {
 					env->to->next = NULL;
-					address[0] = '\0';
-					rfc822_write_address(address, env->to);
-					add_property_string(myoverview, "to", address, 1);
+					address = _php_rfc822_write_address(env->to TSRMLS_CC);
+					if (address) {
+						add_property_string(myoverview, "to", address, 0);
+					}
 				}
 				if (env->date) {
 					add_property_string(myoverview, "date", env->date, 1);
@@ -2961,7 +2971,7 @@ PHP_FUNCTION(imap_mail_compose)
 	BODY *bod=NULL, *topbod=NULL;
 	PART *mypart=NULL, *part;
 	PARAMETER *param, *disp_param = NULL, *custom_headers_param = NULL, *tmp_param = NULL;
-	char *tmp=NULL, *mystring=NULL, *t=NULL, *tempstring=NULL;
+	char *tmp=NULL, *mystring=NULL, *t=NULL, *tempstring=NULL, *str_copy = NULL;
 	int toppart = 0;
 
 	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &envelope, &body) == FAILURE) {
@@ -2978,50 +2988,55 @@ PHP_FUNCTION(imap_mail_compose)
 		RETURN_FALSE;
  	}
 
+#define PHP_RFC822_PARSE_ADRLIST(target, value) \
+	str_copy = estrndup(Z_STRVAL_PP(value), Z_STRLEN_PP(value)); \
+	rfc822_parse_adrlist(target, str_copy, "NO HOST"); \
+	efree(str_copy);
+
 	env = mail_newenvelope();
 	if (zend_hash_find(Z_ARRVAL_PP(envelope), "remail", sizeof("remail"), (void **) &pvalue)== SUCCESS) {
 		convert_to_string_ex(pvalue);
-		env->remail=cpystr(Z_STRVAL_PP(pvalue));
+		env->remail = cpystr(Z_STRVAL_PP(pvalue));
 	}
 	if (zend_hash_find(Z_ARRVAL_PP(envelope), "return_path", sizeof("return_path"), (void **) &pvalue)== SUCCESS) {
 		convert_to_string_ex(pvalue)
-		rfc822_parse_adrlist(&env->return_path, Z_STRVAL_PP(pvalue), "NO HOST");
+		PHP_RFC822_PARSE_ADRLIST(&env->return_path, pvalue);
 	}
 	if (zend_hash_find(Z_ARRVAL_PP(envelope), "date", sizeof("date"), (void **) &pvalue)== SUCCESS) {
 		convert_to_string_ex(pvalue);
-		env->date=cpystr(Z_STRVAL_PP(pvalue));
+		env->date = cpystr(Z_STRVAL_PP(pvalue));
 	}
 	if (zend_hash_find(Z_ARRVAL_PP(envelope), "from", sizeof("from"), (void **) &pvalue)== SUCCESS) {
 		convert_to_string_ex(pvalue);
-		rfc822_parse_adrlist (&env->from, Z_STRVAL_PP(pvalue), "NO HOST");
+		PHP_RFC822_PARSE_ADRLIST(&env->from, pvalue);
 	}
 	if (zend_hash_find(Z_ARRVAL_PP(envelope), "reply_to", sizeof("reply_to"), (void **) &pvalue)== SUCCESS) {
 		convert_to_string_ex(pvalue);
-		rfc822_parse_adrlist (&env->reply_to, Z_STRVAL_PP(pvalue), "NO HOST");
+		PHP_RFC822_PARSE_ADRLIST(&env->reply_to, pvalue);
 	}
 	if (zend_hash_find(Z_ARRVAL_PP(envelope), "in_reply_to", sizeof("in_reply_to"), (void **) &pvalue)== SUCCESS) {
 		convert_to_string_ex(pvalue);
-		env->in_reply_to=cpystr(Z_STRVAL_PP(pvalue));
+		env->in_reply_to = cpystr(Z_STRVAL_PP(pvalue));
 	}
 	if (zend_hash_find(Z_ARRVAL_PP(envelope), "subject", sizeof("subject"), (void **) &pvalue)== SUCCESS) {
 		convert_to_string_ex(pvalue);
-		env->subject=cpystr(Z_STRVAL_PP(pvalue));
+		env->subject = cpystr(Z_STRVAL_PP(pvalue));
 	}
 	if (zend_hash_find(Z_ARRVAL_PP(envelope), "to", sizeof("to"), (void **) &pvalue)== SUCCESS) {
 		convert_to_string_ex(pvalue);
-		rfc822_parse_adrlist (&env->to, Z_STRVAL_PP(pvalue), "NO HOST");
+		PHP_RFC822_PARSE_ADRLIST(&env->to, pvalue);
 	}
 	if (zend_hash_find(Z_ARRVAL_PP(envelope), "cc", sizeof("cc"), (void **) &pvalue)== SUCCESS) {
 		convert_to_string_ex(pvalue);
-		rfc822_parse_adrlist (&env->cc, Z_STRVAL_PP(pvalue), "NO HOST");
+		PHP_RFC822_PARSE_ADRLIST(&env->cc, pvalue);
 	}
 	if (zend_hash_find(Z_ARRVAL_PP(envelope), "bcc", sizeof("bcc"), (void **) &pvalue)== SUCCESS) {
 		convert_to_string_ex(pvalue);
-		rfc822_parse_adrlist (&env->bcc, Z_STRVAL_PP(pvalue), "NO HOST");
+		PHP_RFC822_PARSE_ADRLIST(&env->bcc, pvalue);
 	}
 	if (zend_hash_find(Z_ARRVAL_PP(envelope), "message_id", sizeof("message_id"), (void **) &pvalue)== SUCCESS) {
 		convert_to_string_ex(pvalue);
-		env->message_id=cpystr(Z_STRVAL_PP(pvalue));
+		env->message_id = cpystr(Z_STRVAL_PP(pvalue));
 	}
 
 	if (zend_hash_find(Z_ARRVAL_PP(envelope), "custom_headers", sizeof("custom_headers"), (void **) &pvalue)== SUCCESS) {
@@ -3858,6 +3873,43 @@ static int _php_rfc822_len(char *str)
 /* }}} */
 
 /* Support Functions */
+
+#ifdef HAVE_RFC822_OUTPUT_ADDRESS_LIST
+/* {{{ _php_rfc822_soutr
+ */
+static long _php_rfc822_soutr (void *stream, char *string)
+{
+	smart_str *ret = (smart_str*)stream;
+	int len = strlen(string);
+
+	smart_str_appendl(ret, string, len);	
+	return LONGT;
+}
+
+/* }}} */
+
+/* {{{ _php_rfc822_write_address
+ */
+static char* _php_rfc822_write_address(ADDRESS *addresslist TSRMLS_DC)
+{
+	char address[MAILTMPLEN];
+	smart_str ret = {0};
+	RFC822BUFFER buf;
+
+	buf.beg = address;
+	buf.cur = buf.beg;
+	buf.end = buf.beg + sizeof(address) - 1;
+	buf.s = &ret;
+	buf.f = _php_rfc822_soutr;
+	rfc822_output_address_list(&buf, addresslist, 0, NULL);
+	rfc822_output_flush(&buf);
+	smart_str_0(&ret);
+	return ret.c;
+}
+/* }}} */
+
+#else
+
 /* {{{ _php_imap_get_address_size
  */
 static int _php_imap_address_size (ADDRESS *addresslist)
@@ -3887,26 +3939,33 @@ static int _php_imap_address_size (ADDRESS *addresslist)
 
 /* }}} */
 
+/* {{{ _php_rfc822_write_address
+ */
+static char* _php_rfc822_write_address(ADDRESS *addresslist TSRMLS_DC)
+{
+	char address[SENDBUFLEN];
 
+	if (_php_imap_address_size(addresslist) >= SENDBUFLEN) {
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "Address buffer overflow");
+		return NULL;
+	}
+	address[0] = 0;
+	rfc822_write_address(address, addresslist);
+	return estrdup(address);
+}
+/* }}} */
+#endif
 /* {{{ _php_imap_parse_address
  */
-static void _php_imap_parse_address (ADDRESS *addresslist, char **fulladdress, zval *paddress TSRMLS_DC)
+static char* _php_imap_parse_address (ADDRESS *addresslist, zval *paddress TSRMLS_DC)
 {
+	char *fulladdress;
 	ADDRESS *addresstmp;
 	zval *tmpvals;
-	char *tmpstr;
-	int len=0;
 		
 	addresstmp = addresslist;
 
-	if ((len = _php_imap_address_size(addresstmp))) {
-		tmpstr = (char *) pemalloc(len + 1, 1);
-		tmpstr[0] = '\0';
-		rfc822_write_address(tmpstr, addresstmp);
-		*fulladdress = tmpstr;
-	} else {
-		*fulladdress = NULL;
-	}
+	fulladdress = _php_rfc822_write_address(addresstmp TSRMLS_CC);
 	
 	addresstmp = addresslist;
 	do {
@@ -3918,6 +3977,7 @@ static void _php_imap_parse_address (ADDRESS *addresslist, char **fulladdress, z
 		if (addresstmp->host) add_property_string(tmpvals, "host", addresstmp->host, 1);
 		add_next_index_object(paddress, tmpvals TSRMLS_CC);
 	} while ((addresstmp = addresstmp->next));
+	return fulladdress;
 }
 /* }}} */
 
@@ -3944,10 +4004,9 @@ static void _php_make_header_object(zval *myzvalue, ENVELOPE *en TSRMLS_DC)
 	if (en->to) {
 		MAKE_STD_ZVAL(paddress);
 		array_init(paddress);
-		_php_imap_parse_address(en->to, &fulladdress, paddress TSRMLS_CC);
+		fulladdress = _php_imap_parse_address(en->to, paddress TSRMLS_CC);
 		if (fulladdress) {
-			add_property_string(myzvalue, "toaddress", fulladdress, 1);
-			free(fulladdress);
+			add_property_string(myzvalue, "toaddress", fulladdress, 0);
 		}
 		add_assoc_object(myzvalue, "to", paddress TSRMLS_CC);
 	}
@@ -3955,10 +4014,9 @@ static void _php_make_header_object(zval *myzvalue, ENVELOPE *en TSRMLS_DC)
 	if (en->from) {
 		MAKE_STD_ZVAL(paddress);
 		array_init(paddress);
-		_php_imap_parse_address(en->from, &fulladdress, paddress TSRMLS_CC);
+		fulladdress = _php_imap_parse_address(en->from, paddress TSRMLS_CC);
 		if (fulladdress) {
-			add_property_string(myzvalue, "fromaddress", fulladdress, 1);
-			free(fulladdress);
+			add_property_string(myzvalue, "fromaddress", fulladdress, 0);
 		}
 		add_assoc_object(myzvalue, "from", paddress TSRMLS_CC);
 	}
@@ -3966,10 +4024,9 @@ static void _php_make_header_object(zval *myzvalue, ENVELOPE *en TSRMLS_DC)
 	if (en->cc) {
 		MAKE_STD_ZVAL(paddress);
 		array_init(paddress);
-		_php_imap_parse_address(en->cc, &fulladdress, paddress TSRMLS_CC);
+		fulladdress = _php_imap_parse_address(en->cc, paddress TSRMLS_CC);
 		if (fulladdress) {
-			add_property_string(myzvalue, "ccaddress", fulladdress, 1);
-			free(fulladdress);
+			add_property_string(myzvalue, "ccaddress", fulladdress, 0);
 		}
 		add_assoc_object(myzvalue, "cc", paddress TSRMLS_CC);
 	}
@@ -3977,10 +4034,9 @@ static void _php_make_header_object(zval *myzvalue, ENVELOPE *en TSRMLS_DC)
 	if (en->bcc) {
 		MAKE_STD_ZVAL(paddress);
 		array_init(paddress);
-		_php_imap_parse_address(en->bcc, &fulladdress, paddress TSRMLS_CC);
+		fulladdress = _php_imap_parse_address(en->bcc, paddress TSRMLS_CC);
 		if (fulladdress) {
-			add_property_string(myzvalue, "bccaddress", fulladdress, 1);
-			free(fulladdress);
+			add_property_string(myzvalue, "bccaddress", fulladdress, 0);
 		}
 		add_assoc_object(myzvalue, "bcc", paddress TSRMLS_CC);
 	}
@@ -3988,10 +4044,9 @@ static void _php_make_header_object(zval *myzvalue, ENVELOPE *en TSRMLS_DC)
 	if (en->reply_to) {
 		MAKE_STD_ZVAL(paddress);
 		array_init(paddress);
-		_php_imap_parse_address(en->reply_to, &fulladdress, paddress TSRMLS_CC);
+		fulladdress = _php_imap_parse_address(en->reply_to, paddress TSRMLS_CC);
 		if (fulladdress) {
-			add_property_string(myzvalue, "reply_toaddress", fulladdress, 1);
-			free(fulladdress);
+			add_property_string(myzvalue, "reply_toaddress", fulladdress, 0);
 		}
 		add_assoc_object(myzvalue, "reply_to", paddress TSRMLS_CC);
 	}
@@ -3999,10 +4054,9 @@ static void _php_make_header_object(zval *myzvalue, ENVELOPE *en TSRMLS_DC)
 	if (en->sender) {
 		MAKE_STD_ZVAL(paddress);
 		array_init(paddress);
-		_php_imap_parse_address(en->sender, &fulladdress, paddress TSRMLS_CC);
+		fulladdress = _php_imap_parse_address(en->sender, paddress TSRMLS_CC);
 		if (fulladdress) {
-			add_property_string(myzvalue, "senderaddress", fulladdress, 1);
-			free(fulladdress);
+			add_property_string(myzvalue, "senderaddress", fulladdress, 0);
 		}
 		add_assoc_object(myzvalue, "sender", paddress TSRMLS_CC);
 	}
@@ -4010,10 +4064,9 @@ static void _php_make_header_object(zval *myzvalue, ENVELOPE *en TSRMLS_DC)
 	if (en->return_path) {
 		MAKE_STD_ZVAL(paddress);
 		array_init(paddress);
-		_php_imap_parse_address(en->return_path, &fulladdress, paddress TSRMLS_CC);
+		fulladdress = _php_imap_parse_address(en->return_path, paddress TSRMLS_CC);
 		if (fulladdress) {
-			add_property_string(myzvalue, "return_pathaddress", fulladdress, 1);
-			free(fulladdress);
+			add_property_string(myzvalue, "return_pathaddress", fulladdress, 0);
 		}
 		add_assoc_object(myzvalue, "return_path", paddress TSRMLS_CC);
 	}

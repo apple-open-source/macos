@@ -31,11 +31,40 @@ diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfi
   * Enabling this restricts the compiler to mostly public APIs.
   */
  #ifndef __APPLE_API_STRICT_CONFORMANCE
-@@ -118,3 +134,7 @@
-  */
+@@ -119,6 +135,9 @@
  /* #define USE_UNIFIED_IPV6_STRUCTS 1 */
  #undef STRUCT_in6pcb_HAS_inp_vflag
-+
-+
+ 
 +#define SNMP_CFRelease(x) do { if (x) { CFRelease(x); x = NULL; } } while(0)
 +
++
+ /*
+  * Mac OS X runs on both PPC and Intel hardware,
+  *   which handle udpTable index values differently
+diff -Naur net-snmp-5.4.1.orig/include/net-snmp/system/darwin10.h net-snmp-5.4.1/include/net-snmp/system/darwin10.h
+--- net-snmp-5.4.1.orig/include/net-snmp/system/darwin10.h	1969-12-31 16:00:00.000000000 -0800
++++ net-snmp-5.4.1/include/net-snmp/system/darwin10.h	2008-01-24 15:13:42.000000000 -0800
+@@ -0,0 +1,10 @@
++/* This is a place for the changes needed to get net_snmp runnning on darwin10 including 
++   support for GCC 4.2
++   Currently this just enatils including darwin9.h
++*/
++
++#include "darwin9.h"
++
++#ifndef darwin10
++#   define darwin10 darwin
++#endif
+diff -Naur net-snmp-5.4.1.orig/Makefile.in net-snmp-5.4.1/Makefile.in
+--- net-snmp-5.4.1.orig/Makefile.in	2008-01-24 15:08:15.000000000 -0800
++++ net-snmp-5.4.1/Makefile.in	2008-02-01 15:06:35.000000000 -0800
+@@ -16,7 +16,7 @@
+ INSTALLHEADERS=version.h
+ INCLUDESUBDIR=system
+ INCLUDESUBDIRHEADERS= aix.h bsd.h bsdi3.h bsdi4.h bsdi.h cygwin.h \
+-	darwin.h darwin7.h darwin8.h darwin9.h freebsd5.h freebsd6.h \
++	darwin.h darwin7.h darwin8.h darwin9.h darwin10.h freebsd5.h freebsd6.h \
+ 	dynix.h freebsd2.h freebsd3.h freebsd4.h freebsd.h generic.h hpux.h \
+ 	irix.h linux.h mingw32.h mips.h netbsd.h openbsd.h osf5.h \
+ 	solaris2.3.h solaris2.4.h solaris2.5.h solaris2.6.h \
+

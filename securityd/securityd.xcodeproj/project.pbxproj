@@ -897,7 +897,7 @@
 				BUILD_VARIANTS = debug;
 				COPY_PHASE_STRIP = NO;
 				CSSM_HEADERS = "$(BUILT_PRODUCTS_DIR)/Security.framework/Headers:$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Headers";
-				CURRENT_PROJECT_VERSION = 33639;
+				CURRENT_PROJECT_VERSION = 36489;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/securityd,
@@ -959,7 +959,7 @@
 					debug,
 				);
 				CSSM_HEADERS = "$(BUILT_PRODUCTS_DIR)/Security.framework/Headers:$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Headers";
-				CURRENT_PROJECT_VERSION = 33639;
+				CURRENT_PROJECT_VERSION = 36489;
 				DEAD_CODE_STRIPPING = YES;
 				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/src/securityd.exp";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -1018,7 +1018,7 @@
 			buildSettings = {
 				BUILD_VARIANTS = normal;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 33639;
+				CURRENT_PROJECT_VERSION = 36489;
 				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/src/securityd.exp";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
@@ -1075,7 +1075,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 33639;
+				CURRENT_PROJECT_VERSION = 36489;
 				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/src/securityd.exp";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,

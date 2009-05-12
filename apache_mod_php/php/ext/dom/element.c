@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: element.c,v 1.36.2.4.2.10 2008/02/04 15:23:11 sebastian Exp $ */
+/* $Id: element.c,v 1.36.2.4.2.11 2008/06/14 11:24:00 rrichards Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -585,6 +585,10 @@ PHP_FUNCTION(dom_element_set_attribute_node)
 		xmlUnlinkNode((xmlNodePtr) existattrp);
 	}
 
+	if (attrp->parent != NULL) {
+		xmlUnlinkNode((xmlNodePtr) attrp);
+	}
+
 	if (attrp->doc == NULL && nodep->doc != NULL) {
 		attrobj->document = intern->document;
 		php_libxml_increment_doc_ref((php_libxml_node_object *)attrobj, NULL TSRMLS_CC);
@@ -996,6 +1000,10 @@ PHP_FUNCTION(dom_element_set_attribute_node_ns)
 			RETURN_NULL();
 		}
 		xmlUnlinkNode((xmlNodePtr) existattrp);
+	}
+
+	if (attrp->parent != NULL) {
+		xmlUnlinkNode((xmlNodePtr) attrp);
 	}
 
 	if (attrp->doc == NULL && nodep->doc != NULL) {

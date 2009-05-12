@@ -397,9 +397,11 @@ static void option_set_cert(apr_pool_t *pool, LDAP *ldap,
                            const void *invalue, apr_ldap_err_t *result)
 {
 #if APR_HAS_LDAP_SSL
+#if APR_HAS_LDAPSSL_CLIENT_INIT || APR_HAS_OPENLDAP_LDAPSDK
     apr_array_header_t *certs = (apr_array_header_t *)invalue;
     struct apr_ldap_opt_tls_cert_t *ents = (struct apr_ldap_opt_tls_cert_t *)certs->elts;
     int i = 0;
+#endif
 
     /* Netscape/Mozilla/Solaris SDK */
 #if APR_HAS_NETSCAPE_LDAPSDK || APR_HAS_SOLARIS_LDAPSDK || APR_HAS_MOZILLA_LDAPSDK

@@ -1,7 +1,7 @@
 %{
 /* 								-*- c -*-
  * Grammar for states.
- * Copyright (c) 1997 Markku Rossi.
+ * Copyright (c) 1997-1998 Markku Rossi.
  *
  * Author: Markku Rossi <mtr@iki.fi>
  */
@@ -26,7 +26,7 @@
  */
 
 /*
- * $Id: gram.y,v 1.1 1999/04/20 23:26:46 wsanchez Exp $
+ * $Id: gram.y,v 1.1.1.1 2003/03/05 07:25:52 mtr Exp $
  */
 
 #include "defs.h"
@@ -43,7 +43,7 @@
 
 %token <node> tSYMBOL tREGEXP tSTRING tINTEGER tREAL
 %token tSUB tSTATE tSTART tSTARTRULES tNAMERULES tBEGIN tEND tRETURN tIF tELSE
-%token tLOCAL tWHILE tFOR
+%token tLOCAL tWHILE tFOR tEXTENDS
 
 %right '=' tADDASSIGN tSUBASSIGN tMULASSIGN tDIVASSIGN
 %right '?' ':'
@@ -74,7 +74,9 @@ toplevel : tSTART '{' stmt_list '}'	{ start_stmts = $3; }
 	| tNAMERULES '{' regexp_sym_list '}'
 					{ namerules = $3; }
 	| tSTATE tSYMBOL '{' staterules '}'
-					{ define_state ($2, $4); }
+					{ define_state ($2, NULL, $4); }
+	| tSTATE tSYMBOL tEXTENDS tSYMBOL '{' staterules '}'
+					{ define_state ($2, $4, $6); }
 	| stmt				{ list_append (global_stmts, $1); }
 	;
 
@@ -213,5 +215,5 @@ void
 yyerror (msg)
      char *msg;
 {
-  fprintf (stderr, "%s:%d: %s\n", defs_file, linenum, msg);
+  fprintf (stderr, "%s:%d: %s\n", yyin_name, linenum, msg);
 }

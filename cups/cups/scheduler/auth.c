@@ -3,7 +3,7 @@
  *
  *   Authorization routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   This file contains Kerberos support code, copyright 2006 by
@@ -451,24 +451,21 @@ cupsdAuthorize(cupsd_client_t *con)	/* I - Client connection */
       return;
     }
 
-    if ((status = AuthorizationCopyInfo(con->authref, 
-					kAuthorizationEnvironmentUsername, 
-					&authinfo)) != 0)
+    strlcpy(username, "_AUTHREF_", sizeof(username));
+
+    if (!AuthorizationCopyInfo(con->authref, kAuthorizationEnvironmentUsername, 
+			       &authinfo))
     {
-      cupsdLogMessage(CUPSD_LOG_ERROR,
-		      "AuthorizationCopyInfo returned %d (%s)",
-		      (int)status, cssmErrorString(status));
-      return;
+      if (authinfo->count == 1 && authinfo->items[0].value &&
+          authinfo->items[0].valueLength >= 2)
+        strlcpy(username, authinfo->items[0].value, sizeof(username));
+
+      AuthorizationFreeItemSet(authinfo);
     }
-  
-    if (authinfo->count == 1)
-      strlcpy(username, authinfo->items[0].value, sizeof(username));
 
     cupsdLogMessage(CUPSD_LOG_DEBUG,
                     "cupsdAuthorize: Authorized as %s using AuthRef",
 		    username);
-
-    AuthorizationFreeItemSet(authinfo);
 
     con->type = CUPSD_AUTH_BASIC;
   }

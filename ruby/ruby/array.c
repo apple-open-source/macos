@@ -3,7 +3,7 @@
   array.c -
 
   $Author: shyouhei $
-  $Date: 2007-09-07 16:46:40 +0900 (Fri, 07 Sep 2007) $
+  $Date: 2008-07-01 15:10:39 +0900 (Tue, 01 Jul 2008) $
   created at: Fri Aug  6 09:46:12 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -121,7 +121,7 @@ ary_new(klass, len)
     if (len < 0) {
 	rb_raise(rb_eArgError, "negative array size (or size too big)");
     }
-    if (len > 0 && len * sizeof(VALUE) <= len) {
+    if (len > ARY_MAX_SIZE) {
 	rb_raise(rb_eArgError, "array size too big");
     }
     if (len == 0) len++;
@@ -294,7 +294,7 @@ rb_ary_initialize(argc, argv, ary)
     if (len < 0) {
 	rb_raise(rb_eArgError, "negative array size");
     }
-    if (len > 0 && len * (long)sizeof(VALUE) <= len) {
+    if (len > ARY_MAX_SIZE) {
 	rb_raise(rb_eArgError, "array size too big");
     }
     if (len > RARRAY(ary)->aux.capa) {
@@ -359,6 +359,9 @@ rb_ary_store(ary, idx, val)
 		    idx - RARRAY(ary)->len);
 	}
     }
+    else if (idx >= ARY_MAX_SIZE) {
+	rb_raise(rb_eIndexError, "index %ld too big", idx);
+    }
 
     rb_ary_modify(ary);
     if (idx >= RARRAY(ary)->aux.capa) {
@@ -367,10 +370,10 @@ rb_ary_store(ary, idx, val)
 	if (new_capa < ARY_DEFAULT_SIZE) {
 	    new_capa = ARY_DEFAULT_SIZE;
 	}
-	new_capa += idx;
-	if (new_capa < 0 || new_capa > LONG_MAX / sizeof(VALUE)) {
-		rb_raise(rb_eArgError, "index too big");
+	if (new_capa >= ARY_MAX_SIZE - idx) {
+	    new_capa = (ARY_MAX_SIZE - idx) / 2;
 	}
+	new_capa += idx;
 	REALLOC_N(RARRAY(ary)->ptr, VALUE, new_capa);
 	RARRAY(ary)->aux.capa = new_capa;
     }
@@ -976,10 +979,10 @@ rb_ary_splice(ary, beg, len, rpl)
     rb_ary_modify(ary);
 
     if (beg >= RARRAY(ary)->len) {
-	len = beg + rlen;
-	if (len < 0 || len > LONG_MAX / sizeof(VALUE)) {
-		rb_raise(rb_eIndexError, "index %ld too big", beg);
+	if (beg > ARY_MAX_SIZE - rlen) {
+	    rb_raise(rb_eIndexError, "index %ld too big", beg);
 	}
+	len = beg + rlen;
 	if (len >= RARRAY(ary)->aux.capa) {
 	    REALLOC_N(RARRAY(ary)->ptr, VALUE, len);
 	    RARRAY(ary)->aux.capa = len;
@@ -2269,6 +2272,9 @@ rb_ary_fill(argc, argv, ary)
 	break;
     }
     rb_ary_modify(ary);
+    if (len < 0) {
+        return ary;
+    }
     if (beg >= ARY_MAX_SIZE || len > ARY_MAX_SIZE - beg) {
 	rb_raise(rb_eArgError, "argument too big");
     }
@@ -2382,7 +2388,7 @@ rb_ary_times(ary, times)
     if (len < 0) {
 	rb_raise(rb_eArgError, "negative argument");
     }
-    if (LONG_MAX/len < RARRAY(ary)->len) {
+    if (ARY_MAX_SIZE/len < RARRAY(ary)->len) {
 	rb_raise(rb_eArgError, "argument too big");
     }
     len *= RARRAY(ary)->len;
@@ -2466,6 +2472,19 @@ rb_ary_rassoc(ary, value)
     return Qnil;
 }
 
+static VALUE
+recursive_equal(ary1, ary2)
+    VALUE ary1, ary2;
+{
+    long i;
+
+    for (i=0; i<RARRAY(ary1)->len; i++) {
+	if (!rb_equal(rb_ary_elt(ary1, i), rb_ary_elt(ary2, i)))
+	    return Qfalse;
+    }
+    return Qtrue;
+}
+
 /* 
  *  call-seq:
  *     array == other_array   ->   bool
@@ -2484,8 +2503,6 @@ static VALUE
 rb_ary_equal(ary1, ary2)
     VALUE ary1, ary2;
 {
-    long i;
-
     if (ary1 == ary2) return Qtrue;
     if (TYPE(ary2) != T_ARRAY) {
 	if (!rb_respond_to(ary2, rb_intern("to_ary"))) {
@@ -2494,8 +2511,18 @@ rb_ary_equal(ary1, ary2)
 	return rb_equal(ary2, ary1);
     }
     if (RARRAY(ary1)->len != RARRAY(ary2)->len) return Qfalse;
+    if (rb_inspecting_p(ary1)) return Qfalse;
+    return rb_protect_inspect(recursive_equal, ary1, ary2);
+}
+
+static VALUE
+recursive_eql(ary1, ary2)
+    VALUE ary1, ary2;
+{
+    long i;
+
     for (i=0; i<RARRAY(ary1)->len; i++) {
-	if (!rb_equal(rb_ary_elt(ary1, i), rb_ary_elt(ary2, i)))
+	if (!rb_eql(rb_ary_elt(ary1, i), rb_ary_elt(ary2, i)))
 	    return Qfalse;
     }
     return Qtrue;
@@ -2513,16 +2540,29 @@ static VALUE
 rb_ary_eql(ary1, ary2)
     VALUE ary1, ary2;
 {
-    long i;
-
     if (ary1 == ary2) return Qtrue;
     if (TYPE(ary2) != T_ARRAY) return Qfalse;
     if (RARRAY(ary1)->len != RARRAY(ary2)->len) return Qfalse;
-    for (i=0; i<RARRAY(ary1)->len; i++) {
-	if (!rb_eql(rb_ary_elt(ary1, i), rb_ary_elt(ary2, i)))
-	    return Qfalse;
+    if (rb_inspecting_p(ary1)) return Qfalse;
+    return rb_protect_inspect(recursive_eql, ary1, ary2);
+}
+
+static VALUE recursive_hash _((VALUE ary));
+
+static VALUE
+recursive_hash(ary)
+    VALUE ary;
+{
+    long i, h;
+    VALUE n;
+
+    h = RARRAY(ary)->len;
+    for (i=0; i<RARRAY(ary)->len; i++) {
+	h = (h << 1) | (h<0 ? 1 : 0);
+	n = rb_hash(RARRAY(ary)->ptr[i]);
+	h ^= NUM2LONG(n);
     }
-    return Qtrue;
+    return LONG2FIX(h);
 }
 
 /*
@@ -2537,16 +2577,10 @@ static VALUE
 rb_ary_hash(ary)
     VALUE ary;
 {
-    long i, h;
-    VALUE n;
-
-    h = RARRAY(ary)->len;
-    for (i=0; i<RARRAY(ary)->len; i++) {
-	h = (h << 1) | (h<0 ? 1 : 0);
-	n = rb_hash(RARRAY(ary)->ptr[i]);
-	h ^= NUM2LONG(n);
+    if (rb_inspecting_p(ary)) {
+	return LONG2FIX(0);
     }
-    return LONG2FIX(h);
+    return rb_protect_inspect(recursive_hash, ary, 0);
 }
 
 /*
@@ -2577,6 +2611,24 @@ rb_ary_includes(ary, item)
     return Qfalse;
 }
 
+VALUE
+recursive_cmp(ary1, ary2)
+    VALUE ary1, ary2;
+{
+    long i, len;
+
+    len = RARRAY(ary1)->len;
+    if (len > RARRAY(ary2)->len) {
+	len = RARRAY(ary2)->len;
+    }
+    for (i=0; i<len; i++) {
+	VALUE v = rb_funcall(rb_ary_elt(ary1, i), id_cmp, 1, rb_ary_elt(ary2, i));
+	if (v != INT2FIX(0)) {
+	    return v;
+	}
+    }
+    return Qundef;
+}
 
 /* 
  *  call-seq:
@@ -2602,19 +2654,14 @@ VALUE
 rb_ary_cmp(ary1, ary2)
     VALUE ary1, ary2;
 {
-    long i, len;
+    long len;
+    VALUE v;
 
     ary2 = to_ary(ary2);
-    len = RARRAY(ary1)->len;
-    if (len > RARRAY(ary2)->len) {
-	len = RARRAY(ary2)->len;
-    }
-    for (i=0; i<len; i++) {
-	VALUE v = rb_funcall(rb_ary_elt(ary1, i), id_cmp, 1, rb_ary_elt(ary2, i));
-	if (v != INT2FIX(0)) {
-	    return v;
-	}
-    }
+    if (ary1 == ary2) return INT2FIX(0);
+    if (rb_inspecting_p(ary1)) return INT2FIX(0);
+    v = rb_protect_inspect(recursive_cmp, ary1, ary2);
+    if (v != Qundef) return v;
     len = RARRAY(ary1)->len - RARRAY(ary2)->len;
     if (len == 0) return INT2FIX(0);
     if (len > 0) return INT2FIX(1);

@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: string.c,v 1.445.2.14.2.73 2008/01/16 08:35:59 tony2001 Exp $ */
+/* $Id: string.c,v 1.445.2.14.2.77 2008/11/05 18:55:02 felipe Exp $ */
 
 /* Synced with php 3.0 revision 1.193 1999-06-16 [ssb] */
 
@@ -592,14 +592,12 @@ PHP_FUNCTION(nl_langinfo)
 #endif
 #ifdef DECIMAL_POINT
 		case DECIMAL_POINT:
-#endif
-#ifdef RADIXCHAR
+#elif defined(RADIXCHAR)
 		case RADIXCHAR:
 #endif
 #ifdef THOUSANDS_SEP
 		case THOUSANDS_SEP:
-#endif
-#ifdef THOUSEP
+#elif defined(THOUSEP)
 		case THOUSEP:
 #endif
 #ifdef GROUPING
@@ -2262,8 +2260,10 @@ PHP_FUNCTION(substr)
 	}
 	
 	f = Z_LVAL_PP(from);
-	if (f > Z_STRLEN_PP(str) || (f < 0 && -f > Z_STRLEN_PP(str))) {
+	if (f > Z_STRLEN_PP(str)) {
 		RETURN_FALSE;
+	} else if (f < 0 && -f > Z_STRLEN_PP(str)) {
+		f = 0;
 	}
 
 	if (l < 0 && (l + Z_STRLEN_PP(str) - f) < 0) {
@@ -4357,6 +4357,9 @@ PHPAPI size_t php_strip_tags_ex(char *rbuf, int len, int *stateptr, char *allow,
 			case '\0':
 				break;
 			case '<':
+				if (in_q) {
+					break;
+				}
 				if (isspace(*(p + 1)) && !allow_tag_spaces) {
 					goto reg_char;
 				}
@@ -4521,12 +4524,13 @@ PHPAPI size_t php_strip_tags_ex(char *rbuf, int len, int *stateptr, char *allow,
 				/* fall-through */
 
 			case 'l':
+			case 'L':
 
 				/* swm: If we encounter '<?xml' then we shouldn't be in
 				 * state == 2 (PHP). Switch back to HTML.
 				 */
 
-				if (state == 2 && p > buf+2 && *(p-1) == 'm' && *(p-2) == 'x') {
+				if (state == 2 && p > buf+2 && strncasecmp(p-2, "xm", 2) == 0) {
 					state = 1;
 					break;
 				}

@@ -24,9 +24,6 @@
  *
  */
 //		$Log: AppleHWMonitor.h,v $
-//		Revision 1.4  2008/11/19 02:13:34  raddog
-//		<rdar://problem/6349927> 10.5.6 Regression: Display never sleeps
-//		
 //		Revision 1.3  2004/02/12 01:17:01  eem
 //		Merge Rohan changes from tag MERGED-FROM-rohan-branch-TO-TOT-1
 //		

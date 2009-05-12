@@ -331,7 +331,7 @@ main(int argc, char *argv[])
 	if (op == EDITENTRY) {
 #ifdef OPEN_DIRECTORY
 		setrestricted(attrs_orig);
-		snprintf(tfn, sizeof(tfn), "/tmp/%s.XXXXXX", progname);
+		snprintf(tfn, sizeof(tfn), "/etc/%s.XXXXXX", progname);
 		if ((tfd = mkstemp(tfn)) == -1)
 			err(1, "%s", tfn);
 		attrs = (CFMutableDictionaryRef)edit(tfn, attrs_orig);

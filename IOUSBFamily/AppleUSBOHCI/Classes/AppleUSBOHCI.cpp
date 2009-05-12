@@ -669,6 +669,7 @@ AppleUSBOHCI::IsochronousInitialize(void)
     pED2->pShared->nextED = HostToUSBLong ((UInt32) pED->pPhysical);
     pED2->pLogicalNext = pED;
     _isochBandwidthAvail = kUSBMaxFSIsocEndpointReqCount;
+	_expansionData->_isochMaxBusStall = 25000;									// set to 25 microseconds for OHCI
 	
     return kIOReturnSuccess;
 }
@@ -1268,7 +1269,7 @@ AppleUSBOHCI::ProcessCompletedITD (AppleOHCIIsochTransferDescriptorPtr pITD, IOR
 		{
 			USBLog(1, "AppleUSBOHCI[%p]::ProcessCompletedITD - _activeIsochTransfers went negative (%d).  We lost one somewhere", this, (uint32_t)_activeIsochTransfers);
 		}
-		else if (!_activeIsochTransfers)
+		else if (!_activeIsochTransfers && (_expansionData->_isochMaxBusStall != 0))
 			requireMaxBusStall(0);										// remove maximum stall restraint on the PCI bus
 		
     }

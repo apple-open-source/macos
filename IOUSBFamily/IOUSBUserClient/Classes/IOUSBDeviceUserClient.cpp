@@ -368,7 +368,8 @@ IOUSBDeviceUserClientV2::start( IOService * provider )
 	
     USBLog(7, "+IOUSBDeviceUserClientV2[%p]::start(%p)",  this, provider);
 	
-    IncrementOutstandingIO();		// make sure we don't close until start is done
+	// retain() ourselves so we don't go away while we are start()'ing
+	retain();
 	
     fOwner = OSDynamicCast(IOUSBDevice, provider);
 	
@@ -378,7 +379,10 @@ IOUSBDeviceUserClientV2::start( IOService * provider )
 		goto ErrorExit;
     }
     
-    if (!super::start(provider))
+ 	// Now, retain our provider since we will not open() it until our user-space client open()'s it
+	fOwner->retain();
+
+	if (!super::start(provider))
     {
 		USBError(1, "IOUSBDeviceUserClientV2[%p]::start - super::start returned false!",  this);
         goto ErrorExit;
@@ -413,8 +417,6 @@ IOUSBDeviceUserClientV2::start( IOService * provider )
     
 	USBLog(7, "-IOUSBDeviceUserClientV2[%p]::start",  this);
 	
-	DecrementOutstandingIO();
-	
     return true;
     
 ErrorExit:
@@ -431,7 +433,11 @@ ErrorExit:
         workLoop = NULL;
     }
 	
-    DecrementOutstandingIO();
+	if ( fOwner )
+		fOwner->release();
+	
+	release();
+	
     return false;
 }
 
@@ -1776,6 +1782,11 @@ IOUSBDeviceUserClientV2::stop(IOService * provider)
 
 	if (fWorkLoop && fGate)
 		fWorkLoop->removeEventSource(fGate);
+	
+	if ( fOwner )
+		fOwner->release();
+	
+	release();
 	
 	super::stop(provider);
 

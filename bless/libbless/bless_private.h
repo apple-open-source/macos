@@ -61,6 +61,7 @@
 #define USE_COREGRAPHICS		0
 #define USE_MEDIAKIT			0
 #define SUPPORT_RAID			0
+#define SUPPORT_CSM_LEGACY_BOOT 0
 
 #else
 
@@ -73,6 +74,7 @@
 #define USE_COREGRAPHICS		1
 #define USE_MEDIAKIT			1
 #define SUPPORT_RAID			1
+#define SUPPORT_CSM_LEGACY_BOOT 1
 
 #endif
 

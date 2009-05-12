@@ -1,0 +1,140 @@
+2003-02-27  Markku Rossi  <mtr@amme.hel.fi.ssh.com>
+
+	* pyrex.st: Highlighting rules for the Pyrex language (Pyrex - a
+	Language for Writing Python Extension Modules).
+
+2000-06-07  Markku Rossi  <mtr@amme.hel.fi.ssh.com>
+
+	* rfc.st (rfc): Fixed to highlight the RFC keywords, described by
+	the RFC 2119.
+
+	* enscript.st (highlight_face): New face `highlight' to highlight
+	text some way.
+
+2000-04-19  Markku Rossi  <mtr@amme.hel.fi.ssh.com>
+
+	* rfc.st: Fixed to recognize also the `[page nn]' page number.
+
+1999-11-20  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* wmlscript.st: Highlighting rules for WMLScript.
+
+1999-09-24  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* fortran.st (fortran_io): Fixed a typo from the debugging
+	messages which halted the fortran_io processing.
+
+1999-09-07  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* describe_languages.st (describe_languages_html): Cleaned up the
+	HTML output.
+
+	* diffs.st: Highlighting rules for side diff files.  Thanks to
+	Tobias Buchal.
+
+	* fortran_pp.st: Highlighting rules for Fortran 77 with
+	preprocessor.  Thanks to Tobias Buchal
+	<buch@ifh.bau-verm.uni-karlsruhe.de>.
+
+1999-07-19  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* mail.st: Changes by Matthew Weigel <weigel@pitt.edu>.
+
+	* fortran.st: Changes by Joachim Kaiser <jhk@cmpnetmail.com>.
+
+1999-07-08  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* tex.st: Highlighting rules for TeX/LaTeX.  Thanks to Toni
+	Giorgino <toni@pcape2.pi.infn.it>.
+
+	* outline.st: Highlighting rules for emacs' outline text.
+
+1999-04-01  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* enscript.st: Changed the `.m' suffix from Objective-C to
+	Matlab.
+
+	* matlab.st: Minor Matlab mode changes by Jack Dunn.
+
+1999-03-29  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* lang_ansi.st: Added ANSI output language for color outputs on
+	color xterm, etc.  Thanks to Bill Petheram <petheram@acm.org>.
+
+1999-03-12  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* matlab.st: Highlighting rules for Matlab files.  Thanks to Jack
+	Dunn <h.j.dunn@larc.nasa.gov>.
+
+1999-02-18  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* inf.st: Highlighting rules for the GUI INF Script language.
+
+1999-01-11  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* rfc.st: Highlighting rules for the RFCs and the Internet Drafts.
+	The `rfc' rule fixes broken documents which have an invalid page
+	break sequence.
+
+1999-01-07  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* cpp.st (c): Accept '&' characters in function names.  Thanks to
+	Tobias Buchal.
+
+	* ksh.st (HighlightEntry): In ${#text}, the '#' character does not
+	start a comment.  Thanks to Tobias Buchal
+	<buchal41@che41a0.der.edf.fr>.
+
+1998-12-29  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* style_msvc.st: New MS Visual C -style style.
+
+1998-12-22  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* enscript.st (start): Added support for `LucidaTypewriter' font.
+
+1998-12-18  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* html.st (html): Fixed the nested JavaScript script detection to
+	accept all JavaScript versions.  The script name detection is also
+	case-insensitive.
+
+1998-10-30  Markku Rossi  <mtr@ngs.fi>
+
+	* lang_texinfo.st (language_symbol): New function.
+
+	* lang_rtf.st (language_symbol): New function.
+
+	* lang_overstrike.st (language_symbol): New function.
+
+	* lang_html.st (language_symbol): New function.
+
+	* lang_enscript.st (language_symbol): New function to print the
+	language dependent symbols.
+
+	* enscript.st: New option variable `verbose_highlighting'.  The
+	style files can set this to true and some highlighting rules will
+	add some extra highlightings.
+
+	* c.st: Implemented verbose highlighting where things like &&, ||,
+	etc. are replaced with their mathematical symbols: logical and,
+	logical or, etc.
+
+	* style_emacs_verbose.st: Emacs style with verbose highlighting.
+
+	* c.st: Fixed to cooperate with the inherited Objective-C and C++
+	highlighting rules.
+
+	* objc.st: Changed to be inherited from the C highlighting rules.
+
+	* cpp.st: Changed to be inherited from the C highlighting rules.
+	This allows use to re-use code from the C definitions, and RSN, we
+	get the verbose highlightings for free.
+
+1998-10-26  Markku Rossi  <mtr@ngs.fi>
+
+	* style_a2ps.st: New style to imitate a2ps' highlighting.  This is
+	incomplete.
+
+	* Split the old `enscript.st' to about many .st files.  They are
+	here.

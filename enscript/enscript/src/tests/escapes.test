@@ -1,0 +1,20 @@
+#!/bin/sh
+#
+# Special escapes.
+#
+
+. $srcdir/defs || exit 1
+
+links="README.ESCAPES mtr.eps mtr_small.eps mtr_tiny.eps"
+
+for i in $links; do
+  ln -s $srcdir/../../$i .
+done
+
+$enscript --quiet -G2r -p$output -e README.ESCAPES
+
+for i in $links; do
+  rm -f $i
+done
+
+rm $output

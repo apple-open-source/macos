@@ -1,5 +1,5 @@
 /*
- * $Id: ossl.h 13176 2007-08-22 01:16:17Z shyouhei $
+ * $Id: ossl.h 17654 2008-06-29 08:14:26Z shyouhei $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -42,6 +42,11 @@ extern "C" {
 #if defined(_WIN32)
 #  define OpenFile WINAPI_OpenFile
 #  define OSSL_NO_CONF_API 1
+#  ifdef USE_WINSOCK2
+#    include <winsock2.h>
+#  else
+#    include <winsock.h>
+#  endif
 #endif
 #include <errno.h>
 #include <openssl/err.h>

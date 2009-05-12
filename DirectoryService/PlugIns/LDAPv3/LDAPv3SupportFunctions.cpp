@@ -82,15 +82,23 @@ static tDirStatus DSCheckForLDAPResult( LDAP			*inHost,
 				rc = ldap_parse_result( inHost, *outResult, &ldapErr, NULL, &ldapErrMsg, NULL, NULL, 0);
 				if ( rc == LDAP_SUCCESS )
 				{
-					if ( ldapErr == LDAP_SUCCESS )
+					switch( ldapErr )
 					{
-						siResult = eDSRecordNotFound;  // normal successful return code
-					}
-					else
-					{
-						siResult = eDSOperationFailed;
-						DbgLog( kLogNotice, "CLDAPv3::DSCheckForLDAPResult - LDAP server search result error %d: %s",
-								ldapErr, (ldapErrMsg == NULL || ldapErrMsg[0] == '\0') ? "Unknown error" : ldapErrMsg );
+						case LDAP_ADMINLIMIT_EXCEEDED:
+						case LDAP_SIZELIMIT_EXCEEDED:
+							DbgLog( kLogNotice, "CLDAPv3::DSCheckForLDAPResult - LDAP request limit exceeded" );
+						case LDAP_SUCCESS:
+						case LDAP_NO_SUCH_OBJECT:
+							siResult = eDSRecordNotFound;  // normal successful return code
+							break;
+						case LDAP_TIMEOUT:
+						case LDAP_TIMELIMIT_EXCEEDED:
+							DbgLog( kLogNotice, "CLDAPv3::DSCheckForLDAPResult - LDAP request timed out" );
+						default:
+							siResult = eDSOperationFailed;
+							DbgLog( kLogPlugin, "CLDAPv3::DSCheckForLDAPResult - LDAP server search result error %d: %s",
+								    ldapErr, (ldapErrMsg == NULL || ldapErrMsg[0] == '\0') ? "Unknown error" : ldapErrMsg );
+							break;
 					}
 				}
 				else
@@ -98,6 +106,7 @@ static tDirStatus DSCheckForLDAPResult( LDAP			*inHost,
 					siResult = eDSOperationFailed;
 					DbgLog( kLogPlugin, "CLDAPv3::DSCheckForLDAPResult - ldap_parse_result() failed, return code = %d", rc );
 				}
+				
 				DSFree( ldapErrMsg );
  				break;
 			}

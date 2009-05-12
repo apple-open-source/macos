@@ -1,76 +1,48 @@
 # Messages français pour GNU concernant enscript.
-# Copyright (C) 1996 Free Software Foundation, Inc.
-# Michel Robitaille <robitail@IRO.UMontreal.CA>, 1996.
+# Copyright © 1996 Free Software Foundation, Inc.
+# Michel Robitaille <robitail@IRO.UMontreal.CA>, traducteur depuis/since 1996.
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: GNU enscript 1.5.1POT-Creation-Date: 1997-09-30 "
-"12:23+0300PO-Revision-Date: 1997-09-22 22:10 -0500Last-Translator: Michel "
-"Robitaille <robitail@IRO.UMontreal.CA>Language-Team: French "
-"<fr@li.org>MIME-Version: 1.0Content-Type: text/plain; "
-"charset=ISO-8859-1Content-Transfer-Encoding: 8-bitPOT-Creation-Date: "
-"1997-10-21 08:39+0300d: %s: POT-Creation-Date: 1997-11-26 "
-"10:53+0200POT-Creation-Date: 1997-12-17 09:13+0200mPOT-Creation-Date: "
-"1997-12-17 09:13+0200POT-Creation-Date: 1997-12-31 "
-"10:10+0200ePOT-Creation-Date: 1997-12-31 10:10+0200POT-Creation-Date: "
-"1998-01-02 09:31+0200mPOT-Creation-Date: 1998-01-02 "
-"09:31+0200POT-Creation-Date: 1998-01-02 09:31+0200iPOT-Creation-Date: "
-"1998-01-12 15:27+0200POT-Creation-Date: 1998-01-12 "
-"15:27+0200:POT-Creation-Date: 1998-01-13 12:09+0200POT-Creation-Date: "
-"1998-01-13 12:09+0200\"POT-Creation-Date: 1998-01-14 "
-"11:54+0200POT-Creation-Date: 1998-01-14 11:54+0200 POT-Creation-Date: "
-"1998-01-14 11:54+0200POT-Creation-Date: 1998-01-14 "
-"11:54+0200,POT-Creation-Date: 1998-02-23 10:19+0200POT-Creation-Date: "
-"1998-03-09 11:08+0200oPOT-Creation-Date: 1998-03-09 "
-"11:49+0200POT-Creation-Date: 1998-03-25 09:27+0200%POT-Creation-Date: "
-"1998-03-25 09:27+0200POT-Creation-Date: 1998-05-18 "
-"11:00+0300%POT-Creation-Date: 1998-05-26 10:28+0300POT-Creation-Date: "
-"1998-05-26 10:28+0300 POT-Creation-Date: 1998-05-26 "
-"10:28+0300POT-Creation-Date: 1998-05-26 10:28+0300dPOT-Creation-Date: "
-"1998-06-11 14:05+0300POT-Creation-Date: 1998-06-11 "
-"14:05+0300aPOT-Creation-Date: 1998-06-11 14:05+0300POT-Creation-Date: "
-"1998-06-11 14:05+0300.POT-Creation-Date: 1998-06-11 "
-"14:05+0300POT-Creation-Date: 1998-06-17 10:05+0300iPOT-Creation-Date: "
-"1998-06-23 10:16+0300POT-Creation-Date: 1998-06-23 11:27+0300 "
-"POT-Creation-Date: 1998-06-23 11:27+0300POT-Creation-Date: 1998-06-24 "
-"11:00+0300:POT-Creation-Date: 1998-06-25 10:35+0300POT-Creation-Date: "
-"1998-06-25 11:27+0300:POT-Creation-Date: 1998-06-25 "
-"11:27+0300POT-Creation-Date: 1998-06-25 11:27+0300.POT-Creation-Date: "
-"1998-06-25 11:27+0300POT-Creation-Date: 1998-06-25 11:27+0300C\n"
+"Project-Id-Version: GNU enscript 1.6.3\n"
+"POT-Creation-Date: 2003-03-05 09:41+0200\n"
+"PO-Revision-Date: 2002-11-13 08:00-0500\n"
+"Last-Translator: Michel Robitaille <robitail@IRO.UMontreal.CA>\n"
+"Language-Team: French <traduc@traduc.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=ISO-8859-1\n"
+"Content-Transfer-Encoding: 8-bit\n"
 
 #: compat/getopt.c:628
 #, c-format
 msgid "%s: option `%s' is ambiguous\n"
-msgstr "%s: l'option `%s' est ambiguë.\n"
+msgstr "%s: l'option « %s » est ambiguë.\n"
 
 #: compat/getopt.c:652
 #, c-format
 msgid "%s: option `--%s' doesn't allow an argument\n"
-msgstr "%s: l'option `--%s' ne permet pas de paramètre.\n"
+msgstr "%s: l'option « --%s » ne permet pas d'argument.\n"
 
 #: compat/getopt.c:657
 #, c-format
 msgid "%s: option `%c%s' doesn't allow an argument\n"
-msgstr "%s: l'option `%c%s' ne permet pas de paramètre.\n"
+msgstr "%s: l'option « %c%s » ne permet pas d'argument.\n"
 
 #: compat/getopt.c:674 compat/getopt.c:847
 #, c-format
 msgid "%s: option `%s' requires an argument\n"
-msgstr "%s: l'option `--%s' requiert un paramètre.\n"
+msgstr "%s: l'option « --%s » requiert un argument.\n"
 
-#. --option
 #: compat/getopt.c:703
 #, c-format
 msgid "%s: unrecognized option `--%s'\n"
-msgstr "%s: l'option `--%s' n'est pas reconnue.\n"
+msgstr "%s: l'option « --%s » n'est pas reconnue.\n"
 
-#. +option or -option
 #: compat/getopt.c:707
 #, c-format
 msgid "%s: unrecognized option `%c%s'\n"
-msgstr "%s: l'option `%c%s' n'est pas reconnue.\n"
+msgstr "%s: l'option « %c%s » n'est pas reconnue.\n"
 
-#. 1003.2 specifies the format of this message.
 #: compat/getopt.c:733
 #, c-format
 msgid "%s: illegal option -- %c\n"
@@ -81,33 +53,32 @@ msgstr "%s: l'option -- %c est illégale.\n"
 msgid "%s: invalid option -- %c\n"
 msgstr "%s: l'option -- %c est invalide.\n"
 
-#. 1003.2 specifies the format of this message.
 #: compat/getopt.c:766 compat/getopt.c:896
 #, c-format
 msgid "%s: option requires an argument -- %c\n"
-msgstr "%s: l'option --%c requiert un paramètre.\n"
+msgstr "%s: l'option --%c requiert un argument.\n"
 
 #: compat/getopt.c:813
 #, c-format
 msgid "%s: option `-W %s' is ambiguous\n"
-msgstr "%s: l'option `-W %s' est ambiguë.\n"
+msgstr "%s: l'option « -W %s » est ambiguë.\n"
 
 #: compat/getopt.c:831
 #, c-format
 msgid "%s: option `-W %s' doesn't allow an argument\n"
-msgstr "%s: l'option `-W %s' ne permet pas de paramètre.\n"
+msgstr "%s: l'option « -W %s » ne permet pas de argument.\n"
 
-#: compat/xalloc.c:63
+#: compat/xalloc.c:70
 #, c-format
 msgid "xmalloc(): couldn't allocate %d bytes\n"
 msgstr "xmalloc(): ne peut allouer %d octets.\n"
 
-#: compat/xalloc.c:81
+#: compat/xalloc.c:88
 #, c-format
 msgid "xcalloc(): couldn't allocate %d bytes\n"
 msgstr "xcalloc(): ne peut allouer %d octets.\n"
 
-#: compat/xalloc.c:102
+#: compat/xalloc.c:109
 #, c-format
 msgid "xrealloc(): couldn't reallocate %d bytes\n"
 msgstr "xrealloc(): ne peut réallouer %d octets.\n"
@@ -116,82 +87,66 @@ msgstr "xrealloc(): ne peut réallouer %d octets.\n"
 msgid "Success"
 msgstr "Succès."
 
-#. REG_NOERROR
 #: compat/regex.c:997
 msgid "No match"
 msgstr "Aucune concordance."
 
-#. REG_NOMATCH
 #: compat/regex.c:998
 msgid "Invalid regular expression"
 msgstr "Expression régulière invalide."
 
-#. REG_BADPAT
 #: compat/regex.c:999
 msgid "Invalid collation character"
 msgstr "Fusionnement invalide des caractères."
 
-#. REG_ECOLLATE
 #: compat/regex.c:1000
 msgid "Invalid character class name"
 msgstr "Nom de classe de caractère invalide."
 
-#. REG_ECTYPE
 #: compat/regex.c:1001
 msgid "Trailing backslash"
 msgstr "Barre oblique inverse en suffixe."
 
-#. REG_EESCAPE
 #: compat/regex.c:1002
 msgid "Invalid back reference"
 msgstr "Adressage arrière invalide."
 
-#. REG_ESUBREG
 #: compat/regex.c:1003
 msgid "Unmatched [ or [^"
 msgstr "[ ou [^ non pairé."
 
-#. REG_EBRACK
 #: compat/regex.c:1004
 msgid "Unmatched ( or \\("
 msgstr "( ou \\( non pairé."
 
-#. REG_EPAREN
 #: compat/regex.c:1005
 msgid "Unmatched \\{"
 msgstr "\\{ non pairé."
 
-#. REG_EBRACE
 #: compat/regex.c:1006
 msgid "Invalid content of \\{\\}"
 msgstr "Le contenu entre \\{\\} est invalide."
 
-#. REG_BADBR
 #: compat/regex.c:1007
 msgid "Invalid range end"
 msgstr "Borne finale invalide."
 
-#. REG_ERANGE
 #: compat/regex.c:1008
 msgid "Memory exhausted"
 msgstr "Mémoire épuisée."
 
-#. REG_ESPACE
 #: compat/regex.c:1009
 msgid "Invalid preceding regular expression"
 msgstr "Expression réguliére précédente invalide."
 
-#. REG_BADRPT
 #: compat/regex.c:1010
 msgid "Premature end of regular expression"
 msgstr "Fin prématurée de l'expression régulière."
 
-#. REG_EEND
 #: compat/regex.c:1011
 msgid "Regular expression too big"
 msgstr "Expression régulière trop grande."
 
-#. REG_ESIZE
 #: compat/regex.c:1012
 msgid "Unmatched ) or \\)"
 msgstr ") ou \\) non pairé."
@@ -200,36 +155,85 @@ msgstr ") ou \\) non pairé."
 msgid "No previous regular expression"
 msgstr "Aucune expression régulière précédente."
 
-#. Create the default TOC format string.  Wow, this is cool!
-#: src/main.c:906
-#, c-format
+#: src/main.c:966
+#, no-c-format
 msgid "$3v $-40N $3% pages $4L lines  $E $C"
 msgstr "$3v $-40N $3% pages $4L lignes  $E $C"
 
-#: src/main.c:936
+#: src/main.c:996
 #, c-format
 msgid "couldn't get passwd entry for uid=%d: %s"
 msgstr ""
-"Ne peut retrouver une entrée dans le fichier 'passwd'\n"
+"Ne peut retrouver une entrée dans le fichier « passwd »\n"
 "correspondant au Uid=%d: %s."
 
-#. No luck, report error from the original config file.
-#: src/main.c:989
+#: src/main.c:1088
 #, c-format
-msgid "couldn't open config file \"%s/%s\": %s"
-msgstr "Ne peut ouvrir le fichier de configuration \"%s/%s\": %s."
+msgid "couldn't read config file \"%s/%s\": %s"
+msgstr "Ne peut lire le fichier de configuration \"%s/%s\": %s"
 
-#: src/main.c:1049
+#: src/main.c:1092
+msgid "I did also try the following directories:"
+msgstr "J'ai aussi essayer parmi les répertoires suivants:"
+
+#: src/main.c:1093 src/main.c:1094 src/main.c:1095
+#, c-format
+msgid "\t%s"
+msgstr "\t%s"
+
+#: src/main.c:1096
+msgid "\t../lib"
+msgstr "\t../lib"
+
+#: src/main.c:1097
+msgid "\t../../lib"
+msgstr "\t../../lib"
+
+#: src/main.c:1099
+msgid "This is probably an installation error.  Please, try to rebuild:"
+msgstr ""
+"Cela est probablement une erreur d'installation. SVP, essayer de "
+"reconstruire:"
+
+#: src/main.c:1100
+msgid "\tmake distclean"
+msgstr "\tmake distclean"
+
+#: src/main.c:1101
+msgid "\t./configure --prefix=PREFIX"
+msgstr "\t./configure --prefix=PREFIX"
+
+#: src/main.c:1102
+msgid "\tmake"
+msgstr "\tmake"
+
+#: src/main.c:1103
+msgid "\tmake check"
+msgstr "\tmake check"
+
+#: src/main.c:1104
+msgid "\tmake install"
+msgstr "\tmake install"
+
+#: src/main.c:1106
+msgid "or set the environment variable `ENSCRIPT_LIBRARY' to point to your"
+msgstr "ou initialiser la variable d'environnement `ENSCRIPT_LIBRARY' pour pointer sur la vôtre"
+
+#: src/main.c:1108
+msgid "library directory."
+msgstr "répertoire de librairie"
+
+#: src/main.c:1180
 #, c-format
 msgid "unknown encoding: %s"
 msgstr "Encodage inconnu: %s"
 
-#: src/main.c:1068
+#: src/main.c:1199
 #, c-format
 msgid "couldn't open AFM library: %s"
-msgstr "Ne peut ouvrir la librairie \"AFM\": %s"
+msgstr "Ne peut ouvrir la librairie « AFM »: %s"
 
-#: src/main.c:1096
+#: src/main.c:1228
 msgid ""
 "known media:\n"
 "name             width\theight\tllx\tlly\turx\tury\n"
@@ -239,165 +243,168 @@ msgstr ""
 "nom              largeur\thauteur\tllx\tlly\turx\tury\n"
 "------------------------------------------------------------\n"
 
-#: src/main.c:1115
+#: src/main.c:1247
 #, c-format
 msgid "do not know anything about media \"%s\""
-msgstr "Ne peut reconnaître ce type de médium \"%s\"."
+msgstr "Ne peut reconnaître ce type de médium « %s »."
 
-#: src/main.c:1159
+#: src/main.c:1291
 #, c-format
 msgid ""
 "set new marginals for media `%s' (%dx%d): llx=%d, lly=%d, urx=%d, ury=%d\n"
-msgstr ""
+msgstr "utiliser les arguments pour le média « %s » (%dx%d): llx=%d, lly=%d, urx=%d, ury=%d\n"
 
-#: src/main.c:1170
+#: src/main.c:1302
 #, c-format
 msgid "illegal page label format \"%s\""
-msgstr "Le format d'étiquette de page \"%s\" est illégal."
+msgstr "Le format d'étiquette de page « %s » est illégal."
 
-#: src/main.c:1182
+#: src/main.c:1314
 #, c-format
 msgid "illegal non-printable format \"%s\""
-msgstr "Le format de la chaîne non imprimable \"%s\" est illégal."
+msgstr "Le format de la chaîne non imprimable « %s » est illégal."
 
-#: src/main.c:1196
+#: src/main.c:1328
 #, c-format
 msgid "illegal style for wrapped line marker: \"%s\""
-msgstr "style illégal pour le marqueur de ligne bouclée: \"%s\""
+msgstr "style illégal pour le marqueur de ligne bouclée: « %s »"
 
-#: src/main.c:1206
+#: src/main.c:1338
 #, c-format
 msgid "illegal N-up argument: %d"
-msgstr "Le paramètre `N-up' est illégal: %d"
+msgstr "argument « N-up » illégal: %d"
 
-#: src/main.c:1211
+#: src/main.c:1343
 #, c-format
 msgid "N-up argument must be power of 2: %d"
-msgstr "Le paramètre `N-up' doit être une puissance de 2: %d"
+msgstr "argument « N-up » doit être une puissance de 2: %d"
 
-#: src/main.c:1288
+#: src/main.c:1420
 #, c-format
 msgid "malformed underlay position: %s"
 msgstr "La position sous-jacente de %s est mal composée."
 
-#: src/main.c:1311
+#: src/main.c:1443
 #, c-format
 msgid "illegal underlay style: %s"
 msgstr "Le style sous-jacent %s est illégal."
 
-#: src/main.c:1434
-#, c-format
-msgid "couldn't create toc file name: %s"
-msgstr "Ne peut créer un fichier de table des matières: %s."
+#: src/main.c:1470
+msgid ""
+"Highlighting is supported for the following languages and file formats:\n"
+"\n"
+msgstr ""
+"Le surlignage est supporté pour les langages et formats de fichiers suivants:\n"
+"\n"
 
-#: src/main.c:1439
+#: src/main.c:1641
 #, c-format
-msgid "couldn't create toc file \"%s\": %s"
-msgstr "Ne peut créer un fichier de table des matières \"%s\": %s."
+msgid "couldn't create temporary toc file: %s"
+msgstr "Ne peut créer un fichier temporarire de table des matières: %s"
 
-#: src/main.c:1490
+#: src/main.c:1688
 #, c-format
 msgid "couldn't stat input file \"%s\": %s"
-msgstr "Ne peut évaluer à l'aide de stat() le fichier fourni \"%s\": %s."
+msgstr "Ne peut évaluer à l'aide de stat() le fichier fourni « %s »: %s."
 
-#: src/main.c:1510
+#: src/main.c:1708
 #, c-format
 msgid "couldn't rewind toc file: %s"
 msgstr "Ne peut ré-ouvrir le fichier de la table de matières: %s."
 
-#: src/main.c:1516
+#: src/main.c:1714
 msgid "Table of Contents"
 msgstr "Table des matières"
 
-#.
-#. * The value of <ofp> is not reset in close_output_file(),
-#. * this is ugly but it saves one flag.
-#.
-#: src/main.c:1549
+#: src/main.c:1743
 msgid "no output generated\n"
 msgstr "Aucune sortie n'a été produite.\n"
 
-#: src/main.c:1554
+#: src/main.c:1748
 #, c-format
 msgid "output sent to %s\n"
 msgstr "expédié à %s\n"
 
-#: src/main.c:1555 src/main.c:1579
+#: src/main.c:1749 src/main.c:1773
 msgid "printer"
 msgstr "l'imprimante"
 
-#: src/main.c:1557
+#: src/main.c:1751
 #, c-format
 msgid "output left in %s\n"
 msgstr " placées dans %s\n"
 
-#. We did something, tell what.
-#: src/main.c:1575
+#: src/main.c:1769
 #, c-format
 msgid "[ %d pages * %d copy ]"
 msgstr "[ %d pages x %d copies ]"
 
-#: src/main.c:1578
+#: src/main.c:1772
 #, c-format
 msgid " sent to %s\n"
-msgstr "expédié à `%s\n"
+msgstr "expédié à «%s\n"
 
-#: src/main.c:1581
+#: src/main.c:1775
 #, c-format
 msgid " left in %s\n"
 msgstr " placées dans %s\n"
 
-#: src/main.c:1586
+#: src/main.c:1780
 #, c-format
 msgid "%d lines were %s\n"
 msgstr "%d lignes étaient %s\n"
 
-#: src/main.c:1588
+#: src/main.c:1782
 msgid "truncated"
 msgstr "tronquées"
 
-#: src/main.c:1588
+#: src/main.c:1782
 msgid "wrapped"
 msgstr "enroulées"
 
-#: src/main.c:1594
+#: src/main.c:1788
 #, c-format
 msgid "%d characters were missing\n"
 msgstr "%d caractères étaient manquants.\n"
 
-#: src/main.c:1598
+#: src/main.c:1792
 msgid "missing character codes (decimal):\n"
 msgstr "Codes de caractère manquants (en décimal):\n"
 
-#: src/main.c:1606
+#: src/main.c:1800
 #, c-format
 msgid "%d non-printable characters\n"
 msgstr "%d caractères non-imprimables\n"
 
-#: src/main.c:1611
+#: src/main.c:1805
 msgid "non-printable character codes (decimal):\n"
 msgstr "Codes de caractère non imprimables (en décimal):\n"
 
-#: src/main.c:1653
+#: src/main.c:1854
 #, c-format
 msgid "couldn't open printer `%s': %s"
-msgstr "Ne peut accéder à l'imprimante `%s': %s."
+msgstr "Ne peut accéder à l'imprimante « %s »: %s."
 
-#: src/main.c:1662
+#: src/main.c:1863
 #, c-format
 msgid "couldn't create output file \"%s\": %s"
-msgstr "Ne peut créer un fichier de sortie \"%s\": %s."
+msgstr "Ne peut créer un fichier de sortie « %s »: %s."
 
-#: src/main.c:1735
+#: src/main.c:1880
+#, c-format
+msgid "couldn't close output file \"%s\": %s"
+msgstr "Ne peut fermer le fichier de sortie « %s »: %s"
+
+#: src/main.c:1938
 #, c-format
 msgid ""
 "syntax error in option string %s=\"%s\":\n"
 "missing end of quotation: %c"
 msgstr ""
-"Erreur de syntaxe rencontrée dans l'option %s=\"%s\":\n"
+"Erreur de syntaxe rencontrée dans l'option %s=« %s »:\n"
 "L'apostrophe terminant la chaîne %c est manquante."
 
-#: src/main.c:1767
+#: src/main.c:1970
 #, c-format
 msgid ""
 "warning: didn't process following options from environment variable %s:\n"
@@ -405,49 +412,62 @@ msgstr ""
 "AVERTISSEMENT: ne peut traiter les options suivantes à partir\n"
 "des variables d'environnement %s:\n"
 
-#: src/main.c:1771
+#: src/main.c:1974
 #, c-format
 msgid "  option %d = \"%s\"\n"
-msgstr " option %d = \"%s\"\n"
+msgstr " option %d = « %s »\n"
 
-#: src/main.c:1862
+#: src/main.c:2020
+msgid "number of columns must be larger than zero"
+msgstr "nombre de colonnes doit être plus grand que zéro"
+
+#: src/main.c:2078
 msgid "file alignment must be larger than zero"
 msgstr "L'alignement de fichier doit être plus grand que zéro."
 
-#: src/main.c:1916 src/main.c:1922 src/main.c:2101 src/util.c:391
+#: src/main.c:2133 src/main.c:2139 src/main.c:2350 src/util.c:415
 #, c-format
 msgid "malformed font spec: %s"
 msgstr "La spécification de la fonte est mal composée: %s."
 
-#: src/main.c:1938
+#: src/main.c:2155
 #, c-format
 msgid "couldn't find header definition file \"%s.hdr\""
 msgstr "Ne peut trouver le fichier de définition de l'en-tête \"%s.hdr\"."
 
-#: src/main.c:1982
+#: src/main.c:2199
 #, c-format
 msgid "must print at least one line per each page: %s"
 msgstr "Imprimer au moins une ligne par page: %s"
 
-#: src/main.c:2002
+#: src/main.c:2219
 #, c-format
 msgid "%s: illegal newline character specifier: '%s': expected 'n' or 'r'\n"
 msgstr ""
 "%s: la spécification d'un caractère de saut de ligne est illégale:\n"
-" '%s': attendait 'n' ou 'r'\n"
+" « %s »: attendait « n » ou « r »\n"
 
-#: src/main.c:2156
+#: src/main.c:2308
+#, c-format
+msgid "malformed argument `%s' for option -W, --option: no comma found"
+msgstr "argument mal composé « %s » pour l'option -W, --option: pas de virgule"
+
+#: src/main.c:2313
+#, c-format
+msgid "helper application specification must be single character: %s"
+msgstr "spécification de l'application d'aire doit être un caractère simple: %s"
+
+#: src/main.c:2409
 msgid "slice must be greater than zero"
 msgstr "la valeur de la tranche doit être plus grande que zéro"
 
-#. Errors found during getopt_long().
-#: src/main.c:2209 states/main.c:288
+#: src/main.c:2490 states/main.c:320
 #, c-format
 msgid "Try `%s --help' for more information.\n"
-msgstr "Pour en savoir davantage, faites: `%s --help'.\n"
+msgstr "Pour en savoir davantage, faites: « %s --help ».\n"
 
-#: src/main.c:2320
-#, fuzzy, c-format
+#: src/main.c:2510
+#, c-format
 msgid ""
 "Usage: %s [OPTION]... [FILE]...\n"
 "Mandatory arguments to long options are mandatory for short options too.\n"
@@ -468,7 +488,8 @@ msgid ""
 "  -e, --escapes[=CHAR]       enable special escape interpretation\n"
 msgstr ""
 "Usage: %s [OPTIONS] [FICHIER] ...\n"
-"Options:\n"
+"Les arguments obligatoires pour les options de formes longues \n"
+"le sont aussi pour les options de formes courtes.\n"
 "  -#                         un alias de l'option -n, --copies\n"
 "  -1                         identique à --columns=1\n"
 "  -2                         identique à --columns=2\n"
@@ -486,13 +507,13 @@ msgstr ""
 "                             périphérique d'imprimante directement\n"
 "                             à la sortie\n"
 "  -e, --escapes[=CARAC]      autoriser l'interprétation des\n"
-"                             CARACtères d'échappement ('\\')\n"
+"                             CARACtères d'échappement (« \\ »)\n"
 
-#: src/main.c:2340
-msgid "  -E, --pretty-print[=LANG]  pretty-print source code\n"
-msgstr "  -E, --pretty-print[=LANG]  afficher le code source joliment\n"
+#: src/main.c:2530
+msgid "  -E, --highlight[=LANG]     highlight source code\n"
+msgstr "  -E, --highlight[=LANG]     afficher le code source joliment\n"
 
-#: src/main.c:2343
+#: src/main.c:2533
 msgid ""
 "  -f, --font=NAME            use font NAME for body text\n"
 "  -F, --header-font=NAME     use font NAME for header texts\n"
@@ -508,8 +529,8 @@ msgid ""
 "  -k, --page-prefeed         enable page prefeed\n"
 "  -K, --no-page-prefeed      disable page prefeed\n"
 "  -l, --lineprinter          simulate lineprinter, this is an alias for:\n"
-"                               --lines-per-page=66, --no-header, "
-"--portrait,\n"
+"                               --lines-per-page=66, --no-header, --"
+"portrait,\n"
 "                               --columns=1\n"
 msgstr ""
 "  -f, --font=FONTE           utiliser la FONTE pour le corps du texte\n"
@@ -529,7 +550,7 @@ msgstr ""
 "                               --lines-per-page=66, --no-header,\n"
 "                               --portrait, --columns=1\n"
 
-#: src/main.c:2361
+#: src/main.c:2551
 msgid ""
 "  -L, --lines-per-page=NUM   specify how many lines are printed on each "
 "page\n"
@@ -553,18 +574,19 @@ msgstr ""
 "                             portant le NOM\n"
 "  -n, --copies=N             produire N copies\n"
 "  -N, --newline=CAR          utiliser le CARactère de saut de ligne\n"
-"                             parmi: (`\\n') ou r (`\\r').\n"
-"  -o                         utiliser l'alias pour `-p', `--output'\n"
+"                             parmi: (« \\n ») ou r (« \\r »).\n"
+"  -o                         utiliser l'alias pour « -p », « --output »\n"
 "  -O, --missing-characters   indiquer les codes de caractères manquants\n"
 "  -p, --output=FICHIER       produire la sortie dans un FICHIER.  Si\n"
-"                             `-' est utilisé, utiliser la sortie standard.\n"
+"                             « - » est utilisé, utiliser la sortie standard.\n"
 "  -P, --printer=NOM          produire la sortie sur l'imprimante\n"
 "                             portant le NOM\n"
 "  -q, --quiet, --silent      ne pas utiliser le mode bavard\n"
 "  -r, --landscape            imprimer en mode paysage\n"
 "  -R, --portrait             imprimer en mode portrait\n"
 
-#: src/main.c:2377
+#: src/main.c:2567
+#, fuzzy
 msgid ""
 "  -s, --baselineskip=NUM     set baselineskip to NUM\n"
 "  -S, --statusdict=KEY[:VALUE]\n"
@@ -576,13 +598,14 @@ msgid ""
 "  -U, --nup=NUM              print NUM logical pages on each output page\n"
 "  -v, --verbose              tell what we are doing\n"
 "  -V, --version              print version number\n"
-"  -W, --language=LANG        set output language to LANG\n"
+"  -w, --language=LANG        set output language to LANG\n"
+"  -W, --options=APP,OPTION   pass option OPTION to helper application APP\n"
 "  -X, --encoding=NAME        use input encoding NAME\n"
 "  -z, --no-formfeed          do not interpret form feed characters\n"
 "  -Z, --pass-through         pass through PostScript and PCL files\n"
 "                             without any modifications\n"
 msgstr ""
-"  -s, --baselineskip=N       initialiser le paramètre `baselineskip' à N\n"
+"  -s, --baselineskip=N       initialiser l'argument « baselineskip » à N\n"
 "  -S, --statusdict=CLÉ[:VALEUR]\n"
 "                             relayer le dictionnaire d'état vers la\n"
 "                             sortie\n"
@@ -595,57 +618,70 @@ msgstr ""
 "                             physique\n"
 "  -v, --verbose              utiliser le mode bavard\n"
 "  -V, --version              afficher la version et quitter\n"
-"  -W, --language=LANGAGE     inialiser le LANGAGE\n"
+"  -w, --language=LANGAGE     inialiser le LANGAGE\n"
+"  -W, --options=APP,OPTION   passer l'OPTION à l'APPlication d'aide\n"
 "  -X, --encoding=MOT         utiliser le MOT d'encodage\n"
 "  -z, --no-formfeed          ne pas effectuer de saut de page par\n"
 "                             interprétation des caractères de saut de page\n"
 "  -Z, --pass-through         traiter les fichiers Postscript et PCL\n"
 "                             sans les modifier\n"
 
-#: src/main.c:2394
-#, fuzzy
+#: src/main.c:2585
 msgid ""
 "Long-only options:\n"
-"  --color[=COLOR]            set output color model to COLOR\n"
+"  --color[=bool]             create color outputs with states\n"
+"  --continuous-page-numbers  count page numbers across input files.  Don't\n"
+"                             restart numbering at beginning of each file.\n"
 "  --download-font=NAME       download font NAME\n"
+"  --extended-return-values   enable extended return values\n"
 "  --filter-stdin=NAME        specify how stdin is shown to the input filter\n"
+"  --footer=FOOTER            set page footer\n"
 "  --h-column-height=HEIGHT   set the horizontal column height to HEIGHT\n"
 "  --help                     print this help and exit\n"
-"  --help-pretty-print        describe all supported --pretty-print "
-"languages\n"
+msgstr ""
+"Options de formes longues seulement:\n"
+"  --color[=bool]             créer les couleurs de sortie avec états\n"
+"  --continuous-page-numbers  compter les numéros de page lors du parcours\n"
+"                             du fichier d'entrée.  Ne pas recommencer\n"
+"                             la numérotation à partir du début de chaque fichier.\n"
+"  --download-font=NOM        télécharger la fonte ayant le NOM\n"
+"  --extended-return-values   autoriser le retour des valeurs étendues\n"
+"  --filter-stdin=NOM         spécifier comment stdin est affiché sur le filtre d'entrée\n"
+"  --footer=BAS-DE-PAGE       initialiser le bas de page\n"
+"  --h-column-height=HAUTEUR  initialiser la HAUTEUR horizontale des "
+"colonnes\n"
+"  --help                     afficher l'aide et quitter\n"
+
+#: src/main.c:2596
+#, fuzzy
+msgid ""
+"  --help-highlight           describe all supported --highlight languages\n"
 "                             and file formats\n"
 "  --highlight-bar-gray=NUM   print highlight bars with gray NUM (0 - 1)\n"
 "  --list-media               list names of all known media\n"
-"  --list-options             list all options and their values\n"
 "  --margins=LEFT:RIGHT:TOP:BOTTOM\n"
 "                             adjust page marginals\n"
 "  --mark-wrapped-lines[STYLE]\n"
 "                             mark wrapped lines in the output with STYLE\n"
 "  --non-printable-format=FMT specify how non-printable chars are printed\n"
 msgstr ""
-"Options de formes longues:\n"
-"  --color[=COULEUR]          initialiser le modèle de COULEUR\n"
-"  --download-font=FONTE      télécharger la FONTE de caractères\n"
-"  --filter-stdin=FILTRE      spécifier comment stdin est présenté\n"
-"                             au FILTRE d'entrée\n"
-"  --help                     afficher l'aide et quitter\n"
-"  --help-pretty-print        afficher la liste de tous les\n"
-"                             langages \"--pretty-print\" supportés\n"
+"  --help-highlight           afficher la liste de tous les\n"
+"                             langages où --highlight est supporté\n"
 "  --highlight-bar-gray=N     imprimer les barres en surlignant\n"
 "                             selon le niveau de gris N (0 - 1)\n"
 "  --list-media               afficher la liste des médiums connus\n"
 "  --list-options             afficher toutes les options et \n"
 "                             leurs valeurs possibles\n"
+"  --margins=LEFT:RIGHT:TOP:BOTTOM\n"
+"                             ajuster les marges des pages\n"
 "  --mark-wrapped-lines[STYLE]\n"
-"                             marquer les lignes bouclées avec le STYLE\n"
+"                             marquer les lignes bouclées à l'aide du STYLE\n"
 "  --non-printable-format=FORMAT\n"
 "                             utiliser le FORMAT non imprimable\n"
-"  --page-label-format=FORMAT utiliser le FORMAT d'étiquette de page\n"
-"  --printer-options=OPTIONS  relayer les options supplémentaires\n"
-"                             à la commande d'impression\n"
 
-#: src/main.c:2411
+#: src/main.c:2607
 msgid ""
+"  --nup-columnwise           layout pages in the N-up printing columnwise\n"
 "  --nup-xpad=NUM             set the page x-padding of N-up printing to NUM\n"
 "  --nup-ypad=NUM             set the page y-padding of N-up printing to NUM\n"
 "  --page-label-format=FMT    set page label format to FMT\n"
@@ -655,11 +691,23 @@ msgid ""
 "  --printer-options=OPTIONS  pass extra options to the printer command\n"
 "  --rotate-even-pages        rotate even-numbered pages 180 degrees\n"
 msgstr ""
+"  --nup-columnwise           diposer les pages sous la forme de N colonnes\n"
+"  --nup-xpad=NOMBRE          imprimer en remplissant la page en x de N "
+"jusqu'au NOMBRE\n"
+"  --nup-ypad=NOMBRE          imprimer en remplissant la page en y de N "
+"jusqu'au NOMBRE\n"
+"  --page-label-format=FORMAT utiliser le FORMAT de l'étiquette de page\n"
+"  --ps-level=NIVEAU          utiliser le NIVEAU du langage PostScript\n"
+"                             que « enscript » peut utiliser\n"
+"  --printer-options=OPTIONS  relayer les options supplémentaires à la commande d'impression\n"
+"  --rotate-even-pages        faire la rotation des pages paires de 180 degrés\n"
 
-#: src/main.c:2420
-#, fuzzy
+#: src/main.c:2617
 msgid ""
 "  --slice=NUM                print vertical slice NUM\n"
+"  --style=STYLE              use highlight style STYLE\n"
+"  --swap-even-page-margins   swap left and right side margins for each even\n"
+"                             numbered page\n"
 "  --toc                      print table of contents\n"
 "  --ul-angle=ANGLE           set underlay text's angle to ANGLE\n"
 "  --ul-font=NAME             print underlays with font NAME\n"
@@ -669,6 +717,9 @@ msgid ""
 "  --word-wrap                wrap long lines from word boundaries\n"
 msgstr ""
 "  --slice=N                  imprimer la tranche verticale N\n"
+"  --style=STYLE              utiliser le STYLE de surlignage\n"
+"  --swap-even-page-margins   interchanger les marges de gauche et de droite\n"
+"                             pour chaque page paire\n"
 "  --toc                      imprimer la table des matières\n"
 "  --ul-angle=ANGLE           imprimer le texte sous-jacent à l'ANGLE\n"
 "  --ul-font=FONTE            imprimer le texte sous-jacent en utilisant\n"
@@ -678,57 +729,61 @@ msgstr ""
 "  --ul-position=POS          débuter le texte sous-jacent à la\n"
 "                             POSition voulue\n"
 "  --ul-style=STYLE           imprimer le texte sous-jacent selon le STYLE\n"
+"  --word-wrap                boucler les lignes longues sur des\n"
+"                             frontières de mots\n"
 
-#: src/main.c:2431
+#: src/main.c:2631
 msgid ""
 "\n"
 "Report bugs to mtr@iki.fi.\n"
 msgstr ""
+"\n"
+"Rapport toutes anomalies à : mtr@iki.fi\n"
 
-#: src/psgen.c:304
+#: src/psgen.c:324
 #, c-format
 msgid "couldn't find prolog \"%s\": %s\n"
-msgstr "Ne peut trouver le préambule \"%s\": %s.\n"
+msgstr "Ne peut trouver le préambule « %s »: %s.\n"
 
-#: src/psgen.c:312
+#: src/psgen.c:332
 #, c-format
 msgid "couldn't find encoding file \"%s.enc\": %s\n"
 msgstr "Ne peut trouver le fichier d'encodage \"%s.enc\": %s.\n"
 
-#: src/psgen.c:444
+#: src/psgen.c:464
 #, c-format
 msgid "couldn't find header definition file \"%s.hdr\": %s\n"
 msgstr "Ne peut trouver le fichier de définition d'en-tête \"%s.hdr\": %s.\n"
 
-#: src/psgen.c:584
+#: src/psgen.c:608
 #, c-format
 msgid "processing file \"%s\"...\n"
-msgstr "Traitement du fichier \"%s\"...\n"
+msgstr "Traitement du fichier « %s »...\n"
 
-#.
-#. * At the beginning of the column, warn user
-#. * and print image.
-#.
-#: src/psgen.c:858
+#: src/psgen.c:906
 #, c-format
 msgid "EPS file \"%s\" is too large for page\n"
-msgstr "Le fichier EPS \"%s\" est trop volumineux pour une page.\n"
+msgstr "Le fichier EPS « %s » est trop volumineux pour une page.\n"
 
-#: src/psgen.c:1121
+#: src/psgen.c:979
+msgid "user font encoding can be only the system's default or `ps'"
+msgstr "L'encodage des fontes usagères ne peut être que celui du système par défaut ou « ps »"
+
+#: src/psgen.c:1220
 #, c-format
 msgid "unknown special escape: %s"
 msgstr "Le caractère spécial d'échappement est inconnu: %s."
 
-#: src/psgen.c:1247
+#: src/psgen.c:1346
 #, c-format
 msgid "illegal option %c for ^@epsf escape"
 msgstr "L'option %c est illégale pour un échappement ^@epsf."
 
-#: src/psgen.c:1253
+#: src/psgen.c:1352
 msgid "malformed ^@epsf escape: no ']' after options"
-msgstr "L'échappement ^@epsf mal composée: ']' non retrouvé après les options."
+msgstr "L'échappement ^@epsf mal composée: « ] » non retrouvé après les options."
 
-#: src/psgen.c:1265
+#: src/psgen.c:1364
 #, c-format
 msgid ""
 "too long file name for ^@epsf escape:\n"
@@ -737,238 +792,243 @@ msgstr ""
 "Le nom de fichier est trop long pour un échappement ^@epsf:\n"
 "%.*s."
 
-#: src/psgen.c:1269
+#: src/psgen.c:1368
 msgid "unexpected EOF while scanning ^@epsf escape"
-msgstr ""
-"Fin de fichier (EOF) inattendue lors de l'examen des échappements ^@epsf"
+msgstr "Fin de fichier (EOF) inattendue lors de l'examen des échappements ^@epsf"
 
-#: src/psgen.c:1275
+#: src/psgen.c:1374
 msgid "malformed ^@epsf escape: no '{' found"
-msgstr "L'échappement ^@epsf est mal composé: '}' n'a pas été retrouvé."
+msgstr "L'échappement ^@epsf est mal composé: « } » n'a pas été retrouvé."
 
-#: src/psgen.c:1333
+#: src/psgen.c:1432
 #, c-format
 msgid "malformed %s escape: no '{' found"
-msgstr "L'échappement %s est mal composé: '{' n'a pas été retrouvé."
+msgstr "L'échappement %s est mal composé: « { » n'a pas été retrouvé."
 
-#: src/psgen.c:1347
+#: src/psgen.c:1446
 #, c-format
 msgid ""
 "too long argument for %s escape:\n"
 "%.*s"
 msgstr ""
-"Le paramètre est trop long pour un échappement %s:\n"
+"L'argument est trop long pour un échappement %s:\n"
 "%.*s."
 
-#: src/psgen.c:1365
+#: src/psgen.c:1465
 #, c-format
 msgid "malformed font spec for ^@font escape: %s"
 msgstr ""
 "La spécification de la fonte de caractères est mal composée \n"
 "pour un échappement ^@font: %s"
 
-#: src/psgen.c:1395
+#: src/psgen.c:1501
 #, c-format
-msgid "malformed color spec for ^@color escape: %s"
+msgid "malformed color spec for ^@%s escape: %s"
 msgstr ""
-"La spécification de couleur est mal composée pour un échappement\n"
-"^@color: %s"
+"La spécification de couleur est mal composée pour ^@%s\n"
+"l'échappement %s"
 
-#: src/psgen.c:1414
+#: src/psgen.c:1525
 #, c-format
 msgid "invalid value for ^@shade escape: %s"
 msgstr "Valeur invalide pour ^@shade escape: %s."
 
-#: src/psgen.c:1422
+#: src/psgen.c:1533
 #, c-format
 msgid "invalid value for ^@bggray escape: %s"
 msgstr "Valeur invalide pour ^@bggray escape: %s."
 
-#: src/psgen.c:2221
+#: src/psgen.c:2397
 #, c-format
 msgid "epsf: couldn't open pipe to command \"%s\": %s\n"
-msgstr "epsf: ne peut faire le relais pour exécuter la commande \"%s\": %s\n"
+msgstr "epsf: ne peut faire le relais pour exécuter la commande « %s »: %s\n"
 
-#: src/psgen.c:2247
+#: src/psgen.c:2430
 #, c-format
 msgid "couldn't open EPS file \"%s\": %s\n"
-msgstr "Ne peut ouvrir le fichier EPS \"%s\": %s\n"
+msgstr "Ne peut ouvrir le fichier EPS « %s »: %s\n"
 
-#: src/psgen.c:2284
+#: src/psgen.c:2467
+#, c-format
 msgid "EPS file \"%s\" does not start with \"%%!\" magic\n"
-msgstr "Le fichier EPS \"%s\" ne débute pas par \"%%!\" magic.\n"
+msgstr "Le fichier EPS « %s » ne débute pas par « %%! » magic.\n"
 
-#. No, this BoundingBox comment is corrupted.
-#: src/psgen.c:2309
+#: src/psgen.c:2492
+#, c-format
 msgid ""
 "EPS file \"%s\" contains malformed %%%%BoundingBox row:\n"
 "\"%.*s\"\n"
 msgstr ""
-"Le fichier EPS \"%s\" contient une définition d'encadrement mal composée\n"
+"Le fichier EPS « %s » contient une définition d'encadrement mal composée\n"
 "de type %%%%BoundingBox rangée:\"%.*s\".\n"
 
-#: src/psgen.c:2334
+#: src/psgen.c:2517
 #, c-format
 msgid "EPS file \"%s\" is not a valid EPS file\n"
-msgstr "Le fichier EPS \"%s\" est un fichier EPS invalide.\n"
+msgstr "Le fichier EPS « %s » est un fichier EPS invalide.\n"
 
-#: src/psgen.c:2476
+#: src/psgen.c:2659
 #, c-format
 msgid "passing through all input files for output language `%s'\n"
-msgstr "traitement de tout le fichier pour le langage de sortie `%s'\n"
+msgstr "traitement de tout le fichier pour le langage de sortie « %s »\n"
 
-#: src/psgen.c:2528
+#: src/psgen.c:2711
 #, c-format
 msgid "passing through %s file \"%s\"\n"
-msgstr "Traitement du fichier %s \"%s\".\n"
+msgstr "Traitement du fichier %s « %s ».\n"
 
-#: src/psgen.c:2629
+#: src/psgen.c:2814
 #, c-format
-msgid "couldn't create divert file name: %s"
-msgstr "Ne peut créer le fichier de déviation: %s."
+msgid "couldn't create temporary divert file: %s"
+msgstr "Ne peut créer le fichier temporaire de déviation: %s"
 
-#: src/psgen.c:2636
-#, c-format
-msgid "couldn't create divert file \"%s\": %s"
-msgstr "Ne peut créer le fichier de déviation \"%s\": %s"
-
-#: src/psgen.c:2660
+#: src/psgen.c:2831
 #, c-format
 msgid "couldn't rewind divert file: %s"
 msgstr "Ne peut ré-ouvrir le fichier de déviation: %s."
 
-#: src/util.c:177 src/util.c:205
+#: src/util.c:95
+#, fuzzy, c-format
+msgid "missing argument: %s"
+msgstr "argument « N-up » illégal: %d"
+
+#: src/util.c:185 src/util.c:213
 #, c-format
 msgid "illegal value \"%s\" for option %s"
-msgstr "La valeur \"%s\" est illégale pour l'option %s."
+msgstr "La valeur « %s » est illégale pour l'option %s."
 
-#: src/util.c:193
+#: src/util.c:201
 #, c-format
 msgid "invalid value \"%s\" for option %s"
-msgstr "La valeur  \"%s\" est illégale pour l'option %s."
+msgstr "La valeur  « %s » est illégale pour l'option %s."
 
-#: src/util.c:415
+#: src/util.c:439
 #, c-format
 msgid "illegal option: %s"
 msgstr "L'option %s est illégale."
 
-#: src/util.c:579
+#: src/util.c:616
+#, c-format
 msgid "%s:%d: %%Format: no name"
 msgstr ""
 "%s:%d: %%Format:\n"
 "ERREUR de format: pas de nom."
 
-#: src/util.c:590
+#: src/util.c:627
+#, c-format
 msgid "%s:%d: %%Format: too long name, maxlen=%d"
 msgstr ""
 "%s:%d: %%Format:\n"
 "ERREUR de format: nom dépassant la longueur maximale=%d."
 
-#: src/util.c:613
+#: src/util.c:650
+#, c-format
 msgid "%s:%d: %%Format: name \"%s\" is already defined"
 msgstr ""
 "%s:%d: %%Format:\n"
-"ERREUR de format: le nom \"%s\" est déjà défini."
+"ERREUR de format: le nom « %s » est déjà défini."
 
-#: src/util.c:634
+#: src/util.c:671
+#, c-format
 msgid "%s:%d: %%HeaderHeight: no argument"
 msgstr ""
 "%s:%d: %%HeaderHeight:\n"
-"ERREUR sur la hauteur de l'en-tête: pas de paramètre."
+"ERREUR sur la hauteur de l'en-tête: pas d'argument"
 
-#: src/util.c:656
+#: src/util.c:693
+#, c-format
 msgid "%s:%d: %%FooterHeight: no argument"
 msgstr ""
 "%s:%d: %%FooterHeight:\n"
-"ERREUR sur la hauteur du bas de page: pas de paramètre."
+"ERREUR sur la hauteur du bas de page: pas d'argument"
 
-#: src/util.c:739
+#: src/util.c:840
 #, c-format
 msgid "%s: warning: font size is negative\n"
 msgstr "%s: AVERTISSEMENT: la taille de la fonte est négative.\n"
 
-#: src/util.c:741
+#: src/util.c:842
 #, c-format
 msgid "%s: warning: font width is negative\n"
 msgstr "%s: AVERTISSEMENT: la largeur de la fonte est négative.\n"
 
-#: src/util.c:743
+#: src/util.c:844
 #, c-format
 msgid "%s: warning: font height is negative\n"
 msgstr "%s: AVERTISSEMENT: la hauteur de la fonte est négative.\n"
 
-#: src/util.c:761
+#: src/util.c:863
 #, c-format
 msgid "reading AFM info for font \"%s\"\n"
-msgstr "Lecture du fichier AFM pour la fonte de caractères \"%s\"\n"
+msgstr "Lecture du fichier AFM pour la fonte de caractères « %s »\n"
 
-#: src/util.c:788
+#: src/util.c:896
 #, c-format
 msgid "couldn't open AFM file for font \"%s\", using default\n"
 msgstr ""
-"Ne peut ouvrir le fichier AFM pour la fonte de caractères \"%s\",\n"
+"Ne peut ouvrir le fichier AFM pour la fonte de caractères « %s »,\n"
 "utilisera la fonte par défaut\n"
 
-#: src/util.c:795
+#: src/util.c:903
 #, c-format
 msgid "couldn't open AFM file for the default font: %s"
 msgstr "Ne peut ouvrir le fichier AFM des fontes de caractères par défaut: %s"
 
-#. Ok, fine.  Font was found.
-#: src/util.c:963
+#: src/util.c:1092
 #, c-format
 msgid "downloading font \"%s\"\n"
-msgstr "Téléchargement de la fonte de caractères \"%s\"\n"
+msgstr "Téléchargement de la fonte de caractères « %s »\n"
 
-#: src/util.c:968
+#: src/util.c:1097
 #, c-format
 msgid "couldn't open font description file \"%s\": %s\n"
-msgstr "Ne peut ouvrir le fichier de description des fontes \"%s\": %s.\n"
+msgstr "Ne peut ouvrir le fichier de description des fontes « %s »: %s.\n"
 
-#: src/util.c:1256
+#: src/util.c:1387
+#, c-format
 msgid "%s: too long format for %%D{} escape"
 msgstr "%s: format trop long l'échappement %%D{}."
 
-#: src/util.c:1341
+#: src/util.c:1472
+#, c-format
 msgid "%s: unknown `%%' escape `%c' (%d)"
-msgstr "%s: séquence `%%' d'échappement inconnue `%c' (%d)."
+msgstr "%s: séquence « %% » d'échappement inconnue « %c » (%d)."
 
-#: src/util.c:1374
+#: src/util.c:1510
 #, c-format
 msgid "%s: no closing ')' for $() escape"
-msgstr "%s: ')' manquante pour l'échappement $()."
+msgstr "%s: « ) » manquante pour l'échappement $()."
 
-#: src/util.c:1377
+#: src/util.c:1513
 #, c-format
 msgid "%s: too long variable name for $() escape"
 msgstr "%s: format trop long pour un échappement $()."
 
-#: src/util.c:1404
+#: src/util.c:1540
 #, c-format
 msgid "%s: too long format for $D{} escape"
 msgstr "%s: format trop long pour un échappement $D{}."
 
-#: src/util.c:1492
+#: src/util.c:1628
 #, c-format
 msgid "%s: unknown `$' escape `%c' (%d)"
-msgstr "%s: séquence `$' d'échappement inconnue `%c' (%d)."
+msgstr "%s: séquence « $ » d'échappement inconnue « %c » (%d)."
 
-#: src/util.c:1659
+#: src/util.c:1819
 #, c-format
 msgid "malformed float dimension: \"%s\""
-msgstr "La dimension en point flottant est mal composée: \"%s\"."
+msgstr "La dimension en point flottant est mal composée: « %s »."
 
-#: src/util.c:1776
+#: src/util.c:1936
 #, c-format
 msgid "couldn't open input filter \"%s\" for file \"%s\": %s"
-msgstr "Ne peut ouvrir le filtre \"%s\" pour le fichier \"%s\": %s."
+msgstr "Ne peut ouvrir le filtre « %s » pour le fichier « %s »: %s."
 
-#: src/util.c:1793
+#: src/util.c:1953
 #, c-format
 msgid "couldn't open input file \"%s\": %s"
-msgstr "Ne peut ouvrir le fichier d'entrée \"%s\": %s."
+msgstr "Ne peut ouvrir le fichier d'entrée « %s »: %s."
 
-#. Open output file.
 #: src/mkafmmap.c:173
 #, c-format
 msgid "file=%s\n"
@@ -981,7 +1041,7 @@ msgstr "stdout"
 #: src/mkafmmap.c:181
 #, c-format
 msgid "%s: couldn't open output file \"%s\""
-msgstr "%s: ne peut ouvrir le fichier d'entrée \"%s\"."
+msgstr "%s: ne peut ouvrir le fichier d'entrée « %s »."
 
 #: src/mkafmmap.c:195
 msgid "couldn't create AFM library"
@@ -999,232 +1059,283 @@ msgid ""
 "  -V, --version           print version number\n"
 msgstr ""
 "Usage: %s [OPTION]... FICHIER...\n"
-"Les paramètres obligatoires pour les option de formes longues \n"
+"Les arguments obligatoires pour les options de formes longues \n"
 "le sont aussi pour les options de formes courtes.\n"
 "  -h, --help                 afficher l'aide-mémoire\n"
 "  -p, --output-file=FICHIER  expédier la sortie dans le FICHIER\n"
 "                             (par défaut dans le fichier font.map)\n"
-"                             Si le FICHIER est `-', la sortie demeure\n"
+"                             Si le FICHIER est « - », la sortie demeure\n"
 "                             sur stdout\n"
 "  -V, --version              afficher le nom et la version du logiciel\n"
 
-#. Format version string.
-#: states/main.c:175
+#: states/lex.l:169 states/lex.l:175
+msgid "error: EOF in comment"
+msgstr "ERREUR: fin de fichier EOF dans le commentaire."
+
+#: states/lex.l:206
+msgid "error: EOF in string constant"
+msgstr "ERREUR: fin de fichier EOF dans une chaîne de constante"
+
+#: states/lex.l:313
+msgid "error: EOF in regular expression"
+msgstr "ERREUR: fin de fichier EOF dans l'expression régulière."
+
+#: states/main.c:199
 #, c-format
 msgid "states for GNU %s %s"
 msgstr "états pout GNU %s %s"
 
-#: states/main.c:230
+#: states/main.c:254
 #, c-format
 msgid "%s: malformed variable definition \"%s\"\n"
-msgstr "%s: la définition de variable est mal composée: \"%s\".\n"
+msgstr "%s: la définition de variable est mal composée: « %s ».\n"
 
-#: states/main.c:258
+#: states/main.c:282
 #, c-format
 msgid "%s: couldn't create output file \"%s\": %s\n"
-msgstr "%s: ne peut créer un fichier de sortie \"%s\": %s.\n"
+msgstr "%s: ne peut créer un fichier de sortie « %s »: %s.\n"
 
-#: states/main.c:281
+#: states/main.c:313
 #, c-format
 msgid "%s: unknown warning level `%s'\n"
-msgstr "%s: niveau d'avertissement `%s' inconnu.\n"
+msgstr "%s: niveau d'avertissement « %s » inconnu.\n"
 
-#: states/main.c:330 states/main.c:371 states/prims.c:1286 states/utils.c:227
+#: states/main.c:362 states/main.c:398 states/prims.c:1377 states/utils.c:229
 #, c-format
 msgid "%s: out of memory\n"
 msgstr "%s: mémoire épuisée.\n"
 
-#: states/main.c:341
-#, c-format
-msgid "%s: couldn't open definition file `%s': %s\n"
-msgstr "%s: ne peut ouvrir le fichier définition `%s': %s.\n"
-
-#: states/main.c:396
+#: states/main.c:423
 #, c-format
 msgid "%s: couldn't open input file `%s': %s\n"
-msgstr "%s: ne peut ouvrir le fichier d'entrée `%s': %s.\n"
+msgstr "%s: ne peut ouvrir le fichier d'entrée « %s »: %s.\n"
 
-#: states/main.c:420
+#: states/main.c:447
 #, c-format
 msgid ""
 "Usage: %s [OPTION]... [FILE]...\n"
 "Mandatory arguments to long options are mandatory for short options too.\n"
 msgstr ""
 "Usage: %s [OPTION]... [FICHIER]...\n"
-"Les paramètres obligatoires pour les option de formes longues\n"
+"Les arguments obligatoires pour les option de formes longues\n"
 "le sont aussi pour les options de formes courtes.\n"
 
-#: states/main.c:424
+#: states/main.c:451
 msgid ""
 "  -D, --define=VAR=VAL       define variable VAR to have value VAR\n"
 "  -f, --file=NAME            read state definitions from file NAME\n"
 "  -h, --help                 print this help and exit\n"
 "  -o, --output=NAME          save output to file NAME\n"
+"  -p, --path=PATH            set the load path to PATH\n"
 "  -s, --state=NAME           start from state NAME\n"
+"  -v, --verbose              increase the program verbosity\n"
 "  -V, --version              print version number\n"
 "  -W, --warning=LEVEL        set the warning level to LEVEL\n"
 msgstr ""
-"  -D, --define=VAR=VAL       définir la VARiable et lui affecter la VALeur\n"
-"  -f, --file=FICHIER         lire le FICHIER des états finis\n"
+"  -D, --define=VAR=VALEUR    définir la VARiable et lui affecter la VALEUR\n"
+"  -f, --file=FICHIER         lire la définition des états à partir du FICHIER\n"
 "  -h, --help                 afficher l'aide-mémoire\n"
 "  -o, --output=FICHIER       sauvegarder la sortie dans le FICHIER\n"
+"  -p, --path=CHEMIN          initialiser le CHEMIN de chargement\n"
 "  -s, --state=NAME           débuter avec l'état fini ayant le NOM\n"
+"  -v, --verbose              augmenter le niveau de verbosité du logiciel\n"
 "  -V, --version              afficher le nom et la version du logiciel\n"
-"  -W, --warning=N            initialiser le niveau d'avertissement à N\n"
+"  -W, --warning=NIVEAU       initialiser le NIVEAU d'avertissement\n"
 
-#: states/prims.c:105 states/prims.c:125 states/prims.c:231 states/prims.c:404
+#: states/prims.c:46
+#, fuzzy, c-format
+msgid "%s:%d: %s: too few arguments\n"
+msgstr "%s:%d: %s: argument illégal.\n"
+
+#: states/prims.c:56
+#, fuzzy, c-format
+msgid "%s:%d: %s: too many arguments\n"
+msgstr "%s:%d: %s: argument illégal.\n"
+
+#: states/prims.c:109 states/prims.c:129 states/prims.c:255 states/prims.c:428
+#: states/prims.c:903
 #, c-format
 msgid "%s:%d: %s: illegal argument type\n"
-msgstr "%s:%d: %s: paramètre illégal pour ce type.\n"
+msgstr "%s:%d: %s: argument illégal pour ce type.\n"
 
-#: states/prims.c:446
+#: states/prims.c:470
 #, c-format
 msgid "%s: panic: "
 msgstr "%s: panique: "
 
-#: states/prims.c:480
+#: states/prims.c:504
 #, c-format
 msgid "%s:%d: %s: malformed version string `%s'\n"
-msgstr "%s:%d: %s: la chaîne de version `%s' est mal composée.\n"
+msgstr "%s:%d: %s: la chaîne de version « %s » est mal composée.\n"
 
-#: states/prims.c:495
+#: states/prims.c:519
 #, c-format
 msgid ""
 "%s: FATAL ERROR: States version %s or higher is required for this script\n"
-msgstr ""
-"%s: ERREUR FATALE: la version %s ou plus récente est requise pour ce "
-"script.\n"
+msgstr "%s: ERREUR FATALE: la version %s ou plus récente est requise pour ce script.\n"
 
-#: states/prims.c:586 states/prims.c:1211
+#: states/prims.c:610 states/prims.c:1276
 #, c-format
 msgid "%s:%d: %s: start offset is bigger than end offset\n"
 msgstr ""
 "%s:%d: %s: l'adresse relative de départ est plus grande\n"
 "que l'adresse relative finale.\n"
 
-#: states/prims.c:595 states/prims.c:611 states/prims.c:1217
+#: states/prims.c:619 states/prims.c:635 states/prims.c:1282
 #, c-format
 msgid "%s:%d: %s: offset out of range\n"
 msgstr "%s:%d: %s: adresse relative hors gamme.\n"
 
-#: states/prims.c:629
+#: states/prims.c:653
 #, c-format
 msgid "%s:%d: %s: illegal argument\n"
-msgstr "%s:%d: %s: paramètre illégal.\n"
+msgstr "%s:%d: %s: argument illégal.\n"
 
-#: states/prims.c:676
-#, fuzzy, c-format
+#: states/prims.c:700
+#, c-format
 msgid "%s:%d: %s: illegal regexp character syntax: %c\n"
-msgstr "%s:%d: %s: paramètre illégal.\n"
+msgstr "%s:%d: %s: syntaxe illégale pour le caractère de l'expression régulière: %c\n"
 
-#: states/prims.c:957
+#: states/prims.c:915
+#, c-format
+msgid "%s:%d: %s: couldn't define state `%s'\n"
+msgstr "%s:%d: %s: ne peut définit l'état « %s »\n"
+
+#: states/prims.c:1012
 #, c-format
 msgid "%s: primitive `%s': too few arguments for format\n"
-msgstr "%s: primitive `%s': trop peu de paramètres pour le format.\n"
+msgstr "%s: primitive « %s »: trop peu de arguments pour le format.\n"
 
-#: states/prims.c:985
+#: states/prims.c:1040
 #, c-format
 msgid "%s:%d: %s: argument %d doesn't match format\n"
-msgstr "%s:%d: %s: le paramètre %d ne concorde pas avec le format.\n"
+msgstr "%s:%d: %s: l'argument %d ne concorde pas avec le format.\n"
 
-#: states/prims.c:1015
+#: states/prims.c:1080
+#, c-format
 msgid "%s:%d: %s: no extra options can be specified for %%s\n"
-msgstr ""
-"%s:%d: %s: aucune option supplémentaire ne peut être spécifié avec %%s.\n"
+msgstr "%s:%d: %s: aucune option supplémentaire ne peut être spécifié avec %%s.\n"
 
-#: states/prims.c:1024
+#: states/prims.c:1089
 #, c-format
 msgid "%s:%d: %s: illegal type specifier `%c'\n"
-msgstr "%s:%d: %s: spécification de type illégal `%c'.\n"
+msgstr "%s:%d: %s: spécification de type illégal « %c ».\n"
 
-#: states/process.c:99
+#: states/process.c:117
 #, c-format
 msgid "%s: undefined state `%s'\n"
-msgstr "%s: état `%s' indéfini.\n"
+msgstr "%s: état « %s » indéfini.\n"
 
-#: states/process.c:185
+#: states/process.c:198
 #, c-format
 msgid "%s: error: undefined variable `%s'\n"
-msgstr "%s: ERREUR: variable indéfinie `%s'.\n"
+msgstr "%s: ERREUR: variable indéfinie « %s ».\n"
 
-#: states/utils.c:260
-#, fuzzy, c-format
+#: states/process.c:292
+#, c-format
+msgid "%s: undefined super state `%s'\n"
+msgstr "%s: super état indéfini « %s »\n"
+
+#: states/utils.c:262
+#, c-format
 msgid "%s:%d: couldn't compile regular expression \"%s\": %s\n"
-msgstr "%s:%d: %s: ne peut compiler l'expression régulière `%s': %s."
+msgstr "%s:%d: ne peut compiler l'expression régulière « %s »: %s\n"
 
-#: states/utils.c:438 states/utils.c:464
+#: states/utils.c:451 states/utils.c:479
 #, c-format
 msgid "%s: ouf of memory"
 msgstr "%s: mémoire épuisée."
 
-#: states/utils.c:443
+#: states/utils.c:456
 #, c-format
 msgid "warning: redefining state `%s'"
-msgstr "AVERTISSEMENT: redéfinition de l'état `%s'."
+msgstr "AVERTISSEMENT: redéfinition de l'état « %s »."
 
-#: states/utils.c:468
+#: states/utils.c:483
 #, c-format
 msgid "%s:%d: warning: redefining subroutine `%s'\n"
-msgstr "%s:%d: AVERTISSEMENT: redéfinition de la procédure `%s'.\n"
+msgstr "%s:%d: AVERTISSEMENT: redéfinition de la procédure « %s ».\n"
 
-#. Undefined variable.
-#: states/utils.c:554
+#: states/utils.c:580
 #, c-format
 msgid "%s:%d: error: undefined variable `%s'\n"
-msgstr "%s:%d: ERREUR: variable indéfinie `%s'.\n"
+msgstr "%s:%d: ERREUR: variable indéfinie « %s ».\n"
 
-#. Couldn't set value for variable.
-#: states/utils.c:591
+#: states/utils.c:618
 #, c-format
 msgid "%s:%d: error: couldn't set variable `%s'\n"
-msgstr "%s:%d: ERREUR: ne peut initialiser la variable `%s'.\n"
+msgstr "%s:%d: ERREUR: ne peut initialiser la variable « %s ».\n"
 
-#: states/utils.c:741
+#: states/utils.c:769
 #, c-format
 msgid "%s:%d: error: expression between illegal types\n"
 msgstr "%s:%d: ERREUR: expression entre types différents.\n"
 
-#: states/utils.c:837
+#: states/utils.c:867
 #, c-format
-msgid "%s: too few arguments for subroutine\n"
-msgstr "%s: trop peu de paramètres pour la procédure.\n"
+msgid "%s:%d: error: too few arguments for subroutine\n"
+msgstr "%s:%d: erreur: trop peu d'arguments pour la sous-routine\n"
 
-#: states/utils.c:843
+#: states/utils.c:874
 #, c-format
-msgid "%s: too many arguments for subroutine\n"
-msgstr "%s: trop de paramètres pour la procédure.\n"
+msgid "%s:%d: error: too many arguments for subroutine\n"
+msgstr "%s:%d: erreur: trop d'arguments pour la sous-routine\n"
 
-#: states/utils.c:895
+#: states/utils.c:928
 #, c-format
-msgid "%s: undefined procedure `%s'\n"
-msgstr "%s: procédure `%s' non définie.\n"
+msgid "%s:%d: error: undefined procedure `%s'\n"
+msgstr "%s:%d: erreur: procédure non définie « %s »\n"
 
-#: states/utils.c:982
+#: states/utils.c:1020
 #, c-format
 msgid "%s:%d: error: illegal lvalue for assignment\n"
-msgstr "%s:%d: ERREUR: affectation illégale pour un type `lvalue'.\n"
+msgstr "%s:%d: ERREUR: affectation illégale pour un type « lvalue ».\n"
 
-#: states/utils.c:990 states/utils.c:1074
+#: states/utils.c:1028 states/utils.c:1112
 #, c-format
 msgid "%s:%d: error: array reference index is not integer\n"
 msgstr "%s:%d: ERREUR: l'indice du tableau n'est pas un entier.\n"
 
-#: states/utils.c:996
+#: states/utils.c:1034
 #, c-format
 msgid "%s:%d: error: negative array reference index\n"
 msgstr "%s:%d: ERREUR: l'indice du tableau est négatif.\n"
 
-#: states/utils.c:1047
+#: states/utils.c:1085
 #, c-format
 msgid "%s:%d: error: illegal rvalue for string assignment\n"
-msgstr "%s:%d: ERREUR: affectation de chaîne illégale pour un type `rvalue'.\n"
+msgstr "%s:%d: ERREUR: affectation de chaîne illégale pour un type « rvalue ».\n"
 
-#: states/utils.c:1066
+#: states/utils.c:1104
 #, c-format
 msgid "%s:%d: error: illegal type for array reference\n"
 msgstr "%s:%d: ERREUR: type illégal pour un pointeur de tableau.\n"
 
-#: states/utils.c:1083
+#: states/utils.c:1121
 #, c-format
 msgid "%s:%d: error: array reference index out of rance\n"
 msgstr "%s:%d: ERREUR: l'indice du tableau est hors borne.\n"
+
+#: states/utils.c:1347
+#, c-format
+msgid "%s: couldn't open definition file `%s': %s\n"
+msgstr "%s: ne peut ouvrir le fichier définition « %s »: %s.\n"
+
+#: states/utils.c:1403
+#, c-format
+msgid "%s: autoloading `%s' from `%s'\n"
+msgstr "%s: autochargement de « %s » à partir de « %s »\n"
+
+#~ msgid "couldn't create toc file name: %s"
+#~ msgstr "Ne peut créer un fichier de table des matières: %s."
+
+#, fuzzy
+#~ msgid "couldn't create toc file \"%s\": %s"
+#~ msgstr "Ne peut créer un fichier de sortie « %s »: %s."
+
+#, fuzzy
+#~ msgid "couldn't create divert file name: %s"
+#~ msgstr "Ne peut créer un fichier de table des matières: %s."
+
+#~ msgid "couldn't create divert file \"%s\": %s"
+#~ msgstr "Ne peut créer le fichier de déviation « %s »: %s"

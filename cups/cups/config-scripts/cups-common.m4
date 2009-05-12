@@ -1,5 +1,5 @@
 dnl
-dnl "$Id: cups-common.m4 7735 2008-07-14 21:25:26Z mike $"
+dnl "$Id: cups-common.m4 8065 2008-10-17 16:59:33Z mike $"
 dnl
 dnl   Common configuration stuff for the Common UNIX Printing System (CUPS).
 dnl
@@ -20,8 +20,8 @@ dnl Set the name of the config header file...
 AC_CONFIG_HEADER(config.h)
 
 dnl Version number information...
-CUPS_VERSION=1.3.8
-CUPS_REVISION=
+CUPS_VERSION="1.3.10"
+CUPS_REVISION=""
 
 AC_SUBST(CUPS_VERSION)
 AC_SUBST(CUPS_REVISION)
@@ -270,7 +270,7 @@ case $uname in
 
 			if test "x$default_adminkey" != xdefault; then
 				CUPS_SYSTEM_AUTHKEY="SystemGroupAuthKey $default_adminkey"
-			elif grep -q system.print.operator /etc/authorization; then
+			elif grep -q system.print.admin /etc/authorization; then
 				CUPS_SYSTEM_AUTHKEY="SystemGroupAuthKey system.print.admin"
 			else
 				CUPS_SYSTEM_AUTHKEY="SystemGroupAuthKey system.preferences"
@@ -294,5 +294,5 @@ AC_SUBST(FONTS)
 AC_SUBST(LEGACY_BACKENDS)
 
 dnl
-dnl End of "$Id: cups-common.m4 7735 2008-07-14 21:25:26Z mike $".
+dnl End of "$Id: cups-common.m4 8065 2008-10-17 16:59:33Z mike $".
 dnl

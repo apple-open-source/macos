@@ -1,0 +1,6 @@
+_KRBCreateSession
+_KRBCopyRealm
+_KRBCopyServicePrincipal
+_KRBCopyUserPrincipalInfo
+_KRBAcquireTicket
+_KRBCloseSession

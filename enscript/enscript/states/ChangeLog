@@ -1,3 +1,144 @@
+1999-09-24  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* utils.c (eval_expr): Added filename and linenumber information
+	to some error messages.
+
+1999-07-19  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* enscript.st (mail_body): Changes by Matthew Weigel
+	<weigel@pitt.edu>.
+
+	* prims.c (prim_sprintf): Implemented `%c' format to print
+	characters.
+
+1999-07-13  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* utils.c (lookup_var): Fixed memory leaks from the special
+	variable lookup.
+
+1999-07-08  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* enscript.st: Highlighting rules for TeX/LaTeX.  Thanks to Toni
+	Giorgino <toni@pcape2.pi.infn.it>.
+
+1999-04-28  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* prims.c (prim_system): Implemented the system() primitive.
+
+1999-04-01  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* enscript.st (namerules): Changed the `.m' suffix from
+	Objective-C to Matlab.
+	Matlab changes Jack Dunn.
+
+1999-03-30  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* enscript.st (ansi_faces): New output language ANSI for color
+	xterms.  It should be used with the `tty' style.  Thanks to Bill
+	Petheram <petheram@acm.org>.
+
+1999-03-12  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* enscript.st (makefile): Added highlighting for Matlab files.
+	Thanks to Jack Dunn <h.j.dunn@larc.nasa.gov>.
+
+1999-01-07  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* enscript.st (ksh): In ${#text}, the '#' character does not start
+	a comment.  Thanks to Tobias Buchal <buchal41@che41a0.der.edf.fr>.
+	(cpp): Allow '&' characters in function names.  Thans to Tobias
+	Buchal.
+
+1998-10-28  Markku Rossi  <mtr@ngs.fi>
+
+	* process.c (execute_state): Added initialization for the variable
+	`found'.
+
+1998-10-23  Markku Rossi  <mtr@ngs.fi>
+
+	* Makefile.am: Changed the enscript to use the new highlighting
+	style.  The highlighting definition files are in the `hl'
+	sub-directory.
+
+	* prims.c (prim_calln): New primitive function to call a state by
+	its name.
+	(prim_require_state): New primitive function to check that the
+	arugment state is defined.
+
+	* main.c (main): Use PATH_SEPARATOR when constructing the path.
+
+	* utils.c (autoload_file): Fixed to use PATH_SEPARATOR.
+
+1998-10-22  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st (vrml): Added built-in nodes.  Thanks to James
+	Sørlie.
+
+	* utils.c (load_states_file): The `global_stmts' must be
+	initialized to list() instead of NULL.
+	(autoload_file): Send verbose messages to stderr.
+
+	* enscript.st (vrml): Small fixes by James Sørlie.
+	(overstrike_faces): Fixed to handle newline characters correctly
+	in the bold mode.
+
+1998-10-21  Markku Rossi  <mtr@ngs.fi>
+
+	* utils.c: Changed all input file related error messages to use
+	the correct file name.
+	(load_states_file): New function to load a states file.
+	(autoload_file): New function to autoload a feature.
+	(lookup_state): Moved here from process.c.
+
+	* process.c: The function lookup_state() was moved to utils.c and
+	made global.
+
+	* main.c: New options -p, --path, -v, --verbose.
+
+	* defs.h: Added `filename' members to all types that report errors
+	from a source file locations.
+	Added support for state autoloading.
+
+	* enscript.st (vrml): Small fixes by James Sørlie.
+
+	* process.c (execute_state): Fixed to execute the BEGIN and END
+	rules of the inherited states.
+
+	* enscript.st (vrml): Added highlighting for the Virtual Reality
+	Modeling Language (VRML97).  Thanks to James Sørlie
+	<sorliej@imm.dtu.dk>.
+
+1998-10-15  Markku Rossi  <mtr@ngs.fi>
+
+	* gram.y: Added support for state inheritance.
+
+	* lex.l: New keyword `extends'.
+
+	* process.c (lookup_state): New function to lookup a state by its
+	name.  This function is extented in the future to support
+	autoloading.
+	(execute_state): Fixed to support state heritance.
+
+	* utils.c (define_state): Added argument `super' for the super
+	state of our new state.
+
+	* defs.h (struct state_st): New type for the states.  The states
+	can be ~inherited, so we can't use the basic list anymore.
+
+1998-09-17  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st: Updated C, C++, and Objective-C mode highlightings
+	to support bitfields in structure definitions.  Thanks to Chris
+	Jepeway <jepeway@cs.utk.edu>.
+
+1998-08-03  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.st: New highlighting rules for: bash, csh, ksh, m4,
+	skill, tcsh, and zsh.  Thanks to Jean-Marc Calvez
+	<jean-marc.calvez@st.com>.
+	(fortran): Some fortran highlighting fixes.  Thanks to Philip
+	Sterne.
+
 1998-07-01  Markku Rossi  <mtr@ngs.fi>
 
 	* enscript.st (c, cpp, objc): Major updates.  Now these are pretty

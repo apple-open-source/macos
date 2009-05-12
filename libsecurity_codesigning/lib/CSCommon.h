@@ -78,6 +78,7 @@ enum {
 	errSecCSHostProtocolUnrelated,		/* host protocol violation - the given guest is not a guest of the given host */
 	errSecCSInvalidOperation,			/* requested operation is not valid */
 	errSecCSNotSupported,				/* operation not supported for this type of code */
+	errSecCSCMSTooLarge,				/* signature too large to embed */
 };
 
 

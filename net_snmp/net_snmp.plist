@@ -12,7 +12,7 @@
 	<array>
 		<string>Support for building on Inca and Leopard</string>
 		<string>Mac OS X-specific bug fixes</string>
-		<string>Mac OS X support for hrDevice.hrPartitionTable & hrDevice.hrDiskStorageTable</string>
+		<string>Mac OS X support for hrDevice.hrPartitionTable and hrDevice.hrDiskStorageTable</string>
 		<string>Mac OS X support for hrSWInstalledTable</string>
 		<string>Mac OS X support for hrSWRunPerfCPU</string>
 		<string>Mac OS X support for LM-SENSORS MIB</string>

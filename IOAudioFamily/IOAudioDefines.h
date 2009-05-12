@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2009 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -338,6 +338,42 @@
  *  the channel name for the sub/LFE channel.
  */
 #define kIOAudioControlChannelNameSub		"Sub"
+
+/*!
+ * @defined kIOAudioControlChannelNameFrontLeftCenter
+ * @abstract The value for the kIOAudioControlChannelNameKey in the IORegistry representing
+ *  the channel name for the FrontLeftCenter channel.
+ */
+#define kIOAudioControlChannelNameFrontLeftCenter		"FrontLeftCenter"
+
+/*!
+ * @defined kIOAudioControlChannelNameFrontRightCenter
+ * @abstract The value for the kIOAudioControlChannelNameKey in the IORegistry representing
+ *  the channel name for the FrontRightCenter channel.
+ */
+#define kIOAudioControlChannelNameFrontRightCenter		"FrontRightCenter"
+
+/*!
+ * @defined kIOAudioControlChannelNameRearCenter
+ * @abstract The value for the kIOAudioControlChannelNameKey in the IORegistry representing
+ *  the channel name for the RearCenter channel.
+ */
+#define kIOAudioControlChannelNameRearCenter		"RearCenter"
+
+/*!
+ * @defined kIOAudioControlChannelNameSurroundLeft
+ * @abstract The value for the kIOAudioControlChannelNameKey in the IORegistry representing
+ *  the channel name for the SurroundLeft channel.
+ */
+#define kIOAudioControlChannelNameSurroundLeft		"SurroundLeft"
+
+/*!
+ * @defined kIOAudioControlChannelNameSurroundRight
+ * @abstract The value for the kIOAudioControlChannelNameKey in the IORegistry representing
+ *  the channel name for the SurroundRight channel.
+ */
+#define kIOAudioControlChannelNameSurroundRight		"SurroundRight"
+
 
 /*!
  * @defined kIOAudioControlValueKey

@@ -4,10 +4,12 @@ Embedded=$(shell tconf --test TARGET_OS_EMBEDDED)
 
 ifeq ($(Embedded),YES)
 SubProjects = arp.tproj \
+	alias \
 	ifconfig.tproj netstat.tproj\
 	ping.tproj\
 	route.tproj\
-	traceroute.tproj
+	traceroute.tproj\
+        natd.tproj
 else
 SubProjects = arp.tproj \
 	alias \

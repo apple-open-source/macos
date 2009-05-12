@@ -3,7 +3,7 @@
   struct.c -
 
   $Author: shyouhei $
-  $Date: 2007-08-22 09:56:18 +0900 (Wed, 22 Aug 2007) $
+  $Date: 2008-06-15 22:44:44 +0900 (Sun, 15 Jun 2008) $
   created at: Tue Mar 22 18:44:30 JST 1995
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -307,18 +307,13 @@ rb_struct_s_def(argc, argv, klass)
     ID id;
 
     rb_scan_args(argc, argv, "1*", &name, &rest);
+    if (!NIL_P(name) && SYMBOL_P(name)) {
+	rb_ary_unshift(rest, name);
+	name = Qnil;
+    }
     for (i=0; i<RARRAY(rest)->len; i++) {
 	id = rb_to_id(RARRAY(rest)->ptr[i]);
 	RARRAY(rest)->ptr[i] = ID2SYM(id);
-    }
-    if (!NIL_P(name)) {
-	VALUE tmp = rb_check_string_type(name);
-
-	if (NIL_P(tmp)) {
-	    id = rb_to_id(name);
-	    rb_ary_unshift(rest, ID2SYM(id));
-	    name = Qnil;
-	}
     }
     st = make_struct(name, rest, klass);
     if (rb_block_given_p()) {

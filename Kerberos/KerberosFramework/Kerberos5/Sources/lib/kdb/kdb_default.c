@@ -63,11 +63,18 @@ krb5_dbe_def_search_enctype(kcontext, dbentp, start, ktype, stype, kvno, kdatap)
     if (kvno == 0) { 
 	/* Get the max key version */
 	for (i = 0; i < dbentp->n_key_data; i++) {
+	    /* skip CERTHASH keys since they are not real keys */
+	    if (dbentp->key_data[i].key_data_ver > 1 &&
+		dbentp->key_data[i].key_data_type[1] == KRB5_KDB_SALTTYPE_CERTHASH)
+		continue;
 	    if (kvno < dbentp->key_data[i].key_data_kvno) { 
 		kvno = dbentp->key_data[i].key_data_kvno;
 	    }
 	}
+	if (kvno == 0)
+	    return KRB5_KDB_NO_MATCHING_KEY;
     }
+
 
     maxkvno = -1;
     datap = (krb5_key_data *) NULL;
@@ -90,7 +97,10 @@ krb5_dbe_def_search_enctype(kcontext, dbentp, start, ktype, stype, kvno, kdatap)
 	    ret = KRB5_KDB_NO_PERMITTED_KEY;
 	    continue;
 	}
-	
+	if (db_stype == KRB5_KDB_SALTTYPE_CERTHASH) {
+	    ret = KRB5_KDB_NO_PERMITTED_KEY;
+	    continue;
+	}
 
 	if (ktype > 0) {
 	    if ((ret = krb5_c_enctype_compare(kcontext, (krb5_enctype) ktype,

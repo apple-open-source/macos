@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_compile.h,v 1.316.2.8.2.13 2007/12/31 07:20:02 sebastian Exp $ */
+/* $Id: zend_compile.h,v 1.316.2.8.2.14 2008/07/24 11:47:12 dmitry Exp $ */
 
 #ifndef ZEND_COMPILE_H
 #define ZEND_COMPILE_H
@@ -600,6 +600,7 @@ int zendlex(znode *zendlval TSRMLS_DC);
 #define ZEND_PARSED_FUNCTION_CALL		(1<<3)
 #define ZEND_PARSED_VARIABLE			(1<<4)
 #define ZEND_PARSED_REFERENCE_VARIABLE	(1<<5)
+#define ZEND_PARSED_NEW					(1<<6)
 
 
 /* unset types */
@@ -685,6 +686,7 @@ int zendlex(znode *zendlval TSRMLS_DC);
 
 
 #define ZEND_RETURNS_FUNCTION 1<<0
+#define ZEND_RETURNS_NEW      1<<1
 
 END_EXTERN_C()
 

@@ -21,7 +21,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: cgi_main.c,v 1.267.2.15.2.56 2008/04/09 09:16:40 dmitry Exp $ */
+/* $Id: cgi_main.c,v 1.267.2.15.2.66 2008/11/28 11:56:50 dmitry Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
@@ -102,6 +102,12 @@ static int children = 0;
  * Set to non-zero if we are the parent process
  */
 static int parent = 1;
+
+/* Did parent received exit signals SIG_TERM/SIG_INT/SIG_QUIT */
+static int exit_signal = 0;
+
+/* Is Parent waiting for children to exit */
+static int parent_waiting = 0;
 
 /**
  * Process group
@@ -232,6 +238,7 @@ static void print_extensions(TSRMLS_D)
 	zend_llist sorted_exts;
 
 	zend_llist_copy(&sorted_exts, &zend_extensions);
+	sorted_exts.dtor = NULL;
 	zend_llist_sort(&sorted_exts, extension_name_cmp TSRMLS_CC);
 	zend_llist_apply_with_argument(&sorted_exts, (llist_apply_with_arg_func_t) print_extension_info, NULL TSRMLS_CC);
 	zend_llist_destroy(&sorted_exts);
@@ -362,6 +369,8 @@ static int sapi_cgi_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
 	char buf[SAPI_CGI_MAX_HEADER_LENGTH];
 	sapi_header_struct *h;
 	zend_llist_position pos;
+	zend_bool ignore_status = 0;
+	int response_status = SG(sapi_headers).http_response_code;
 
 	if (SG(request_info).no_headers == 1) {
 		return  SAPI_HEADER_SENT_SUCCESSFULLY;
@@ -373,8 +382,11 @@ static int sapi_cgi_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
 		zend_bool has_status = 0;
 
 		if (CGIG(rfc2616_headers) && SG(sapi_headers).http_status_line) {
-			len = slprintf(buf, SAPI_CGI_MAX_HEADER_LENGTH,
-						   "%s\r\n", SG(sapi_headers).http_status_line);
+			char *s;
+			len = slprintf(buf, SAPI_CGI_MAX_HEADER_LENGTH, "%s\r\n", SG(sapi_headers).http_status_line);
+			if ((s = strchr(SG(sapi_headers).http_status_line, ' '))) {
+				response_status = atoi((s + 1));
+			}
 
 			if (len > SAPI_CGI_MAX_HEADER_LENGTH) {
 				len = SAPI_CGI_MAX_HEADER_LENGTH;
@@ -388,6 +400,7 @@ static int sapi_cgi_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
 			    (s - SG(sapi_headers).http_status_line) >= 5 &&
 			    strncasecmp(SG(sapi_headers).http_status_line, "HTTP/", 5) == 0) {
 				len = slprintf(buf, sizeof(buf), "Status:%s\r\n", s);
+				response_status = atoi((s + 1));
 			} else {
 				h = (sapi_header_struct*)zend_llist_get_first_ex(&sapi_headers->headers, &pos);
 				while (h) {
@@ -417,6 +430,7 @@ static int sapi_cgi_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
 		}
 		if (!has_status) {
 			PHPWRITE_H(buf, len);
+			ignore_status = 1;
 		}
 	}
 
@@ -424,8 +438,21 @@ static int sapi_cgi_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
 	while (h) {
 		/* prevent CRLFCRLF */
 		if (h->header_len) {
-			PHPWRITE_H(h->header, h->header_len);
-			PHPWRITE_H("\r\n", 2);
+			if (h->header_len > sizeof("Status:")-1 &&
+			    strncasecmp(h->header, "Status:", sizeof("Status:")-1) == 0) {
+			    if (!ignore_status) {
+				    ignore_status = 1;
+					PHPWRITE_H(h->header, h->header_len);
+					PHPWRITE_H("\r\n", 2);
+				}
+			} else if (response_status == 304 && h->header_len > sizeof("Content-Type:")-1 && 
+					strncasecmp(h->header, "Content-Type:", sizeof("Content-Type:")-1) == 0) {
+				h = (sapi_header_struct*)zend_llist_get_next_ex(&sapi_headers->headers, &pos);
+				continue;
+			} else {
+				PHPWRITE_H(h->header, h->header_len);
+				PHPWRITE_H("\r\n", 2);
+			}
 		}
 		h = (sapi_header_struct*)zend_llist_get_next_ex(&sapi_headers->headers, &pos);
 	}
@@ -765,6 +792,39 @@ static void php_cgi_usage(char *argv0)
 }
 /* }}} */
 
+/* {{{ is_valid_path
+ *
+ * some server configurations allow '..' to slip through in the
+ * translated path.   We'll just refuse to handle such a path.
+ */
+static int is_valid_path(const char *path)
+{
+	const char *p;
+
+	if (!path) {
+		return 0;
+	}
+	p = strstr(path, "..");
+	if (p) {
+		if ((p == path || IS_SLASH(*(p-1))) &&
+		    (*(p+2) == 0 || IS_SLASH(*(p+2)))) {
+			return 0;
+		}
+		while (1) {
+			p = strstr(p+1, "..");
+			if (!p) {
+				break;
+			}
+			if (IS_SLASH(*(p-1)) &&
+			    (*(p+2) == 0 || IS_SLASH(*(p+2)))) {
+					return 0;
+			}
+		}
+	}
+	return 1;
+}
+/* }}} */
+
 /* {{{ init_request_info
 
   initializes request_info structure
@@ -925,6 +985,9 @@ static void init_request_info(TSRMLS_D)
 			if (script_path_translated &&
 				(script_path_translated_len = strlen(script_path_translated)) > 0 &&
 				(script_path_translated[script_path_translated_len-1] == '/' ||
+#ifdef PHP_WIN32
+				 script_path_translated[script_path_translated_len-1] == '\\' ||
+#endif
 			     (real_path = tsrm_realpath(script_path_translated, NULL TSRMLS_CC)) == NULL)) {
 				char *pt = estrndup(script_path_translated, script_path_translated_len);
 				int len = script_path_translated_len;
@@ -1061,9 +1124,7 @@ static void init_request_info(TSRMLS_D)
 				if (pt) {
 					efree(pt);
 				}
-				/* some server configurations allow '..' to slip through in the
-				   translated path.   We'll just refuse to handle such a path. */
-				if (script_path_translated && !strstr(script_path_translated, "..")) {
+				if (is_valid_path(script_path_translated)) {
 					SG(request_info).path_translated = estrdup(script_path_translated);
 				}
 			} else {
@@ -1094,9 +1155,7 @@ static void init_request_info(TSRMLS_D)
 				} else {
 					SG(request_info).request_uri = env_script_name;
 				}
-				/* some server configurations allow '..' to slip through in the
-				   translated path.   We'll just refuse to handle such a path. */
-				if (script_path_translated && !strstr(script_path_translated, "..")) {
+				if (is_valid_path(script_path_translated)) {
 					SG(request_info).path_translated = estrdup(script_path_translated);
 				}
 				free(real_path);
@@ -1114,9 +1173,7 @@ static void init_request_info(TSRMLS_D)
 				script_path_translated = env_path_translated;
 			}
 #endif
-			/* some server configurations allow '..' to slip through in the
-			   translated path.   We'll just refuse to handle such a path. */
-			if (script_path_translated && !strstr(script_path_translated, "..")) {
+			if (is_valid_path(script_path_translated)) {
 				SG(request_info).path_translated = estrdup(script_path_translated);
 			}
 #if ENABLE_PATHINFO_CHECK
@@ -1135,7 +1192,7 @@ static void init_request_info(TSRMLS_D)
 }
 /* }}} */
 
-#if PHP_FASTCGI
+#if PHP_FASTCGI && !defined(PHP_WIN32)
 /**
  * Clean up child processes upon exit
  */
@@ -1145,15 +1202,16 @@ void fastcgi_cleanup(int signal)
 	fprintf(stderr, "FastCGI shutdown, pid %d\n", getpid());
 #endif
 
-#ifndef PHP_WIN32
 	sigaction(SIGTERM, &old_term, 0);
 
 	/* Kill all the processes in our process group */
 	kill(-pgroup, SIGTERM);
-#endif
 
-	/* We should exit at this point, but MacOSX doesn't seem to */
-	exit(0);
+	if (parent && parent_waiting) {
+		exit_signal = 1;
+	} else {
+		exit(0);
+	}
 }
 #endif
 
@@ -1491,11 +1549,18 @@ consult the installation file that came with this distribution, or visit \n\
 #ifndef PHP_WIN32
 	/* Pre-fork, if required */
 	if (getenv("PHP_FCGI_CHILDREN")) {
-		children = atoi(getenv("PHP_FCGI_CHILDREN"));
+		char * children_str = getenv("PHP_FCGI_CHILDREN");
+		children = atoi(children_str);
 		if (children < 0) {
 			fprintf(stderr, "PHP_FCGI_CHILDREN is not valid\n");
 			return FAILURE;
 		}
+		fcgi_set_mgmt_var("FCGI_MAX_CONNS", sizeof("FCGI_MAX_CONNS")-1, children_str, strlen(children_str));
+		/* This is the number of concurrent requests, equals FCGI_MAX_CONNS */
+		fcgi_set_mgmt_var("FCGI_MAX_REQS",  sizeof("FCGI_MAX_REQS")-1,  children_str, strlen(children_str));
+	} else {
+		fcgi_set_mgmt_var("FCGI_MAX_CONNS", sizeof("FCGI_MAX_CONNS")-1, "1", sizeof("1")-1);
+		fcgi_set_mgmt_var("FCGI_MAX_REQS",  sizeof("FCGI_MAX_REQS")-1,  "1", sizeof("1")-1);
 	}
 
 	if (children) {
@@ -1520,7 +1585,7 @@ consult the installation file that came with this distribution, or visit \n\
 		}
 
 		if (fcgi_in_shutdown()) {
-			exit(0);
+			goto parent_out;
 		}
 
 		while (parent) {
@@ -1557,9 +1622,25 @@ consult the installation file that came with this distribution, or visit \n\
 #ifdef DEBUG_FASTCGI
 				fprintf(stderr, "Wait for kids, pid %d\n", getpid());
 #endif
-				while (wait(&status) < 0) {
+				parent_waiting = 1;
+				while (1) {
+					if (wait(&status) >= 0) {
+						running--;
+						break;
+					} else if (exit_signal) {
+						break;
+					}						
 				}
-				running--;
+				if (exit_signal) {
+#if 0
+					while (running > 0) {
+						while (wait(&status) < 0) {
+						}
+						running--;
+					}
+#endif
+					goto parent_out;
+				}
 			}
 		}
 	} else {
@@ -1628,17 +1709,6 @@ consult the installation file that came with this distribution, or visit \n\
 			&& !fastcgi
 #endif
 		) {
-			if (cgi_sapi_module.php_ini_path_override && cgi_sapi_module.php_ini_ignore) {
-				no_headers = 1;
-				php_output_startup();
-				php_output_activate(TSRMLS_C);
-				SG(headers_sent) = 1;
-				php_printf("You cannot use both -n and -c switch. Use -h for help.\n");
-				php_end_ob_buffers(1 TSRMLS_CC);
-				exit_status = 1;
-				goto out;
-			}
-
 			while ((c = php_getopt(argc, argv, OPTIONS, &php_optarg, &php_optind, 0)) != -1) {
 				switch (c) {
 
@@ -1898,7 +1968,7 @@ consult the installation file that came with this distribution, or visit \n\
 			/* #!php support */
 			c = fgetc(file_handle.handle.fp);
 			if (c == '#') {
-				while (c != '\n' && c != '\r') {
+				while (c != '\n' && c != '\r' && c != EOF) {
 					c = fgetc(file_handle.handle.fp);	/* skip to end of line */
 				}
 				/* handle situations where line is terminated by \r\n */
@@ -2059,6 +2129,10 @@ out:
 		fprintf(stderr, "\nElapsed time: %d sec\n", sec);
 #endif
 	}
+#endif
+
+#ifndef PHP_WIN32
+parent_out:
 #endif
 
 	SG(server_context) = NULL;

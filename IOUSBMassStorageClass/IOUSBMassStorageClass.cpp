@@ -57,6 +57,13 @@ enum
 	kUSBDeviceInfoIsePortIsInTestModeMask   = 	( 1 << kUSBInformationDevicePortIsInTestModeBit )
 };
 
+// Default timeout values
+enum
+{
+	kDefaultReadTimeoutDuration				=	30000,
+	kDefaultWriteTimeoutDuration			=	30000
+};
+
 
 //-----------------------------------------------------------------------------
 //	Macros
@@ -110,6 +117,7 @@ IOUSBMassStorageClass::start( IOService * provider )
 	OSDictionary * 				characterDict 	= NULL;
 	OSObject *					obj				= NULL;
     IOReturn                    result          = kIOReturnError;
+	OSNumber *					number			= NULL;
     
     
     if( super::start( provider ) == false )
@@ -418,16 +426,44 @@ IOUSBMassStorageClass::start( IOService * provider )
         }
         
         obj = getProperty ( kIOPropertyReadTimeOutDurationKey );	
-        if ( obj != NULL );
+        if ( obj != NULL )
         {
             characterDict->setObject ( kIOPropertyReadTimeOutDurationKey, obj );
         } 
+		else
+		{
+			
+			number = OSNumber::withNumber ( kDefaultReadTimeoutDuration, 32 );
+			if ( number != NULL )
+			{
+			
+				characterDict->setObject ( kIOPropertyReadTimeOutDurationKey, number );
+				number->release ( );
+				number = NULL;
+				
+			}
+			
+		}
         
         obj = getProperty ( kIOPropertyWriteTimeOutDurationKey );	
-        if ( obj != NULL );
+        if ( obj != NULL )
         {
             characterDict->setObject ( kIOPropertyWriteTimeOutDurationKey, obj );
         }
+		else
+		{
+		
+			number = OSNumber::withNumber ( kDefaultWriteTimeoutDuration, 32 );
+			if ( number != NULL )
+			{
+			
+				characterDict->setObject ( kIOPropertyWriteTimeOutDurationKey, number );
+				number->release ( );
+				number = NULL;
+				
+			}
+		
+		}
 
         setProperty ( kIOPropertyProtocolCharacteristicsKey, characterDict );
         characterDict->release ( );
@@ -1802,7 +1838,10 @@ ErrorExit:
         // We set the device state to detached so the proper status for the 
         // device is returned along with the aborted SCSITask.
         driver->fDeviceAttached = false;
-		driver->AbortCurrentSCSITask();
+     
+        // We complete the failed I/O with kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE  
+        // and either kSCSITaskStatus_DeviceNotPresent or kSCSITaskStatus_DeliveryFailure.
+        driver->AbortCurrentSCSITask();
         
         // Let the clients know that the device is gone.
         driver->SendNotification_DeviceRemoved( );
@@ -1833,7 +1872,7 @@ ErrorExit:
 		driver->fCommandGate->commandWakeup( &driver->fResetInProgress, false );
         
 	}
-	
+    
 	STATUS_LOG(( 6, "%s[%p]: sResetDevice exiting.", driver->getName(), driver ));
     	
 	// We retained the driver in ResetDeviceNow() when

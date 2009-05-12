@@ -3,7 +3,7 @@
   string.c -
 
   $Author: shyouhei $
-  $Date: 2007-09-07 16:40:27 +0900 (Fri, 07 Sep 2007) $
+  $Date: 2008-07-17 21:32:16 +0900 (Thu, 17 Jul 2008) $
   created at: Mon Aug  9 17:12:58 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -452,21 +452,15 @@ rb_str_times(str, times)
  */
 
 static VALUE
-rb_str_format(str, arg)
+rb_str_format_m(str, arg)
     VALUE str, arg;
 {
-    VALUE *argv;
+    volatile VALUE tmp = rb_check_array_type(arg);
 
-    if (TYPE(arg) == T_ARRAY) {
-    argv = rb_ary_dup(arg);
-    rb_ary_unshift(argv, str);
-    return rb_f_sprintf(RARRAY(arg)->len+1, RARRAY(argv)->ptr);
+    if (!NIL_P(tmp)) {
+	return rb_str_format(RARRAY_LEN(tmp), RARRAY_PTR(tmp), str);
     }
-
-    argv = ALLOCA_N(VALUE, 2);
-    argv[0] = str;
-    argv[1] = arg;
-    return rb_f_sprintf(2, argv);
+    return rb_str_format(1, &arg, str);
 }
 
 static int
@@ -693,19 +687,19 @@ rb_str_resize(str, len)
     return str;
 }
 
-VALUE
-rb_str_buf_cat(str, ptr, len)
+static VALUE
+str_buf_cat(str, ptr, len)
     VALUE str;
     const char *ptr;
     long len;
 {
-    long capa, total;
+    long capa, total, off = -1;;
 
-    if (len == 0) return str;
-    if (len < 0) {
-	rb_raise(rb_eArgError, "negative string size (or size too big)");
-    }
     rb_str_modify(str);
+    if (ptr >= RSTRING(str)->ptr && ptr <= RSTRING(str)->ptr + RSTRING(str)->len) {
+        off = ptr - RSTRING(str)->ptr;
+    }
+    if (len == 0) return 0;
     if (FL_TEST(str, STR_ASSOC)) {
 	FL_UNSET(str, STR_ASSOC);
 	capa = RSTRING(str)->aux.capa = RSTRING(str)->len;
@@ -713,18 +707,41 @@ rb_str_buf_cat(str, ptr, len)
     else {
 	capa = RSTRING(str)->aux.capa;
     }
+    if (RSTRING(str)->len >= LONG_MAX - len) {
+	rb_raise(rb_eArgError, "string sizes too big");
+    }
     total = RSTRING(str)->len+len;
     if (capa <= total) {
 	while (total > capa) {
+	    if (capa + 1 >= LONG_MAX / 2) {
+		capa = total;
+		break;
+	    }
 	    capa = (capa + 1) * 2;
 	}
 	RESIZE_CAPA(str, capa);
+    }
+    if (off != -1) {
+        ptr = RSTRING(str)->ptr + off;
     }
     memcpy(RSTRING(str)->ptr + RSTRING(str)->len, ptr, len);
     RSTRING(str)->len = total;
     RSTRING(str)->ptr[total] = '\0'; /* sentinel */
 
     return str;
+}
+
+VALUE
+rb_str_buf_cat(str, ptr, len)
+    VALUE str;
+    const char *ptr;
+    long len;
+{
+    if (len == 0) return str;
+    if (len < 0) {
+	rb_raise(rb_eArgError, "negative string size (or size too big)");
+    }
+    return str_buf_cat(str, ptr, len);
 }
 
 VALUE
@@ -746,7 +763,7 @@ rb_str_cat(str, ptr, len)
     }
     if (FL_TEST(str, STR_ASSOC)) {
 	rb_str_modify(str);
-	REALLOC_N(RSTRING(str)->ptr, char, RSTRING(str)->len+len);
+	REALLOC_N(RSTRING(str)->ptr, char, RSTRING(str)->len+len+1);
 	memcpy(RSTRING(str)->ptr + RSTRING(str)->len, ptr, len);
 	RSTRING(str)->len += len;
 	RSTRING(str)->ptr[RSTRING(str)->len] = '\0'; /* sentinel */
@@ -768,32 +785,8 @@ VALUE
 rb_str_buf_append(str, str2)
     VALUE str, str2;
 {
-    long capa, len;
-
-    rb_str_modify(str);
-    if (FL_TEST(str, STR_ASSOC)) {
-	FL_UNSET(str, STR_ASSOC);
-	capa = RSTRING(str)->aux.capa = RSTRING(str)->len;
-    }
-    else {
-	capa = RSTRING(str)->aux.capa;
-    }
-    len = RSTRING(str)->len+RSTRING(str2)->len;
-    if (len < 0 || (capa+1) > LONG_MAX / 2) {
-    rb_raise(rb_eArgError, "string sizes too big");
-    }
-    if (capa <= len) {
-	while (len > capa) {
-	    capa = (capa + 1) * 2;
-	}
-	RESIZE_CAPA(str, capa);
-    }
-    memcpy(RSTRING(str)->ptr + RSTRING(str)->len,
-	   RSTRING(str2)->ptr, RSTRING(str2)->len);
-    RSTRING(str)->len += RSTRING(str2)->len;
-    RSTRING(str)->ptr[RSTRING(str)->len] = '\0'; /* sentinel */
+    str_buf_cat(str, RSTRING(str2)->ptr, RSTRING(str2)->len);
     OBJ_INFECT(str, str2);
-
     return str;
 }
 
@@ -4659,7 +4652,7 @@ Init_String()
     rb_define_method(rb_cString, "casecmp", rb_str_casecmp, 1);
     rb_define_method(rb_cString, "+", rb_str_plus, 1);
     rb_define_method(rb_cString, "*", rb_str_times, 1);
-    rb_define_method(rb_cString, "%", rb_str_format, 1);
+    rb_define_method(rb_cString, "%", rb_str_format_m, 1);
     rb_define_method(rb_cString, "[]", rb_str_aref_m, -1);
     rb_define_method(rb_cString, "[]=", rb_str_aset_m, -1);
     rb_define_method(rb_cString, "insert", rb_str_insert, 2);

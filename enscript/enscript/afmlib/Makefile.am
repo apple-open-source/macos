@@ -1,6 +1,6 @@
 #
 # Automakefile for AFM library.
-# Copyright (c) 1995-1998 Markku Rossi
+# Copyright (c) 1995-1999 Markku Rossi
 #
 # Author: Markku Rossi <mtr@iki.fi>
 #
@@ -26,13 +26,17 @@
 AUTOMAKE_OPTIONS = ansi2knr
 
 noinst_LIBRARIES = libafm.a
-libafm_a_SOURCES = afm.c afmparse.c strhash.c e_88591.c e_88592.c \
-	e_88593.c e_88594.c e_88595.c e_88597.c e_pc.c \
-	e_mac.c e_vms.c e_hp8.c e_koi8.c deffont.c
+libafm_a_SOURCES = afm.c afmparse.c strhash.c e_88591.c e_88592.c	\
+e_88593.c e_88594.c e_88595.c e_88597.c e_88599.c e_885910.c e_pc.c	\
+e_mac.c e_vms.c e_hp8.c e_koi8.c deffont.c
 
 noinst_HEADERS = afm.h afmint.h strhash.h
 
+INCLUDES_windelta = +-I../w32/
+
 EXTRA_DIST = ansi2knr.c ansi2knr.1 Makefile-encodings make-encoding.pl
 
-afmtest: afmtest.o libafm.a
-	$(CC) $(LDFLAGS) -o afmtest afmtest.o libafm.a
+noinst_PROGRAMS = afmtest
+
+afmtest_SOURCES = afmtest.c
+afmtest_LDADD = libafm.a

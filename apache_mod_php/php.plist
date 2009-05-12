@@ -3,17 +3,17 @@
 	<key>OpenSourceProject</key>
 	<string>php</string>
 	<key>OpenSourceVersion</key>
-	<string>5.2.6</string>
+	<string>5.2.8</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.php.net/</string>
 	<key>OpenSourceURL</key>
-	<string>http://us2.php.net/distributions/php-5.2.6.tar.bz2</string>
+	<string>http://us2.php.net/distributions/php-5.2.8.tar.bz2</string>
 	<key>OpenSourceSHA1</key>
-	<string>2a2b1afa657a7739a23784c869d57c3e0a7ad6b4</string>
+	<string>d285636144e0a4aa61195793634807e763c63dc3</string>
 	<key>OpenSourceMD5</key>
-	<string>7380ffecebd95c6edb317ef861229ebd</string>
+	<string>8760a833cf10433d3e72271ab0d0eccf</string>
 	<key>OpenSourceImportDate</key>
-	<string>2008-05-07</string>
+	<string>2008-12-07</string>
         <key>OpenSourceModifications</key>
         <array/> 
 	<key>OpenSourceLicense</key>

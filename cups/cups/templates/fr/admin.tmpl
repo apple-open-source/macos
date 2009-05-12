@@ -6,19 +6,15 @@
 <P>
 <A HREF="/admin?op=add-printer"><IMG
 SRC="/images/button-add-printer.gif" ALT="Ajouter une imprimante" CLASS="button"></A>
+<A HREF="/admin?op=find-new-printers"><IMG
+SRC="/images/button-find-new-printers.gif"
+ALT="Trouver de nouvelles imprimantes" CLASS="button"></A>
 <A HREF="/printers/"><IMG SRC="/images/button-manage-printers.gif"
 ALT="Administrer les imprimantes" CLASS="button"></A>
 {have_samba?<A HREF="/admin/?op=export-samba"><IMG
 SRC="/images/button-export-samba.gif" ALT="Exporter les imprimantes vers SAMBA"
 CLASS="button"></A>:}
 </P>
-
-{#device_uri=0?:<P><B>Nouvelles imprimantes détectées:</B></P><UL>{[device_uri]
-<LI><A HREF="/admin?op=add-printer&amp;{device_options}"><IMG
-SRC="/images/button-add-this-printer.gif" ALT="Ajouter cette imprimante" CLASS="button"
-ALIGN="MIDDLE"></A>
-{device_make_and_model} ({device_info})</LI>
-}</UL>}
 
 <H2 CLASS="title">Classes</H2>
 
@@ -67,10 +63,10 @@ CLASS="button"></A>
 imprimantes partagées par d'autres systèmes<BR>
 <INPUT TYPE="CHECKBOX" NAME="SHARE_PRINTERS" {?share_printers}> Partager les
 imprimantes publiques connectées à ce système<BR>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<INPUT TYPE="CHECKBOX" NAME="REMOTE_ANY" {?remote_any}> Allow printing from the Internet<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<INPUT TYPE="CHECKBOX" NAME="REMOTE_ANY" {?remote_any}> Autoriser l'impression depuis Internet<BR>
 <INPUT TYPE="CHECKBOX" NAME="REMOTE_ADMIN" {?remote_admin}> Autoriser
 l'administration à distance<BR>
-{have_gssapi?<INPUT TYPE="CHECKBOX" NAME="KERBEROS" {?kerberos}> Use Kerberos authentication<BR>:}
+{have_gssapi?<INPUT TYPE="CHECKBOX" NAME="KERBEROS" {?kerberos}> Utiliser l'identification par Kerberos<BR>:}
 <INPUT TYPE="CHECKBOX" NAME="USER_CANCEL_ANY" {?user_cancel_any}> Autoriser les
 utilisateurs à annuler n'importe quelle tâche ( pas seulement les leurs )<BR>
 <INPUT TYPE="CHECKBOX" NAME="DEBUG_LOGGING" {?debug_logging}> Enregistrer les
@@ -83,3 +79,16 @@ les paramètres"></P>
 
 </TD></TR>
 </TABLE>
+
+<H2 CLASS="title">Abonnements</H2>
+
+<P>
+<A HREF="/admin/?op=add-rss-subscription"><IMG SRC="/images/button-add-rss-subscription.gif" ALT="S'abonner au RSS" CLASS="button"></A>
+</P>
+
+{notify_subscription_id?<TABLE WIDTH="100%" CELLSPACING="0" CELLPADDING="0" SUMMARY="Abonnements RSS">
+<THEAD><TR CLASS="data"><TH>ID</TH><TH>Nom</TH><TH>�v�nements</TH><TH>File</TH></TR></THEAD>
+<TBODY>{[notify_subscription_id]
+<TR><TD><A HREF="{notify_recipient_uri}">{notify_subscription_id}</A></TD><TD NOWRAP><A HREF="{notify_recipient_uri}">{notify_recipient_name}</A> <A HREF="/admin/?op=cancel-subscription&amp;notify_subscription_id={notify_subscription_id}"><IMG SRC="/images/button-cancel-subscription.gif" CLASS="button" ALT="Cancel RSS Subscription"></A>&nbsp;</TD><TD>{notify_events}</TD><TD NOWRAP>&nbsp;{notify_printer_name?{notify_printer_name}:All Queues}</TD></TR>}
+</TBODY>
+</TABLE>:}

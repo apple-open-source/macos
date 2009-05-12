@@ -16,6 +16,8 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 Configure_Flags = --with-libcupsorder=/usr/local/lib/OrderFiles/libcups.2.order \
 		  --with-libcupsimageorder=/usr/local/lib/OrderFiles/libcupsimage.2.order \
 		  --enable-pie \
+		  --with-adminkey=system.print.admin \
+		  --with-operkey=system.print.admin \
 		  --with-archflags="$(RC_CFLAGS)"
 
 # CUPS is able to build 1/2/3/4-way fat on its own, so don't override the

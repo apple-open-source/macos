@@ -3,7 +3,7 @@
   time.c -
 
   $Author: shyouhei $
-  $Date: 2007-08-22 10:28:12 +0900 (Wed, 22 Aug 2007) $
+  $Date: 2008-06-29 20:07:24 +0900 (Sun, 29 Jun 2008) $
   created at: Tue Dec 28 14:31:59 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -18,6 +18,7 @@
 #include <unistd.h>
 #endif
 
+#include <errno.h>
 #include <math.h>
 
 VALUE rb_cTime;
@@ -191,6 +192,10 @@ time_timeval(time, interval)
 	    double f, d;
 
 	    d = modf(RFLOAT(time)->value, &f);
+            if (d < 0) {
+                d += 1;
+                f -= 1;
+            }
 	    t.tv_sec = (time_t)f;
 	    if (f != t.tv_sec) {
 		rb_raise(rb_eRangeError, "%f out of Time range", RFLOAT(time)->value);
@@ -349,7 +354,7 @@ time_arg(argc, argv, tm, usec)
 	    tm->tm_mon = -1;
 	    for (i=0; i<12; i++) {
 		if (RSTRING(s)->len == 3 &&
-		    strcasecmp(months[i], RSTRING(v[1])->ptr) == 0) {
+		    strcasecmp(months[i], RSTRING(s)->ptr) == 0) {
 		    tm->tm_mon = i;
 		    break;
 		}
@@ -1776,8 +1781,9 @@ rb_strftime(buf, format, time)
     if (flen == 0) {
 	return 0;
     }
+    errno = 0;
     len = strftime(*buf, SMALLBUF, format, time);
-    if (len != 0 || **buf == '\0') return len;
+    if (len != 0 || (**buf == '\0' && errno != ERANGE)) return len;
     for (size=1024; ; size*=2) {
 	*buf = xmalloc(size);
 	(*buf)[0] = '\0';

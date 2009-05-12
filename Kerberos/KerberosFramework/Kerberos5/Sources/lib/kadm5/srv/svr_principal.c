@@ -1245,8 +1245,8 @@ kadm5_launch_task (krb5_context context,
                 }
             }
 
-            close (data_buffer[0]);
-            close (data_buffer[1]);
+            close (data_pipe[0]);
+            close (data_pipe[1]);
 
             waitpid (pid, &status, 0);
 

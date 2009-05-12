@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -21,7 +21,7 @@
 
 	Contains:	Public API for Apple SSL/TLS Implementation
 
-	Copyright: (c) 1999-2006 by Apple Computer, Inc., all rights reserved.
+	Copyright: (c) 1999-2008 Apple Inc. All Rights Reserved.
 
 */
 
@@ -59,6 +59,7 @@
  
 #include <CoreFoundation/CFArray.h>
 #include <Security/CipherSuite.h>
+#include <Security/SecTrust.h>
 #include <sys/types.h>
 #include <AvailabilityMacros.h>
 
@@ -88,6 +89,23 @@ typedef enum {
 	kTLSProtocol1Only,			/* TLS 1.0 only */
 	kSSLProtocolAll				/* all supported versions */
 } SSLProtocol;
+
+/* SSL session options */
+typedef enum {
+	/* 
+	 * Set this option to enable returning from SSLHandshake (with a result of
+	 * errSSLServerAuthCompleted) when the server authentication portion of the
+	 * handshake is complete. If certificate verification has been disabled
+	 * (via SSLSetEnableCertVerify), this provides an opportunity to perform
+	 * application-specific server verification before deciding to continue.
+	 */
+	kSSLSessionOptionBreakOnServerAuth,
+	/*
+	 * Set this option to enable returning from SSLHandshake (with a result of
+	 * errSSLClientCertRequested) when the server requests a client certificate.
+	 */
+	kSSLSessionOptionBreakOnCertRequested
+} SSLSessionOption;
 
 /* State of an SSLSession */
 typedef enum {
@@ -169,7 +187,7 @@ enum {
     errSSLSessionNotFound 		= -9804,	/* attempt to restore an unknown session */
     errSSLClosedGraceful 		= -9805,	/* connection closed gracefully */
     errSSLClosedAbort 			= -9806,	/* connection closed via error */
-    errSSLXCertChainInvalid 	= -9807,	/* Invalid certificate chain */
+    errSSLXCertChainInvalid 	= -9807,	/* invalid certificate chain */
     errSSLBadCert				= -9808,	/* bad certificate format */
 	errSSLCrypto				= -9809,	/* underlying cryptographic error */
 	errSSLInternal				= -9810,	/* Internal error */
@@ -206,12 +224,16 @@ enum {
 	errSSLPeerUserCancelled		= -9839,	/* user canceled */
 	errSSLPeerNoRenegotiation	= -9840,	/* no renegotiation allowed */
 
+	/* non-fatal result codes */
+	errSSLServerAuthCompleted	= -9841,	/* server cert is valid, or was ignored if verification disabled */
+	errSSLClientCertRequested	= -9842,	/* server has requested a client cert */
+
 	/* more errors detected by us */
 	errSSLHostNameMismatch		= -9843,	/* peer host name mismatch */
 	errSSLConnectionRefused		= -9844,	/* peer dropped connection before responding */
 	errSSLDecryptionFail		= -9845,	/* decryption failure */
 	errSSLBadRecordMac			= -9846,	/* bad MAC */
-	errSSLRecordOverflow		= -9847,	/* Record Overflow */
+	errSSLRecordOverflow		= -9847,	/* record overflow */
 	errSSLBadConfiguration		= -9848,	/* configuration error */
 	errSSLLast					= -9849		/* end of range, to be deleted */
 };
@@ -240,15 +262,31 @@ SSLDisposeContext			(SSLContextRef		context);
 OSStatus 
 SSLGetSessionState			(SSLContextRef		context,
 							 SSLSessionState	*state);	/* RETURNED */
-							 
-							 
+
+/*
+ * Set options for an SSL session. Must be called prior to SSLHandshake();
+ * subsequently cannot be called while session is active.
+ */
+OSStatus
+SSLSetSessionOption			(SSLContextRef		context,
+							 SSLSessionOption	option,
+							 Boolean			value);
+
+/*
+ * Determine current value for the specified option in a given SSL session.
+ */
+OSStatus
+SSLGetSessionOption			(SSLContextRef		context,
+							 SSLSessionOption	option,
+							 Boolean			*value);
+	
 /********************************************************************
  *** Session context configuration, common to client and servers. ***
  ********************************************************************/
  
 /* 
  * Specify functions which do the network I/O. Must be called prior
- * to SSLHandshake(); subsequently can not be called while a session is
+ * to SSLHandshake(); subsequently cannot be called while a session is
  * active. 
  */
 OSStatus 
@@ -318,7 +356,9 @@ SSLGetProtocolVersion		(SSLContextRef		context,
  * The certRefs argument is a CFArray containing SecCertificateRefs,
  * except for certRefs[0], which is a SecIdentityRef.
  *
- * Can only be called when no session is active. 
+ * Must be called prior to SSLHandshake(), or immediately after
+ * SSLHandshake has returned errSSLClientCertRequested (i.e. before the
+ * handshake is resumed by calling SSLHandshake again.)
  *
  * SecureTransport assumes the following:
  *   
@@ -579,7 +619,16 @@ SSLGetPeerCertificates		(SSLContextRef 		context,
 OSStatus 
 SSLCopyPeerCertificates		(SSLContextRef 		context, 
 							 CFArrayRef			*certs);	/* RETURNED */
-						 								 
+
+/*
+ * Obtain a SecTrustRef representing peer certificates. Valid anytime,
+ * subsequent to a handshake attempt. Caller must CFRelease the returned
+ * trust reference.
+ */
+OSStatus
+SSLCopyPeerTrust			(SSLContextRef 		context,
+							 SecTrustRef		*trust);	/* RETURNED */
+
 /*
  * Specify some data, opaque to this library, which is sufficient
  * to uniquely identify the peer of the current session. An example
@@ -800,11 +849,23 @@ OSStatus SSLGetRsaBlinding			(SSLContextRef			context,
  *		signature verification within the chain failed, or no certs
  *		were found). 
  *
- *  In all of the above errors, the handshake was aborted; peer's 
- *  cert chain available via SSLGetPeerCertificates().
+ *  In all of the above errors, the handshake was aborted; the peer's 
+ *  cert chain is available via SSLGetPeerCertificates().
  *
- * A return value of errSSLWouldBlock indicates that SSLHandshake has to be called
- * again (and again and again until something else is returned).
+ *  Other interesting result codes:
+ *
+ *  errSSLServerAuthCompleted: Server's cert chain is valid, or was ignored if
+ *      cert verification was disabled via SSLSetEnableCertVerify. The client
+ *      may decide to continue with the handshake (by calling SSLHandshake
+ *      again), or close the connection at this point.
+ *
+ *  errSSLClientCertRequested: The server has requested a client certificate.
+ *      The client may choose to examine the server's certificate and
+ *      distinguished name list, then optionally call SSLSetCertificate prior
+ *      to resuming the handshake by calling SSLHandshake again.
+ *
+ * A return value of errSSLWouldBlock indicates that SSLHandshake has to be
+ * called again (and again and again until something else is returned).
  */ 	 
 OSStatus 
 SSLHandshake				(SSLContextRef		context);

@@ -17,7 +17,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: streamsfuncs.c,v 1.58.2.6.2.19 2008/02/03 16:15:30 iliaa Exp $ */
+/* $Id: streamsfuncs.c,v 1.58.2.6.2.29 2008/11/04 16:48:07 lbarnaud Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
@@ -69,13 +69,18 @@ PHP_FUNCTION(stream_socket_pair)
 	s1 = php_stream_sock_open_from_socket(pair[0], 0);
 	s2 = php_stream_sock_open_from_socket(pair[1], 0);
 
+	/* set the __exposed flag. 
+	 * php_stream_to_zval() does, add_next_index_resource() does not */
+	php_stream_auto_cleanup(s1);
+	php_stream_auto_cleanup(s2);
+
 	add_next_index_resource(return_value, php_stream_get_resource_id(s1));
 	add_next_index_resource(return_value, php_stream_get_resource_id(s2));
 }
 /* }}} */
 #endif
 
-/* {{{ proto resource stream_socket_client(string remoteaddress [, long &errcode, string &errstring, double timeout, long flags, resource context])
+/* {{{ proto resource stream_socket_client(string remoteaddress [, long &errcode [, string &errstring [, double timeout [, long flags [, resource context]]]]])
    Open a client connection to a remote address */
 PHP_FUNCTION(stream_socket_client)
 {
@@ -122,6 +127,7 @@ PHP_FUNCTION(stream_socket_client)
 			STREAM_XPORT_CLIENT | (flags & PHP_STREAM_CLIENT_CONNECT ? STREAM_XPORT_CONNECT : 0) |
 			(flags & PHP_STREAM_CLIENT_ASYNC_CONNECT ? STREAM_XPORT_CONNECT_ASYNC : 0),
 			hashkey, &tv, context, &errstr, &err);
+		
 
 	if (stream == NULL) {
 		/* host might contain binary characters */
@@ -162,7 +168,7 @@ PHP_FUNCTION(stream_socket_client)
 }
 /* }}} */
 
-/* {{{ proto resource stream_socket_server(string localaddress [, long &errcode, string &errstring, long flags, resource context])
+/* {{{ proto resource stream_socket_server(string localaddress [, long &errcode [, string &errstring [, long flags [, resource context]]]])
    Create a server socket bound to localaddress */
 PHP_FUNCTION(stream_socket_server)
 {
@@ -195,7 +201,7 @@ PHP_FUNCTION(stream_socket_server)
 	stream = php_stream_xport_create(host, host_len, ENFORCE_SAFE_MODE | REPORT_ERRORS,
 			STREAM_XPORT_SERVER | flags,
 			NULL, NULL, context, &errstr, &err);
-
+			
 	if (stream == NULL) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "unable to connect to %s (%s)", host, errstr == NULL ? "Unknown error" : errstr);
 	}
@@ -227,7 +233,7 @@ PHP_FUNCTION(stream_socket_server)
 }
 /* }}} */
 
-/* {{{ proto resource stream_socket_accept(resource serverstream, [ double timeout, string &peername ])
+/* {{{ proto resource stream_socket_accept(resource serverstream [, double timeout [, string &peername ]])
    Accept a client connection from a server socket */
 PHP_FUNCTION(stream_socket_accept)
 {
@@ -262,7 +268,7 @@ PHP_FUNCTION(stream_socket_accept)
 				NULL, NULL,
 				&tv, &errstr
 				TSRMLS_CC) && clistream) {
-
+		
 		if (peername) {
 			Z_TYPE_P(peername) = IS_STRING;
 		}
@@ -405,23 +411,21 @@ PHP_FUNCTION(stream_get_contents)
 
 	php_stream_from_zval(stream, &zsrc);
 
-	if (pos > 0 && php_stream_seek(stream, pos, SEEK_SET) < 0) {
+	if ((pos > 0 || (pos == 0 && ZEND_NUM_ARGS() > 2)) && php_stream_seek(stream, pos, SEEK_SET) < 0) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Failed to seek to position %ld in the stream", pos);
 		RETURN_FALSE;
 	}
 
-	if ((len = php_stream_copy_to_mem(stream, &contents, maxlen, 0)) > 0) {
-		
-		if (PG(magic_quotes_runtime)) {
+	len = php_stream_copy_to_mem(stream, &contents, maxlen, 0);
+	
+	if (contents) {
+		if (len && PG(magic_quotes_runtime)) {
 			contents = php_addslashes(contents, len, &newlen, 1 TSRMLS_CC); /* 1 = free source string */
 			len = newlen;
 		}
-
 		RETVAL_STRINGL(contents, len, 0);
-	} else if (len == 0) {
-		RETVAL_EMPTY_STRING();
 	} else {
-		RETVAL_FALSE;
+		RETVAL_EMPTY_STRING();
 	}
 }
 /* }}} */
@@ -783,6 +787,12 @@ PHP_FUNCTION(stream_select)
 
 		retval = stream_array_emulate_read_fd_set(r_array TSRMLS_CC);
 		if (retval > 0) {
+			if (w_array != NULL) {
+				zend_hash_clean(Z_ARRVAL_P(w_array));
+			}
+			if (e_array != NULL) {
+				zend_hash_clean(Z_ARRVAL_P(e_array));
+			}
 			RETURN_LONG(retval);
 		}
 	}
@@ -818,12 +828,13 @@ static void user_space_stream_notifier(php_stream_context *context, int notifyco
 		INIT_ZVAL(zvs[i]);
 		ps[i] = &zvs[i];
 		ptps[i] = &ps[i];
+		MAKE_STD_ZVAL(ps[i]);
 	}
 		
 	ZVAL_LONG(ps[0], notifycode);
 	ZVAL_LONG(ps[1], severity);
 	if (xmsg) {
-		ZVAL_STRING(ps[2], xmsg, 0);
+		ZVAL_STRING(ps[2], xmsg, 1);
 	} else {
 		ZVAL_NULL(ps[2]);
 	}
@@ -833,6 +844,9 @@ static void user_space_stream_notifier(php_stream_context *context, int notifyco
 
 	if (FAILURE == call_user_function_ex(EG(function_table), NULL, callback, &retval, 6, ptps, 0, NULL TSRMLS_CC)) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "failed to call user notifier");
+	}
+	for (i = 0; i < 6; i++) {
+		zval_ptr_dtor(&ps[i]);
 	}
 	if (retval) {
 		zval_ptr_dtor(&retval);
@@ -879,7 +893,7 @@ static int parse_context_options(php_stream_context *context, zval *options)
 	return ret;
 }
 
-static int parse_context_params(php_stream_context *context, zval *params)
+static int parse_context_params(php_stream_context *context, zval *params TSRMLS_DC)
 {
 	int ret = SUCCESS;
 	zval **tmp;
@@ -898,7 +912,11 @@ static int parse_context_params(php_stream_context *context, zval *params)
 		context->notifier->dtor = user_space_stream_notifier_dtor;
 	}
 	if (SUCCESS == zend_hash_find(Z_ARRVAL_P(params), "options", sizeof("options"), (void**)&tmp)) {
-		parse_context_options(context, *tmp);
+		if (Z_TYPE_PP(tmp) == IS_ARRAY) {
+			parse_context_options(context, *tmp);
+		} else {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid stream/context parameter");
+		}
 	}
 	
 	return ret;
@@ -1006,7 +1024,7 @@ PHP_FUNCTION(stream_context_set_params)
 		RETURN_FALSE;
 	}
 
-	RETVAL_BOOL(parse_context_params(context, params) == SUCCESS);
+	RETVAL_BOOL(parse_context_params(context, params TSRMLS_CC) == SUCCESS);
 }
 /* }}} */
 
@@ -1301,7 +1319,7 @@ PHP_FUNCTION(stream_set_write_buffer)
 }
 /* }}} */
 
-/* {{{ proto int stream_socket_enable_crypto(resource stream, bool enable [, int cryptokind, resource sessionstream])
+/* {{{ proto int stream_socket_enable_crypto(resource stream, bool enable [, int cryptokind [, resource sessionstream]])
    Enable or disable a specific kind of crypto on the stream */
 PHP_FUNCTION(stream_socket_enable_crypto)
 {

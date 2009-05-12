@@ -312,3 +312,8 @@ routine createGuest(UCSP_PORTS; in host: SecGuestRef; in status: uint32_t;
 routine setGuestStatus(UCSP_PORTS; in guest: SecGuestRef;
 	in status: uint32_t; in attributes: Data);
 routine removeGuest(UCSP_PORTS; in host: SecGuestRef; in guest: SecGuestRef);
+
+//
+// Allows the client to verify that the server really is root.
+//
+routine verifyPrivileged(UCSP_PORTS);

@@ -2,7 +2,7 @@
 
   ruby.h -
 
-  $Author: knu $
+  $Author: shyouhei $
   created at: Thu Jun 10 14:26:32 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -166,7 +166,7 @@ VALUE rb_ull2inum _((unsigned LONG_LONG));
 #define FIX2LONG(x) RSHIFT((long)x,1)
 #define FIX2ULONG(x) (((unsigned long)(x))>>1)
 #define FIXNUM_P(f) (((long)(f))&FIXNUM_FLAG)
-#define POSFIXABLE(f) ((f) <= FIXNUM_MAX)
+#define POSFIXABLE(f) ((f) < FIXNUM_MAX+1)
 #define NEGFIXABLE(f) ((f) >= FIXNUM_MIN)
 #define FIXABLE(f) (POSFIXABLE(f) && NEGFIXABLE(f))
 

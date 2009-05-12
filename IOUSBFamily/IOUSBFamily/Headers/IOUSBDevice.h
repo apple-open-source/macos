@@ -114,6 +114,7 @@ protected:
 		UInt32					_devicePortInfo;
 		bool					_deviceIsInternal;					// Will be set if all our upstream hubs are captive (internal to the computer)
 		bool					_deviceIsInternalIsValid;			// true if we have already determined whether the device is internal
+		UInt32					_resetAndReEnumerateLock;			// "Lock" to prevent us from doing a reset or a re-enumerate while the other one is in progress				
     };	
     ExpansionData * _expansionData;
 

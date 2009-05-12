@@ -297,8 +297,8 @@ translator lwpsinfo_t < thread_t T > {
 	pr_clname = (T->sched_mode & 0x0001) ? "RT" :
 			(T->sched_mode & 0x0002) ? "TS" : "SYS";
 
-	pr_onpro = T->last_processor->processor_data.slot_num;
-	pr_bindpro = (T->bound_processor == PROCESSOR_NULL) ? -1 : T->bound_processor->processor_data.slot_num;
+	pr_onpro = T->last_processor->cpu_num;
+	pr_bindpro = (T->bound_processor == PROCESSOR_NULL) ? -1 : T->bound_processor->cpu_num;
 	pr_bindpset = T->last_processor->processor_set;
 };
 

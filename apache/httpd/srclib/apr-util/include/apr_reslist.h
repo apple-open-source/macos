@@ -34,6 +34,9 @@
  * @defgroup APR_Util_RL Resource List Routines
  * @ingroup APR_Util
  * @{
+ * @warning
+ * <strong><em>Resource list data types and routines are only available when
+ * threads are enabled (i.e. APR_HAS_THREADS is not zero).</em></strong>
  */
 
 #ifdef __cplusplus
@@ -65,7 +68,6 @@ typedef apr_status_t (*apr_reslist_destructor)(void *resource, void *params,
  * Create a new resource list with the following parameters:
  * @param reslist An address where the pointer to the new resource
  *                list will be stored.
- * @param pool The pool to use for local storage and management
  * @param min Allowed minimum number of available resources. Zero
  *            creates new resources only when needed.
  * @param smax Resources will be destroyed to meet this maximum
@@ -79,6 +81,15 @@ typedef apr_status_t (*apr_reslist_destructor)(void *resource, void *params,
  * @param pool The pool from which to create this resoure list. Also the
  *             same pool that is passed to the constructor and destructor
  *             routines.
+ * @warning If you're creating a sub-pool of the pool passed into this
+ *          function in your constructor, you will need to follow some rules
+ *          when it comes to destruction of that sub-pool, as calling
+ *          apr_pool_destroy() outright on it in your destructor may create
+ *          double free situations. That is because by the time destructor is
+ *          called, the sub-pool may have already been destroyed. This also
+ *          means that in the destructor, memory from the sub-pool should be
+ *          treated as invalid. For examples of how to do this correctly, see
+ *          mod_dbd of Apache 2.2 and memcache support in APR Util 1.3.
  */
 APU_DECLARE(apr_status_t) apr_reslist_create(apr_reslist_t **reslist,
                                              int min, int smax, int hmax,

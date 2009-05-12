@@ -31,6 +31,7 @@
 
 #include <Security/SecTrust.h>
 #include <CoreFoundation/CFString.h>
+#include <CoreFoundation/CFDictionary.h>
 
 
 #if defined(__cplusplus)
@@ -56,11 +57,25 @@ enum {
 	@param trustSetting The user-specified trust settings.
 	@result A result code.  See "Security Error Codes" (SecBase.h).
 
-	@This is the private version of what used to be SecTrustSetUserTrust(); it operates
+	@discussion This is the private version of what used to be SecTrustSetUserTrust(); it operates
 	 on UserTrust entries as that function used to. The current SecTrustSetUserTrust()
 	 function operated on Trust Settings. 
 */
 OSStatus SecTrustSetUserTrustLegacy(SecCertificateRef certificate, SecPolicyRef policy, SecTrustUserSetting trustSetting);
+
+/*!
+	@function SecTrustCopyExtendedResult
+	@abstract Gets the extended trust result after an evaluation has been performed.
+	@param trust A trust reference.
+	@param result On return, result points to a CFDictionaryRef containing extended trust results (if no error occurred).
+	The caller is responsible for releasing this dictionary with CFRelease when finished with it.
+	@result A result code. See "Security Error Codes" (SecBase.h).
+	@discussion This function may only be used after SecTrustEvaluate has been called for the trust reference, otherwise
+	errSecTrustNotAvailable is returned. If the certificate is not an extended validation certificate, there is
+	no extended result data and errSecDataNotAvailable is returned. Currently, only one dictionary key is defined
+	(kSecEVOrganizationName).
+*/
+OSStatus SecTrustCopyExtendedResult(SecTrustRef trust, CFDictionaryRef *result);
 
 /*!
 	@function SecGetAppleTPHandle - NOT EXPORTED YET; copied from SecurityInterface, 
@@ -101,6 +116,7 @@ OSStatus SecTrustSetUserTrustLegacy(SecCertificateRef certificate, SecPolicyRef 
 /* local OCSP responder URI, value arbitrary string value */
 #define kSecOCSPLocalResponder				CFSTR("OCSPLocalResponder")
 
+#define kSecEVOrganizationName				CFSTR("Organization")
 
 #if defined(__cplusplus)
 }

@@ -25,9 +25,7 @@
  */
 
 /*
- * Portions Copyright 2007 Apple Inc.  All rights reserved.
- *
- * $Id$
+ * Portions Copyright 2007-2009 Apple Inc.
  */
 
 #ifndef	_AUTOMOUNT_H
@@ -442,6 +440,12 @@ extern int loaddirect_static(char *local_map, char *opts, char **stack,
  * Find the -static map entry corresponding to a given mount point.
  */
 extern struct staticmap *get_staticmap_entry(const char *dir);
+
+/*
+ * Indicate that we're done with a -static map entry returned by
+ * get_staticmap_entry().
+ */
+extern void release_staticmap_entry(struct staticmap *static_ent);
 
 /*
  * Purge the fstab cache; if scheduled is true, do so only if it's

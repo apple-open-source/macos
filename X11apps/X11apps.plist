@@ -164,17 +164,17 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2007-03-12</string>
+		<string>2008-11-02</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>luit</string>
 		<key>OpenSourceSHA1</key>
-		<string>1f1e0704d4cbc712b7f95354ada0397c4fb5fff2</string>
+		<string>8b32bcc2f72af7c8c1cdaede3d4ff5b251ecbf31</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.2/src/update/apps/luit-X11R7.2-1.0.2.tar.bz2</string>
+		<string>ftp://ftp.x.org/pub/individual/app/luit-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.2</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
@@ -356,17 +356,17 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2007-03-12</string>
+		<string>2008-03-10</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xauth</string>
 		<key>OpenSourceSHA1</key>
-		<string>f333689e9351295b62e00639bc9f9ae5c90f4c70</string>
+		<string>6a034b6e665eabd149bf4f8ee60c12a86b70ecde</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/apps/xauth-X11R7.2-1.0.2.tar.bz2</string>
+		<string>ftp://ftp.x.org/pub/individual/app/xauth-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.2</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
@@ -1139,17 +1139,17 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2008-04-21</string>
+		<string>2009-01-26</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xterm</string>
 		<key>OpenSourceSHA1</key>
-		<string>4d449a9e50e342e0b7a6deba9d713e6ba9323d1e</string>
+		<string>d2681e9cd27213a2258487a734443f0ee19d0a0a</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://invisible-island.net/xterm/xterm-235.tgz</string>
+		<string>ftp://invisible-island.net/xterm/xterm-241.tgz</string>
 		<key>OpenSourceVersion</key>
-		<string>235</string>
+		<string>241</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://invisible-island.net/xterm</string>
 	</dict>

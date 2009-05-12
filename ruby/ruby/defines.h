@@ -3,7 +3,7 @@
   defines.h -
 
   $Author: shyouhei $
-  $Date: 2007-09-07 16:33:58 +0900 (Fri, 07 Sep 2007) $
+  $Date: 2008-06-15 23:06:16 +0900 (Sun, 15 Jun 2008) $
   created at: Wed May 18 00:21:44 JST 1994
 
 ************************************************/
@@ -252,6 +252,14 @@ void rb_ia64_flushrs(void);
 
 #if defined(DOSISH) && !defined(__human68k__) && !defined(__EMX__)
 #define ENV_IGNORECASE
+#endif
+
+#ifndef CASEFOLD_FILESYSTEM
+# if defined DOSISH || defined __VMS
+#   define CASEFOLD_FILESYSTEM 1
+# else
+#   define CASEFOLD_FILESYSTEM 0
+# endif
 #endif
 
 #ifndef DLEXT_MAXLEN

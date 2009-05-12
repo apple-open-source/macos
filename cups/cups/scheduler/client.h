@@ -3,7 +3,7 @@
  *
  *   Client definitions for the Common UNIX Printing System (CUPS) scheduler.
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -95,8 +95,6 @@ VAR time_t		ListeningPaused	VALUE(0);
 					/* Time when listening was paused */
 VAR cups_array_t	*Clients	VALUE(NULL);
 					/* HTTP clients */
-VAR http_addrlist_t	*ServerAddrs	VALUE(NULL);
-					/* Server address(es) */
 VAR char		*ServerHeader	VALUE(NULL);
 					/* Server header in requests */
 VAR int			CGIPipes[2]	VALUE2(-1,-1);

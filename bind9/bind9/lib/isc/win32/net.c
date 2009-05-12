@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007, 2008  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: net.c,v 1.9.18.6 2007/08/28 07:20:06 tbox Exp $ */
+/* $Id: net.c,v 1.9.18.10 2008/08/08 05:15:09 marka Exp $ */
 
 #include <config.h>
 
@@ -29,6 +29,23 @@
 #include <isc/strerror.h>
 #include <isc/string.h>
 #include <isc/util.h>
+
+/*%
+ * Definitions about UDP port range specification.  This is a total mess of
+ * portability variants: some use sysctl (but the sysctl names vary), some use
+ * system-specific interfaces, some have the same interface for IPv4 and IPv6,
+ * some separate them, etc...
+ */
+
+/*%
+ * The last resort defaults: use all non well known port space
+ */
+#ifndef ISC_NET_PORTRANGELOW
+#define ISC_NET_PORTRANGELOW 1024
+#endif	/* ISC_NET_PORTRANGELOW */
+#ifndef ISC_NET_PORTRANGEHIGH
+#define ISC_NET_PORTRANGEHIGH 65535
+#endif	/* ISC_NET_PORTRANGEHIGH */
 
 #if defined(ISC_PLATFORM_HAVEIPV6) && defined(ISC_PLATFORM_NEEDIN6ADDRANY)
 const struct in6_addr isc_net_in6addrany = IN6ADDR_ANY_INIT;
@@ -51,7 +68,7 @@ try_proto(int domain) {
 	char strbuf[ISC_STRERRORSIZE];
 	int errval;
 
-	s = socket(domain, SOCK_STREAM, 0);
+	s = socket(domain, SOCK_STREAM, IPPROTO_TCP);
 	if (s == INVALID_SOCKET) {
 		errval = WSAGetLastError();
 		switch (errval) {
@@ -72,53 +89,9 @@ try_proto(int domain) {
 		}
 	}
 
-#ifdef ISC_PLATFORM_HAVEIPV6
-#ifdef WANT_IPV6
-#ifdef ISC_PLATFORM_HAVEIN6PKTINFO
-	if (domain == PF_INET6) {
-		struct sockaddr_in6 sin6;
-		unsigned int len;
-
-		/*
-		 * Check to see if IPv6 is broken, as is common on Linux.
-		 */
-		len = sizeof(sin6);
-		if (getsockname(s, (struct sockaddr *)&sin6, (void *)&len) < 0)
-		{
-			isc_log_write(isc_lctx, ISC_LOGCATEGORY_GENERAL,
-				      ISC_LOGMODULE_SOCKET, ISC_LOG_ERROR,
-				      "retrieving the address of an IPv6 "
-				      "socket from the kernel failed.");
-			isc_log_write(isc_lctx, ISC_LOGCATEGORY_GENERAL,
-				      ISC_LOGMODULE_SOCKET, ISC_LOG_ERROR,
-				      "IPv6 support is disabled.");
-			result = ISC_R_NOTFOUND;
-		} else {
-			if (len == sizeof(struct sockaddr_in6))
-				result = ISC_R_SUCCESS;
-			else {
-				isc_log_write(isc_lctx,
-					      ISC_LOGCATEGORY_GENERAL,
-					      ISC_LOGMODULE_SOCKET,
-					      ISC_LOG_ERROR,
-					      "IPv6 structures in kernel and "
-					      "user space do not match.");
-				isc_log_write(isc_lctx,
-					      ISC_LOGCATEGORY_GENERAL,
-					      ISC_LOGMODULE_SOCKET,
-					      ISC_LOG_ERROR,
-					      "IPv6 support is disabled.");
-				result = ISC_R_NOTFOUND;
-			}
-		}
-	}
-#endif
-#endif
-#endif
-
 	closesocket(s);
 
-	return (result);
+	return (ISC_R_SUCCESS);
 }
 
 static void
@@ -198,7 +171,7 @@ try_ipv6only(void) {
 		goto close;
 	}
 
-	close(s);
+	closesocket(s);
 
 	/* check for UDP sockets */
 	s = socket(PF_INET6, SOCK_DGRAM, 0);
@@ -221,12 +194,10 @@ try_ipv6only(void) {
 		goto close;
 	}
 
-	close(s);
-
 	ipv6only_result = ISC_R_SUCCESS;
 
 close:
-	close(s);
+	closeocket(s);
 	return;
 #endif /* IPV6_V6ONLY */
 }
@@ -252,7 +223,7 @@ try_ipv6pktinfo(void) {
 
 	/* we only use this for UDP sockets */
 	s = socket(PF_INET6, SOCK_DGRAM, IPPROTO_UDP);
-	if (s == -1) {
+	if (s == INVALID_SOCKET) {
 		isc__strerror(errno, strbuf, sizeof(strbuf));
 		UNEXPECTED_ERROR(__FILE__, __LINE__,
 				 "socket() %s: %s",
@@ -271,16 +242,16 @@ try_ipv6pktinfo(void) {
 	optname = IPV6_PKTINFO;
 #endif
 	on = 1;
-	if (setsockopt(s, IPPROTO_IPV6, optname, &on, sizeof(on)) < 0) {
+	if (setsockopt(s, IPPROTO_IPV6, optname, (const char *) &on,
+		       sizeof(on)) < 0) {
 		ipv6pktinfo_result = ISC_R_NOTFOUND;
 		goto close;
 	}
 
-	close(s);
 	ipv6pktinfo_result = ISC_R_SUCCESS;
 
 close:
-	close(s);
+	closesocket(s);
 	return;
 }
 
@@ -314,6 +285,22 @@ isc_net_probe_ipv6pktinfo(void) {
 #endif
 #endif
 	return (ipv6pktinfo_result);
+}
+
+isc_result_t
+isc_net_getudpportrange(int af, in_port_t *low, in_port_t *high) {
+	int result = ISC_R_FAILURE;
+
+	REQUIRE(low != NULL && high != NULL);
+
+	UNUSED(af);
+
+	if (result != ISC_R_SUCCESS) {
+		*low = ISC_NET_PORTRANGELOW;
+		*high = ISC_NET_PORTRANGEHIGH;
+	}
+
+	return (ISC_R_SUCCESS);	/* we currently never fail in this function */
 }
 
 void

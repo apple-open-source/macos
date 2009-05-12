@@ -85,7 +85,7 @@ public:
 	static void *allocate(size_t size, const CFClass &cfclass) throw(std::bad_alloc);
 	static void clearDeletedObjects() throw();
 
-	virtual ~SecCFObject() throw();
+	virtual ~SecCFObject();
 
 	void operator delete(void *object) throw();
 	operator CFTypeRef() const throw()

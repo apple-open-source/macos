@@ -1,5 +1,5 @@
 --TEST--
-Bug #42151 __destruct functions not called after catching a SoapFault exception
+Bug #42151 (__destruct functions not called after catching a SoapFault exception)
 --SKIPIF--
 <?php require_once('skipif.inc'); ?>
 --FILE--
@@ -26,6 +26,7 @@ try {
 echo "ok\n";
 ?>
 --EXPECT--
-SOAP-ERROR: Parsing WSDL: Couldn't load from 'httpx://'
+SOAP-ERROR: Parsing WSDL: Couldn't load from 'httpx://' : failed to load external entity "httpx://"
+
 ok
 I don't get executed either.

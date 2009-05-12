@@ -238,6 +238,10 @@ bool IOHIPointing::start(IOService * provider)
 
   if (!super::start(provider))  return false;
 
+ 	if (!getProperty(kIOHIDDisallowRemappingOfPrimaryClickKey))
+ 		if (provider->getProperty(kIOHIDDisallowRemappingOfPrimaryClickKey))
+ 			setProperty(kIOHIDDisallowRemappingOfPrimaryClickKey, provider->getProperty(kIOHIDDisallowRemappingOfPrimaryClickKey));
+
   // default acceleration settings
   if (!getProperty(kIOHIDPointerAccelerationTypeKey))
     setProperty(kIOHIDPointerAccelerationTypeKey, kIOHIDMouseAccelerationType);
@@ -1200,14 +1204,30 @@ IOReturn IOHIPointing::setParamProperties( OSDictionary * dict )
         
 		if (getProperty(kIOHIDPointerButtonCountKey))
 		{
-			if (value == kIOHIDButtonMode_BothLeftClicks)
-				_buttonMode = NX_OneButton;
-			else if (value == kIOHIDButtonMode_ReverseLeftRightClicks)
-				_buttonMode = NX_LeftButton;
-			else if (value == kIOHIDButtonMode_EnableRightClick)
-				_buttonMode = NX_RightButton;
-			else
-				_buttonMode = value;
+ 			// vtn3: rdar://problem/5816671&6314809
+ 			OSBoolean *booleanValue = OSDynamicCast(OSBoolean, getProperty(kIOHIDDisallowRemappingOfPrimaryClickKey));
+ 			if (NULL == booleanValue) {
+ 				booleanValue = kOSBooleanFalse;
+ 			}
+ 			
+ 			switch (value) {
+ 				case kIOHIDButtonMode_BothLeftClicks:
+					_buttonMode = NX_RightButton;
+ 					break;
+ 					
+ 				case kIOHIDButtonMode_EnableRightClick:
+					_buttonMode = NX_RightButton;
+ 					break;
+ 				
+ 				case kIOHIDButtonMode_ReverseLeftRightClicks:
+ 					// vtn3: rdar://problem/5816671&6314809
+ 					_buttonMode = booleanValue->isTrue() ? _buttonMode : NX_LeftButton;
+ 					break;
+
+ 				default:
+ 					// vtn3: rdar://problem/5816671&6314809
+ 					_buttonMode = booleanValue->isTrue() ? _buttonMode : value;
+ 			}
 
 			updated = true;
 		}

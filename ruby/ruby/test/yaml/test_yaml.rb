@@ -1,6 +1,6 @@
 # -*- mode: ruby; ruby-indent-level: 4; tab-width: 4 -*-
 #												vim:sw=4:ts=4
-# $Id: test_yaml.rb 11708 2007-02-12 23:01:19Z shyouhei $
+# $Id: test_yaml.rb 17246 2008-06-15 13:12:40Z shyouhei $
 #
 require 'test/unit'
 require 'yaml'
@@ -1272,6 +1272,14 @@ EOY
       assert_equal([{}], o.keys)
     end
 
+    #
+    # contributed by riley lynch [ruby-Bugs-8548]
+    #
+    def test_object_id_collision
+      omap = YAML::Omap.new
+      1000.times { |i| omap["key_#{i}"] = { "value" => i } }
+      raise "id collision in ordered map" if omap.to_yaml =~ /id\d+/
+    end
 end
 
 if $0 == __FILE__

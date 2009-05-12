@@ -816,12 +816,9 @@ doscheckpath(source, target, context)
  * directory entry within the block.
  */
 __private_extern__ int
-readep(pmp, dirclust, diroffset, bpp, epp, context)
-	struct msdosfsmount *pmp;
-	u_long dirclust, diroffset;
-	struct buf **bpp;
-	struct dosdirentry **epp;
-	vfs_context_t context;
+readep(struct msdosfsmount *pmp,
+	u_long dirclust, u_long diroffset,
+	struct buf **bpp, struct dosdirentry **epp, vfs_context_t context)
 {
 	int error;
 	daddr64_t bn;
@@ -854,6 +851,7 @@ readep(pmp, dirclust, diroffset, bpp, epp, context)
 		return EIO;
 	}
 	
+	/* Figure out which block contains the directory entry. */
 	blsize = pmp->pm_bpcluster;
 	if (dirclust == MSDOSFSROOT
 	    && de_blk(pmp, diroffset + blsize) > pmp->pm_rootdirsize)
@@ -861,6 +859,30 @@ readep(pmp, dirclust, diroffset, bpp, epp, context)
 		blsize = de_bn2off(pmp, pmp->pm_rootdirsize) & pmp->pm_crbomask;
 	}
 	bn = detobn(pmp, dirclust, diroffset);
+	
+	/*
+	 * We occasionally get panic reports that appear to be caused because
+	 * blsize == 0.  I haven't figured out what can cause that, so try
+	 * logging some information that might help, and return an error.
+	 */
+	if (blsize == 0)
+	{
+		printf("msdosfs: readep: blsize==0; pm_fatmask=0x%lx, pm_bpcluster=0x%lx, "
+			"pm_BlockSize=0x%x, pm_PhysBlockSize=0x%x, pm_BlocksPerSec=0x%lx, "
+			"pm_cnshift=0x%lx, pm_bnshift=0x%lx, pm_crbomask=0x%lx, "
+			"pm_rootdirblk=0x%lx, pm_rootdirsize=0x%lx, "
+			"pm_label_cluster=0x%lx, pm_label_offset=0x%lx, "
+			"dirclust=0x%lx, diroffset=0x%lx, bn=0x%llx\n",
+			pmp->pm_fatmask, pmp->pm_bpcluster,
+			pmp->pm_BlockSize, pmp->pm_PhysBlockSize, pmp->pm_BlocksPerSec,
+			pmp->pm_cnshift, pmp->pm_bnshift, pmp->pm_crbomask,
+			pmp->pm_rootdirblk, pmp->pm_rootdirsize,
+			pmp->pm_label_cluster, pmp->pm_label_offset,
+			dirclust, diroffset, bn);
+		return EIO;
+	}
+	
+	/* Read the block containing the directory entry, then return the requested entry. */
 	if ((error = (int)buf_meta_bread(pmp->pm_devvp, bn, blsize, vfs_context_ucred(context), bpp)) != 0)
 	{
 		buf_brelse(*bpp);

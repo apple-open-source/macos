@@ -25,8 +25,8 @@
 #
 
 ENCODINGS = ascii.enc asciifise.enc asciidkno.enc ibmpc.enc mac.enc \
-	vms.enc hp8.enc koi8.enc 88591.enc 88592.enc 88593.enc \
-	88594.enc 88595.enc 88597.enc
+vms.enc hp8.enc koi8.enc 88591.enc 88592.enc 88593.enc 88594.enc \
+88595.enc 88597.enc 88599.enc 885910.enc
 
 all: $(ENCODINGS)
 
@@ -59,6 +59,12 @@ ibmpc.enc: ../ibmpc.txt
 
 88597.enc: ../88597.txt
 	./make-encoding.pl ../88597.txt >88597.enc
+
+88599.enc: ../88599.txt
+	./make-encoding.pl ../88599.txt >88599.enc
+
+885910.enc: ../885910.txt
+	./make-encoding.pl ../885910.txt >885910.enc
 
 mac.enc: ../mac.txt
 	./make-encoding.pl ../mac.txt >mac.enc

@@ -19,9 +19,9 @@
  */
 
 #include "config.h"
-#include "libvproc_public.h"
-#include "libvproc_private.h"
-#include "libvproc_internal.h"
+#include "vproc.h"
+#include "vproc_priv.h"
+#include "vproc_internal.h"
 
 #include <mach/mach.h>
 #include <mach/vm_map.h>
@@ -36,9 +36,9 @@
 #include <quarantine.h>
 #endif
 
-#include "liblaunch_public.h"
-#include "liblaunch_private.h"
-#include "liblaunch_internal.h"
+#include "launch.h"
+#include "launch_priv.h"
+#include "launch_internal.h"
 
 #include "protocol_vproc.h"
 

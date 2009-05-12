@@ -1,7 +1,0 @@
-Package: enscript
-Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
-Vendor: GNU Project
-Version: 1.6.1
-URL: ftp://prep.ai.mit.edu/pub/gnu/enscript/
-Description: Text to PostScript (and other) formatter
-Build-Depends: build-base, bison, flex

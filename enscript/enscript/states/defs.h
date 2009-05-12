@@ -1,6 +1,6 @@
 /*
  * Internal definitions for states.
- * Copyright (c) 1997 Markku Rossi.
+ * Copyright (c) 1997-1998 Markku Rossi.
  *
  * Author: Markku Rossi <mtr@iki.fi>
  */
@@ -88,6 +88,14 @@ extern void *memcpy ___P ((void *, void *, size_t));
 
 #include <errno.h>
 
+#if HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+
+#if HAVE_SYS_STAT_H
+#include <sys/stat.h>
+#endif
+
 #if ENABLE_NLS
 #include <libintl.h>
 #define _(String) gettext (String)
@@ -140,6 +148,19 @@ struct list_st
 
 typedef struct list_st List;
 
+/* State. */
+
+struct state_st
+{
+  char *name;
+  char *super_name;
+  struct state_st *super;
+  List *rules;
+};
+
+typedef struct state_st State;
+
+
 /* Node. */
 
 typedef enum
@@ -158,6 +179,7 @@ struct node_st
   NodeType type;
   unsigned int refcount;
   unsigned int linenum;
+  char *filename;
 
   union
   {
@@ -238,6 +260,7 @@ struct expr_st
 {
   ExprType type;
   unsigned int linenum;
+  char *filename;
 
   union
   {
@@ -295,6 +318,7 @@ struct stmt_st
 {
   StmtType type;
   unsigned int linenum;
+  char *filename;
 
   union
   {
@@ -339,7 +363,8 @@ typedef struct environment_st Environment;
 
 /* Primitive procedure. */
 typedef Node *(*Primitive) ___P ((char *prim_name, List *args,
-				  Environment *env, unsigned int linenum));
+				  Environment *env, char *filename,
+				  unsigned int linenum));
 
 /* Variable definition chain. */
 struct variable_definition_st
@@ -369,7 +394,10 @@ extern FILE *yyin;
 extern FILE *ofp;
 extern char *defs_file;
 extern unsigned int linenum;
+extern char *yyin_name;
 extern WarningLevel warning_level;
+extern char *path;
+extern unsigned int verbose;
 
 /* Namespaces. */
 extern StringHashPtr ns_prims;
@@ -449,7 +477,7 @@ Expr *mk_expr ___P ((ExprType type, void *arg1, void *arg2, void *arg3));
 
 Cons *cons ___P ((void *car, void *cdr));
 
-void define_state ___P ((Node *sym, List *rules));
+void define_state ___P ((Node *sym, Node *super, List *rules));
 
 /* Execution. */
 
@@ -463,5 +491,13 @@ Node *eval_statement_list ___P ((List *lst, Environment *env,
 void process_file ___P ((char *fname));
 
 Node *execute_state ___P ((char *name));
+
+void load_states_file ___P ((char *name));
+
+/*
+ * Lookup state <name> and return its handle.  If the state is
+ * undefined, the function tries to autoload it.
+ */
+State *lookup_state ___P ((char *name));
 
 #endif /* not DEFS_H */

@@ -82,15 +82,6 @@
 /* Define to 1 if you have the `killpg' function. */
 #undef HAVE_KILLPG
 
-/* Define to 1 if you have the `crypto' library (-lcrypto). */
-#undef HAVE_LIBCRYPTO
-
-/* Define to 1 if you have the `ssl' library (-lssl). */
-#undef HAVE_LIBSSL
-
-/* Define to 1 if you have the `sslc' library (-lsslc). */
-#undef HAVE_LIBSSLC
-
 /* Define to 1 if you have the <limits.h> header file. */
 #undef HAVE_LIMITS_H
 
@@ -126,6 +117,15 @@
 
 /* Define to 1 if you have the <sslc.h> header file. */
 #undef HAVE_SSLC_H
+
+/* Define to 1 if you have the `SSLC_library_version' function. */
+#undef HAVE_SSLC_LIBRARY_VERSION
+
+/* Define to 1 if you have the `SSLeay_version' function. */
+#undef HAVE_SSLEAY_VERSION
+
+/* Define to 1 if you have the `SSL_CTX_new' function. */
+#undef HAVE_SSL_CTX_NEW
 
 /* Define to 1 if you have the `SSL_set_cert_store' function. */
 #undef HAVE_SSL_SET_CERT_STORE
@@ -220,16 +220,6 @@
 /* Path to suexec binary */
 #undef SUEXEC_BIN
 
-/* Define to 1 if on MINIX. */
-#undef _MINIX
-
-/* Define to 2 if the system does not provide POSIX.1 features except with
-   this defined. */
-#undef _POSIX_1_SOURCE
-
-/* Define to 1 if you need to in order for `stat' and other things to work. */
-#undef _POSIX_SOURCE
-
 /* Enable extensions on AIX 3, Interix.  */
 #ifndef _ALL_SOURCE
 # undef _ALL_SOURCE
@@ -251,6 +241,16 @@
 # undef __EXTENSIONS__
 #endif
 
+
+/* Define to 1 if on MINIX. */
+#undef _MINIX
+
+/* Define to 2 if the system does not provide POSIX.1 features except with
+   this defined. */
+#undef _POSIX_1_SOURCE
+
+/* Define to 1 if you need to in order for `stat' and other things to work. */
+#undef _POSIX_SOURCE
 
 /* Define to empty if `const' does not conform to ANSI C. */
 #undef const

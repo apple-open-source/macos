@@ -348,6 +348,16 @@ SSLHandshakeProceed(SSLContext *ctx)
     if (ctx->state == SSL_HdskStateUninit)
         if ((err = SSLInitConnection(ctx)) != 0)
             return err;
+
+	/* This is our cue that we dropped out of the handshake
+	 * to let the client pick an identity, move state back
+	 * to server hello done and continue processing.
+	 */
+	if ((ctx->protocolSide == SSL_ClientSide) &&
+		(ctx->state == SSL_HdskStateClientCert))
+		if ((err = SSLAdvanceHandshake(SSL_HdskServerHelloDone, ctx)) != 0)
+			return err;
+	
     if ((err = SSLServiceWriteQueue(ctx)) != 0)
         return err;
     assert(ctx->readCipher.ready == 0);

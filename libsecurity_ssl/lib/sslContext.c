@@ -141,7 +141,11 @@ SSLNewContext				(Boolean 			isServer,
 	
 	/* default for anonymous ciphers is ENABLED */
 	ctx->anonCipherEnable = true;
-	
+
+	/* default for additional SSL handshake results is DISABLED */
+	ctx->breakOnServerAuth = false;
+	ctx->breakOnCertRequest = false;
+
     *contextPtr = ctx;
     return noErr;
     
@@ -297,6 +301,60 @@ SSLGetSessionState			(SSLContextRef		context,
 	}
 	*state = rtnState;
 	return noErr;
+}
+
+/*
+ * Set options for an SSL session.
+ */
+OSStatus
+SSLSetSessionOption			(SSLContextRef		context,
+							 SSLSessionOption	option,
+							 Boolean			value)
+{
+	if(context == NULL) {
+		return paramErr;
+	}
+	if(sslIsSessionActive(context)) {
+		/* can't do this with an active session */
+		return badReqErr;
+	}
+    switch(option) {
+        case kSSLSessionOptionBreakOnServerAuth:
+            context->breakOnServerAuth = value;
+            break;
+        case kSSLSessionOptionBreakOnCertRequested:
+            context->breakOnCertRequest = value;
+            break;
+        default: 
+            return paramErr;
+    }
+    
+    return noErr;
+}
+
+/*
+ * Determine current value for the specified option in an SSL session.
+ */
+OSStatus
+SSLGetSessionOption			(SSLContextRef		context,
+							 SSLSessionOption	option,
+							 Boolean			*value)
+{
+	if(context == NULL || value == NULL) {
+		return paramErr;
+	}
+    switch(option) {
+        case kSSLSessionOptionBreakOnServerAuth:
+            *value = context->breakOnServerAuth;
+            break;
+        case kSSLSessionOptionBreakOnCertRequested:
+            *value = context->breakOnCertRequest;
+            break;
+        default: 
+            return paramErr;
+    }
+    
+    return noErr;
 }
 
 OSStatus 
@@ -916,13 +974,20 @@ SSLSetCertificate			(SSLContextRef		ctx,
 	if(ctx == NULL) {
 		return paramErr;
 	}
-	if(sslIsSessionActive(ctx)) {
-		/* can't do this with an active session */
-		return badReqErr;
+
+	/* can't do this with an active session */
+	if(sslIsSessionActive(ctx) && 
+	   /* kSSLClientCertRequested implies client side */
+	   (ctx->clientCertState != kSSLClientCertRequested)) 
+	{
+			return badReqErr;
 	}
 	if(ctx->localCertArray) {
 		CFRelease(ctx->localCertArray);
 		ctx->localCertArray = NULL;
+	}
+	if(certRefs == NULL) {
+		return noErr; // we have cleared the cert, as requested
 	}
 	OSStatus ortn = parseIncomingCerts(ctx,
 		certRefs,
@@ -1369,10 +1434,24 @@ OSStatus SSLGetPeerSecTrust(
 	SSLContextRef	ctx,
 	SecTrustRef		*secTrust)	/* RETURNED */
 {
-	if(ctx == NULL) {
+	if(ctx == NULL || secTrust == NULL) {
 		return paramErr;
 	}
 	*secTrust = ctx->peerSecTrust;
+	return noErr;
+}
+
+OSStatus SSLCopyPeerTrust(
+	SSLContextRef 	ctx,
+	SecTrustRef		*trust)		/* RETURNED */
+{
+	if(ctx == NULL || trust == NULL) {
+		return paramErr;
+	}
+	if (ctx->peerSecTrust) {
+		CFRetain(ctx->peerSecTrust);
+	}
+	*trust = ctx->peerSecTrust;
 	return noErr;
 }
 

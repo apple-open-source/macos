@@ -1079,7 +1079,7 @@ COREMESAPOBJS = $(COREMESABASEPOBJS) 		$(MESA_AC_POBJS) 		$(MESA_MATH_POBJS) 		$
      GLXDOBJS = $(GLXLIBSRC)/glx/debugger/?*.o $(GLAPI_OBJ)
      GLXPOBJS = $(GLXLIBSRC)/glx/profiled/?*.o $(GLAPI_OBJ)
 
-   APPLEOBJS = appledri.o dri_dispatch.o dri_driver.o dri_glx.o x-list.o x-hash.o
+   APPLEOBJS = appledri.o dri_dispatch.o dri_driver.o dri_glx.o patch_dispatch.o x-list.o x-hash.o
      DRIOBJS = $(APPLEOBJS:%.o=$(GLXLIBSRC)/apple/%.o)
     DRIUOBJS = $(APPLEOBJS:%.o=$(GLXLIBSRC)/apple/unshared/%.o)
     DRIDOBJS = $(APPLEOBJS:%.o=$(GLXLIBSRC)/apple/debugger/%.o)

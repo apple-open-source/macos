@@ -23,10 +23,9 @@
  * Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
+
 /*
- * Portions Copyright 2007 Apple Inc.
- *
- * $Id: auto_vnops.c,v 1.2 2006/03/31 04:39:07 lindak Exp $
+ * Portions Copyright 2007-2009 Apple Inc.
  */
 
 #pragma ident	"@(#)auto_vnops.c	1.70	05/12/19 SMI"
@@ -82,7 +81,6 @@ static int auto_getxattr(struct vnop_getxattr_args *);
 static int auto_setxattr(struct vnop_setxattr_args *);
 static int auto_listxattr(struct vnop_listxattr_args *);
 static int auto_removexattr(struct vnop_removexattr_args *);
-static int auto_inactive(struct vnop_inactive_args *);
 static int auto_reclaim(struct vnop_reclaim_args *);
 static int auto_kqfilt_add(struct vnop_kqfilt_add_args *);
 static int auto_kqfilt_remove(struct vnop_kqfilt_remove_args *);
@@ -94,11 +92,11 @@ int (**autofs_vnodeop_p)(void *);
 struct vnodeopv_entry_desc autofs_vnodeop_entries[] = {
 	{&vnop_default_desc, (VOPFUNC)vn_default_error},
 	{&vnop_lookup_desc, (VOPFUNC)auto_lookup},		/* lookup */
-	{&vnop_open_desc, (VOPFUNC)nop_open},			/* open			- NOP */
-	{&vnop_close_desc, (VOPFUNC)nop_close},			/* close		- NOP */
+	{&vnop_open_desc, (VOPFUNC)nop_open},			/* open	- NOP */
+	{&vnop_close_desc, (VOPFUNC)nop_close},			/* close - NOP */
 	{&vnop_getattr_desc, (VOPFUNC)auto_getattr},		/* getattr */
 	{&vnop_setattr_desc, (VOPFUNC)auto_setattr},		/* setattr */
-	{&vnop_fsync_desc, (VOPFUNC)nop_fsync},			/* fsync		- NOP */
+	{&vnop_fsync_desc, (VOPFUNC)nop_fsync},			/* fsync - NOP */
 	{&vnop_readdir_desc, (VOPFUNC)auto_readdir},		/* readdir */
 	{&vnop_readlink_desc, (VOPFUNC)auto_readlink},		/* readlink */
 	{&vnop_pathconf_desc, (VOPFUNC)auto_pathconf},		/* pathconf */
@@ -106,7 +104,7 @@ struct vnodeopv_entry_desc autofs_vnodeop_entries[] = {
 	{&vnop_getxattr_desc, (VOPFUNC)auto_getxattr},		/* getxattr */
 	{&vnop_listxattr_desc, (VOPFUNC)auto_listxattr},	/* listxattr */
 	{&vnop_removexattr_desc, (VOPFUNC)auto_removexattr},	/* removexattr */
-	{&vnop_inactive_desc, (VOPFUNC)auto_inactive},		/* inactive */
+	{&vnop_inactive_desc, (VOPFUNC)nop_inactive},		/* inactive - NOP */
 	{&vnop_reclaim_desc, (VOPFUNC)auto_reclaim},		/* reclaim */
 	{&vnop_kqfilt_add_desc, (VOPFUNC)auto_kqfilt_add},
 	{&vnop_kqfilt_remove_desc, (VOPFUNC)auto_kqfilt_remove},
@@ -139,9 +137,8 @@ auto_bsd_flags(fnnode_t *fnp, vfs_context_t context)
 			 * We are.  automountd doesn't care
 			 * whether this is a trigger or not,
 			 * and we don't want to have to call
-			 * call back to automountd to check
-			 * whether this is a trigger.  Just
-			 * say it's not.
+			 * back to automountd to check whether
+			 * this is a trigger.  Just say it's not.
 			 */
 			return (0);
 		}
@@ -503,7 +500,6 @@ top:
 	dfnp = vntofn(dvp);
 	searchnm = cnp->cn_nameptr;
 	searchnmlen = namelen;
-	operation = OP_NOTHING;
 
 	AUTOFS_DPRINT((3, "auto_lookup: dvp=%p dfnp=%p\n", (void *)dvp,
 	    (void *)dfnp));
@@ -531,11 +527,12 @@ top:
 	 * already have it.
 	 */
 	lck_rw_lock_shared(dfnp->fn_rwlock);
-	error = auto_search(dfnp, cnp->cn_nameptr, cnp->cn_namelen, &fnp, cred);
-	if (error) {
+	fnp = auto_search(dfnp, cnp->cn_nameptr, cnp->cn_namelen);
+	if (fnp == NULL) {
 		/*
 		 * No, we don't.
 		 */
+		error = ENOENT;
 		if (dvp == dfnip->fi_rootvp) {
 			/*
 			 * 'dfnp', i.e. the directory in which we're doing
@@ -562,55 +559,102 @@ top:
 				/*
 				 * That mount is for an indirect map.
 				 * Therefore, the item we're looking up
-				 * is a key in that map.
+				 * is a key in that map.  We need to
+				 * create an entry for it.
+				 *
+				 * First, check whether this map is
+				 * in the process of being unmounted.
+				 * If so, return ENOENT; see
+				 * auto_control_ioctl() for the reason
+				 * why this is done.
 				 */
-				if (!lck_rw_lock_shared_to_exclusive(dfnp->fn_rwlock)) {
-					/*
-					 * Could not acquire writer lock;
-					 * the reader lock has been released,
-					 * so we just try to get a writer
-					 * lock, waiting until available.
-					 * We need to search for
-					 * 'cnp->cn_nameptr' again, since we
-					 * had to release the lock before
-					 * reacquiring it.
-					 */
-					lck_rw_lock_exclusive(dfnp->fn_rwlock);
-					error = auto_search(dfnp,
-					    cnp->cn_nameptr,
-					    cnp->cn_namelen, &fnp, cred);
+				if (dfnip->fi_flags & MF_UNMOUNTING) {
+					error = ENOENT;
+					goto fail;
 				}
 
-				assert(lck_rw_held_exclusive(dfnp->fn_rwlock));
-				if (error) {
+				/*
+				 * Create the fnnode first, as we must
+				 * drop the writer lock before creating
+				 * the fnnode, because allocating a
+				 * vnode for it might involve reclaiming
+				 * an autofs vnode and hence removing
+				 * it from the containing directory -
+				 * which might be this directory.
+				 */
+				lck_rw_unlock_shared(dfnp->fn_rwlock);
+
+				/*
+				 * If we're looking up an entry
+				 * in the -fstab map, and the
+				 * name we're looking up refers
+				 * to us, just make this a
+				 * symlink to "/".
+				 *
+				 * XXX - passed kcred in Solaris.
+				 */
+				if (map_is_fstab(dfnp) &&
+				    name_is_us(cnp)) {
+					char *tmp;
+
+					error = auto_makefnnode(&fnp, VLNK,
+					    vnode_mount(dvp), cnp, NULL, dvp,
+					    0, cred, dfnp->fn_globals);
+					if (error)
+						goto fail;
+
 					/*
-					 * Create node being looked-up and 
-					 * operate on it.
-					 *
-					 * If we're looking up an entry
-					 * in the -fstab map, and the
-					 * name we're looking up refers
-					 * to us, just make this a
-					 * symlink to "/".
-					 *
-					 * XXX - passed kcred in Solaris.
+					 * Set the symlink target information.
 					 */
-					if (map_is_fstab(dfnp) &&
-					    name_is_us(cnp)) {
-						error = auto_enter(dfnp, cnp,
-						    NULL, &fnp, "/", NULL);
+					MALLOC(tmp, char *, 1, M_AUTOFS,
+					    M_WAITOK);
+					bcopy("/", tmp, 1);
+					fnp->fn_symlink = tmp;
+					fnp->fn_symlinklen = 1;
+				} else {
+					error = auto_makefnnode(&fnp, VDIR,
+					    vnode_mount(dvp), cnp, NULL, dvp,
+					    0, cred, dfnp->fn_globals);
+					if (error)
+						goto fail;
+				}
+
+				/*
+				 * Now re-acquire the writer lock, and
+				 * enter the fnnode in the directory.
+				 *
+				 * Note that somebody might have
+				 * created the name while we weren't
+				 * holding the lock; if so, then if
+				 * it could get the vnode for the fnnode
+				 * for that name, auto_enter will return
+				 * EEXIST, otherwise it'll return the error
+				 * it got when trying to get the vnode.
+				 */
+				lck_rw_lock_exclusive(dfnp->fn_rwlock);
+				error = auto_enter(dfnp, cnp, NULL, &fnp);
+				if (error) {
+					if (error == EEXIST) {
 						/*
-						 * Operation is OP_NOTHING,
-						 * which is what we want;
-						 * we have a symlink to /
-						 * and aren't going to
-						 * mount anything on it.
+						 * We found the name, and
+						 * got the vnode for its
+						 * fnnode.  Act as if
+						 * the auto_search()
+						 * above succeeded.
 						 */
+						error = 0;
 					} else {
-						error = auto_enter(dfnp, cnp,
-						    NULL, &fnp, NULL, NULL);
-						if (!error)
-							operation = OP_MOUNT;
+						/*
+						 * We found the name, but
+						 * but couldn't get the
+						 * vnode for its fnnode.
+						 * That's probably because
+						 * it was on its way to
+						 * destruction; release
+						 * all locks and start again
+						 * from the top.
+						 */
+						error = EAGAIN;
 					}
 				}
 			}
@@ -618,18 +662,41 @@ top:
 		    !vnode_isvroot(dvp) &&
 		    vnode_isvroot(fntovn(dfnp->fn_parent))) {
 			/*
-			 * dfnp is the actual 'mountpoint' of indirect map,
-			 * it is the equivalent of a direct mount,
-			 * ie, /home/'user1'
+			 * dfnp is a directory under the mount point
+			 * of an indirect map, so that it's a directory
+			 * on which a mount would be triggered, such
+			 * as /net/{hostname}.
+			 *
+			 * Thus, what would be found in it would be
+			 * directories corresponding to submounts, such
+			 * as /net/{hostname}/exports if that host
+			 * exported /exports.
+			 *
+			 * If something were mounted directly on it,
+			 * we wouldn't be here, as the lookup of
+			 * an item under it would have gone into that
+			 * file system.  Therefore, this is a case
+			 * where the indirect map doesn't cause any
+			 * mount on the map entry, just submounts;
+			 * again, /net/{hostname}/exports would be
+			 * an example if that host exported /exports
+			 * but didn't export /.
+			 *
+			 * An autofs trigger will be mounted on it.
 			 */
-			operation = OP_MOUNT;
 			error = vnode_get(fntovn(dfnp));
 			fnp = dfnp;
 			searchnm = dfnp->fn_name;
 			searchnmlen = dfnp->fn_namelen;
 		}
+	} else {
+		/*
+		 * Yes, we did.  Try to get an iocount on the vnode.
+		 */
+		error = vnode_get(fntovn(fnp));
 	}
 
+fail:
 	if (error == EAGAIN) {
 		auto_fninfo_unlock_shared(dfnip, context);
 		lck_rw_done(dfnp->fn_rwlock);
@@ -658,7 +725,18 @@ top:
 	lck_rw_done(dfnp->fn_rwlock);
 
 	/*
-	 * If we think we're supposed to be doing a mount:
+	 * If we're the automounter or a child of the automounter,
+	 * there's nothing to trigger.
+	 */
+	if (auto_is_automounter(vfs_context_pid(context))) {
+		auto_fninfo_unlock_shared(dfnip, context);
+		lck_mtx_unlock(fnp->fn_lock);
+		*vpp = fntovn(fnp);
+		return (0);
+	}
+
+	/*
+	 * Assume we're going to be doing a mount.  Then:
 	 *
 	 *	if this isn't the last component of the pathname, do
 	 *	so, so we can continue with the lookup;
@@ -679,21 +757,24 @@ top:
 	 * case we trigger the mount *then*.
 	 *
 	 * For DELETE: don't trigger mount on the last component of the
-	 * pathname.  The only things that can be deleted are things
-	 * explicitly put here, *not* things that correspond to currently-
-	 * mounted FSes (_unlink() prohibits that - "The root of a mounted
-	 * filesystem cannot be deleted") or FSes to be mounted (i.e.,
-	 * trigger points, which would be "looked up" by an upcall to
-	 * automountd).
+	 * pathname.  We don't allow removal of autofs objects.
 	 *
 	 * For RENAME: don't trigger mount on the last component of the
 	 * pathname.  We don't allow renames of autofs objects.
 	 */
-	if (operation == OP_MOUNT) {
-		if ((flags & ISLASTCN) &&
-		    (nameiop != LOOKUP || (flags & NOTRIGGER)))
-			operation = OP_LOOKUP;
-	}
+	operation = OP_MOUNT;
+	if ((flags & ISLASTCN) &&
+	    (nameiop != LOOKUP || (flags & NOTRIGGER)))
+		operation = OP_LOOKUP;
+
+	/*
+	 * If there's a lookup in progress on this (waiting for a reply
+	 * from automountd), or if this operation is a mount and
+	 * there's a mount in progress, just wait for that operation
+	 * to complete, and then try the lookup again if the in-progress
+	 * operation succeeded, otherwise return the error from the
+	 * operation.
+	 */
 	if ((fnp->fn_flags & MF_LOOKUP) ||
 	    ((operation == OP_MOUNT) && (fnp->fn_flags & MF_INPROG))) {
 		auto_fninfo_unlock_shared(dfnip, context);
@@ -705,7 +786,17 @@ top:
 		goto top;
 	}
 
-	if (operation == OP_NOTHING) {
+	/*
+	 * If the fnnode is not a directory, or already has something
+	 * mounted on top of it, or has subdirectories, there's nothing
+	 * to do; no mount is needed, and at least one lookup on it
+	 * succeeded in the past and we're now holding it down so
+	 * if a lookup to automountd failed now we still can't get
+	 * rid of it.
+	 */
+	lck_rw_lock_shared(fnp->fn_rwlock);
+	if (!vnode_isdir(fntovn(fnp)) || vnode_mountedhere(fntovn(fnp)) ||
+	    fnp->fn_direntcnt != 0) {
 		/*
 		 * got the fnnode, check for any errors
 		 * on the previous operation on that node.
@@ -723,6 +814,7 @@ top:
 			 * a pointer to the node only if there was
 			 * no error.
 			 */
+			lck_rw_unlock_shared(fnp->fn_rwlock);
 			auto_fninfo_unlock_shared(dfnip, context);
 			lck_mtx_unlock(fnp->fn_lock);
 			if (!error)
@@ -732,6 +824,7 @@ top:
 			return (error);
 		}
 	}
+	lck_rw_unlock_shared(fnp->fn_rwlock);
 
 	/*
 	 * Since I got to this point, it means I'm the one
@@ -815,6 +908,17 @@ vnop_readdir {
 */
 
 #define MAXDIRBUFSIZE	65536
+
+/*
+ * "Transient" fnnodes are fnnodes on which a lookup is in progress
+ * or don't have anything mounted on them and don't have subdirectories.
+ * Those are subject to evaporating in the near term, so we don't
+ * return them from a readdir - and don't filter them out from names
+ * we get from automountd.
+ */
+#define IS_TRANSIENT(fnp) \
+	(((fnp)->fn_flags & MF_LOOKUP) || \
+	 (!vnode_mountedhere(fntovn(fnp)) && (fnp)->fn_direntcnt == 0))
 
 int
 auto_readdir(ap)
@@ -901,6 +1005,22 @@ auto_readdir(ap)
 			goto done;
 		}
 
+		/*
+		 * This mount is for an indirect map.
+		 *
+		 * If we're in the middle of unmounting that map, and
+		 * this is the root directory for that map, we won't
+		 * create anything under it in a lookup, so we should
+		 * only return directory entries for things that are
+		 * already there.
+		 */
+		if (fnip->fi_flags & MF_UNMOUNTING && vp == fnip->fi_rootvp) {
+			myeof = 1;
+			if (ap->a_eofflag != NULL)
+				*ap->a_eofflag = 1;
+			goto done;
+		}
+
 again:
 		/*
 		 * Do readdir of daemon contents only
@@ -953,10 +1073,12 @@ again:
 			cdp = dp;
 			do {
 				this_reclen = RECLEN(cdp);
-				if (auto_search(fnp, cdp->d_name, cdp->d_namlen,
-				    NULL, vfs_context_ucred(ap->a_context))) {
+				cfnp = auto_search(fnp, cdp->d_name,
+				    cdp->d_namlen);
+				if (cfnp == NULL || IS_TRANSIENT(cfnp)) {
 					/*
 					 * entry not found in kernel list,
+					 * or found but is transient, so
 					 * include it in readdir output.
 					 *
 					 * If we are skipping entries. then
@@ -1080,14 +1202,16 @@ again:
 	while (cfnp != NULL) {
 		nfnp = cfnp->fn_next;
 		offset = cfnp->fn_offset;
-		if ((offset >= uio_offset(uiop)) &&
-		    (!(cfnp->fn_flags & MF_LOOKUP))) {
+		lck_rw_lock_shared(cfnp->fn_rwlock);
+		if ((offset >= uio_offset(uiop)) && !IS_TRANSIENT(cfnp)) {
 			int reclen;
+
+			lck_rw_unlock_shared(cfnp->fn_rwlock);
 
 			/*
 			 * include node only if its offset is greater or
-			 * equal to the one required and it is not in
-			 * transient state (not being looked-up)
+			 * equal to the one required and isn't
+			 * transient
 			 */
 			reclen = (int)DIRENT_RECLEN(cfnp->fn_namelen);
 			if (outcount + reclen > alloc_count) {
@@ -1097,7 +1221,7 @@ again:
 			dp->d_reclen = (uint16_t)reclen;
 			dp->d_ino = (ino_t)cfnp->fn_nodeid;
 #if 0
-			dp->d_type = vnode_isdir(cfnp->fn_vnode) ? DT_DIR : DT_LNK;
+			dp->d_type = vnode_isdir(fntovn(cfnp)) ? DT_DIR : DT_LNK;
 #else
 			dp->d_type = DT_UNKNOWN;
 #endif
@@ -1112,7 +1236,8 @@ again:
 
 			if (ap->a_numdirent)
 				++(*ap->a_numdirent);
-		}
+		} else
+			lck_rw_unlock_shared(cfnp->fn_rwlock);
 		cfnp = nfnp;
 	}
 
@@ -1467,70 +1592,6 @@ out:
 	return (retval);
 }
 
-/*
- * Called when the I/O count (in-progress vnops) is 0, and either
- * the use count (long-term references) is 0 or the vnode is being
- * forcibly disconnected from us (e.g., on a forced unmount, in which
- * case the vnode will be reassociated with deadfs).
- *
- * The I/O count is bumped to 1 before we're called.
- */
-static int
-auto_inactive(ap)
-	struct vnop_inactive_args /* {
-		struct vnodeop_desc *a_desc;
-		vnode_t a_vp;
-		vfs_context_t a_context;
-	} */ *ap;
-{
-	vnode_t vp = ap->a_vp;
-	fnnode_t *fnp = vntofn(vp);
-	fnnode_t *dfnp = fnp->fn_parent;
-
-	AUTOFS_DPRINT((4, "auto_inactive: vp=%p fn_link=%d\n",
-	    (void *)vp, fnp->fn_linkcnt));
-
-	/*
-	 * The rwlock should not be already held by this thread.
-	 * The assert relies on the fact that the owner field is cleared
-	 * when the lock is released.
-	 */
-	assert(dfnp != NULL);
-#if 0
-	assert(rw_owner(&dfnp->fn_rwlock) != current_thread());
-#endif
-	lck_rw_lock_exclusive(dfnp->fn_rwlock);
-	/*
-	 * There are no active references to this.
-	 * If there's only one link to this, namely the link to it
-	 * from its parent, get rid of it by removing it from
-	 * its parent's list of child fnnodes and recycle it;
-	 * a subsequent reference to it will recreate it if
-	 * the name is still there in the map.
-	 */
-	if (fnp->fn_linkcnt == 1) {
-		auto_disconnect(dfnp, fnp);
-		lck_rw_unlock_exclusive(dfnp->fn_rwlock);
-		vnode_recycle(vp);
-		AUTOFS_DPRINT((5, "auto_inactive: (exit) vp=%p freed\n",
-		    (void *)vp));
-		return (0);
-	} else if (fnp->fn_linkcnt == 0) {
-		/*
-		 * Root vnode; we've already removed it from the
-		 * "parent" (the master node for all autofs file
-		 * systems) - just null out the parent pointer, so
-		 * that we don't trip any assertions in auto_reclaim().
-		 */
-		fnp->fn_parent = NULL;
-	}
-	lck_rw_unlock_exclusive(dfnp->fn_rwlock);
-
-	AUTOFS_DPRINT((5, "auto_inactive: (exit) vp=%p fn_link=%d\n",
-	    (void *)vp, fnp->fn_linkcnt));
-	return (0);
-}
-
 static int
 auto_reclaim(ap)
 	struct vnop_reclaim_args /* {
@@ -1541,10 +1602,42 @@ auto_reclaim(ap)
 {
 	vnode_t vp = ap->a_vp;
 	fnnode_t *fnp = vntofn(vp);
+	fnnode_t *dfnp = fnp->fn_parent;
 
 	AUTOFS_DPRINT((4, "auto_reclaim: vp=%p fn_link=%d\n",
 	    (void *)vp, fnp->fn_linkcnt));
 
+	if (dfnp != NULL) {
+		/*
+		 * There are no filesystem calls in progress on this
+		 * vnode, and none will be made until we're done.
+		 *
+		 * Thus, it's safe to disconnect this from its parent
+		 * directory.
+		 */
+		lck_rw_lock_exclusive(dfnp->fn_rwlock);
+		/*
+		 * There are no active references to this.
+		 * If there's only one link to this, namely the link to it
+		 * from its parent, get rid of it by removing it from
+		 * its parent's list of child fnnodes and recycle it;
+		 * a subsequent reference to it will recreate it if
+		 * the name is still there in the map.
+		 */
+		if (fnp->fn_linkcnt == 1)
+			auto_disconnect(dfnp, fnp);
+		else if (fnp->fn_linkcnt == 0) {
+			/*
+			 * Root vnode; we've already removed it from the
+			 * "parent" (the master node for all autofs file
+			 * systems) - just null out the parent pointer, so
+			 * that we don't trip any assertions
+			 * in auto_freefnnode().
+			 */
+			fnp->fn_parent = NULL;
+		}
+		lck_rw_unlock_exclusive(dfnp->fn_rwlock);
+	}
 	auto_freefnnode(fnp);
 	vnode_clearfsnode(vp);
 	AUTOFS_DPRINT((5, "auto_reclaim: (exit) vp=%p freed\n",

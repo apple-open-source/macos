@@ -151,6 +151,7 @@
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_GROUP = wheel;
 				INSTALL_OWNER = root;
+				OTHER_CFLAGS = "-DDEBUG";
 				PER_ARCH_CFLAGS_arm = "-mlong-calls";
 				PREBINDING = NO;
 				SDKROOT_arm = /Developer/SDKs/Purple;

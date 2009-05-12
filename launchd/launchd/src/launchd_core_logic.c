@@ -16,7 +16,7 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-static const char *const __rcs_file_version__ = "$Revision: 23714 $";
+static const char *const __rcs_file_version__ = "$Revision: 23792 $";
 
 #include "config.h"
 #include "launchd_core_logic.h"
@@ -81,13 +81,13 @@ static const char *const __rcs_file_version__ = "$Revision: 23714 $";
 #include <quarantine.h>
 #endif
 
-#include "liblaunch_public.h"
-#include "liblaunch_private.h"
-#include "liblaunch_internal.h"
-#include "libbootstrap_public.h"
-#include "libbootstrap_private.h"
-#include "libvproc_public.h"
-#include "libvproc_internal.h"
+#include "launch.h"
+#include "launch_priv.h"
+#include "launch_internal.h"
+#include "bootstrap.h"
+#include "bootstrap_priv.h"
+#include "vproc.h"
+#include "vproc_internal.h"
 
 #include "reboot2.h"
 
@@ -96,7 +96,7 @@ static const char *const __rcs_file_version__ = "$Revision: 23714 $";
 #include "launchd_unix_ipc.h"
 #include "protocol_vproc.h"
 #include "protocol_vprocServer.h"
-#include "job_reply.h"
+#include "protocol_job_reply.h"
 
 #define LAUNCHD_MIN_JOB_RUN_TIME 10
 #define LAUNCHD_DEFAULT_EXIT_TIMEOUT 20
@@ -420,7 +420,9 @@ static void job_setup_attributes(job_t j);
 static bool job_setup_machport(job_t j);
 static void job_setup_fd(job_t j, int target_fd, const char *path, int flags);
 static void job_postfork_become_user(job_t j);
+#if !TARGET_OS_EMBEDDED
 static void job_enable_audit_for_user(job_t j, uid_t u, char *name);
+#endif
 static void job_find_and_blame_pids_with_weird_uids(job_t j);
 static void job_force_sampletool(job_t j);
 static void job_setup_exception_port(job_t j, task_t target_task);
@@ -1585,7 +1587,8 @@ job_import_integer(job_t j, const char *key, long long value)
 }
 
 void
-job_import_opaque(job_t j, const char *key, launch_data_t value)
+job_import_opaque(job_t j __attribute__((unused)),
+	const char *key, launch_data_t value __attribute__((unused)))
 {
 	switch (key[0]) {
 	case 'q':
@@ -2399,7 +2402,7 @@ job_kill(job_t j)
 }
 
 void
-job_callback_proc(job_t j, int flags, int fflags)
+job_callback_proc(job_t j, int flags __attribute__((unused)), int fflags)
 {
 	if ((fflags & NOTE_EXEC) && j->anonymous) {
 		int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_PID, j->p };
@@ -2826,7 +2829,9 @@ job_start_child(job_t j)
 		job_log_error(j, LOG_ERR, "posix_spawnp(\"%s\", ...)", argv[0]);
 	}
 
+#if HAVE_SANDBOX
 out_bad:
+#endif
 	_exit(EXIT_FAILURE);
 }
 
@@ -2925,6 +2930,7 @@ out:
 	free(kp);
 }
 
+#if !TARGET_OS_EMBEDDED
 void
 job_enable_audit_for_user(job_t j, uid_t u, char *name)
 {
@@ -2946,6 +2952,7 @@ job_enable_audit_for_user(job_t j, uid_t u, char *name)
 		}
 	}
 }
+#endif
 
 void
 job_postfork_become_user(job_t j)
@@ -3024,7 +3031,9 @@ job_postfork_become_user(job_t j)
 		desired_gid = gre->gr_gid;
 	}
 
+#if !TARGET_OS_EMBEDDED
 	job_enable_audit_for_user(j, desired_uid, loginname);
+#endif
 
 	if (!job_assumes(j, setlogin(loginname) != -1)) {
 		_exit(EXIT_FAILURE);
@@ -4196,9 +4205,9 @@ job_setup_exception_port(job_t j, task_t target_task)
 		return;
 	}
 
-#if defined (__ppc__)
+#if defined (__ppc__) || defined (__ppc64__)
 	f = PPC_THREAD_STATE64;
-#elif defined(__i386__)
+#elif defined(__i386__) || defined(__x86_64__)
 	f = x86_THREAD_STATE;
 #elif defined(__arm__)
 	f = ARM_THREAD_STATE;

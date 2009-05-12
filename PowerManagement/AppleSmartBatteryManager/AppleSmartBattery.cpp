@@ -83,7 +83,9 @@ static const uint32_t kBatteryReadAllTimeout = 10000;       // 10 seconds
 // In microseconds.
 static const uint32_t microSecDelayTable[kRetryAttempts] = 
     { 10, 100, 1000, 10000, 250000 };
-                
+
+static const unsigned int   kExpectedDesignCycleBytes = 3;
+
 
 /* The union of the errors listed in STATUS_ERROR_NEEDS_RETRY
  * and STATUS_ERROR_NON_RECOVERABLE should equal the entirety of 
@@ -131,6 +133,8 @@ static const OSSymbol *_ManufacturerDataSym =
                         OSSymbol::withCString("ManufacturerData");
 static const OSSymbol *_PFStatusSym =
                         OSSymbol::withCString("PermanentFailureStatus");
+static const OSSymbol *_DesignedForCyclesSym =
+                        OSSymbol::withCString("DesignCycleCount");
 
 /* _SerialNumberSym represents the manufacturer's 16-bit serial number in
     numeric format. 
@@ -217,7 +221,6 @@ bool AppleSmartBattery::init(void)
 bool AppleSmartBattery::start(IOService *provider)
 {
     IORegistryEntry *p = NULL;
-    IOReturn        err;
     OSNumber        *debugPollingSetting;
    
     BattLog("AppleSmartBattery loading...\n");
@@ -1087,7 +1090,7 @@ bool AppleSmartBattery::transactionCompletion(
             } else {
                 properties->removeObject( _ManufacturerDataSym );
             }
-            
+
             readWordAsync(kSMBusBatteryAddr, kBManufactureDateCmd);
         break;
 

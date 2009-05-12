@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_cli.c,v 1.129.2.13.2.24 2008/01/29 20:01:14 dmitry Exp $ */
+/* $Id: php_cli.c,v 1.129.2.13.2.29 2008/11/25 03:53:00 lbarnaud Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
@@ -260,11 +260,10 @@ static int sapi_cli_ub_write(const char *str, uint str_length TSRMLS_DC) /* {{{ 
 	{
 		ret = sapi_cli_single_write(ptr, remaining);
 		if (!ret) {
-#ifdef PHP_CLI_WIN32_NO_CONSOLE
-			break;
-#else
+#ifndef PHP_CLI_WIN32_NO_CONSOLE
 			php_handle_aborted_connection();
 #endif
+			break;
 		}
 		ptr += ret;
 		remaining -= ret;
@@ -504,7 +503,7 @@ static void cli_register_file_handles(TSRMLS_D) /* {{{ */
 		if (s_err) php_stream_close(s_err);
 		return;
 	}
-
+	
 #if PHP_DEBUG
 	/* do not close stdout and stderr */
 	s_out->flags |= PHP_STREAM_FLAG_NO_CLOSE;
@@ -562,7 +561,7 @@ static int cli_seek_file_begin(zend_file_handle *file_handle, char *script_file,
 	/* #!php support */
 	c = fgetc(file_handle->handle.fp);
 	if (c == '#') {
-		while (c != '\n' && c != '\r') {
+		while (c != '\n' && c != '\r' && c != EOF) {
 			c = fgetc(file_handle->handle.fp);	/* skip to end of line */
 		}
 		/* handle situations where line is terminated by \r\n */
@@ -728,12 +727,6 @@ int main(int argc, char *argv[])
 	zend_first_try {
 		CG(in_compilation) = 0; /* not initialized but needed for several options */
 		EG(uninitialized_zval_ptr) = NULL;
-
-		if (cli_sapi_module.php_ini_path_override && cli_sapi_module.php_ini_ignore) {
-			PUTS("You cannot use both -n and -c switch. Use -h for help.\n");
-			exit_status=1;
-			goto out_err;
-		}
 
 		while ((c = php_getopt(argc, argv, OPTIONS, &php_optarg, &php_optind, 0)) != -1) {
 			switch (c) {

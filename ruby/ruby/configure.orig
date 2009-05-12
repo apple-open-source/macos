@@ -5208,6 +5208,8 @@ else
 
 fi
 
+mv confdefs.h confdefs1.h
+: > confdefs.h
 # Check whether --enable-largefile was given.
 if test "${enable_largefile+set}" = set; then
   enableval=$enable_largefile;
@@ -5558,6 +5560,9 @@ rm -f conftest*
   fi
 fi
 
+mv confdefs.h largefile.h
+mv confdefs1.h confdefs.h
+cat largefile.h >> confdefs.h
 
 { echo "$as_me:$LINENO: checking for long long" >&5
 echo $ECHO_N "checking for long long... $ECHO_C" >&6; }
@@ -10302,16 +10307,13 @@ human*)		ac_cv_func_getpgrp_void=yes
 		ac_cv_func_setitimer=no
 		;;
 beos*)		ac_cv_func_link=no;;
-cygwin*)	rb_cv_have_daylight=no
-		ac_cv_var_tzname=no
-		ac_cv_func__setjmp=no
-		ac_cv_func_setitimer=no
-		;;
+cygwin*)	;;
 mingw*)		if test "$with_winsock2" = yes; then
 		  LIBS="-lws2_32 $LIBS"
 		else
 		  LIBS="-lwsock32 $LIBS"
 		fi
+		LIBS="-lshell32 $LIBS"
 		ac_cv_header_a_out_h=no
 		ac_cv_header_pwd_h=no
 		ac_cv_header_utime_h=no
@@ -13195,6 +13197,74 @@ fi
 done
 
 
+# http://sources.redhat.com/ml/libc-hacker/2005-08/msg00008.html
+# Debian GNU/Linux Etch's libc6.1 2.3.6.ds1-13etch5 has this problem.
+# Debian GNU/Linux Lenny's libc6.1 2.7-10 has no problem.
+{ echo "$as_me:$LINENO: checking for broken erfc of glibc-2.3.6 on IA64" >&5
+echo $ECHO_N "checking for broken erfc of glibc-2.3.6 on IA64... $ECHO_C" >&6; }
+if test "${rb_broken_glibc_ia64_erfc+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  if test "$cross_compiling" = yes; then
+  rb_broken_glibc_ia64_erfc=no
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+#include <math.h>
+int
+main()
+{
+   erfc(10000.0);
+   return 0;
+}
+
+_ACEOF
+rm -f conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_link") 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && { ac_try='./conftest$ac_exeext'
+  { (case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_try") 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  rb_broken_glibc_ia64_erfc=no
+else
+  echo "$as_me: program exited with status $ac_status" >&5
+echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+( exit $ac_status )
+rb_broken_glibc_ia64_erfc=yes
+fi
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
+fi
+
+
+fi
+{ echo "$as_me:$LINENO: result: $rb_broken_glibc_ia64_erfc" >&5
+echo "${ECHO_T}$rb_broken_glibc_ia64_erfc" >&6; }
+case $rb_broken_glibc_ia64_erfc in
+  yes) ac_cv_func_erf=no;;
+esac
+
+
 
 
 
@@ -13377,15 +13447,19 @@ done
 
 
 
+
+
+
 for ac_func in fmod killpg wait4 waitpid syscall chroot fsync getcwd eaccess\
-	      truncate chsize times utimes fcntl lockf lstat symlink link\
+	      truncate ftruncate chsize times utimes fcntl lockf lstat symlink link\
 	      readlink setitimer setruid seteuid setreuid setresuid\
 	      setproctitle setrgid setegid setregid setresgid issetugid pause\
 	      lchown lchmod getpgrp setpgrp getpgid setpgid initgroups\
 	      getgroups setgroups getpriority getrlimit setrlimit sysconf\
 	      group_member dlopen sigprocmask\
-	      sigaction _setjmp setsid telldir seekdir fchmod mktime timegm\
-	      cosh sinh tanh setuid setgid setenv unsetenv
+	      sigaction _setjmp setsid telldir seekdir fchmod\
+	      mktime timegm gettimeofday\
+	      cosh sinh tanh round setuid setgid setenv unsetenv
 do
 as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
 { echo "$as_me:$LINENO: checking for $ac_func" >&5
@@ -13915,6 +13989,376 @@ if test "$rb_cv_have_daylight" = yes; then
 _ACEOF
 
 fi
+
+{ echo "$as_me:$LINENO: checking for external timezone" >&5
+echo $ECHO_N "checking for external timezone... $ECHO_C" >&6; }
+if test "${rb_cv_var_timezone+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  rb_cv_var_timezone=no
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#define _XOPEN_SOURCE 1
+    #include <time.h>
+    const volatile void *volatile t;
+int
+main ()
+{
+t = &(&timezone)[0];
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+  for t in long int; do
+      cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#define _XOPEN_SOURCE 1
+        #include <time.h>
+        extern $t timezone;
+        const volatile void *volatile t;
+int
+main ()
+{
+t = &(&timezone)[0];
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+  rb_cv_var_timezone=$t; break
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+    done
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+{ echo "$as_me:$LINENO: result: $rb_cv_var_timezone" >&5
+echo "${ECHO_T}$rb_cv_var_timezone" >&6; }
+if test "$rb_cv_var_timezone" != no; then
+  cat >>confdefs.h <<\_ACEOF
+#define HAVE_VAR_TIMEZONE 1
+_ACEOF
+
+  cat >>confdefs.h <<_ACEOF
+#define TYPEOF_VAR_TIMEZONE $rb_cv_var_timezone
+_ACEOF
+
+fi
+{ echo "$as_me:$LINENO: checking for external altzone" >&5
+echo $ECHO_N "checking for external altzone... $ECHO_C" >&6; }
+if test "${rb_cv_var_altzone+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  rb_cv_var_altzone=no
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#define _XOPEN_SOURCE 1
+    #include <time.h>
+    const volatile void *volatile t;
+int
+main ()
+{
+t = &(&altzone)[0];
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+  for t in long int; do
+      cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#define _XOPEN_SOURCE 1
+        #include <time.h>
+        extern $t altzone;
+        const volatile void *volatile t;
+int
+main ()
+{
+t = &(&altzone)[0];
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+  rb_cv_var_altzone=$t; break
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+    done
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+{ echo "$as_me:$LINENO: result: $rb_cv_var_altzone" >&5
+echo "${ECHO_T}$rb_cv_var_altzone" >&6; }
+if test "$rb_cv_var_altzone" != no; then
+  cat >>confdefs.h <<\_ACEOF
+#define HAVE_VAR_ALTZONE 1
+_ACEOF
+
+  cat >>confdefs.h <<_ACEOF
+#define TYPEOF_VAR_ALTZONE $rb_cv_var_altzone
+_ACEOF
+
+fi
+if test "$rb_cv_var_timezone" = no; then
+
+for ac_func in timezone
+do
+as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
+{ echo "$as_me:$LINENO: checking for $ac_func" >&5
+echo $ECHO_N "checking for $ac_func... $ECHO_C" >&6; }
+if { as_var=$as_ac_var; eval "test \"\${$as_var+set}\" = set"; }; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+/* Define $ac_func to an innocuous variant, in case <limits.h> declares $ac_func.
+   For example, HP-UX 11i <limits.h> declares gettimeofday.  */
+#define $ac_func innocuous_$ac_func
+
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char $ac_func (); below.
+    Prefer <limits.h> to <assert.h> if __STDC__ is defined, since
+    <limits.h> exists even on freestanding compilers.  */
+
+#ifdef __STDC__
+# include <limits.h>
+#else
+# include <assert.h>
+#endif
+
+#undef $ac_func
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char $ac_func ();
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined __stub_$ac_func || defined __stub___$ac_func
+choke me
+#endif
+
+int
+main ()
+{
+return $ac_func ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_link") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest$ac_exeext &&
+       $as_test_x conftest$ac_exeext; then
+  eval "$as_ac_var=yes"
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	eval "$as_ac_var=no"
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
+      conftest$ac_exeext conftest.$ac_ext
+fi
+ac_res=`eval echo '${'$as_ac_var'}'`
+	       { echo "$as_me:$LINENO: result: $ac_res" >&5
+echo "${ECHO_T}$ac_res" >&6; }
+if test `eval echo '${'$as_ac_var'}'` = yes; then
+  cat >>confdefs.h <<_ACEOF
+#define `echo "HAVE_$ac_func" | $as_tr_cpp` 1
+_ACEOF
+
+fi
+done
+
+  if test "$ ac_cv_func_timezone" = yes; then
+    { echo "$as_me:$LINENO: checking whether timezone requires zero arguments" >&5
+echo $ECHO_N "checking whether timezone requires zero arguments... $ECHO_C" >&6; }
+if test "${rb_cv_func_timezone_void+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <time.h>
+int
+main ()
+{
+(void)timezone(0, 0);
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+  rb_cv_func_timezone_void=no
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	rb_cv_func_timezone_void=yes
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+
+fi
+{ echo "$as_me:$LINENO: result: $rb_cv_func_timezone_void" >&5
+echo "${ECHO_T}$rb_cv_func_timezone_void" >&6; }
+    if test $rb_cv_func_timezone_void = yes; then
+      cat >>confdefs.h <<\_ACEOF
+#define TIMEZONE_VOID 1
+_ACEOF
+
+    fi
+  fi
+fi
+
 { echo "$as_me:$LINENO: checking for negative time_t for gmtime(3)" >&5
 echo $ECHO_N "checking for negative time_t for gmtime(3)... $ECHO_C" >&6; }
 if test "${rb_cv_negative_time_t+set}" = set; then
@@ -14009,13 +14453,107 @@ if test "$ac_cv_func_sigprocmask" = yes && test "$ac_cv_func_sigaction" = yes; t
 _ACEOF
 
 else
+
+for ac_func in sigsetmask
+do
+as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
+{ echo "$as_me:$LINENO: checking for $ac_func" >&5
+echo $ECHO_N "checking for $ac_func... $ECHO_C" >&6; }
+if { as_var=$as_ac_var; eval "test \"\${$as_var+set}\" = set"; }; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+/* Define $ac_func to an innocuous variant, in case <limits.h> declares $ac_func.
+   For example, HP-UX 11i <limits.h> declares gettimeofday.  */
+#define $ac_func innocuous_$ac_func
+
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char $ac_func (); below.
+    Prefer <limits.h> to <assert.h> if __STDC__ is defined, since
+    <limits.h> exists even on freestanding compilers.  */
+
+#ifdef __STDC__
+# include <limits.h>
+#else
+# include <assert.h>
+#endif
+
+#undef $ac_func
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char $ac_func ();
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined __stub_$ac_func || defined __stub___$ac_func
+choke me
+#endif
+
+int
+main ()
+{
+return $ac_func ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_link") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest$ac_exeext &&
+       $as_test_x conftest$ac_exeext; then
+  eval "$as_ac_var=yes"
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	eval "$as_ac_var=no"
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
+      conftest$ac_exeext conftest.$ac_ext
+fi
+ac_res=`eval echo '${'$as_ac_var'}'`
+	       { echo "$as_me:$LINENO: result: $ac_res" >&5
+echo "${ECHO_T}$ac_res" >&6; }
+if test `eval echo '${'$as_ac_var'}'` = yes; then
+  cat >>confdefs.h <<_ACEOF
+#define `echo "HAVE_$ac_func" | $as_tr_cpp` 1
+_ACEOF
+
+fi
+done
+
   { echo "$as_me:$LINENO: checking for BSD signal semantics" >&5
 echo $ECHO_N "checking for BSD signal semantics... $ECHO_C" >&6; }
 if test "${rb_cv_bsd_signal+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
   if test "$cross_compiling" = yes; then
-  rb_cv_bsd_signal=no
+  rb_cv_bsd_signal=$ac_cv_func_sigsetmask
 else
   cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
@@ -15890,7 +16428,7 @@ LIBEXT=a
 
 
 STATIC=
-: ${LIBPATHFLAG=' -L"%s"'}
+: ${LIBPATHFLAG=' -L%s'}
 : ${PATHFLAG=''}
 
 if test "$with_dln_a_out" != yes; then
@@ -15955,7 +16493,7 @@ echo $ECHO_N "checking whether OS depend dynamic link works... $ECHO_C" >&6; }
 			rb_cv_dlopen=yes ;;
 	interix*) 	: ${LDSHARED="$CC -shared"}
 			XLDFLAGS="$XLDFLAGS -Wl,-E"
-			LIBPATHFLAG=" -L'%1\$-s'"
+			LIBPATHFLAG=" -L%1\$-s"
 			rb_cv_dlopen=yes ;;
 	freebsd*|dragonfly*)       : ${LDSHARED="$CC -shared"}
 			if test "$rb_cv_binary_elf" = yes; then
@@ -16040,8 +16578,8 @@ else
 fi
 
   if test "$enable_rpath" = yes; then
-    LIBPATHFLAG=" -L'%1\$-s'"
-    RPATHFLAG=" ${linker_flag}-R'%1\$-s'"
+    LIBPATHFLAG=" -L%1\$-s"
+    RPATHFLAG=" ${linker_flag}-R%1\$-s"
   fi
 fi
 
@@ -16328,8 +16866,7 @@ _ACEOF
 fi
 
 
-
-for ac_func in select gettimeofday
+for ac_func in select
 do
 as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
 { echo "$as_me:$LINENO: checking for $ac_func" >&5
@@ -16796,12 +17333,6 @@ case "$target_os" in
 		LIBRUBY_SO='cyg$(RUBY_SO_NAME)'${MAJOR}${MINOR}.dll
 		LIBRUBY='lib$(RUBY_SO_NAME).dll.a'
 	    fi
-	    case " $LIBOBJS " in
-  *" strftime.$ac_objext "* ) ;;
-  *) LIBOBJS="$LIBOBJS strftime.$ac_objext"
- ;;
-esac
-
 	    ;;
 	mingw*)
 	    RUBY_SO_NAME=${rb_cv_msvcrt}-'$(RUBY_INSTALL_NAME)'${MAJOR}${MINOR}
@@ -16848,6 +17379,7 @@ case "$build_os" in
   *msdosdjgpp*) FIRSTMAKEFILE=GNUmakefile:djgpp/GNUmakefile.in;;
 esac
 
+CPPFLAGS="$CPPFLAGS "'$(DEFS)'
 
 
 
@@ -17066,7 +17598,7 @@ else
   echo "creating config.h"
   tr -d '\015' < confdefs.h > config.h
 fi
-: > confdefs.h
+tr -d '\015' < largefile.h > confdefs.h
 
 ac_config_files="$ac_config_files $FIRSTMAKEFILE"
 

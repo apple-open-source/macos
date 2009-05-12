@@ -49,7 +49,7 @@ UnlockReferralItem::UnlockReferralItem() :
 //
 // Destroy it
 //
-UnlockReferralItem::~UnlockReferralItem() throw()
+UnlockReferralItem::~UnlockReferralItem() 
 {
 	secdebug("referral", "destroy %p", this);
 }

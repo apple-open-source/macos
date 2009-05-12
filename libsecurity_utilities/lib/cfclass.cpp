@@ -1,4 +1,4 @@
-/*
+ /*
  * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@

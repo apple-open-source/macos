@@ -24,8 +24,8 @@ ifndef Sources
 Sources = .
 endif
 
-Extra_CC_Flags += -Ddarwin -no-cpp-precomp -Wall -I/usr/include/pam -arch i386 -arch ppc -arch x86_64 -arch ppc64
-Extra_LD_Libraries += -lpam -arch i386 -arch ppc -arch x86_64 -arch ppc64
+Extra_CC_Flags += -Ddarwin -no-cpp-precomp -Wall -I/usr/include/pam $(RC_CFLAGS)
+Extra_LD_Libraries += -lpam $(RC_CFLAGS)
 
 include $(CoreOSMakefiles)/Standard/Standard.make
 

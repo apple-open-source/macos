@@ -76,9 +76,9 @@
 #endif
 #ifndef _WIN32_WINNT
 
-/* Restrict the server to a subset of Windows 2000 header files by default
+/* Restrict the server to a subset of Windows XP header files by default
  */
-#define _WIN32_WINNT 0x0500
+#define _WIN32_WINNT 0x0501
 #endif
 #ifndef NOUSER
 #define NOUSER
@@ -229,9 +229,6 @@
 #if APR_HAVE_PROCESS_H
 #include <process.h>
 #endif
-#if APR_HAVE_IPV6
-#include <ws2tcpip.h>
-#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -280,7 +277,7 @@ extern "C" {
 #define APR_HAVE_IN_ADDR        1
 #define APR_HAVE_INET_ADDR      1
 #define APR_HAVE_INET_NETWORK   0
-#define APR_HAVE_IPV6           1
+#define APR_HAVE_IPV6           0
 #define APR_HAVE_MEMMOVE        1
 #define APR_HAVE_SETRLIMIT      0
 #define APR_HAVE_SIGACTION      0

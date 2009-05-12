@@ -37,9 +37,8 @@
 #include <IOKit/IOCatalogue.h>
 #include <IOKit/IOFilterInterruptEventSource.h>
 
-#include <IOKit/acpi/IOACPIPlatformDevice.h>
-
 #include <libkern/c++/OSContainers.h>
+#include <libkern/version.h>
 
 extern "C"
 {
@@ -55,16 +54,15 @@ extern "C"
 #define LOG(fmt, args...)
 #endif
 
-
-#if defined(__i386__) || defined(__x86_64__)
-#define USE_IOPCICONFIGURATOR	1
-#define USE_MSI			1
-#define USE_LEGACYINTS		1
+#ifndef VERSION_MAJOR
+#error VERSION_MAJOR
 #endif
 
-#if OSTYPES_K64_REV < 1
-typedef long IOInterruptVectorNumber;
+#if	    VERSION_MAJOR < 10
+#define	    ROM_KEXTS	    1
 #endif
+
+#define kMSIFreeCountKey    "MSIFree"
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -202,6 +200,7 @@ bool IOPCIMessagedInterruptController::init( UInt32 numVectors )
 
     _messagedInterruptsAllocator = IORangeAllocator::withRange(0, 0, 4, IORangeAllocator::kLocking);
     _messagedInterruptsAllocator->deallocate(_vectorBase, _vectorCount);
+    setProperty(kMSIFreeCountKey, _messagedInterruptsAllocator->getFreeCount(), 32);
 
     registerService();
 
@@ -291,15 +290,25 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
     IOReturn      ret;
     IOByteCount   msi = device->reserved->msiConfig;
     IOByteCount   msiBlockSize;
-    uint32_t      vector, firstVector = 0;
+    uint32_t      vector, firstVector = _vectorBase;
     uint16_t      control = device->configRead16(msi + 2);
     IORangeScalar rangeStart;
     uint32_t      message[3];
 
-    if (!_messagedInterruptsAllocator->allocate(numVectors, &rangeStart, numVectors))
-	return (kIOReturnNoSpace);
-
-    firstVector = rangeStart;
+    // pci2pci bridges get none
+    if ((0x0604 == device->configRead16(kIOPCIConfigClassCode + 1))
+	&& !device->getProperty(kIOPCIHotPlugKey)
+	&& !device->getProperty(kIOPCILinkChangeKey))
+    {
+	numVectors = 0;
+    }
+    if (numVectors)
+    {
+	if (!_messagedInterruptsAllocator->allocate(numVectors, &rangeStart, numVectors))
+	    return (kIOReturnNoSpace);
+	setProperty(kMSIFreeCountKey, _messagedInterruptsAllocator->getFreeCount(), 32);
+	firstVector = rangeStart;
+    }
 
     ret = bridge->callPlatformFunction( "GetMessagedInterruptAddress",
 		  /* waitForFunction */ false,
@@ -350,8 +359,9 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
 	}
 	else
 	{
-	    control &= ~1;	    // disabled
-	    numVectors = (31 - __builtin_clz(numVectors)); // log2
+	    control &= ~1;					// disabled
+	    if (numVectors) 
+		numVectors = (31 - __builtin_clz(numVectors));	// log2
 	    control |= (numVectors << 4);
 
 	    msiBlockSize = 3;   // words
@@ -408,6 +418,7 @@ IOReturn IOPCIMessagedInterruptController::deallocateDeviceInterrupts(
 	{
 	    IORangeScalar rangeStart = _vectorBase + *((uint32_t *) spec->getBytesNoCopy());
 	    _messagedInterruptsAllocator->deallocate(rangeStart, 1);
+	    setProperty(kMSIFreeCountKey, _messagedInterruptsAllocator->getFreeCount(), 32);
 	}
 	index++;
     }
@@ -891,6 +902,28 @@ IOReturn IOPCIBridge::_restoreDeviceState( IOPCIDevice * device,
     device->callPlatformFunction(gIOPlatformDeviceMessageKey, false,
 	(void *) kIOMessageDeviceWillPowerOff, device, p3, (void *) 0);
 
+    AbsoluteTime deadline, now;
+    uint32_t     retries = 0;
+    uint32_t     data;
+    bool         ok;
+
+    clock_interval_to_deadline(20, kMillisecondScale, &deadline);
+    do
+    {
+	data = device->configRead32(kIOPCIConfigVendorID);
+	ok = (data && (data != 0xFFFFFFFF));
+	if (ok)
+	    break;
+	retries++;
+	clock_get_uptime(&now);
+    }
+    while (AbsoluteTime_to_scalar(&now) < AbsoluteTime_to_scalar(&deadline));
+    if (retries)
+    {
+	IOLog("pci restore waited for %s (%d) %s\n", 
+		device->getName(), retries, ok ? "ok" : "fail");
+    }
+
     if (kIOPCIConfigShadowBridge & flags)
     {
 	if (configShadow(device)->bridge)
@@ -1076,8 +1109,8 @@ IORegistryEntry * IOPCIBridge::findMatching( OSIterator * kids,
 
 bool IOPCIBridge::checkProperties( IOPCIDevice * entry )
 {
-    UInt32	vendor, product, classCode, revID;
-    UInt32	subVendor = 0, subProduct = 0;
+    uint32_t	vendor, product, classCode, revID;
+    uint32_t	subVendor = 0, subProduct = 0;
     IOByteCount offset;
     OSData *	data;
     OSData *	nameData;
@@ -1085,25 +1118,25 @@ bool IOPCIBridge::checkProperties( IOPCIDevice * entry )
     char *	out;
 
     if ((data = OSDynamicCast(OSData, entry->getProperty("vendor-id"))))
-        vendor = *((UInt32 *) data->getBytesNoCopy());
+        vendor = *((uint32_t *) data->getBytesNoCopy());
     else
         return (false);
     if ((data = OSDynamicCast(OSData, entry->getProperty("device-id"))))
-        product = *((UInt32 *) data->getBytesNoCopy());
+        product = *((uint32_t *) data->getBytesNoCopy());
     else
         return (false);
     if ((data = OSDynamicCast(OSData, entry->getProperty("class-code"))))
-        classCode = *((UInt32 *) data->getBytesNoCopy());
+        classCode = *((uint32_t *) data->getBytesNoCopy());
     else
         return (false);
     if ((data = OSDynamicCast(OSData, entry->getProperty("revision-id"))))
-        revID = *((UInt32 *) data->getBytesNoCopy());
+        revID = *((uint32_t *) data->getBytesNoCopy());
     else
         return (false);
     if ((data = OSDynamicCast(OSData, entry->getProperty("subsystem-vendor-id"))))
-        subVendor = *((UInt32 *) data->getBytesNoCopy());
+        subVendor = *((uint32_t *) data->getBytesNoCopy());
     if ((data = OSDynamicCast(OSData, entry->getProperty("subsystem-id"))))
-        subProduct = *((UInt32 *) data->getBytesNoCopy());
+        subProduct = *((uint32_t *) data->getBytesNoCopy());
 
     if (entry->savedConfig)
     {
@@ -1122,9 +1155,9 @@ bool IOPCIBridge::checkProperties( IOPCIDevice * entry )
 	out = compatBuf;
 	if ((subVendor || subProduct)
 		&& ((subVendor != vendor) || (subProduct != product)))
-	    out += sprintf(out, "pci%lx,%lx", subVendor, subProduct) + 1;
-	out += sprintf(out, "pci%lx,%lx", vendor, product) + 1;
-	out += sprintf(out, "pciclass,%06lx", classCode) + 1;
+	    out += snprintf(out, sizeof("pcivvvv,pppp"), "pci%x,%x", subVendor, subProduct) + 1;
+	out += snprintf(out, sizeof("pcivvvv,pppp"), "pci%x,%x", vendor, product) + 1;
+	out += snprintf(out, sizeof("pciclass,cccccc"), "pciclass,%06x", classCode) + 1;
     
 	entry->setProperty("compatible", compatBuf, out - compatBuf);
     }
@@ -1145,9 +1178,9 @@ bool IOPCIBridge::checkProperties( IOPCIDevice * entry )
 OSDictionary * IOPCIBridge::constructProperties( IOPCIAddressSpace space )
 {
     OSDictionary *	propTable;
-    UInt32		value;
-    UInt32		vendor, product, classCode, revID;
-    UInt32		subVendor = 0, subProduct = 0;
+    uint32_t		value;
+    uint32_t		vendor, product, classCode, revID;
+    uint32_t		subVendor = 0, subProduct = 0;
     OSData *		prop;
     const char *	name;
     const OSSymbol *	nameProp;
@@ -1157,8 +1190,8 @@ OSDictionary * IOPCIBridge::constructProperties( IOPCIAddressSpace space )
     struct IOPCIGenericNames
     {
         const char *	name;
-        UInt32		mask;
-        UInt32		classCode;
+        uint32_t	mask;
+        uint32_t	classCode;
     };
     static const IOPCIGenericNames genericNames[] = {
                 { "display", 	0xffffff, 0x000100 },
@@ -1253,11 +1286,13 @@ OSDictionary * IOPCIBridge::constructProperties( IOPCIAddressSpace space )
         out = compatBuf;
         if ((subVendor || subProduct)
                 && ((subVendor != vendor) || (subProduct != product)))
-            out += sprintf(out, "pci%lx,%lx", subVendor, subProduct) + 1;
+            out += snprintf(out, sizeof("pcivvvv,pppp"), "pci%x,%x", subVendor, subProduct) + 1;
+
         if (0 == name)
             name = out;
-        out += sprintf(out, "pci%lx,%lx", vendor, product) + 1;
-        out += sprintf(out, "pciclass,%06lx", classCode) + 1;
+
+        out += snprintf(out, sizeof("pcivvvv,pppp"), "pci%x,%x", vendor, product) + 1;
+        out += snprintf(out, sizeof("pciclass,cccccc"), "pciclass,%06x", classCode) + 1;
 
         prop = OSData::withBytes( compatBuf, out - compatBuf );
         if (prop)
@@ -1320,19 +1355,21 @@ bool IOPCIBridge::publishNub( IOPCIDevice * nub, UInt32 /* index */ )
 {
     char			location[ 24 ];
     bool			ok;
+#if ROM_KEXTS
     OSData *			data;
     OSData *			driverData;
     UInt32			*regData, expRomReg;
     IOMemoryMap *		memoryMap;
     IOVirtualAddress		virtAddr;
+#endif
 
     if (nub)
     {
         if (nub->space.s.functionNum)
-            sprintf( location, "%X,%X", nub->space.s.deviceNum,
+            snprintf( location, sizeof(location), "%X,%X", nub->space.s.deviceNum,
                      nub->space.s.functionNum );
         else
-            sprintf( location, "%X", nub->space.s.deviceNum );
+            snprintf( location, sizeof(location), "%X", nub->space.s.deviceNum );
         nub->setLocation( location );
         IODTFindSlotName( nub, nub->space.s.deviceNum );
 
@@ -1354,6 +1391,7 @@ bool IOPCIBridge::publishNub( IOPCIDevice * nub, UInt32 /* index */ )
 	if (shadow && (kIOPCIClassBridge == nub->savedConfig[kIOPCIConfigRevisionID >> 2] >> 24))
 	    shadow->flags |= kIOPCIConfigShadowBridge;
 
+#if ROM_KEXTS
         // look for a "driver-reg,AAPL,MacOSX,PowerPC" property.
 
         if ((data = (OSData *)nub->getProperty("driver-reg,AAPL,MacOSX,PowerPC")))
@@ -1390,6 +1428,7 @@ bool IOPCIBridge::publishNub( IOPCIDevice * nub, UInt32 /* index */ )
                 }
             }
         }
+#endif
 
         ok = nub->attach( this );
 

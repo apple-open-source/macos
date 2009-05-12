@@ -1073,6 +1073,9 @@ AppleUSBUHCI::RHResumePortTimer(UInt32 port)
 	
 	USBLog(5, "AppleUSBUHCI[%p]::RHResumePortTimer - timing the resume for port %d", this, (int)port);
 	IOSleep(20);								// wait 20 ms for the resume to complete
+	USBLog(6, "AppleUSBUHCI[%p]::RHResumePortTimer - Host controller resume about to finish - calling EnsureUsability", this);
+	EnsureUsability();		
+
 	_commandGate->runAction(RHResumePortCompletionEntry, (void*)port);
 }
 

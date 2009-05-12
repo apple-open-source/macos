@@ -1,13 +1,13 @@
-/* 
+/*
  * Printer interface for popen() / lpr systems.
- * Copyright (c) 1995 Markku Rossi.
+ * Copyright (c) 1995-1999 Markku Rossi.
  *
  * Author: Markku Rossi <mtr@iki.fi>
  */
 
 /*
  * This file is part of GNU enscript.
- * 
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2, or (at your option)
@@ -31,17 +31,32 @@
  */
 
 FILE *
-printer_open (char *cmd, char *options, char *queue_param, char *printer_name,
-	      void **context_return)
+printer_open(char *cmd, char *options, char *queue_param, char *printer_name,
+	     void **context_return)
 {
-  char pipe_cmd[1024];
+  Buffer pipe_cmd;
   FILE *fp;
 
-  sprintf (pipe_cmd, "%s %s %s%s", cmd,
-	   options ? options : "",
-	   printer_name ? queue_param : "",
-	   printer_name ? printer_name : "");
-  fp = popen (pipe_cmd, "w");
+  buffer_init(&pipe_cmd);
+
+  buffer_append(&pipe_cmd, cmd);
+  buffer_append(&pipe_cmd, " ");
+
+  if (options)
+    {
+      buffer_append(&pipe_cmd, options);
+      buffer_append(&pipe_cmd, " ");
+    }
+
+  if (printer_name)
+    {
+      buffer_append(&pipe_cmd, queue_param);
+      buffer_append(&pipe_cmd, printer_name);
+    }
+
+  fp = popen(buffer_ptr(&pipe_cmd), "w");
+
+  buffer_uninit(&pipe_cmd);
 
   *context_return = fp;
   return fp;
@@ -49,9 +64,9 @@ printer_open (char *cmd, char *options, char *queue_param, char *printer_name,
 
 
 void
-printer_close (void *context)
+printer_close(void *context)
 {
   FILE *fp = (FILE *) context;
 
-  pclose (fp);
+  pclose(fp);
 }

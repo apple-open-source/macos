@@ -1,3 +1,10 @@
+1998-10-20  Markku Rossi  <mtr@ngs.fi>
+
+	* strerror.c: Removed the inclusion of `stdio.h'.
+
+	* regex.c: On Apple environment, add __private_extern__ before
+	symbols that conflict with the system's libc.
+
 1998-06-25  Markku Rossi  <mtr@ngs.fi>
 
 	* Makefile.am: Added strtoul() replacement.  The source files

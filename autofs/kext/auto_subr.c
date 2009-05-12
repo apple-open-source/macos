@@ -25,9 +25,7 @@
  */
 
 /*
- * Portions Copyright 2007 Apple Inc.
- *
- * $Id$
+ * Portions Copyright 2007-2009 Apple Inc.
  */
 
 #pragma ident	"@(#)auto_subr.c	1.95	05/12/19 SMI"
@@ -372,7 +370,7 @@ auto_mount_thread(void *arg)
 	AUTOFS_UNBLOCK_OTHERS(fnp, MF_INPROG);
 	lck_mtx_unlock(fnp->fn_lock);
 
-	vnode_rele(vp);
+	vnode_rele(vp);	/* release reference from auto_new_mount_thread() */
 	kauth_cred_unref(&argsp->fnc_cred);
 	FREE(argsp->fnc_name, M_AUTOFS);
 	FREE(argsp, M_AUTOFS);
@@ -975,33 +973,43 @@ auto_perform_actions(
 			 * We have to create the mountpoint if it doesn't
 			 * exist already
 			 *
-			 * We use the caller's credentials in case a UID-match
-			 * is required (MF_THISUID_MATCH_RQD).
+			 * Create the fnnode first, as we can't hold
+			 * the writer lock while creating the fnnode,
+			 * because allocating a vnode for it might involve
+			 * reclaiming an autofs vnode and hence removing
+			 * it from the containing directory - which might
+			 * be this directory.
 			 */
+			error = auto_makefnnode(&mfnp, VDIR,
+			    vnode_mount(dvp), NULL, mntpnt, dvp,
+			    0, cred, dfnp->fn_globals);
+			if (error) {
+				log(LOG_ERR, "autofs: mount of %s "
+				    "failed - can't create mountpoint (auto_makefnnode failed).\n",
+				    buff);
+				continue;
+			}
 			lck_rw_lock_exclusive(dfnp->fn_rwlock);
-			error = auto_search(dfnp, mntpnt, strlen(mntpnt),
-			    &mfnp, cred);
-			if (error == 0) {
-				/*
-				 * AUTOFS mountpoint exists
-				 */
-				if (vnode_mountedhere(fntovn(mfnp)) != NULL) {
-					panic("auto_perform_actions: "
-					    "mfnp=%p covered", (void *)mfnp);
+			/*
+			 * Attempt to create the autofs mount point.
+			 * If it fails with EEXIST, it already existed.
+			 */
+			error = auto_enter(dfnp, NULL, mntpnt, &mfnp);
+			if (error) {
+				if (error == EEXIST) {
+					if (vnode_mountedhere(fntovn(mfnp)) != NULL) {
+						panic("auto_perform_actions: "
+						    "mfnp=%p covered", (void *)mfnp);
+					}
+					error = 0;
 				}
 			} else {
-				/*
-				 * Create AUTOFS mountpoint
-				 */
 				assert((dfnp->fn_flags & MF_MOUNTPOINT) == 0);
-				error = auto_enter(dfnp, NULL, mntpnt, &mfnp,
-				    NULL, cred);
 				assert(mfnp->fn_linkcnt == 1);
 			}
 			if (!error)
 				update_times = 1;
 			lck_rw_unlock_exclusive(dfnp->fn_rwlock);
-			assert(error != EEXIST);
 			if (!error) {
 				/*
 				 * mfnp is already held.
@@ -1115,7 +1123,11 @@ mount:
 			 * Do vnode_ref(newvp) here since dfnp now holds
 			 * reference to it as one of its trigger nodes.
 			 */
-			vnode_ref(newvp);	/* released in unmount_triggers() */
+			error = vnode_ref(newvp);	/* released in unmount_triggers() */
+			if (error != 0) {
+				panic("vnode_ref failed with %d: %s, line %u",
+				    error, __FILE__, __LINE__);
+			}
 			/* XXX - what if this fails? */
 			AUTOFS_DPRINT((10, "\tadding trigger %s to %s\n",
 			    newfnp->fn_name, dfnp->fn_name));
@@ -1145,7 +1157,11 @@ mount:
 		 * Make sure the parent can't be freed while it has triggers.
 		 */
 		/* XXX - what if this fails? */
-		vnode_ref(dvp);		/* released in unmount_triggers() */
+		error = vnode_ref(dvp);		/* released in unmount_triggers() */
+		if (error != 0) {
+			panic("vnode_ref failed with %d: %s, line %u",
+			    error, __FILE__, __LINE__);
+		}
 	}
 
 	/*
@@ -1339,16 +1355,8 @@ auto_freefnnode(fnnode_t *fnp)
 	assert(fnp->fn_parent == NULL);
 
 	FREE(fnp->fn_name, M_TEMP);
-#if 0
-	if (fnp->fn_symlink) {
-		assert(fnp->fn_flags & MF_THISUID_MATCH_RQD);
-		FREE(fnp->fn_symlink, M_TEMP);
-	}
-#endif
 	if (vnode_islnk(vp))
 		FREE(fnp->fn_symlink, M_AUTOFS);
-	if (fnp->fn_cred)
-		kauth_cred_unref(&fnp->fn_cred);
 	lck_mtx_free(fnp->fn_lock, autofs_lck_grp);
 	lck_rw_free(fnp->fn_rwlock, autofs_lck_grp);
 
@@ -1429,13 +1437,16 @@ auto_disconnect(
 	AUTOFS_DPRINT((5, "auto_disconnect: done\n"));
 }
 
+/*
+ * Add an entry to a directory.
+ * Called with a write lock held on the directory.
+ */
 int
 auto_enter(fnnode_t *dfnp, struct componentname *cnp, const char *name,
-    fnnode_t **fnpp, const char *linktarget, ucred_t cred)
+    fnnode_t **fnpp)
 {
 	int namelen;
 	struct fnnode *cfnp, **spp = NULL;
-	vnode_t dvp = fntovn(dfnp);
 	off_t offset = 0;
 	off_t diff;
 	errno_t error;
@@ -1473,27 +1484,23 @@ auto_enter(fnnode_t *dfnp, struct componentname *cnp, const char *name,
 		    bcmp(cfnp->fn_name, name, namelen) == 0) {
 			/*
 			 * There is, and this is it.
+			 * Put and recycle the vnode for the fnnode we
+			 * were handed, get the vnode for the fnnode we
+			 * found and, if that succeeded, return EEXIST
+			 * to indicate that we found and got that fnnode,
+			 * otherwise return the error from vnode_get.
+			 * (This means we act like auto_search(), except
+			 * that we return EEXIST if we found the fnnode
+			 * and got its vnode.)
 			 */
-			lck_mtx_lock(cfnp->fn_lock);
-#if 0
-			if (cfnp->fn_flags & MF_THISUID_MATCH_RQD) {
-				/*
-				 * "thisuser" kind of node, need to
-				 * match CREDs as well
-				 */
-				lck_mtx_unlock(cfnp->fn_lock);
-				if (crcmp(cfnp->fn_cred, cred) == 0)
-					return (EEXIST);
-			} else {
-#else
-			{
-#endif
-				/*
-				 * Return EEXIST to indicate that.
-				 */
-				lck_mtx_unlock(cfnp->fn_lock);
-				return (EEXIST);
+			vnode_put(fntovn(*fnpp));
+			vnode_recycle(fntovn(*fnpp));
+			error = vnode_get(fntovn(cfnp));
+			if (error == 0) {
+				*fnpp = cfnp;
+				error = EEXIST;
 			}
+			return (error);
 		}
 
 		if (cfnp->fn_next != NULL) {
@@ -1510,11 +1517,6 @@ auto_enter(fnnode_t *dfnp, struct componentname *cnp, const char *name,
 		}
 	}
 
-	error = auto_makefnnode(fnpp, (linktarget != NULL) ? VLNK : VDIR,
-	    vnode_mount(dvp), cnp, name, dvp, 0, cred, dfnp->fn_globals);
-	if (error)
-		return (error);
-
 	/*
 	 * I don't hold the mutex on fnpp because I created it, and
 	 * I'm already holding the writers lock for it's parent
@@ -1526,25 +1528,11 @@ auto_enter(fnnode_t *dfnp, struct componentname *cnp, const char *name,
 	*spp = *fnpp;
 	(*fnpp)->fn_parent = dfnp;
 	(*fnpp)->fn_linkcnt++;	/* parent now holds reference to entry */
-	if (linktarget != NULL) {
-		size_t len;
-		char *tmp;
-
-		/*
-		 * The new fnnode is a symbolic link; set the target
-		 * information.
-		 */
-		len = strlen(linktarget);		/* don't include '\0' */
-		MALLOC(tmp, char *, len, M_AUTOFS, M_WAITOK);
-		bcopy(linktarget, tmp, len);
-		(*fnpp)->fn_symlink = tmp;
-		(*fnpp)->fn_symlinklen = len;
-	}
 
 	/*
 	 * dfnp->fn_linkcnt and dfnp->fn_direntcnt protected by dfnp->rw_lock
 	 */
-	if (linktarget == NULL) {
+	if (vnode_isdir(fntovn(*fnpp))) {
 		/*
 		 * The new fnnode is a directory, and has a ".." entry
 		 * for its parent.  Count that entry.
@@ -1560,13 +1548,11 @@ auto_enter(fnnode_t *dfnp, struct componentname *cnp, const char *name,
 	return (0);
 }
 
-int
-auto_search(fnnode_t *dfnp, char *name, int namelen, fnnode_t **fnpp,
-    ucred_t cred)
+fnnode_t *
+auto_search(fnnode_t *dfnp, char *name, int namelen)
 {
 	vnode_t dvp;
 	fnnode_t *p;
-	int error = ENOENT, match = 0;
 
 	AUTOFS_DPRINT((4, "auto_search: dfnp=%p, name=%.*s...\n",
 	    (void *)dfnp, namelen, name));
@@ -1580,38 +1566,13 @@ auto_search(fnnode_t *dfnp, char *name, int namelen, fnnode_t **fnpp,
 	for (p = dfnp->fn_dirents; p != NULL; p = p->fn_next) {
 		if (p->fn_namelen == namelen &&
 		    bcmp(p->fn_name, name, namelen) == 0) {
-			lck_mtx_lock(p->fn_lock);
-#if 0
-			if (p->fn_flags & MF_THISUID_MATCH_RQD) {
-				/*
-				 * "thisuser" kind of node
-				 * Need to match CREDs as well
-				 */
-				lck_mtx_unlock(p->fn_lock);
-				match = crcmp(p->fn_cred, cred) == 0;
-			} else {
-#else
-			{
-#endif
-				/*
-				 * No need to check CRED
-				 */
-				lck_mtx_unlock(p->fn_lock);
-				match = 1;
-			}
-		}
-		if (match) {
-			error = 0;
-			if (fnpp) {
-				*fnpp = p;
-				error = vnode_get(fntovn(*fnpp));
-			}
-			break;
+			AUTOFS_DPRINT((5, "auto_search: success\n"));
+			return (p);
 		}
 	}
 
-	AUTOFS_DPRINT((5, "auto_search: error=%d\n", error));
-	return (error);
+	AUTOFS_DPRINT((5, "auto_search: failure\n"));
+	return (NULL);
 }
 
 #define	DEEPER(x) (((x)->fn_dirents != NULL) || \
@@ -1694,7 +1655,7 @@ unmount_triggers(fnnode_t *fnp, action_list **alp)
 		 * Its parent was holding a reference to it, since this
 		 * is a trigger vnode.
 		 */
-		vnode_rele(tvp);
+		vnode_rele(tvp);	/* release reference from auto_perform_actions() */
 		if (error = auto_inkernel_unmount(mp)) {
 			panic("unmount_triggers: "
 			    "unmount of vp=%p failed error=%d",
@@ -1709,7 +1670,7 @@ unmount_triggers(fnnode_t *fnp, action_list **alp)
 	/*
 	 * We were holding a reference to our parent.  Drop that.
 	 */
-	vnode_rele(fntovn(fnp));
+	vnode_rele(fntovn(fnp));	/* release reference from auto_perform_actions() */
 	fnp->fn_trigger = NULL;
 	fnp->fn_alp = NULL;
 
@@ -2364,7 +2325,6 @@ top:
 			/*
 			 * Unmount failed, got to remount triggers.
 			 */
-			assert((fnp->fn_flags & MF_THISUID_MATCH_RQD) == 0);
 			error = auto_perform_actions(fnip, fnp, alp, NULL);
 			if (error) {
 				log(LOG_WARNING, "autofs: can't remount "

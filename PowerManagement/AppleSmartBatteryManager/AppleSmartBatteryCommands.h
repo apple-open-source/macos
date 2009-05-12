@@ -141,7 +141,8 @@ enum {
     kBReadCellVoltage4Cmd             = 0x3c,     // READ WORD
     kBReadCellVoltage3Cmd             = 0x3d,     // READ WORD
     kBReadCellVoltage2Cmd             = 0x3e,     // READ WORD
-    kBReadCellVoltage1Cmd             = 0x3f      // READ WORD
+    kBReadCellVoltage1Cmd             = 0x3f,      // READ WORD
+    kBManufacturerInfoCmd             = 0x70
 };
 
 /*  Smart Battery Extended Registers                    */

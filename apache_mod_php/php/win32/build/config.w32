@@ -1,5 +1,5 @@
 // vim:ft=javascript
-// $Id: config.w32,v 1.40.2.8.2.10 2007/04/18 09:38:59 rrichards Exp $
+// $Id: config.w32,v 1.40.2.8.2.11 2008/10/10 23:38:14 pajoye Exp $
 // "Master" config file; think of it as a configure.in
 // equivalent.
 
@@ -44,6 +44,9 @@ if (X64) {
 } else {
 	STDOUT.WriteLine("Detected 32-bit compiler");
 }
+
+AC_DEFINE('ARCHITECTURE', X64 ? 'x64' : 'x86', "Detected compiler architecture");
+DEFINE("PHP_ARCHITECTURE", X64 ? 'x64' : 'x86');
 
 // cygwin now ships with link.exe.  Avoid searching the cygwin path
 // for this, as we want the MS linker, not the fileutil
@@ -176,6 +179,9 @@ if (PHP_ZTS == "yes") {
 	ADD_FLAG("CFLAGS", "/D ZTS=1");
 }
 	
+DEFINE("PHP_ZTS_ARCHIVE_POSTFIX", PHP_ZTS == "yes" ? '' : "-nts");
+
+
 // we want msvcrt in the PHP DLL
 ADD_FLAG("PHP_LDFLAGS", "/nodefaultlib:libcmt");
 

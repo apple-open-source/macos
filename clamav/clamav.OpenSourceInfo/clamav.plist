@@ -11,6 +11,7 @@
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>set config to not use NetInfo</string>
+		<string>prevent buffer overruns (rdar://problem/5876278)</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>clamav</string>

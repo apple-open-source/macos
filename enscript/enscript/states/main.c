@@ -1,6 +1,6 @@
 /*
  * The main for states.
- * Copyright (c) 1997-1998 Markku Rossi.
+ * Copyright (c) 1997-2000 Markku Rossi.
  *
  * Author: Markku Rossi <mtr@iki.fi>
  */
@@ -92,6 +92,7 @@ VariableDef *vardefs_tail = NULL;
 
 char *defs_file = "states.st";
 unsigned int linenum = 1;
+char *yyin_name;
 
 /*
  * -o FILE, --output=FILE
@@ -102,6 +103,14 @@ unsigned int linenum = 1;
 FILE *ofp = NULL;
 
 /*
+ * -p PATH, --path=PATH
+ *
+ * Set the load path to PATH.
+ */
+
+char *path = NULL;
+
+/*
  * -s NAME, --state=NAME
  *
  * Start from state NAME.  As a default, start date is resolved during
@@ -109,6 +118,19 @@ FILE *ofp = NULL;
  */
 char *start_state_arg = NULL;
 char *start_state;
+
+/*
+ * -v, --verbose
+ *
+ * Increase the program verbosity.
+ */
+unsigned int verbose = 0;
+
+/*
+ * -V, --version
+ *
+ * Print the program version number.
+ */
 
 /*
  * -W LEVEL, --warning=LEVEL
@@ -128,7 +150,9 @@ static struct option long_options[] =
   {"file",		required_argument,	0, 'f'},
   {"help",		no_argument,		0, 'h'},
   {"output",		required_argument,	0, 'o'},
+  {"path",		required_argument,	0, 'p'},
   {"state",		required_argument,	0, 's'},
+  {"verbose",		no_argument,		0, 'v'},
   {"version",		no_argument,		0, 'V'},
   {"warning",		required_argument,	0, 'W'},
 
@@ -201,7 +225,7 @@ main (argc, argv)
 
   init_primitives ();
 
-  re_set_syntax (RE_SYNTAX_GNU_AWK);
+  re_set_syntax (RE_SYNTAX_GNU_AWK | RE_INTERVALS);
 
   /* Enter some system variables. */
   enter_system_variable ("program", program);
@@ -212,7 +236,7 @@ main (argc, argv)
     {
       int option_index = 0;
 
-      c = getopt_long (argc, argv, "D:f:ho:s:VW:", long_options,
+      c = getopt_long (argc, argv, "D:f:ho:p:s:vVW:", long_options,
 		       &option_index);
       if (c == -1)
 	break;
@@ -261,8 +285,16 @@ main (argc, argv)
 	    }
 	  break;
 
+	case 'p':		/* path */
+	  path = optarg;
+	  break;
+
 	case 's':		/* start state */
 	  start_state_arg = optarg;
+	  break;
+
+	case 'v':		/* verbose */
+	  verbose++;
 	  break;
 
 	case 'V':		/* version */
@@ -333,27 +365,22 @@ main (argc, argv)
     node_free (n);
   }
 
-  /* Parse config file. */
-
-  yyin = fopen (defs_file, "r");
-  if (yyin == NULL)
+  /* Set some defaults if the user didn't give them. */
+  if (path == NULL)
     {
-      fprintf (stderr, _("%s: couldn't open definition file `%s': %s\n"),
-	       program, defs_file, strerror (errno));
-      exit (1);
+      char *cp;
+      cp = strrchr (defs_file, '/');
+      if (cp)
+	{
+	  path = xmalloc (cp - defs_file + 3);
+	  sprintf (path, ".%c%.*s", PATH_SEPARATOR, cp - defs_file, defs_file);
+	}
+      else
+	path = ".";
     }
 
-  yyparse ();
-  fclose (yyin);
-
-  /* Evaluate all top-level statements. */
-  {
-    Node *n;
-    int return_seen = 0;
-
-    n = eval_statement_list (global_stmts, NULL, &return_seen);
-    node_free (n);
-  }
+  /* Parse config file. */
+  load_states_file (defs_file);
 
   /* Define variables given at the command line. */
   for (vardef = vardefs; vardef; vardef = vardef->next)
@@ -426,7 +453,9 @@ Mandatory arguments to long options are mandatory for short options too.\n"),
   -f, --file=NAME            read state definitions from file NAME\n\
   -h, --help                 print this help and exit\n\
   -o, --output=NAME          save output to file NAME\n\
+  -p, --path=PATH            set the load path to PATH\n\
   -s, --state=NAME           start from state NAME\n\
+  -v, --verbose              increase the program verbosity\n\
   -V, --version              print version number\n\
   -W, --warning=LEVEL        set the warning level to LEVEL\n"));
 }

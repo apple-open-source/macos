@@ -1,3 +1,8 @@
+1998-12-23  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* afm.h: Added ISO-8859-{9,10} encodings.  Thanks to Donald Page
+	<donaldp@sco.COM>.
+
 1998-06-23  Markku Rossi  <mtr@ngs.fi>
 
 	* afmparse.c (afm_parse_file): Added +1's to the memory

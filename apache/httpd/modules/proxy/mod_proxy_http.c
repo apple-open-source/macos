@@ -699,6 +699,14 @@ int ap_proxy_http_request(apr_pool_t *p, request_rec *r,
     if (apr_table_get(r->subprocess_env, "force-proxy-request-1.0")) {
         buf = apr_pstrcat(p, r->method, " ", url, " HTTP/1.0" CRLF, NULL);
         force10 = 1;
+        /*
+         * According to RFC 2616 8.2.3 we are not allowed to forward an
+         * Expect: 100-continue to an HTTP/1.0 server. Instead we MUST return
+         * a HTTP_EXPECTATION_FAILED
+         */
+        if (r->expecting_100) {
+            return HTTP_EXPECTATION_FAILED;
+        }
         p_conn->close++;
     } else {
         buf = apr_pstrcat(p, r->method, " ", url, " HTTP/1.1" CRLF, NULL);
@@ -1330,6 +1338,7 @@ apr_status_t ap_proxy_http_process_response(apr_pool_t * p, request_rec *r,
     request_rec *rp;
     apr_bucket *e;
     apr_bucket_brigade *bb, *tmp_bb;
+    apr_bucket_brigade *pass_bb;
     int len, backasswards;
     int interim_response = 0; /* non-zero whilst interim 1xx responses
                                * are being read. */
@@ -1342,6 +1351,7 @@ apr_status_t ap_proxy_http_process_response(apr_pool_t * p, request_rec *r,
     const char *te = NULL;
 
     bb = apr_brigade_create(p, c->bucket_alloc);
+    pass_bb = apr_brigade_create(p, c->bucket_alloc);
 
     /* Get response from the remote server, and pass it up the
      * filter chain
@@ -1367,6 +1377,10 @@ apr_status_t ap_proxy_http_process_response(apr_pool_t * p, request_rec *r,
             ap_log_rerror(APLOG_MARK, APLOG_ERR, rc, r,
                           "proxy: error reading status line from remote "
                           "server %s", backend->hostname);
+            if (rc == APR_TIMEUP) {
+                ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
+                              "proxy: read timeout");
+            }
             /*
              * If we are a reverse proxy request shutdown the connection
              * WITHOUT ANY response to trigger a retry by the client
@@ -1374,9 +1388,12 @@ apr_status_t ap_proxy_http_process_response(apr_pool_t * p, request_rec *r,
              * BUT currently we should not do this if the request is the
              * first request on a keepalive connection as browsers like
              * seamonkey only display an empty page in this case and do
-             * not do a retry.
+             * not do a retry. We should also not do this on a
+             * connection which times out; instead handle as
+             * we normally would handle timeouts
              */
-            if (r->proxyreq == PROXYREQ_REVERSE && c->keepalives) {
+            if (r->proxyreq == PROXYREQ_REVERSE && c->keepalives &&
+                rc != APR_TIMEUP) {
                 apr_bucket *eos;
 
                 ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
@@ -1753,6 +1770,9 @@ apr_status_t ap_proxy_http_process_response(apr_pool_t * p, request_rec *r,
                         break;
                     }
 
+                    /* Switch the allocator lifetime of the buckets */
+                    ap_proxy_buckets_lifetime_transform(r, bb, pass_bb);
+
                     /* found the last brigade? */
                     if (APR_BUCKET_IS_EOS(APR_BRIGADE_LAST(bb))) {
                         /* signal that we must leave */
@@ -1760,7 +1780,7 @@ apr_status_t ap_proxy_http_process_response(apr_pool_t * p, request_rec *r,
                     }
 
                     /* try send what we read */
-                    if (ap_pass_brigade(r->output_filters, bb) != APR_SUCCESS
+                    if (ap_pass_brigade(r->output_filters, pass_bb) != APR_SUCCESS
                         || c->aborted) {
                         /* Ack! Phbtt! Die! User aborted! */
                         backend->close = 1;  /* this causes socket close below */
@@ -1769,6 +1789,7 @@ apr_status_t ap_proxy_http_process_response(apr_pool_t * p, request_rec *r,
 
                     /* make sure we always clean up after ourselves */
                     apr_brigade_cleanup(bb);
+                    apr_brigade_cleanup(pass_bb);
 
                 } while (!finish);
             }
@@ -1857,23 +1878,13 @@ static int proxy_http_handler(request_rec *r, proxy_worker *worker,
     const char *u;
     proxy_conn_rec *backend = NULL;
     int is_ssl = 0;
-
-    /* Note: Memory pool allocation.
-     * A downstream keepalive connection is always connected to the existence
-     * (or not) of an upstream keepalive connection. If this is not done then
-     * load balancing against multiple backend servers breaks (one backend
-     * server ends up taking 100% of the load), and the risk is run of
-     * downstream keepalive connections being kept open unnecessarily. This
-     * keeps webservers busy and ties up resources.
-     *
-     * As a result, we allocate all sockets out of the upstream connection
-     * pool, and when we want to reuse a socket, we check first whether the
-     * connection ID of the current upstream connection is the same as that
-     * of the connection when the socket was opened.
-     */
-    apr_pool_t *p = r->connection->pool;
     conn_rec *c = r->connection;
-    apr_uri_t *uri = apr_palloc(r->connection->pool, sizeof(*uri));
+    /*
+     * Use a shorter-lived pool to reduce memory usage
+     * and avoid a memory leak
+     */
+    apr_pool_t *p = r->pool;
+    apr_uri_t *uri = apr_palloc(p, sizeof(*uri));
 
     /* find the scheme */
     u = strchr(url, ':');
@@ -1881,7 +1892,7 @@ static int proxy_http_handler(request_rec *r, proxy_worker *worker,
        return DECLINED;
     if ((u - url) > 14)
         return HTTP_BAD_REQUEST;
-    scheme = apr_pstrndup(c->pool, url, u - url);
+    scheme = apr_pstrndup(p, url, u - url);
     /* scheme is lowercase */
     ap_str_tolower(scheme);
     /* is it for us? */
@@ -1919,6 +1930,19 @@ static int proxy_http_handler(request_rec *r, proxy_worker *worker,
     backend->is_ssl = is_ssl;
     if (is_ssl) {
         ap_proxy_ssl_connection_cleanup(backend, r);
+    }
+
+    /*
+     * In the case that we are handling a reverse proxy connection and this
+     * is not a request that is coming over an already kept alive connection
+     * with the client, do NOT reuse the connection to the backend, because
+     * we cannot forward a failure to the client in this case as the client
+     * does NOT expects this in this situation.
+     * Yes, this creates a performance penalty.
+     */
+    if ((r->proxyreq == PROXYREQ_REVERSE) && (!c->keepalives)
+        && (apr_table_get(r->subprocess_env, "proxy-initial-not-pooled"))) {
+        backend->close = 1;
     }
 
     /* Step One: Determine Who To Connect To */

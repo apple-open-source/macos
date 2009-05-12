@@ -1,5 +1,5 @@
 /*
- * "$Id: pstops.c 7721 2008-07-11 22:48:49Z mike $"
+ * "$Id: pstops.c 7978 2008-09-23 23:44:43Z mike $"
  *
  *   PostScript filter for the Common UNIX Printing System (CUPS).
  *
@@ -3442,5 +3442,5 @@ write_options(
 
 
 /*
- * End of "$Id: pstops.c 7721 2008-07-11 22:48:49Z mike $".
+ * End of "$Id: pstops.c 7978 2008-09-23 23:44:43Z mike $".
  */

@@ -531,6 +531,12 @@ kullanımı önerilmemektedir.</td></tr>
     <p>Bu örnekte <code>AuthConfig</code> ve <code>Indexes</code> grubundaki
      yönergeler bir dahili sunucu hatasına yol açmayacaktır.</p>
 
+    <div class="note"><p>Güvenlik ve başarımı arttırmak için <code>&lt;Directory /&gt;</code>
+      bloğu içinde <code>AllowOverride</code> yönergesine <code>None</code>
+      dışında bir değer atamayın. Böyle yapmak yerine bir <code>.htaccess</code>
+      dosyası yerleştirmeyi düşündüğünüz dizine ait bir
+      <code>&lt;Directory&gt;</code> bloğu olması daha iyidir.</p></div>
+
 <h3>Ayrıca bakınız:</h3>
 <ul>
 <li><code class="directive"><a href="#accessfilename">AccessFileName</a></code></li>
@@ -653,6 +659,8 @@ kullanımı önerilmemektedir.</td></tr>
 <tr><th><a href="directive-dict.html#Override">Geçersizleştirme:</a></th><td>FileInfo</td></tr>
 <tr><th><a href="directive-dict.html#Status">Durum:</a></th><td>Çekirdek</td></tr>
 <tr><th><a href="directive-dict.html#Module">Modül:</a></th><td>core</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Uyumluluk:</a></th><td><code>none</code> değeri Apache 2.2.7 ve sonrasında mevcuttur.
+</td></tr>
 </table>
     <p>Sunucudan zaman zaman kendi <a class="glossarylink" href="../glossary.html#mime-type" title="sözlüğe bakınız">MIME
       türü</a> ile uyuşmayan bir belge sunması istenir.</p>
@@ -676,7 +684,7 @@ kullanımı önerilmemektedir.</td></tr>
       DefaultType None
     </code></p></div>
     <p><code>DefaultType None</code> sadece httpd-2.2.7 ve sonrasında
-      mevcuttur..</p>
+      mevcuttur.</p>
 
     <p>Bu yönergenin sadece öntanımlı MIME-türünü sağlaması nedeniyle
       <code class="directive"><a href="#forcetype">ForceType</a></code> yönergesinden farklı
@@ -2989,9 +2997,9 @@ belirler.</td></tr>
 <tr><th><a href="directive-dict.html#Status">Durum:</a></th><td>Çekirdek</td></tr>
 <tr><th><a href="directive-dict.html#Module">Modül:</a></th><td>core</td></tr>
 </table>
-    <p><code class="directive">SetInputFilter</code> yönergesi, istemci isteklerini 
-      ve sunucu tarafından alındığı takdirde POST girdisini işleyecek süzgeç 
-      veya süzgeçleri belirler. Bu, diğer <code class="directive"><a href="../mod/mod_mime.html#addinputfilter">AddInputFilter</a></code> yönergeleri dahil evvelce tanımlanmış 
+    <p><code class="directive">SetInputFilter</code> yönergesi, istemci isteklerini
+      ve sunucu tarafından alındığı takdirde POST girdisini işleyecek süzgeç
+      veya süzgeçleri belirler. Bu, diğer <code class="directive"><a href="../mod/mod_mime.html#addinputfilter">AddInputFilter</a></code> yönergeleri dahil evvelce tanımlanmış
       süzgeçlere eklenir.</p>
 
     <p>Birden fazla süzgeç belirtilmek istenirse birbirlerinden noktalı

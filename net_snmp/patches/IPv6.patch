@@ -39,3 +39,17 @@ diff -Naur net-snmp-5.4.1.pre3/agent/mibgroup/mibII/ipv6.c net-snmp/agent/mibgro
      struct tcpcb    tcpcb;
      int             found, savnameLen;
  #if defined(__NetBSD__) && __NetBSD_Version__ >= 106250000     /*1.6Y*/
+diff -Naur net-snmp-5.4.1.orig/acconfig.h net-snmp-5.4.1.working/acconfig.h 
+--- net-snmp-5.4.1.orig/acconfig.h	2008-04-04 16:43:28.000000000 -0700
++++ net-snmp-5.4.1.working/acconfig.h	2008-04-10 18:35:02.000000000 -0700
+@@ -60,7 +60,8 @@
+ #undef HAVE_DEVSTAT_GETDEVS
+ 
+ /* define if you have <netinet/in_pcb.h> */
+-#undef HAVE_NETINET_IN_PCB_H
++/* #undef HAVE_NETINET_IN_PCB_H */
++#define HAVE_NETINET_IN_PCB_H
+ 
+ /* define if you have <sys/disklabel.h> */
+ #undef HAVE_SYS_DISKLABEL_H
+

@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_API.c,v 1.296.2.27.2.38 2008/03/06 17:28:47 tony2001 Exp $ */
+/* $Id: zend_API.c,v 1.296.2.27.2.39 2008/08/22 14:52:47 tony2001 Exp $ */
 
 #include "zend.h"
 #include "zend_execute.h"
@@ -1779,9 +1779,13 @@ ZEND_API int zend_register_functions(zend_class_entry *scope, zend_function_entr
 			efree(lc_class_name);
 		}
 		while (ptr->fname) {
-			if (zend_hash_exists(target_function_table, ptr->fname, strlen(ptr->fname)+1)) {
+			fname_len = strlen(ptr->fname);
+			lowercase_name = zend_str_tolower_dup(ptr->fname, fname_len);
+			if (zend_hash_exists(target_function_table, lowercase_name, fname_len+1)) {
+				efree(lowercase_name);
 				zend_error(error_type, "Function registration failed - duplicate name - %s%s%s", scope ? scope->name : "", scope ? "::" : "", ptr->fname);
 			}
+			efree(lowercase_name);
 			ptr++;
 		}
 		zend_unregister_functions(functions, count, target_function_table TSRMLS_CC);

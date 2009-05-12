@@ -1377,7 +1377,6 @@ static apr_status_t conn_pool_cleanup(void *theworker)
     proxy_worker *worker = (proxy_worker *)theworker;
     if (worker->cp->res) {
         worker->cp->pool = NULL;
-        apr_reslist_destroy(worker->cp->res);
     }
     return APR_SUCCESS;
 }
@@ -1433,6 +1432,7 @@ PROXY_DECLARE(const char *) ap_proxy_add_worker(proxy_worker **worker,
     (*worker)->id   = proxy_lb_workers;
     (*worker)->flush_packets = flush_off;
     (*worker)->flush_wait = PROXY_FLUSH_WAIT;
+    (*worker)->smax = -1;
     /* Increase the total worker count */
     proxy_lb_workers++;
     init_conn_pool(p, *worker);
@@ -1453,6 +1453,7 @@ PROXY_DECLARE(proxy_worker *) ap_proxy_create_worker(apr_pool_t *p)
     proxy_worker *worker;
     worker = (proxy_worker *)apr_pcalloc(p, sizeof(proxy_worker));
     worker->id = proxy_lb_workers;
+    worker->smax = -1;
     /* Increase the total worker count */
     proxy_lb_workers++;
     init_conn_pool(p, worker);
@@ -1623,9 +1624,6 @@ static apr_status_t connection_cleanup(void *theconn)
 {
     proxy_conn_rec *conn = (proxy_conn_rec *)theconn;
     proxy_worker *worker = conn->worker;
-    apr_bucket_brigade *bb;
-    conn_rec *c;
-    request_rec *r;
 
     /*
      * If the connection pool is NULL the worker
@@ -1645,57 +1643,6 @@ static apr_status_t connection_cleanup(void *theconn)
         return APR_SUCCESS;
     }
 #endif
-
-    r = conn->r;
-    if (conn->need_flush && r && (r->bytes_sent || r->eos_sent)) {
-        /*
-         * We need to ensure that buckets that may have been buffered in the
-         * network filters get flushed to the network. This is needed since
-         * these buckets have been created with the bucket allocator of the
-         * backend connection. This allocator either gets destroyed if
-         * conn->close is set or the worker address is not reusable which
-         * causes the connection to the backend to be closed or it will be used
-         * again by another frontend connection that wants to recycle the
-         * backend connection.
-         * In this case we could run into nasty race conditions (e.g. if the
-         * next user of the backend connection destroys the allocator before we
-         * sent the buckets to the network).
-         *
-         * Remark 1: Only do this if buckets where sent down the chain before
-         * that could still be buffered in the network filter. This is the case
-         * if we have sent an EOS bucket or if we actually sent buckets with
-         * data down the chain. In all other cases we either have not sent any
-         * buckets at all down the chain or we only sent meta buckets that are
-         * not EOS buckets down the chain. The only meta bucket that remains in
-         * this case is the flush bucket which would have removed all possibly
-         * buffered buckets in the network filter.
-         * If we sent a flush bucket in the case where not ANY buckets were
-         * sent down the chain, we break error handling which happens AFTER us.
-         *
-         * Remark 2: Doing a setaside does not help here as the buckets remain
-         * created by the wrong allocator in this case.
-         *
-         * Remark 3: Yes, this creates a possible performance penalty in the case
-         * of pipelined requests as we may send only a small amount of data over
-         * the wire.
-         */
-        c = r->connection;
-        bb = apr_brigade_create(r->pool, c->bucket_alloc);
-        if (r->eos_sent) {
-            /*
-             * If we have already sent an EOS bucket send directly to the
-             * connection based filters. We just want to flush the buckets
-             * if something hasn't been sent to the network yet.
-             */
-            ap_fflush(c->output_filters, bb);
-        }
-        else {
-            ap_fflush(r->output_filters, bb);
-        }
-        apr_brigade_destroy(bb);
-        conn->r = NULL;
-        conn->need_flush = 0;
-    }
 
     /* determine if the connection need to be closed */
     if (conn->close_on_recycle || conn->close || worker->disablereuse ||
@@ -1924,7 +1871,7 @@ PROXY_DECLARE(apr_status_t) ap_proxy_initialize_worker(proxy_worker *worker, ser
         if (worker->hmax == 0 || worker->hmax > mpm_threads) {
             worker->hmax = mpm_threads;
         }
-        if (worker->smax == 0 || worker->smax > worker->hmax) {
+        if (worker->smax == -1 || worker->smax > worker->hmax) {
             worker->smax = worker->hmax;
         }
         /* Set min to be lower then smax */
@@ -2083,8 +2030,6 @@ ap_proxy_determine_connection(apr_pool_t *p, request_rec *r,
     apr_status_t err = APR_SUCCESS;
     apr_status_t uerr = APR_SUCCESS;
 
-    conn->r = r;
-
     /*
      * Break up the URL to determine the host to connect to
      */
@@ -2168,6 +2113,11 @@ ap_proxy_determine_connection(apr_pool_t *p, request_rec *r,
     }
     else {
         conn->addr = worker->cp->addr;
+    }
+    /* Close a possible existing socket if we are told to do so */
+    if (conn->close) {
+        socket_cleanup(conn);
+        conn->close = 0;
     }
 
     if (err != APR_SUCCESS) {
@@ -2325,8 +2275,11 @@ PROXY_DECLARE(int) ap_proxy_connect_backend(const char *proxy_function,
                           "Failed to set");
         }
 
-        /* Set a timeout on the socket */
-        if (worker->timeout_set == 1) {
+        /* Set a timeout for connecting to the backend on the socket */
+        if (worker->conn_timeout_set) {
+            apr_socket_timeout_set(newsock, worker->conn_timeout);
+        }
+        else if (worker->timeout_set == 1) {
             apr_socket_timeout_set(newsock, worker->timeout);
         }
         else if (conf->timeout_set == 1) {
@@ -2362,6 +2315,17 @@ PROXY_DECLARE(int) ap_proxy_connect_backend(const char *proxy_function,
                          worker->hostname);
             backend_addr = backend_addr->next;
             continue;
+        }
+
+        /* Set a timeout on the socket */
+        if (worker->timeout_set == 1) {
+            apr_socket_timeout_set(newsock, worker->timeout);
+        }
+        else if (conf->timeout_set == 1) {
+            apr_socket_timeout_set(newsock, conf->timeout);
+        }
+        else {
+             apr_socket_timeout_set(newsock, s->timeout);
         }
 
         conn->sock   = newsock;
@@ -2402,12 +2366,6 @@ PROXY_DECLARE(int) ap_proxy_connection_create(const char *proxy_function,
         return OK;
     }
 
-    /*
-     * We need to flush the buckets before we return the connection to the
-     * connection pool. See comment in connection_cleanup for why this is
-     * needed.
-     */
-    conn->need_flush = 1;
     bucket_alloc = apr_bucket_alloc_create(conn->scpool);
     /*
      * The socket is now open, create a new backend server connection
@@ -2500,3 +2458,54 @@ PROXY_DECLARE(void) ap_proxy_backend_broke(request_rec *r,
     e = apr_bucket_eos_create(c->bucket_alloc);
     APR_BRIGADE_INSERT_TAIL(brigade, e);
 }
+
+/*
+ * Transform buckets from one bucket allocator to another one by creating a
+ * transient bucket for each data bucket and let it use the data read from
+ * the old bucket. Metabuckets are transformed by just recreating them.
+ * Attention: Currently only the following bucket types are handled:
+ *
+ * All data buckets
+ * FLUSH
+ * EOS
+ *
+ * If an other bucket type is found its type is logged as a debug message
+ * and APR_EGENERAL is returned.
+ */
+PROXY_DECLARE(apr_status_t)
+ap_proxy_buckets_lifetime_transform(request_rec *r, apr_bucket_brigade *from,
+                                    apr_bucket_brigade *to)
+{
+    apr_bucket *e;
+    apr_bucket *new;
+    const char *data;
+    apr_size_t bytes;
+    apr_status_t rv = APR_SUCCESS;
+
+    apr_brigade_cleanup(to);
+    for (e = APR_BRIGADE_FIRST(from);
+         e != APR_BRIGADE_SENTINEL(from);
+         e = APR_BUCKET_NEXT(e)) {
+        if (!APR_BUCKET_IS_METADATA(e)) {
+            apr_bucket_read(e, &data, &bytes, APR_BLOCK_READ);
+            new = apr_bucket_transient_create(data, bytes, r->connection->bucket_alloc);
+            APR_BRIGADE_INSERT_TAIL(to, new);
+        }
+        else if (APR_BUCKET_IS_FLUSH(e)) {
+            new = apr_bucket_flush_create(r->connection->bucket_alloc);
+            APR_BRIGADE_INSERT_TAIL(to, new);
+        }
+        else if (APR_BUCKET_IS_EOS(e)) {
+            new = apr_bucket_eos_create(r->connection->bucket_alloc);
+            APR_BRIGADE_INSERT_TAIL(to, new);
+        }
+        else {
+            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
+                          "proxy: Unhandled bucket type of type %s in"
+                          " ap_proxy_buckets_lifetime_transform", e->type->name);
+            rv = APR_EGENERAL;
+        }
+    }
+    return rv;
+}
+

@@ -20,8 +20,8 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-#include "libbootstrap_public.h"
-#include "liblaunch_public.h"
+#include "bootstrap.h"
+#include "launch.h"
 
 typedef struct job_s *job_t;
 typedef struct jobmgr_s *jobmgr_t;

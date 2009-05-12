@@ -65,7 +65,7 @@ struct IOPMBattery {
     bool                    externalChargeCapable:1;
     bool                    isCharging:1;
     bool                    isPresent:1;
-    bool                    markedNeedsReplacement:1;
+    bool                    markedDeclining:1;
     uint32_t                pfStatus;
     int                     currentCap;
     int                     maxCap;

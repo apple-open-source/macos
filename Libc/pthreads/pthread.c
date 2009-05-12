@@ -3135,7 +3135,6 @@ pthread_workqueue_removeitem_np(pthread_workqueue_t workq, pthread_workitem_hand
 					}
 					return(0);
 				} else {
-					workqueue_list_unlock();
 					return(EBUSY);
 				}
 		} 

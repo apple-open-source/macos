@@ -47,6 +47,24 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define APPLE_DRI_MINOR_VERSION	0
 #define APPLE_DRI_PATCH_VERSION	0
 
+/* For the purpose of the structure definitions in this file,
+we must redefine the following types in terms of Xmd.h's types, which may
+include bit fields.  All of these are #undef'd at the end of this file,
+restoring the definitions in X.h.  */
+
+#define Window CARD32
+#define Drawable CARD32
+#define Font CARD32
+#define Pixmap CARD32
+#define Cursor CARD32
+#define Colormap CARD32
+#define GContext CARD32
+#define Atom CARD32
+#define VisualID CARD32
+#define Time CARD32
+#define KeyCode CARD8
+#define KeySym CARD32
+
 typedef struct _AppleDRIQueryVersion {
     CARD8	reqType;		/* always DRIReqCode */
     CARD8	driReqType;		/* always X_DRIQueryVersion */
@@ -155,11 +173,25 @@ typedef struct _AppleDRINotify {
 	BYTE	kind;
 	CARD16	sequenceNumber B16;
 	Time	time B32;	/* time of change */
-	CARD16	pad1 B16;
+	CARD32	pad1 B32;
 	CARD32	arg B32;
 	CARD32	pad3 B32;
 } xAppleDRINotifyEvent;
 #define sz_xAppleDRINotifyEvent	20
+
+/* restore these definitions back to the typedefs in X.h */
+#undef Window
+#undef Drawable
+#undef Font
+#undef Pixmap
+#undef Cursor
+#undef Colormap
+#undef GContext
+#undef Atom
+#undef VisualID
+#undef Time
+#undef KeyCode
+#undef KeySym
 
 #ifdef _APPLEDRI_SERVER_
 

@@ -139,6 +139,19 @@ OSStatus SecTrustGetResult(
 
 
 //
+// Retrieve extended validation trust results
+//
+OSStatus SecTrustCopyExtendedResult(SecTrustRef trust, CFDictionaryRef *result)
+{
+    BEGIN_SECAPI
+	Trust *trustObj = Trust::required(trust);
+	if (result == nil)
+		return paramErr;
+	trustObj->extendedResult(*result);
+    END_SECAPI2("SecTrustCopyExtendedResult")
+}
+
+//
 // Retrieve CSSM-level information for those who want to dig down
 //
 OSStatus SecTrustGetCssmResult(SecTrustRef trust, CSSM_TP_VERIFY_CONTEXT_RESULT_PTR *result)

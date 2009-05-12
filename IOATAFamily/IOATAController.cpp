@@ -2370,9 +2370,9 @@ IOATAController::txDataIn (IOLogicalAddress buf, IOByteCount length)
 	
 	if (length)									// This is needed to handle odd byte transfer
 	{
-		*buf8++ = *(IOATARegPtr8Cast(_tfDataReg));
+		*buf8 = *(IOATARegPtr8Cast(_tfDataReg));
 		OSSynchronizeIO();									
-		length --;								
+		length--;								
 	}
 	
 	return kATANoErr;
@@ -2442,9 +2442,9 @@ IOATAController::txDataOut(IOLogicalAddress buf, IOByteCount length)
 
 	if (length)									
 	{
-		*(IOATARegPtr8Cast(_tfDataReg)) = *((UInt8 *)*buf8++);
+		*(IOATARegPtr8Cast(_tfDataReg)) = *buf8;
 		OSSynchronizeIO(); 
-		length --;									
+		length--;	
 	}
 	
 	return kATANoErr;

@@ -23,7 +23,7 @@
 -  CONFIG["LDFLAGS"] = "-L.                "
 +  CONFIG["CFLAGS"] = "#{ARCHFLAGS} -Os -pipe -fno-common"
 +  CONFIG["LDFLAGS"] = "-L. #{ARCHFLAGS}"
-   CONFIG["CPPFLAGS"] = ""
+   CONFIG["CPPFLAGS"] = " $(DEFS)"
    CONFIG["OBJEXT"] = "o"
    CONFIG["CPP"] = "gcc -E"
 @@ -99,7 +107,7 @@

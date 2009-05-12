@@ -172,7 +172,13 @@ IOBlockStorageDevice::doAsyncReadWrite(IOMemoryDescriptor *buffer,
 
 OSMetaClassDefineReservedUsed(IOBlockStorageDevice, 3);
 
-OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  4);
+IOReturn
+IOBlockStorageDevice::requestIdle(void)
+{
+    return(kIOReturnUnsupported);
+}
+
+OSMetaClassDefineReservedUsed(IOBlockStorageDevice, 4);
 
 IOReturn
 IOBlockStorageDevice::doDiscard(UInt64 block, UInt64 nblks)

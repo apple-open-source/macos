@@ -570,7 +570,7 @@
 				INFOPLIST_PREPROCESS = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MODULE_NAME = com.apple.iokit.IOStorageFamily;
-				MODULE_VERSION = 1.5.5;
+				MODULE_VERSION = 1.5.6;
 				PRODUCT_NAME = IOStorageFamily;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
@@ -584,7 +584,7 @@
 				INFOPLIST_PREPROCESS = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MODULE_NAME = com.apple.iokit.IOStorageFamily;
-				MODULE_VERSION = 1.5.5;
+				MODULE_VERSION = 1.5.6;
 				PRODUCT_NAME = IOStorageFamily;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
@@ -632,7 +632,7 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = 10.5;
 				MODULE_NAME = com.apple.iokit.IOStorageFamily;
-				MODULE_VERSION = 1.5.5;
+				MODULE_VERSION = 1.5.6;
 				PRODUCT_NAME = IOStorageFamily;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
@@ -650,7 +650,7 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = 10.5;
 				MODULE_NAME = com.apple.iokit.IOStorageFamily;
-				MODULE_VERSION = 1.5.5;
+				MODULE_VERSION = 1.5.6;
 				PRODUCT_NAME = IOStorageFamily;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;

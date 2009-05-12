@@ -1166,16 +1166,16 @@ httpInitialize(void)
   * it is the best we can do (on others, this seed isn't even used...)
   */
 
-#ifdef WIN32
-#else
+#  ifdef WIN32
+#  else
   gettimeofday(&curtime, NULL);
   srand(curtime.tv_sec + curtime.tv_usec);
-#endif /* WIN32 */
+#  endif /* WIN32 */
 
   for (i = 0; i < sizeof(data); i ++)
-    data[i] = rand(); /* Yes, this is a poor source of random data... */
+    data[i] = rand();
 
-  RAND_seed(&data, sizeof(data));
+  RAND_seed(data, sizeof(data));
 #endif /* HAVE_LIBSSL */
 }
 
@@ -1435,7 +1435,7 @@ httpRead2(http_t *http,			/* I - HTTP connection */
     bytes = (ssize_t)recv(http->fd, buffer, (int)length, 0);
 #else
     while ((bytes = recv(http->fd, buffer, length, 0)) < 0)
-      if (errno != EINTR)
+      if (errno != EINTR && errno != EAGAIN)
         break;
 #endif /* WIN32 */
 
@@ -1456,7 +1456,7 @@ httpRead2(http_t *http,			/* I - HTTP connection */
 #ifdef WIN32
     http->error = WSAGetLastError();
 #else
-    if (errno == EINTR)
+    if (errno == EINTR || errno == EAGAIN)
       bytes = 0;
     else
       http->error = errno;
@@ -1818,17 +1818,34 @@ httpSetField(http_t       *http,	/* I - HTTP connection */
 
   strlcpy(http->fields[field], value, HTTP_MAX_VALUE);
 
- /*
-  * Special case for Authorization: as its contents can be
-  * longer than HTTP_MAX_VALUE
-  */
-
   if (field == HTTP_FIELD_AUTHORIZATION)
   {
+   /*
+    * Special case for Authorization: as its contents can be
+    * longer than HTTP_MAX_VALUE
+    */
+
     if (http->field_authorization)
       free(http->field_authorization);
 
     http->field_authorization = strdup(value);
+  }
+  else if (field == HTTP_FIELD_HOST)
+  {
+   /*
+    * Special-case for Host: as we don't want a trailing "." on the hostname.
+    */
+
+    char *ptr = http->fields[HTTP_FIELD_HOST];
+					/* Pointer into Host: field */
+
+    if (*ptr)
+    {
+      ptr += strlen(ptr) - 1;
+
+      if (*ptr == '.')
+        *ptr = '\0';
+    }
   }
 }
 
@@ -2991,7 +3008,8 @@ http_wait(http_t *http,			/* I - HTTP connection */
 #  elif defined(HAVE_CDSASSL)
     size_t bytes;			/* Bytes that are available */
 
-    if (!SSLGetBufferedReadSize(((http_tls_t *)http->tls)->session, &bytes) && bytes > 0)
+    if (!SSLGetBufferedReadSize(((http_tls_t *)(http->tls))->session, &bytes) &&
+        bytes > 0)
       return (1);
 #  endif /* HAVE_LIBSSL */
   }

@@ -1,6 +1,6 @@
 /*
  * Convert ASCII to PostScript.
- * Copyright (c) 1995-1998 Markku Rossi.
+ * Copyright (c) 1995-2002 Markku Rossi.
  *
  * Author: Markku Rossi <mtr@iki.fi>
  */
@@ -24,6 +24,7 @@
  * Boston, MA 02111-1307, USA.
  */
 
+#include <limits.h>
 #include "gsint.h"
 
 /*
@@ -77,6 +78,9 @@ typedef enum
   tNEWPAGE,
   tFONT,
   tCOLOR,
+  tBGCOLOR,
+  tSAVEX,
+  tLOADX,
   tPS
 } TokenType;
 
@@ -87,12 +91,15 @@ typedef enum
   ESC_EPSF,
   ESC_FONT,
   ESC_COLOR,
+  ESC_BGCOLOR,
   ESC_NEWPAGE,
   ESC_SETFILENAME,
   ESC_SETPAGENUMBER,
   ESC_SHADE,
   ESC_BGGRAY,
   ESC_ESCAPE,
+  ESC_SAVEX,
+  ESC_LOADX,
   ESC_PS
 } SpecialEscape;
 
@@ -118,7 +125,7 @@ struct gs_token_st
 	  double xscale;
 	  double yscale;
 	  int llx, lly, urx, ury; /* Bounding box. */
-	  char filename[512];
+	  char filename[PATH_MAX];
 	  char *skipbuf;
 	  unsigned int skipbuf_len;
 	  unsigned int skipbuf_pos;
@@ -126,12 +133,14 @@ struct gs_token_st
 	  int pipe;		/* Is <fp> opened to pipe?  */
 	} epsf;
       Color color;
+      Color bgcolor;
       struct
 	{
-	  char name[512];
+	  char name[PATH_MAX];
 	  FontPoint size;
+	  InputEncoding encoding;
 	} font;
-      char filename[512];
+      char filename[PATH_MAX];
     } u;
 };
 
@@ -212,11 +221,12 @@ static void handle_two_side_options ();
  * Global variables.
  */
 
-unsigned int current_pagenum;	/* The number of the current page. */
+unsigned int current_pagenum = 0; /* The number of the current page. */
 unsigned int total_pages_in_file;
 unsigned int input_filenum = 0;
 unsigned int current_file_linenum;
-char fname[1024];		/* The name of the current input file. */
+int first_pagenum_for_file;
+char *fname = NULL;		/* The name of the current input file. */
 
 
 /*
@@ -239,8 +249,9 @@ static int do_print = 1;
 static int user_fontp = 0;
 
 /* The user ^@font{}-defined font. */
-static char user_font_name[256];
+static char user_font_name[PATH_MAX];
 static FontPoint user_font_pt;
+static InputEncoding user_font_encoding;
 
 /* Is ^@color{}-defined color active? */
 static int user_colorp = 0;
@@ -248,8 +259,18 @@ static int user_colorp = 0;
 /* The user ^@color{}-defined color. */
 static Color user_color;
 
+/* Is ^@bgcolor{}-defined color active? */
+static int user_bgcolorp = 0;
+
+/* The user ^@bgcolor{}-defined color. */
+static Color user_bgcolor;
+
 /* The last linenumber printed by print_line_number(). */
 static unsigned int print_line_number_last;
+
+/* Registers to store X-coordinates with the ^@savex{} escape.
+   Initially these are uninitialized. */
+static double xstore[256];
 
 /*
  * Global functions.
@@ -523,7 +544,7 @@ dump_ps_trailer ()
 
 
 void
-process_file (char *fname_arg, InputStream *is)
+process_file (char *fname_arg, InputStream *is, int is_toc)
 {
   int col;
   double x, y;
@@ -541,12 +562,16 @@ process_file (char *fname_arg, InputStream *is)
   unsigned int current_slice = 1;
   int last_wrapped_line = -1;
   int last_spaced_file_linenum = -1;
+  int save_current_pagenum;
+  int toc_pagenum = 0;
 
   /* Save filename. */
-  strcpy (fname, fname_arg);
+  xfree (fname);
+  fname = xstrdup (fname_arg);
 
   /* Init page number and line counters. */
-  current_pagenum = 0;
+  if (!continuous_page_numbers)
+    current_pagenum = 0;
   total_pages_in_file = 0;
   current_file_linenum = start_line_number;
 
@@ -585,6 +610,9 @@ process_file (char *fname_arg, InputStream *is)
 
   linewidth = d_output_w / num_columns - 2 * d_output_x_margin
     - line_indent;
+
+  /* Save the current running page number for possible toc usage. */
+  first_pagenum_for_file = total_pages + 1;
 
   /*
    * Divert our output to a temp file.  We will re-process it
@@ -683,14 +711,19 @@ process_file (char *fname_arg, InputStream *is)
 		  if (do_print)
 		    total_pages++;
 
+		  if (is_toc)
+		    {
+		      save_current_pagenum = current_pagenum;
+		      toc_pagenum--;
+		      current_pagenum = toc_pagenum;
+		    }
+
 		  dump_ps_page_header (fname, 0);
 		  page_clear = 0;
-		}
 
-	      /* Print line numbers if needed. */
-	      if (line_numbers && line_column == 0 && token.type != tFORMFEED)
-		print_line_number (lx, y, linenumber_space, linenumber_margin,
-				   current_file_linenum);
+		  if (is_toc)
+		    current_pagenum = save_current_pagenum;
+		}
 
 	      /* Print line highlight. */
 	      if (line_column == 0 && line_highlight_gray < 1.0)
@@ -699,6 +732,11 @@ process_file (char *fname_arg, InputStream *is)
 			      + (font_bbox_lly * Fpt.h / UNITS_PER_POINT)),
 			 linewidth, Fpt.h + baselineskip,
 			 line_highlight_gray));
+
+	      /* Print line numbers if needed. */
+	      if (line_numbers && line_column == 0 && token.type != tFORMFEED)
+		print_line_number (lx, y, linenumber_space, linenumber_margin,
+				   current_file_linenum);
 
 	      /* Check rest of tokens. */
 	      switch (token.type)
@@ -743,6 +781,17 @@ process_file (char *fname_arg, InputStream *is)
 				   baselineskip
 				   - (font_bbox_lly * Fpt.h / UNITS_PER_POINT),
 				   bggray,
+				   token.u.str));
+			}
+		      else if (user_bgcolorp)
+			{
+			  OUTPUT ((cofp, "%g %g %g %g %g %g %g (%s) bgcs\n",
+				   x, y, Fpt.h + baselineskip,
+				   baselineskip
+				   - (font_bbox_lly * Fpt.h / UNITS_PER_POINT),
+				   user_bgcolor.r,
+				   user_bgcolor.g,
+				   user_bgcolor.b,
 				   token.u.str));
 			}
 		      else
@@ -911,6 +960,7 @@ large for page\n"),
 		      Fpt.w = default_Fpt.w;
 		      Fpt.h = default_Fpt.h;
 		      Fname = default_Fname;
+		      encoding = default_Fencoding;
 		      OUTPUT ((cofp, "/F-gs-font %g %g SF\n", Fpt.w, Fpt.h));
 		      user_fontp = 0;
 		    }
@@ -919,17 +969,27 @@ large for page\n"),
 		      strhash_put (res_fonts, token.u.font.name,
 				   strlen (token.u.font.name) + 1,
 				   NULL, NULL);
-		      OUTPUT ((cofp, "/%s %g %g SUF\n", token.u.font.name,
-			       token.u.font.size.w, token.u.font.size.h));
+		      if (token.u.font.encoding == default_Fencoding)
+			OUTPUT ((cofp, "/%s %g %g SUF\n", token.u.font.name,
+				 token.u.font.size.w, token.u.font.size.h));
+		      else if (token.u.font.encoding == ENC_PS)
+			OUTPUT ((cofp, "/%s %g %g SUF_PS\n", token.u.font.name,
+				 token.u.font.size.w, token.u.font.size.h));
+		      else
+			FATAL ((stderr,
+				_("user font encoding can be only the system's default or `ps'")));
 
-		      strcpy (user_font_name, token.u.font.name);
+		      memset  (user_font_name, 0, sizeof(user_font_name));
+		      strncpy (user_font_name, token.u.font.name, sizeof(user_font_name) - 1);
 		      user_font_pt.w = token.u.font.size.w;
 		      user_font_pt.h = token.u.font.size.h;
+		      user_font_encoding = token.u.font.encoding;
 		      user_fontp = 1;
 
 		      Fpt.w = user_font_pt.w;
 		      Fpt.h = user_font_pt.h;
 		      Fname = user_font_name;
+		      encoding = user_font_encoding;
 		    }
 		  MESSAGE (2, (stderr, "%s %g/%gpt\n", Fname, Fpt.w, Fpt.h));
 		  read_font_info ();
@@ -971,8 +1031,32 @@ large for page\n"),
 		    }
 		  break;
 
+		case tBGCOLOR:
+		  /* Select a new background color. */
+		  MESSAGE (2, (stderr, "^@bgcolor{%f %f %f}\n",
+			       token.u.color.r,
+			       token.u.color.g,
+			       token.u.color.b));
+
+		  if (token.u.color.r == token.u.color.g
+		      && token.u.color.g == token.u.color.b
+		      && token.u.color.b == 1.0)
+		    {
+		      /* Select the default bgcolor (white). */
+		      user_bgcolorp = 0;
+		    }
+		  else
+		    {
+		      user_bgcolor.r = token.u.color.r;
+		      user_bgcolor.g = token.u.color.g;
+		      user_bgcolor.b = token.u.color.b;
+		      user_bgcolorp = 1;
+		    }
+		  break;
+
 		case tSETFILENAME:
-		  strcpy (fname, token.u.filename);
+		  xfree (fname);
+		  fname = xstrdup (token.u.filename);
 		  break;
 
 		case tSETPAGENUMBER:
@@ -982,6 +1066,14 @@ large for page\n"),
 		case tNEWPAGE:
 		  if (current_linenum >= token.u.i)
 		    goto end_of_page;
+		  break;
+
+		case tSAVEX:
+		  xstore[(unsigned char) token.u.i] = x;
+		  break;
+
+		case tLOADX:
+		  x = xstore[(unsigned char) token.u.i];
 		  break;
 
 		case tPS:
@@ -1018,10 +1110,16 @@ large for page\n"),
   if (toc)
     {
       char *cp;
+      int save_total_pages = total_pages;
+
+      /* use first pagenum in file for toc */
+      total_pages = first_pagenum_for_file;
 
       cp = format_user_string ("TOC", toc_fmt_string);
       fprintf (toc_fp, "%s\n", cp);
       xfree (cp);
+
+      total_pages = save_total_pages;
     }
 }
 
@@ -1081,6 +1179,7 @@ static struct
     {"epsf", 		ESC_EPSF},
     {"font", 		ESC_FONT},
     {"color",		ESC_COLOR},
+    {"bgcolor",		ESC_BGCOLOR},
     {"newpage",		ESC_NEWPAGE},
     {"ps",		ESC_PS},
     {"setfilename",	ESC_SETFILENAME},
@@ -1088,6 +1187,8 @@ static struct
     {"shade",		ESC_SHADE},
     {"bggray",		ESC_BGGRAY},
     {"escape",		ESC_ESCAPE},
+    {"savex",		ESC_SAVEX},
+    {"loadx",		ESC_LOADX},
     {NULL, 0},
   };
 
@@ -1345,7 +1446,7 @@ read_special_escape (InputStream *is, Token *token)
 	  buf[i] = ch;
 	  if (i + 1 >= sizeof (buf))
 	    FATAL ((stderr, _("too long argument for %s escape:\n%.*s"),
-		    escapes[i].name, i, buf));
+		    escapes[e].name, i, buf));
 	}
       buf[i] = '\0';
 
@@ -1353,7 +1454,8 @@ read_special_escape (InputStream *is, Token *token)
       switch (escapes[e].escape)
 	{
 	case ESC_FONT:
-	  strcpy (token->u.font.name, buf);
+	  memset  (token->u.font.name, 0, sizeof(token->u.font.name));
+	  strncpy (token->u.font.name, buf, sizeof(token->u.font.name) - 1);
 
 	  /* Check for the default font. */
 	  if (strcmp (token->u.font.name, "default") == 0)
@@ -1361,23 +1463,31 @@ read_special_escape (InputStream *is, Token *token)
 	  else
 	    {
 	      if (!parse_font_spec (token->u.font.name, &cp,
-				    &token->u.font.size))
+				    &token->u.font.size,
+				    &token->u.font.encoding))
 		FATAL ((stderr, _("malformed font spec for ^@font escape: %s"),
 			token->u.font.name));
 
-	      strcpy (token->u.font.name, cp);
+	      memset  (token->u.font.name, 0, sizeof(token->u.font.name));
+	      strncpy (token->u.font.name, cp, sizeof(token->u.font.name) - 1);
 	      xfree (cp);
 	    }
 	  token->type = tFONT;
 	  break;
 
 	case ESC_COLOR:
+	case ESC_BGCOLOR:
 	  /* Check for the default color. */
 	  if (strcmp (buf, "default") == 0)
 	    {
-	      token->u.color.r = 0;
-	      token->u.color.g = 0;
-	      token->u.color.b = 0;
+	      double val = 0;
+
+	      if (escapes[e].escape == ESC_BGCOLOR)
+		val = 1;
+
+	      token->u.color.r = val;
+	      token->u.color.g = val;
+	      token->u.color.b = val;
 	    }
 	  else
 	    {
@@ -1392,7 +1502,9 @@ read_special_escape (InputStream *is, Token *token)
 		case 0:
 		case 2:
 		  FATAL ((stderr,
-			  _("malformed color spec for ^@color escape: %s"),
+			  _("malformed color spec for ^@%s escape: %s"),
+			  escapes[e].escape == ESC_COLOR
+			  ? "color" : "bgcolor",
 			  buf));
 		  break;
 
@@ -1405,7 +1517,10 @@ read_special_escape (InputStream *is, Token *token)
 		  break;
 		}
 	    }
-	  token->type = tCOLOR;
+	  if (escapes[e].escape == ESC_COLOR)
+	    token->type = tCOLOR;
+	  else
+	    token->type = tBGCOLOR;
 	  break;
 
 	case ESC_SHADE:
@@ -1433,7 +1548,8 @@ read_special_escape (InputStream *is, Token *token)
 	  break;
 
 	case ESC_SETFILENAME:
-	  strcpy (token->u.filename, buf);
+	  memset  (token->u.filename, 0, sizeof(token->u.font.name));
+	  strncpy (token->u.filename, buf, sizeof(token->u.filename) - 1);
 	  token->type = tSETFILENAME;
 	  break;
 
@@ -1448,6 +1564,16 @@ read_special_escape (InputStream *is, Token *token)
 	  else
 	    token->u.i = atoi (buf);
 	  token->type = tNEWPAGE;
+	  break;
+
+	case ESC_SAVEX:
+	  token->type = tSAVEX;
+	  token->u.i = atoi (buf);
+	  break;
+
+	case ESC_LOADX:
+	  token->type = tLOADX;
+	  token->u.i = atoi (buf);
 	  break;
 
 	case ESC_PS:
@@ -1913,8 +2039,9 @@ dump_ps_page_header (char *fname, int empty)
   else
     {
       ftail++;
-      strncpy (buf, fname, ftail - fname);
-      buf[ftail - fname] = '\0';
+      i = ftail - fname >= sizeof (buf)-1 ? sizeof (buf)-1 : ftail - fname;
+      strncpy (buf, fname, i);
+      buf[i] = '\0';
     }
 
   if (nup > 1)
@@ -2001,8 +2128,16 @@ dump_ps_page_header (char *fname, int empty)
       OUTPUT ((cofp, "%% N-up sub-page %d/%d\n", nup_subpage + 1, nup));
       if (landscape)
 	{
-	  xm = nup_subpage / nup_rows;
-	  ym = nup_subpage % nup_rows;
+	  if (nup_columnwise)
+	    {
+	      xm = nup_subpage % nup_columns;
+	      ym = nup_subpage / nup_columns;
+	    }
+	  else
+	    {
+	      xm = nup_subpage / nup_rows;
+	      ym = nup_subpage % nup_rows;
+	    }
 
 	  OUTPUT ((cofp, "%d %d translate\n",
 		   xm * (nup_width + nup_xpad),
@@ -2010,11 +2145,20 @@ dump_ps_page_header (char *fname, int empty)
 	}
       else
 	{
-	  xm = nup_subpage % nup_columns;
-	  ym = nup_subpage / nup_columns;
+	  if (nup_columnwise)
+	    {
+	      xm = nup_subpage / nup_rows;
+	      ym = nup_subpage % nup_rows;
+	    }
+	  else
+	    {
+	      xm = nup_subpage % nup_columns;
+	      ym = nup_subpage / nup_columns;
+	    }
+
 	  OUTPUT ((cofp, "%d %d translate\n",
 		   xm * (nup_width + nup_xpad),
-		   -(ym * (nup_height + nup_ypad) + nup_height)));
+		   -((int) (ym * (nup_height + nup_ypad) + nup_height))));
 	}
       OUTPUT ((cofp, "%g dup scale\n", nup_scale));
 
@@ -2054,7 +2198,13 @@ dump_ps_page_header (char *fname, int empty)
 
   /* Do we have a pending ^@font{} font? */
   if (user_fontp)
-    OUTPUT ((cofp, "/%s %g %g SUF\n", Fname, Fpt.w, Fpt.h));
+    {
+      if (encoding == default_Fencoding)
+	OUTPUT ((cofp, "/%s %g %g SUF\n", Fname, Fpt.w, Fpt.h));
+      else
+	/* This must be the case. */
+	OUTPUT ((cofp, "/%s %g %g SUF_PS\n", Fname, Fpt.w, Fpt.h));
+    }
 
   /* Dump user defined strings. */
   if (count_key_value_set (user_strings) > 0)
@@ -2102,6 +2252,39 @@ dump_ps_page_header (char *fname, int empty)
     }
   else
     OUTPUT ((cofp, "/user_header_p false def\n"));
+
+  /* User supplied footer? */
+  if (page_footer)
+    {
+      char *f_left;
+      char *f_center;
+      char *f_right = NULL;
+
+      f_left = format_user_string ("page footer", page_footer);
+      f_center = strchr (f_left, '|');
+      if (f_center)
+	{
+	  *f_center = '\0';
+	  f_center++;
+
+	  f_right = strchr (f_center, '|');
+	  if (f_right)
+	    {
+	      *f_right = '\0';
+	      f_right++;
+	    }
+	}
+
+      OUTPUT ((cofp, "/user_footer_p true def\n"));
+      OUTPUT ((cofp, "/user_footer_left_str (%s) def\n", f_left));
+      OUTPUT ((cofp, "/user_footer_center_str (%s) def\n",
+	       f_center ? f_center : ""));
+      OUTPUT ((cofp, "/user_footer_right_str (%s) def\n",
+	       f_right ? f_right : ""));
+      xfree (f_left);
+    }
+  else
+    OUTPUT ((cofp, "/user_footer_p false def\n"));
 
   OUTPUT ((cofp, "%%%%EndPageSetup\n"));
 
@@ -2200,7 +2383,6 @@ static int
 recognize_eps_file (Token *token)
 {
   int i;
-  char filename[512];
   char buf[4096];
   int line;
   int valid_epsf;
@@ -2209,9 +2391,10 @@ recognize_eps_file (Token *token)
   MESSAGE (2, (stderr, "^@epsf=\"%s\"\n", token->u.epsf.filename));
 
   i = strlen (token->u.epsf.filename);
+  /*
   if (i > 0 && token->u.epsf.filename[i - 1] == '|')
     {
-      /* Read EPS data from pipe. */
+      / * Read EPS data from pipe. * /
       token->u.epsf.pipe = 1;
       token->u.epsf.filename[i - 1] = '\0';
       token->u.epsf.fp = popen (token->u.epsf.filename, "r");
@@ -2224,11 +2407,16 @@ recognize_eps_file (Token *token)
 	}
     }
   else
+  */
     {
+      char *filename;
+
       /* Read EPS data from file. */
-      tilde_subst (token->u.epsf.filename, filename);
+      filename = tilde_subst (token->u.epsf.filename);
 
       token->u.epsf.fp = fopen (filename, "rb");
+      xfree (filename);
+
       if (token->u.epsf.fp == NULL)
 	{
 	  if (token->u.epsf.filename[0] != '/')
@@ -2236,11 +2424,14 @@ recognize_eps_file (Token *token)
 	      /* Name is not absolute, let's lookup path. */
 	      FileLookupCtx ctx;
 
-	      strcpy (ctx.name, token->u.epsf.filename);
-	      strcpy (ctx.suffix, "");
+	      ctx.name = token->u.epsf.filename;
+	      ctx.suffix = "";
+	      ctx.fullname = buffer_alloc ();
 
 	      if (pathwalk (libpath, file_lookup, &ctx))
-		token->u.epsf.fp = fopen (ctx.fullname, "rb");
+		token->u.epsf.fp = fopen (buffer_ptr (ctx.fullname), "rb");
+
+	      buffer_free (ctx.fullname);
 	    }
 	  if (token->u.epsf.fp == NULL)
 	    {
@@ -2564,6 +2755,7 @@ print_line_number (double x, double y, double space, double margin,
   int i;
   char *saved_Fname = "";
   FontPoint saved_Fpt;
+  InputEncoding saved_Fencoding;
 
   saved_Fpt.w = 0.0;
   saved_Fpt.h = 0.0;
@@ -2579,10 +2771,12 @@ print_line_number (double x, double y, double space, double margin,
       saved_Fname = Fname;
       saved_Fpt.w = Fpt.w;
       saved_Fpt.h = Fpt.h;
+      saved_Fencoding = encoding;
 
       Fname = default_Fname;
       Fpt.w = default_Fpt.w;
       Fpt.h = default_Fpt.h;
+      encoding = default_Fencoding;
 
       OUTPUT ((cofp, "/F-gs-font %g %g SF\n", Fpt.w, Fpt.h));
       read_font_info ();
@@ -2602,6 +2796,7 @@ print_line_number (double x, double y, double space, double margin,
       Fname = saved_Fname;
       Fpt.w = saved_Fpt.w;
       Fpt.h = saved_Fpt.h;
+      encoding = saved_Fencoding;
 
       OUTPUT ((cofp, "/%s %g %g SUF\n", Fname, Fpt.w, Fpt.h));
       read_font_info ();
@@ -2618,30 +2813,14 @@ static char divertfname[512];
 static void
 divert ()
 {
-  char *cp;
-
   assert (divertfp == NULL);
 
   /* Open divert file. */
 
-  cp = tempnam (NULL, "ens");
-  if (cp == NULL)
-    FATAL ((stderr, _("couldn't create divert file name: %s"),
-	    strerror (errno)));
-
-  strcpy (divertfname, cp);
-
-  divertfp = fopen (divertfname, "w+b");
+  divertfp = tmpfile ();
   if (divertfp == NULL)
-    FATAL ((stderr, _("couldn't create divert file \"%s\": %s"), divertfname,
+    FATAL ((stderr, _("couldn't create temporary divert file: %s"),
 	    strerror (errno)));
-
-  if (remove (divertfname) == 0)
-    /* Remove successfull, no need to remove file in undivert(). */
-    divertfname[0] = '\0';
-
-  /* Free the buffer allocated by tempnam(). */
-  free (cp);
 
   cofp = divertfp;
 }
@@ -2697,10 +2876,6 @@ undivert ()
   fclose (divertfp);
   divertfp = NULL;
 
-  /* Do we have to remove the divert file? */
-  if (divertfname[0])
-    (void) remove (divertfname);
-
   cofp = ofp;
 }
 
@@ -2712,4 +2887,8 @@ handle_two_side_options ()
     /* Rotate page 180 degrees. */
     OUTPUT ((cofp, "180 rotate\n%d %d translate\n",
 	     -media->w, -media->h));
+
+  if (swap_even_page_margins)
+    OUTPUT ((cofp, "%d 0 translate\n",
+	     -(media->llx - (media->w - media->urx))));
 }

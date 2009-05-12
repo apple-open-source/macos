@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2009 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -70,25 +70,42 @@ struct SMBStructHeader {
 
 #define SMB_STRUCT_HEADER  SMBStructHeader header;
 
+struct SMBAnchor
+{
+	const SMBStructHeader *	header;
+	const UInt8 *			next;
+	const UInt8 *			end;
+};
+
+#define SMB_ANCHOR_IS_VALID(x)	\
+	((x) && ((x)->header) && ((x)->next) && ((x)->end))
+
+#define SMB_ANCHOR_RESET(x)		\
+	bzero(x, sizeof(struct SMBAnchor));
+
 //
 // SMBIOS structure types.
 //
 
 enum {
-    kSMBTypeBIOSInformation      =  0,
-    kSMBTypeSystemInformation    =  1,
-    kSMBTypeSystemEnclosure      =  3,
-    kSMBTypeProcessorInformation =  4,
-    kSMBTypeMemoryModule         =  6,
-    kSMBTypeCacheInformation     =  7,
-    kSMBTypeSystemSlot           =  9,
-    kSMBTypePhysicalMemoryArray  = 16,
-    kSMBTypeMemoryDevice         = 17,
+    kSMBTypeBIOSInformation             =  0,
+    kSMBTypeSystemInformation           =  1,
+    kSMBTypeBaseBoard					=  2,
+    kSMBTypeSystemEnclosure             =  3,
+    kSMBTypeProcessorInformation        =  4,
+    kSMBTypeMemoryModule                =  6,
+    kSMBTypeCacheInformation            =  7,
+    kSMBTypeSystemSlot                  =  9,
+    kSMBTypePhysicalMemoryArray         = 16,
+    kSMBTypeMemoryDevice                = 17,
+    kSMBType32BitMemoryErrorInfo        = 18,
+    kSMBType64BitMemoryErrorInfo        = 33,
 
     /* Apple Specific Structures */
-    kSMBTypeFirmwareVolume       = 128,
-    kSMBTypeMemorySPD            = 130,		
-    kSMBTypeOemProcessorType     = 131
+    kSMBTypeFirmwareVolume              = 128,
+    kSMBTypeMemorySPD                   = 130,
+    kSMBTypeOemProcessorType            = 131,
+    kSMBTypeOemProcessorBusSpeed        = 132
 };
 
 //
@@ -119,6 +136,46 @@ struct SMBSystemInformation {
     SMBByte    uuid[16];            // can be all 0 or all 1's
     SMBByte    wakeupReason;        // reason for system wakeup
 };
+
+//
+// Base Board (Type 2)
+//
+
+struct SMBBaseBoard {
+    SMB_STRUCT_HEADER               // Type 2
+    SMBString	manufacturer;
+    SMBString	product;
+    SMBString	version;
+    SMBString	serialNumber;
+    SMBString	assetTagNumber;
+    SMBByte		featureFlags;
+    SMBString	locationInChassis;
+    SMBWord		chassisHandle;
+    SMBByte		boardType;
+    SMBByte		numberOfContainedHandles;
+	// 0 - 255 contained handles go here but we do not include
+	// them in our structure. Be careful to use numberOfContainedHandles
+	// times sizeof(SMBWord) when computing the actual record size,
+	// if you need it.
+};
+
+// Values for boardType in Type 2 records
+enum {
+    kSMBBaseBoardUnknown				= 0x01,
+    kSMBBaseBoardOther					= 0x02,
+    kSMBBaseBoardServerBlade			= 0x03,
+    kSMBBaseBoardConnectivitySwitch		= 0x04,
+    kSMBBaseBoardSystemMgmtModule		= 0x05,
+    kSMBBaseBoardProcessorModule		= 0x06,
+    kSMBBaseBoardIOModule				= 0x07,
+    kSMBBaseBoardMemoryModule			= 0x08,
+    kSMBBaseBoardDaughter				= 0x09,
+    kSMBBaseBoardMotherboard			= 0x0A,
+    kSMBBaseBoardProcessorMemoryModule	= 0x0B,
+    kSMBBaseBoardProcessorIOModule		= 0x0C,
+    kSMBBaseBoardInterconnect			= 0x0D,
+};
+
 
 //
 // System Enclosure (Type 3)
@@ -166,6 +223,8 @@ struct SMBProcessorInformation {
     SMBString  assetTag;
     SMBString  partNumber;
 };
+
+#define kSMBProcessorInformationMinSize     26
 
 //
 // Memory Module Information (Type 6)
@@ -232,6 +291,28 @@ struct SMBPhysicalMemoryArray {
     SMBDWord   maximumCapacity;     // maximum memory capacity in kilobytes
     SMBWord    errorHandle;         // handle of a previously detected error
     SMBWord    numMemoryDevices;    // number of memory slots or sockets
+};
+
+// Memory Array - Use
+enum {
+    kSMBMemoryArrayUseOther             = 0x01,
+    kSMBMemoryArrayUseUnknown           = 0x02,
+    kSMBMemoryArrayUseSystemMemory      = 0x03,
+    kSMBMemoryArrayUseVideoMemory       = 0x04,
+    kSMBMemoryArrayUseFlashMemory       = 0x05,
+    kSMBMemoryArrayUseNonVolatileMemory = 0x06,
+    kSMBMemoryArrayUseCacheMemory       = 0x07
+};
+
+// Memory Array - Error Correction Types
+enum {
+    kSMBMemoryArrayErrorCorrectionTypeOther         = 0x01,
+    kSMBMemoryArrayErrorCorrectionTypeUnknown       = 0x02,
+    kSMBMemoryArrayErrorCorrectionTypeNone          = 0x03,
+    kSMBMemoryArrayErrorCorrectionTypeParity        = 0x04,
+    kSMBMemoryArrayErrorCorrectionTypeSingleBitECC  = 0x05,
+    kSMBMemoryArrayErrorCorrectionTypeMultiBitECC   = 0x06,
+    kSMBMemoryArrayErrorCorrectionTypeCRC           = 0x07
 };
 
 //
@@ -337,17 +418,6 @@ static const int
 kSMBMemoryDeviceTypeCount = sizeof(SMBMemoryDeviceTypes)   /
                             sizeof(SMBMemoryDeviceTypes[0]);
 
-#ifdef NOT_YET
-static const char *
-SMBMemoryDeviceDetailTypes[] =
-{
-    NULL, NULL, NULL, "Fast-paged",
-    "Static column", "Pseudo-static", "RAMBUS", "Synchronous",
-    "CMOS", "EDO", "Window", "Cache",
-    "Non-volatile", NULL, NULL, NULL
-};
-#endif /* NOT_YET */
-
 //
 // OEM Processor Type (Apple Specific - Type 131)
 //
@@ -357,45 +427,13 @@ struct SMBOemProcessorType {
 	SMBWord    ProcessorType;
 };
 
-#ifdef SUPPORT_LEGACY_BIOS_PIRQ 
-/*
- * PCI Interrupt Routing Table
- */
-struct PIREntry {
-    UInt8       PCIBusNumber;
-    UInt8       PCIDevNumber;
-    UInt8       LinkINTA;
-    UInt16      IRQBitmapINTA;
-    UInt8       LinkINTB;
-    UInt16      IRQBitmapINTB;
-    UInt8       LinkINTC;
-    UInt16      IRQBitmapINTC;
-    UInt8       LinkINTD;
-    UInt16      IRQBitmapINTD;
-    UInt8       SlotNumber;
-    UInt8       Reserved;
+//
+// OEM Processor Bus Speed (Apple Specific - Type 132)
+//
+struct SMBOemProcessorBusSpeed {
+	SMB_STRUCT_HEADER
+	SMBWord    ProcessorBusSpeed;   // MT/s unit
 };
-
-struct PIRTableHeader {
-    UInt32      Signature;
-    UInt16      Version;
-    UInt16      TableSize;
-};
-
-struct PIRTable {
-    UInt32      Signature;
-    UInt16      Version;
-    UInt16      TableSize;
-    UInt8       RouterBus;
-    UInt8       RouterDevFunc;
-    UInt16      PCIExclusiveIRQs;
-    UInt32      CompatibleRouter;
-    UInt32      MiniportData;
-    UInt8       Reserved[11];
-    UInt8       Checksum;
-    PIREntry    SlotEntry[0];
-};
-#endif /* SUPPORT_LEGACY_BIOS_PIRQ */
 
 #pragma pack(pop) // reset to default struct packing
 

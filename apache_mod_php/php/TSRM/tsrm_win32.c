@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: tsrm_win32.c,v 1.27.2.1.2.8 2007/12/31 07:20:02 sebastian Exp $ */
+/* $Id: tsrm_win32.c,v 1.27.2.1.2.10 2008/06/06 23:05:37 scottmac Exp $ */
 
 #include <stdio.h>
 #include <fcntl.h>
@@ -88,7 +88,7 @@ TSRM_API int tsrm_win32_access(const char *pathname, int mode)
 {
 	if (mode == 1 /*X_OK*/) {
 #if 1
-		/* This code is not supported by Windows 98, 
+		/* This code is not supported by Windows 98,
 		 * but we don't support it anymore */
 		DWORD type;
 
@@ -96,7 +96,7 @@ TSRM_API int tsrm_win32_access(const char *pathname, int mode)
 #else
 		SHFILEINFO sfi;
 
-		return access(pathname, 0) == 0 && 
+		return access(pathname, 0) == 0 &&
 			SHGetFileInfo(pathname, 0, &sfi, sizeof(SHFILEINFO), SHGFI_EXETYPE) != 0 ? 0 : -1;
 #endif
 	} else {
@@ -109,22 +109,22 @@ static process_pair *process_get(FILE *stream TSRMLS_DC)
 {
 	process_pair *ptr;
 	process_pair *newptr;
-	
+
 	for (ptr = TWG(process); ptr < (TWG(process) + TWG(process_size)); ptr++) {
 		if (ptr->stream == stream) {
 			break;
 		}
 	}
-	
+
 	if (ptr < (TWG(process) + TWG(process_size))) {
 		return ptr;
 	}
-	
+
 	newptr = (process_pair*)realloc((void*)TWG(process), (TWG(process_size)+1)*sizeof(process_pair));
 	if (newptr == NULL) {
 		return NULL;
 	}
-	
+
 	TWG(process) = newptr;
 	ptr = newptr + TWG(process_size);
 	TWG(process_size)++;
@@ -136,7 +136,7 @@ static shm_pair *shm_get(int key, void *addr)
 	shm_pair *ptr;
 	shm_pair *newptr;
 	TSRMLS_FETCH();
-	
+
 	for (ptr = TWG(shm); ptr < (TWG(shm) + TWG(shm_size)); ptr++) {
 		if (!ptr->descriptor) {
 			continue;
@@ -151,12 +151,12 @@ static shm_pair *shm_get(int key, void *addr)
 	if (ptr < (TWG(shm) + TWG(shm_size))) {
 		return ptr;
 	}
-	
+
 	newptr = (shm_pair*)realloc((void*)TWG(shm), (TWG(shm_size)+1)*sizeof(shm_pair));
 	if (newptr == NULL) {
 		return NULL;
 	}
-	
+
 	TWG(shm) = newptr;
 	ptr = newptr + TWG(shm_size);
 	TWG(shm_size)++;
@@ -195,7 +195,7 @@ TSRM_API FILE *popen_ex(const char *command, const char *type, const char *cwd, 
 	if (!str_len || !CreatePipe(&in, &out, &security, 2048L)) {
 		return NULL;
 	}
-	
+
 	memset(&startup, 0, sizeof(STARTUPINFO));
 	memset(&process, 0, sizeof(PROCESS_INFORMATION));
 

@@ -25,7 +25,7 @@
  */
 
 /*
- * Portions Copyright 2007 Apple Inc.  All rights reserved.
+ * Portions Copyright 2007-2009 Apple Inc.
  */
 
 #pragma ident	"@(#)automount.c	1.50	05/06/08 SMI"

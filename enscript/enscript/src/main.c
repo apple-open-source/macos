@@ -1,6 +1,6 @@
 /*
  * Argument handling and main.
- * Copyright (c) 1995-1998 Markku Rossi.
+ * Copyright (c) 1995-2003 Markku Rossi.
  *
  * Author: Markku Rossi <mtr@iki.fi>
  */
@@ -46,9 +46,6 @@ static void handle_env_options ___P ((char *var));
 /* Handle options from <argv> array. */
 static void handle_options ___P ((int argc, char *argv[]));
 
-/* List options and their values. */
-static void do_list_options ();
-
 /* Print usage info. */
 static void usage ();
 
@@ -63,9 +60,9 @@ static void version ();
 char *program;			/* Program's name, used for messages. */
 FILE *ofp = NULL;		/* Output file. */
 void *printer_context;		/* Context for the printer. */
-char version_string[256];	/* Enscript's version string. */
-char ps_version_string[20];	/* Version string for PS procsets. */
-char date_string[256];		/* Preformatted time string. */
+char *version_string = NULL;	/* Enscript's version string. */
+char *ps_version_string = NULL;	/* Version string for PS procsets. */
+char *date_string = NULL;	/* Preformatted time string. */
 struct tm run_tm;		/* Time when program is run. */
 struct tm mod_tm;		/* Last modification time for current file. */
 struct passwd *passwd;		/* Passwd entry for the user running this
@@ -75,11 +72,10 @@ struct passwd *passwd;		/* Passwd entry for the user running this
 char *enscript_library = LIBRARY;
 
 /* Library lookup path. */
-char libpath[1024];
+char *libpath = NULL;
 
 /* AFM library lookup path. */
 char *afm_path = NULL;
-char afm_path_buffer[1024];
 
 MediaEntry *media_names = NULL;	/* List of known media. */
 MediaEntry *media = NULL;	/* Entry for used media. */
@@ -128,7 +124,7 @@ AFMHandle afm = NULL;
 /* Options. */
 
 /*
- * Free single-letter options are: Q, w, x, y, Y
+ * Free single-letter options are: Q, x, y, Y
  */
 
 /*
@@ -138,9 +134,9 @@ AFMHandle afm = NULL;
  */
 
 /*
- * -1, -2, --columns
+ * -1, -2, -3, -4, -5, -6, -7, -8, -9, --columns=NUM
  *
- * Number of columns per page.  Default is 1 column.
+ * Number of columns per page.  The default is 1 column.
  */
 int num_columns = 1;
 
@@ -160,10 +156,10 @@ PageRange *page_ranges = NULL;
 unsigned int file_align = 1;
 
 /*
- * -b, --header
+ * -b STRING, --header=STRING
  *
- * Set string to be used as a page header.  As a default page header is
- * constructed from filename, date and page number.
+ * Set the string that is used as the page header.  As a default, page
+ * header is constructed from filename, date and page number.
  */
 char *page_header = NULL;
 
@@ -200,7 +196,6 @@ unsigned int start_line_number = 1;
  * default printer.
  */
 char *printer = NULL;
-char printer_buf[256];
 
 /*
  * -e [CHAR], --escapes[=CHAR]
@@ -213,18 +208,17 @@ int escape_char = '\0';
 int default_escape_char;
 
 /*
- * -E [LANG], --pretty-print[=LANG]
+ * -E [LANG], --highlight=[LANG] (deprecated --pretty-print[=LANG])
  *
- * Prettyprint program source code.  Prettyprinting is handled by
- * creating an input filter with states-preprocessor.  States makes an
- * educated guess about the start state but sometimes it fails, so the
- * start state can also be specified to be LANG.  This option
- * overwrites input filter and enables special escapes.
+ * Highlight program source code.  Highlighting is handled by creating
+ * an input filter with the states-program.  States makes an educated
+ * guess about the start state but sometimes it fails, so the start
+ * state can also be specified to be LANG.  This option overwrites
+ * input filter and enables special escapes.
  */
 
-int pretty_print = 0;
-char *pp_start_state = NULL;
-char pp_filter[4096];
+int highlight = 0;
+char *hl_start_state = NULL;
 
 /*
  * -f, --font
@@ -235,6 +229,7 @@ char *Fname = "Courier";
 FontPoint Fpt = {10.0, 10.0};
 FontPoint default_Fpt;		/* Point size of the original font. */
 char *default_Fname;		/* Name of the original font. */
+InputEncoding default_Fencoding; /* The encoding of the original font. */
 int user_body_font_defined = 0;	/* Has user defined new body font? */
 
 double font_widths[256];	/* Width array for body font. */
@@ -265,7 +260,7 @@ FontPoint HFpt = {10.0, 10.0};
  */
 HeaderType header = HDR_SIMPLE;
 char *fancy_header_name = NULL;
-char fancy_header_default[256];
+char *fancy_header_default = NULL;
 
 /*
  * -h, --no-job-header
@@ -344,8 +339,7 @@ int mail = 0;
  *
  * Name of the output media.  Default is A4.
  */
-char *media_name = "A4";
-char media_name_buffer[256];
+char *media_name = NULL;
 
 /*
  * -n, --copies
@@ -428,14 +422,12 @@ double ul_gray = .8;
 FontPoint ul_ptsize = {200.0, 200.0};
 char *ul_font = "Times-Roman";
 char *underlay = NULL;
-char ul_position_buf[256];
-char *ul_position = "+0-0";	/* Position info as a string. */
+char *ul_position = NULL;	/* Position info as a string. */
 double ul_x;			/* Position x-coordinate. */
 double ul_y;			/* Position y-coordinate. */
 double ul_angle;
 unsigned int ul_style = UL_STYLE_OUTLINE;
-char *ul_style_str = "outline";
-char ul_style_str_buf[256];
+char *ul_style_str = NULL;
 int ul_position_p = 0;		/* Is ul-position given? */
 int ul_angle_p = 0;		/* Is ul-angle given? */
 
@@ -467,7 +459,7 @@ int verbose = 0;
  */
 
 /*
- * -W LANGUAGE, --language=LANGUAGE
+ * -w LANGUAGE, --language=LANGUAGE
  *
  * Generate output for language LANGUAGE.  The default is PostScript.
  */
@@ -475,13 +467,24 @@ char *output_language = "PostScript";
 int output_language_pass_through = 0;
 
 /*
+ * -W APP,option, --options=APP,OPTION
+ *
+ * Pass additional option to enscript's helper applications.  The
+ * first part of the option's argument (APP) specifies the
+ * helper application to which the options are added.  Currently the
+ * following helper application are defined:
+ *
+ *   s	states
+ */
+Buffer *helper_options[256] = {0};
+
+/*
  * -X, --encoding
  *
  * Specifies input encoding.  Default is ISO-8859.1.
  */
 InputEncoding encoding = ENC_ISO_8859_1;
-char *encoding_name = "88591";
-char encoding_name_buffer[256];
+char *encoding_name = NULL;
 
 /*
  * -z, --no-formfeed
@@ -500,10 +503,18 @@ int interpret_formfeed = 1;
 int pass_through = 0;
 
 /*
- * --color[=COLOR]
+ * --color[=bool]
  *
- * Create color output with StatesColorModel COLOR.
+ * Create color output with states?
  */
+
+/*
+ * --continuous-page-numbers
+ *
+ * Count page numbers across input files.  Don't restart numbering
+ * at beginning of each file.
+ */
+int continuous_page_numbers = 0;
 
 /*
  * --download-font=FONT
@@ -512,12 +523,29 @@ int pass_through = 0;
  */
 
 /*
+ * --extended-return-values
+ *
+ * Enable extended return values.
+ */
+int extended_return_values = 0;
+
+/*
  * --filter-stdin=STR
  *
  * How stdin is shown to the filter command.  The default is "" but
  * some utilities might want it as "-".
  */
 char *input_filter_stdin = "";
+
+/*
+ * --footer=STRING
+ *
+ * Set the string that is used as the page footer.  As a default, the
+ * page has no footer.  Setting this option does not necessary show
+ * any footer strings in the output.  It depends on the selected
+ * header (`.hdr' file) whether it supports footer strings or not.
+ */
+char *page_footer = NULL;
 
 /*
  * --h-column-height=HEIGHT
@@ -529,11 +557,11 @@ char *input_filter_stdin = "";
 double horizontal_column_height = 283465.0;
 
 /*
- * --help-pretty-print
+ * --help-highlight (deprecated --help-pretty-print)
  *
- * Descript all supported -E, --pretty-print languages and file formats.
+ * Descript all supported -E, --highlight languages and file formats.
  */
-int help_pretty_print = 0;
+int help_highlight = 0;
 
 /*
  * --highlight-bar-gray=val
@@ -550,13 +578,6 @@ double highlight_bar_gray = .97;
 int list_media = 0;
 
 /*
- * --list-options
- *
- * Show all options and their values.  Exit successfully.
- */
-int list_options = 0;
-
-/*
  * --margins=LEFT:RIGHT:TOP:BOTTOM
  *
  * Adjust page marginals.
@@ -570,7 +591,7 @@ char *margins_spec = NULL;
  * Optional parameter STYLE specifies the marking style, the system default
  * is black box.
  */
-char mark_wrapped_lines_style_name[256] = {0};
+char *mark_wrapped_lines_style_name = NULL;
 MarkWrappedLinesStyle mark_wrapped_lines_style = MWLS_NONE;
 
 /*
@@ -578,9 +599,15 @@ MarkWrappedLinesStyle mark_wrapped_lines_style = MWLS_NONE;
  *
  * Format in which non-printable characters are printed.
  */
-char *npf_name = "octal";
-char npf_name_buf[256];
+char *npf_name = NULL;
 NonPrintableFormat non_printable_format = NPF_OCTAL;
+
+/*
+ * --nup-columnwise
+ *
+ * Layout N-up pages colunwise instead of row-wise.
+ */
+int nup_columnwise = 0;
 
 /*
  * --nup-xpad=NUM
@@ -601,8 +628,7 @@ unsigned int nup_ypad = 10;
  *
  * Format in which page labels are printed; the default is "short".
  */
-char *page_label_format = "short";
-char page_label_format_buf[256];
+char *page_label_format = NULL;
 PageLabelFormat page_label;
 
 /*
@@ -637,12 +663,19 @@ int slicing = 0;
 unsigned int slice = 1;
 
 /*
+ * --swap-even-page-margins
+ *
+ * Swap left and right side margins for each even numbered page.  This
+ * might be handy in two-side printing.
+ */
+int swap_even_page_margins = 0;
+
+/*
  * --toc
  *
  * Print Table of Contents page.
  */
 int toc = 0;
-char toc_fname[512];
 FILE *toc_fp;
 char *toc_fmt_string;
 
@@ -697,7 +730,7 @@ int generate_PageSize = 1;
  *
  * Spooler switch to suppress the job header (-h).
  */
-char no_job_header_switch[16];
+char *no_job_header_switch = NULL;
 
 /*
  * OutputFirstLine: line
@@ -705,55 +738,89 @@ char no_job_header_switch[16];
  * Set the PostScript output's first line to something your system can handle.
  * The default is "%!PS-Adobe-3.0"
  */
-char output_first_line[256];
+char *output_first_line = NULL;
 
 /*
  * QueueParam: param
  *
  * The spooler command switch to select the printer queue (-P).
  */
-char queue_param[16];
+char *queue_param = NULL;
 
 /*
  * Spooler: command
  *
  * The spooler command name (lpr).
  */
-char spooler_command[256];
+char *spooler_command = NULL;
 
 /*
- * StatesColorModel: model
+ * StatesBinary: path
  *
- * Color model for states.
+ * An absolute path to the `states' binary.
  */
-char states_color_model[50];
+
+char *states_binary = NULL;
+
+/*
+ * StatesColor: bool
+ *
+ * Should the States program generate color outputs.
+ */
+int states_color = 0;
 
 /*
  * StatesConfigFile: file
  *
- * Read states' configuration from file <file>.
+ * The name of the states' configuration file.
  */
-char states_config_file[256];
+char *states_config_file = NULL;
 
 /*
- * StatesHighlightLevel: level
+ * StatesHighlightStyle: style
  *
- * HighlightLevel for states.
+ * The highlight style.
  */
-char states_highlight_level[50];
+char *states_highlight_style = NULL;
 
 /*
  * StatesPath: path
  *
- * Define the path for the states program.
+ * Define the path for the states program.  The states program will
+ * lookup its state definition files from this path.
  */
-char states_path[1024];
+char *states_path = NULL;
 
 /* ^@shade{GRAY}, set the line highlight gray. */
 double line_highlight_gray = 1.0;
 
 /* ^@bggray{GRAY}, set the text background gray. */
 double bggray = 1.0;
+
+EncodingRegistry encodings[] =
+{
+  {{"88591", "latin1", NULL},		ENC_ISO_8859_1,		'\n', 8},
+  {{"88592", "latin2", NULL},		ENC_ISO_8859_2,		'\n', 8},
+  {{"88593", "latin3", NULL},		ENC_ISO_8859_3,		'\n', 8},
+  {{"88594", "latin4", NULL},		ENC_ISO_8859_4,		'\n', 8},
+  {{"88595", "cyrillic", NULL},		ENC_ISO_8859_5,		'\n', 8},
+  {{"88597", "greek", NULL},		ENC_ISO_8859_7,		'\n', 8},
+  {{"88599", "latin5", NULL},		ENC_ISO_8859_9,		'\n', 8},
+  {{"885910", "latin6", NULL},		ENC_ISO_8859_10,	'\n', 8},
+  {{"ascii", NULL, NULL},		ENC_ASCII, 		'\n', 8},
+  {{"asciifise", "asciifi", "asciise"},	ENC_ASCII_FISE,		'\n', 8},
+  {{"asciidkno", "asciidk", "asciino"},	ENC_ASCII_DKNO,		'\n', 8},
+  {{"ibmpc", "pc", "dos"},		ENC_IBMPC, 		'\n', 8},
+  {{"mac", NULL, NULL},			ENC_MAC, 		'\r', 8},
+  {{"vms", NULL, NULL},			ENC_VMS, 		'\n', 8},
+  {{"hp8", NULL, NULL},			ENC_HP8,		'\n', 8},
+  {{"koi8", NULL, NULL},		ENC_KOI8,		'\n', 8},
+  {{"ps", "PS", NULL},			ENC_PS, 		'\n', 8},
+  {{"pslatin1", "ISOLatin1Encoding", NULL},	ENC_ISO_8859_1,	'\n', 8},
+
+  {{NULL, NULL, NULL}, 0, 0, 0},
+};
+
 
 /*
  * Static variables.
@@ -771,7 +838,7 @@ static struct option long_options[] =
   {"printer",			required_argument,	0, 'd'},
   {"setpagedevice",		required_argument,	0, 'D'},
   {"escapes",			optional_argument,	0, 'e'},
-  {"pretty-print",		optional_argument,	0, 'E'},
+  {"highlight",			optional_argument,	0, 'E'},
   {"font",			required_argument,	0, 'f'},
   {"header-font",		required_argument,	0, 'F'},
   {"print-anyway",		no_argument,		0, 'g'},
@@ -803,24 +870,28 @@ static struct option long_options[] =
   {"nup",			required_argument,	0, 'U'},
   {"verbose",			optional_argument,	0, 'v'},
   {"version",			no_argument,		0, 'V'},
-  {"language",			required_argument,	0, 'W'},
+  {"language",			required_argument,	0, 'w'},
+  {"option",			required_argument,	0, 'W'},
   {"encoding",			required_argument,	0, 'X'},
   {"no-formfeed",		no_argument,		0, 'z'},
   {"pass-through",		no_argument,		0, 'Z'},
 
-  /* Long options without short counterparts. */
+  /* Long options without short counterparts.  Next free is 157. */
   {"color",			optional_argument,	0, 142},
+  {"continuous-page-numbers",	no_argument,		0, 156},
   {"download-font",		required_argument,	0, 131},
+  {"extended-return-values",	no_argument,		0, 154},
   {"filter-stdin",		required_argument,	0, 138},
+  {"footer",			required_argument,	0, 155},
   {"h-column-height", 		required_argument,	0, 148},
   {"help", 			no_argument, 		0, 135},
-  {"help-pretty-print", 	no_argument, 		0, 141},
+  {"help-highlight",	 	no_argument, 		0, 141},
   {"highlight-bar-gray",	required_argument, 	0, 136},
   {"list-media",		no_argument,		&list_media, 1},
-  {"list-options",		no_argument,		&list_options, 1},
   {"margins",			required_argument,	0, 144},
   {"mark-wrapped-lines",	optional_argument,	0, 143},
   {"non-printable-format",	required_argument,	0, 134},
+  {"nup-columnwise",		no_argument,		0, 152},
   {"nup-xpad",			required_argument,	0, 145},
   {"nup-ypad",			required_argument,	0, 146},
   {"page-label-format",		required_argument,	0, 130},
@@ -828,6 +899,8 @@ static struct option long_options[] =
   {"printer-options",		required_argument,	0, 139},
   {"rotate-even-pages",		no_argument,		0, 150},
   {"slice",			required_argument,	0, 140},
+  {"style",			required_argument,	0, 151},
+  {"swap-even-page-margins",	no_argument,		0, 153},
   {"toc",			no_argument,		&toc, 1},
   {"word-wrap",			no_argument,		0, 147},
   {"ul-angle",			required_argument,	0, 132},
@@ -836,37 +909,12 @@ static struct option long_options[] =
   {"ul-position",		required_argument,	0, 133},
   {"ul-style",			required_argument,	0, 137},
 
+  /* Backwards compatiblity options. */
+  {"pretty-print",		optional_argument,	0, 'E'},
+  {"help-pretty-print", 	no_argument, 		0, 141},
+
   {NULL, 0, 0, 0},
 };
-
-
-static struct
-{
-  char *names[3];
-  InputEncoding encoding;
-  int nl;
-  int bs;
-} encodings[] =
-  {
-    {{"88591", "latin1", NULL},		ENC_ISO_8859_1,		'\n', 8},
-    {{"88592", "latin2", NULL},		ENC_ISO_8859_2,		'\n', 8},
-    {{"88593", "latin3", NULL},		ENC_ISO_8859_3,		'\n', 8},
-    {{"88594", "latin4", NULL},		ENC_ISO_8859_4,		'\n', 8},
-    {{"88595", "cyrillic", NULL},	ENC_ISO_8859_5,		'\n', 8},
-    {{"88597", "greek", NULL},		ENC_ISO_8859_7,		'\n', 8},
-    {{"ascii", NULL, NULL},		ENC_ASCII, 		'\n', 8},
-    {{"asciifise", "asciifi", "asciise"},	ENC_ASCII_FISE,	'\n', 8},
-    {{"asciidkno", "asciidk", "asciino"},	ENC_ASCII_DKNO,	'\n', 8},
-    {{"ibmpc", "pc", "dos"},		ENC_IBMPC, 		'\n', 8},
-    {{"mac", NULL, NULL},		ENC_MAC, 		'\r', 8},
-    {{"vms", NULL, NULL},		ENC_VMS, 		'\n', 8},
-    {{"hp8", NULL, NULL},		ENC_HP8,		'\n', 8},
-    {{"koi8", NULL, NULL},		ENC_KOI8,		'\n', 8},
-    {{"ps", "PS", NULL},		ENC_PS, 		'\n', 8},
-    {{"pslatin1", "ISOLatin1Encoding", NULL},	ENC_ISO_8859_1,	'\n', 8},
-
-    {{NULL, NULL, NULL}, 0, 0, 0},
-  };
 
 
 /*
@@ -885,6 +933,10 @@ main (int argc, char *argv[])
   AFMError afm_error;
   char *cp, *cp2;
   int retval = 0;
+  Buffer buffer;
+
+  /* Init our dynamic memory buffer. */
+  buffer_init (&buffer);
 
   /* Get program's name. */
   program = strrchr (argv[0], '/');
@@ -897,12 +949,20 @@ main (int argc, char *argv[])
   argv[0] = program;
 
   /* Create version strings. */
-  sprintf (version_string, "GNU %s %s", PACKAGE, VERSION);
-  strcpy (ps_version_string, VERSION);
+
+  buffer_clear (&buffer);
+  buffer_append (&buffer, "GNU ");
+  buffer_append (&buffer, PACKAGE);
+  buffer_append (&buffer, " ");
+  buffer_append (&buffer, VERSION);
+  version_string = buffer_copy (&buffer);
+
+  ps_version_string = xstrdup (VERSION);
   cp = strrchr (ps_version_string, '.');
   *cp = ' ';
 
   /* Create the default TOC format string.  Wow, this is cool! */
+  /* xgettext:no-c-format */
   toc_fmt_string = _("$3v $-40N $3% pages $4L lines  $E $C");
 
   /* Internationalization. */
@@ -926,7 +986,7 @@ main (int argc, char *argv[])
   tm = localtime (&tim);
   memcpy (&run_tm, tm, sizeof (*tm));
 
-  sprintf (date_string, "%s", asctime (&run_tm));
+  date_string = xstrdup (asctime (&run_tm));
   i = strlen (date_string);
   date_string[i - 1] = '\0';
 
@@ -937,26 +997,55 @@ main (int argc, char *argv[])
 	    strerror (errno)));
 
   /* Defaults for some options. */
-  strcpy (spooler_command, "lpr");
-  strcpy (queue_param, "-P");
-  strcpy (no_job_header_switch, "-h");
-  strcpy (fancy_header_default, "enscript");
-  strcpy (output_first_line, "%!PS-Adobe-3.0");
+  media_name 		= xstrdup ("A4");
+  encoding_name		= xstrdup ("88591");
+  npf_name		= xstrdup ("octal");
+  page_label_format	= xstrdup ("short");
+  ul_style_str		= xstrdup ("outline");
+  ul_position		= xstrdup ("+0-0");
+  spooler_command 	= xstrdup ("lpr");
+  queue_param 		= xstrdup ("-P");
+  no_job_header_switch 	= xstrdup ("-h");
+  fancy_header_default 	= xstrdup ("enscript");
+  output_first_line 	= xstrdup ("%!PS-Adobe-3.0");
 
   /* Check ENSCRIPT_LIBRARY for custom library location. */
   cp = getenv ("ENSCRIPT_LIBRARY");
   if (cp)
     enscript_library = cp;
 
-  /* Defaults for the states filter. */
-  strcpy (states_color_model, "blackwhite");
-  sprintf (states_config_file, "%s/enscript.st", enscript_library);
-  strcpy (states_highlight_level, "heavy");
-  strcpy (states_path, "states"); /* Take it from the user path. */
-
   /* Fill up build-in libpath. */
-  sprintf (libpath, "%s%c%s/.enscript", enscript_library, PATH_SEPARATOR,
-	   passwd->pw_dir);
+
+  cp = getenv ("HOME");
+  if (cp == NULL)
+    cp = passwd->pw_dir;
+
+  buffer_clear (&buffer);
+  buffer_append (&buffer, enscript_library);
+  buffer_append (&buffer, PATH_SEPARATOR_STR);
+  buffer_append (&buffer, cp);
+  buffer_append (&buffer, "/.enscript");
+  libpath = buffer_copy (&buffer);
+
+  /* Defaults for the states filter. */
+
+  states_binary = xstrdup ("states"); /* Take it from the user path. */
+
+  buffer_clear (&buffer);
+  buffer_append (&buffer, enscript_library);
+  buffer_append (&buffer, "/hl/enscript.st");
+  states_config_file = buffer_copy (&buffer);
+
+  states_highlight_style = xstrdup ("emacs");
+
+  /* The <cp> holds the user's home directory. */
+  buffer_clear (&buffer);
+  buffer_append (&buffer, cp);
+  buffer_append (&buffer, "/.enscript");
+  buffer_append (&buffer, PATH_SEPARATOR_STR);
+  buffer_append (&buffer, enscript_library);
+  buffer_append (&buffer, "/hl");
+  states_path = buffer_copy (&buffer);
 
   /* Initialize resource sets. */
   res_fonts = strhash_init ();
@@ -976,28 +1065,66 @@ main (int argc, char *argv[])
     {
       int saved_errno = errno;
 
-      /*
-       * Try to read it from our library directory.  This is mostly the
-       * case for the micro ports.
-       */
+      /* Try to read it from our library directory.  This is mostly
+	 the case for the micro ports.  */
       if (!read_config (enscript_library, CFG_FILE_NAME))
 	{
-	  /* Maybe we are not installed yet, let's try "../lib". */
-	  if (!read_config ("../lib", CFG_FILE_NAME))
-	    {
-	      /* No luck, report error from the original config file. */
-	      FATAL ((stderr, _("couldn't open config file \"%s/%s\": %s"),
-		      enscript_library, CFG_FILE_NAME,
-		      strerror (saved_errno)));
-	    }
+	  /* Try `enscript_library/../../etc/'.  This is the case for
+             installations which set the prefix after the compilation
+             and our SYSCONFDIR points to wrong directory. */
 
-	  /*
-	   * Ok, we are not installed yet.  Here is a small kludge to
-	   * conform the GNU coding standards: we must be able to run
-	   * without being installed, so we must append the "../lib"
-	   * directory to the libpath.
-	   */
-	  strcat (libpath, ":../lib");
+	  buffer_clear (&buffer);
+	  buffer_append (&buffer, enscript_library);
+	  buffer_append (&buffer, "/../../etc");
+
+	  if (!read_config (buffer_ptr (&buffer), CFG_FILE_NAME))
+	    {
+	      /* Maybe we are not installed yet, let's try `../lib'
+                 and `../../lib'. */
+	      if (!read_config ("../lib", CFG_FILE_NAME)
+		  && !read_config ("../../lib", CFG_FILE_NAME))
+		{
+		  /* No luck, report error from the original config file. */
+		  ERROR ((stderr, _("couldn't read config file \"%s/%s\": %s"),
+			  enscript_library, CFG_FILE_NAME,
+			  strerror (saved_errno)));
+		  ERROR ((stderr,
+			  _("I did also try the following directories:")));
+		  ERROR ((stderr, _("\t%s"), SYSCONFDIR));
+		  ERROR ((stderr, _("\t%s"), enscript_library));
+		  ERROR ((stderr, _("\t%s"), buffer_ptr (&buffer)));
+		  ERROR ((stderr, _("\t../lib")));
+		  ERROR ((stderr, _("\t../../lib")));
+		  ERROR ((stderr,
+_("This is probably an installation error.  Please, try to rebuild:")));
+		  ERROR ((stderr, _("\tmake distclean")));
+		  ERROR ((stderr, _("\t./configure --prefix=PREFIX")));
+		  ERROR ((stderr, _("\tmake")));
+		  ERROR ((stderr, _("\tmake check")));
+		  ERROR ((stderr, _("\tmake install")));
+		  ERROR ((stderr,
+_("or set the environment variable `ENSCRIPT_LIBRARY' to point to your")));
+		  ERROR ((stderr,
+_("library directory.")));
+		  exit (1);
+		}
+
+	      /* Ok, we are not installed yet.  Here is a small kludge
+		 to conform the GNU coding standards: we must be able
+		 to run without being installed, so we must append the
+		 `../lib' and `../../lib' directories to the libpath.
+		 The later allows us to be run form the `src/tests'
+		 directory.  */
+	      buffer_clear (&buffer);
+	      buffer_append (&buffer, libpath);
+	      buffer_append (&buffer, PATH_SEPARATOR_STR);
+	      buffer_append (&buffer, "../lib");
+	      buffer_append (&buffer, PATH_SEPARATOR_STR);
+	      buffer_append (&buffer, "../../lib");
+
+	      xfree (libpath);
+	      libpath = buffer_copy (&buffer);
+	    }
 	}
     }
 
@@ -1036,9 +1163,13 @@ main (int argc, char *argv[])
       if (encodings[i].names[j] != NULL && MATCH (encodings[i].names[j],
 						  encoding_name))
 	{
-	  /* Found a match for this encoding. */
+	  /* Found a match for this encoding.  Use the first
+             "official" name. */
+
 	  encoding = encodings[i].encoding;
-	  encoding_name = encodings[i].names[0];
+	  xfree (encoding_name);
+	  encoding_name = xstrdup (encodings[i].names[0]);
+
 	  if (nl < 0)
 	    nl = encodings[i].nl;
 	  bs = encodings[i].bs;
@@ -1075,6 +1206,7 @@ main (int argc, char *argv[])
   default_Fpt.w = Fpt.w;
   default_Fpt.h = Fpt.h;
   default_Fname = Fname;
+  default_Fencoding = encoding;
 
   /* Register that document uses at least these fonts. */
   strhash_put (res_fonts, Fname, strlen (Fname) + 1, NULL, NULL);
@@ -1182,7 +1314,7 @@ name             width\theight\tllx\tlly\turx\tury\n\
     FATAL ((stderr, _("illegal non-printable format \"%s\""), npf_name));
 
   /* Mark wrapped lines style. */
-  if (mark_wrapped_lines_style_name[0])
+  if (mark_wrapped_lines_style_name)
     {
       if (MATCH (mark_wrapped_lines_style_name, "none"))
 	mark_wrapped_lines_style = MWLS_NONE;
@@ -1331,22 +1463,25 @@ name             width\theight\tllx\tlly\turx\tury\n\
       break;
     }
 
-  /* Help pretty-print. */
-  if (help_pretty_print)
+  /* Help highlight. */
+  if (help_highlight)
     {
       /* Create description with states. */
-      sprintf (pp_filter,
-	       "%s -f \"%s\" -s describe_languages \"%s\"",
-	       states_path, states_config_file, states_config_file);
-      system (pp_filter);
-      exit (0);
-    }
+      printf (_("Highlighting is supported for the following languages and file formats:\n\n"));
+      fflush (stdout);
 
-  /* List options. */
-  if (list_options)
-    {
-      do_list_options ();
-      exit (1);
+      buffer_clear (&buffer);
+      buffer_append (&buffer, states_binary);
+      buffer_append (&buffer, " -f \"");
+      buffer_append (&buffer, states_config_file);
+      buffer_append (&buffer, "\" -p \"");
+      buffer_append (&buffer, states_path);
+      buffer_append (&buffer, "\" -s describe_languages ");
+      buffer_append (&buffer, enscript_library);
+      buffer_append (&buffer, "/hl/*.st");
+
+      system (buffer_ptr (&buffer));
+      exit (0);
     }
 
   /*
@@ -1360,88 +1495,161 @@ name             width\theight\tllx\tlly\turx\tury\n\
   if (output_language_pass_through)
     {
       char *start_state;
+      Buffer cmd;
+      char intbuf[256];
 
       /* The States output generation. */
 
       /* Resolve the start state. */
-      if (pp_start_state)
-	start_state = pp_start_state;
-      else if (pretty_print)
+      if (hl_start_state)
+	start_state = hl_start_state;
+      else if (highlight)
 	start_state = NULL;
       else
 	start_state = "passthrough";
 
-      /* Count how much space we need for the states command. */
-      j = 0;
-      for (i = optind; i < argc; i++)
-	j += strlen (argv[i]) + 1;
-      j += 256;
+      /* Create the states command. */
 
-      /* Create states command. */
-      cp = (char *) xmalloc (j);
-      sprintf (cp, "%s -f \"%s\" %s%s -Dcolormodel=%s -Dhl_level=%s -Dlanguage=%s -Dnum_input_files=%d -Ddocument_title=\"%s\" -Dtoc=%d",
-	       states_path, states_config_file,
-	       start_state ? "-s" : "",
-	       start_state ? start_state : "",
-	       states_color_model,
-	       states_highlight_level,
-	       output_language,
-	       optind == argc ? 1 : argc - optind,
-	       title,
-	       toc);
+      buffer_init (&cmd);
+
+      buffer_append (&cmd, states_binary);
+      buffer_append (&cmd, " -f \"");
+      buffer_append (&cmd, states_config_file);
+      buffer_append (&cmd, "\" -p \"");
+      buffer_append (&cmd, states_path);
+      buffer_append (&cmd, "\" ");
+
+      if (verbose > 0)
+	buffer_append (&cmd, "-v ");
+
+      if (start_state)
+	{
+	  buffer_append (&cmd, "-s");
+	  buffer_append (&cmd, start_state);
+	  buffer_append (&cmd, " ");
+	}
+
+      buffer_append (&cmd, "-Dcolor=");
+      buffer_append (&cmd, states_color ? "1" : "0");
+      buffer_append (&cmd, " ");
+
+      buffer_append (&cmd, "-Dstyle=");
+      buffer_append (&cmd, states_highlight_style);
+      buffer_append (&cmd, " ");
+
+      buffer_append (&cmd, "-Dlanguage=");
+      buffer_append (&cmd, output_language);
+      buffer_append (&cmd, " ");
+
+      buffer_append (&cmd, "-Dnum_input_files=");
+      sprintf (intbuf, "%d", optind == argc ? 1 : argc - optind);
+      buffer_append (&cmd, intbuf);
+      buffer_append (&cmd, " ");
+
+      buffer_append (&cmd, "-Ddocument_title=\'");
+      if ((cp = shell_escape (title)) != NULL)
+	{
+	  buffer_append (&cmd, cp);
+	  free (cp);
+	}
+      buffer_append (&cmd, "\' ");
+
+      buffer_append (&cmd, "-Dtoc=");
+      buffer_append (&cmd, toc ? "1" : "0");
+
+      /* Additional options for states? */
+      if (helper_options['s'])
+	{
+	  Buffer *opts = helper_options['s'];
+
+	  buffer_append (&cmd, " ");
+	  buffer_append_len (&cmd, buffer_ptr (opts), buffer_len (opts));
+	}
 
       /* Append input files. */
       for (i = optind; i < argc; i++)
 	{
-	  strcat (cp, " ");
-	  strcat (cp, argv[i]);
+	  char *cp;
+	  if ((cp = shell_escape (argv[i])) != NULL)
+	    {
+	      buffer_append (&cmd, " \'");
+	      buffer_append (&cmd, cp);
+	      buffer_append (&cmd, "\'");
+	      free (cp);
+	    }
 	}
 
       /* And do the job. */
-      if (is_open (&is, stdin, NULL, cp))
+      if (is_open (&is, stdin, NULL, buffer_ptr (&cmd)))
 	{
 	  open_output_file ();
-	  process_file ("unused", &is);
+	  process_file ("unused", &is, 0);
 	  is_close (&is);
 	}
+
+      buffer_uninit (&cmd);
     }
   else
     {
       /* The conventional way. */
 
-      /* Pretty-printing. */
-      if (pretty_print)
+      /* Highlighting. */
+      if (highlight)
 	{
-	  /* Create pretty-print input filter. */
-	  sprintf (pp_filter,
-		   "%s -f \"%s\" %s%s -Dcolormodel=%s -Dhl_level=%s -Dfont_spec=%s@%g/%g \"%%s\"",
-		   states_path,
-		   states_config_file,
-		   pp_start_state ? "-s " : "",
-		   pp_start_state ? pp_start_state : "",
-		   states_color_model,
-		   states_highlight_level,
-		   Fname, Fpt.w, Fpt.h);
-	  input_filter = pp_filter;
+	  char fbuf[256];
+
+	  /* Create a highlight input filter. */
+	  buffer_clear (&buffer);
+	  buffer_append (&buffer, states_binary);
+	  buffer_append (&buffer, " -f \"");
+	  buffer_append (&buffer, states_config_file);
+	  buffer_append (&buffer, "\" -p \"");
+	  buffer_append (&buffer, states_path);
+	  buffer_append (&buffer, "\"");
+
+	  if (verbose > 0)
+	    buffer_append (&buffer, " -v");
+
+	  if (hl_start_state)
+	    {
+	      buffer_append (&buffer, " -s ");
+	      buffer_append (&buffer, hl_start_state);
+	    }
+
+	  buffer_append (&buffer, " -Dcolor=");
+	  buffer_append (&buffer, states_color ? "1" : "0");
+
+	  buffer_append (&buffer, " -Dstyle=");
+	  buffer_append (&buffer, states_highlight_style);
+
+	  buffer_append (&buffer, " -Dfont_spec=");
+	  buffer_append (&buffer, Fname);
+	  sprintf (fbuf, "@%g/%g", Fpt.w, Fpt.h);
+	  buffer_append (&buffer, fbuf);
+
+	  /* Additional options for states? */
+	  if (helper_options['s'])
+	    {
+	      Buffer *opts = helper_options['s'];
+
+	      buffer_append (&buffer, " ");
+	      buffer_append_len (&buffer,
+				 buffer_ptr (opts), buffer_len (opts));
+	    }
+
+	  buffer_append (&buffer, " \'%s\'");
+
+	  input_filter = buffer_copy (&buffer);
 	  input_filter_stdin = "-";
 	}
 
       /* Table of Contents. */
       if (toc)
 	{
-	  cp = tmpnam (toc_fname);
-	  if (cp == NULL)
-	    FATAL ((stderr, _("couldn't create toc file name: %s"),
-		    strerror (errno)));
-
-	  toc_fp = fopen (toc_fname, "w+b");
+	  toc_fp = tmpfile ();
 	  if (toc_fp == NULL)
-	    FATAL ((stderr, _("couldn't create toc file \"%s\": %s"),
-		    toc_fname, strerror (errno)));
-
-	  if (remove (toc_fname) == 0)
-	    /* Remove successfull, no need to remove file at exit. */
-	    toc_fname[0] = '\0';
+	    FATAL ((stderr, _("couldn't create temporary toc file: %s"),
+		    strerror (errno)));
 	}
 
 
@@ -1458,7 +1666,7 @@ name             width\theight\tllx\tlly\turx\tury\n\
 	    {
 	      /* Open output file. */
 	      open_output_file ();
-	      process_file (title_given ? title : "", &is);
+	      process_file (title_given ? title : "", &is, 0);
 	      is_close (&is);
 	    }
 	}
@@ -1484,7 +1692,7 @@ name             width\theight\tllx\tlly\turx\tury\n\
 		       */
 		      open_output_file ();
 
-		      process_file (argv[optind], &is);
+		      process_file (argv[optind], &is, 0);
 		    }
 		  else
 		    ERROR ((stderr, _("couldn't stat input file \"%s\": %s"),
@@ -1513,16 +1721,12 @@ name             width\theight\tllx\tlly\turx\tury\n\
 	  memcpy (&mod_tm, &run_tm, sizeof (run_tm));
 	  if (is_open (&is, toc_fp, NULL, NULL))
 	    {
-	      process_file (_("Table of Contents"), &is);
+	      process_file (_("Table of Contents"), &is, 1);
 	      is_close (&is);
 	    }
 
 	  /* Clean up toc file. */
 	  fclose (toc_fp);
-
-	  /* Do we have to remove the toc file? */
-	  if (toc_fname[0])
-	    (void) remove (toc_fname);
 	}
 
       /* Give trailer a chance to dump itself. */
@@ -1614,6 +1818,13 @@ name             width\theight\tllx\tlly\turx\tury\n\
 	}
     }
 
+  /* Uninit our dynamic memory buffer. */
+  buffer_uninit (&buffer);
+
+  /* Return the extended return values only if requested. */
+  if (!extended_return_values)
+    retval = 0;
+
   /* This is the end. */
   return retval;
 }
@@ -1675,7 +1886,9 @@ close_output_file ()
   if (output_file == OUTPUT_FILE_NONE)
     printer_close (printer_context);
   else if (output_file != OUTPUT_FILE_STDOUT)
-    fclose (ofp);
+    if (fclose (ofp))
+      FATAL ((stderr, _("couldn't close output file \"%s\": %s"),
+	      output_file, strerror (errno)));
 
   /* We do not reset <ofp> since its value is needed in diagnostigs. */
 }
@@ -1795,9 +2008,10 @@ handle_options (int argc, char *argv[])
     {
       int option_index = 0;
       const char *cp;
+      int i;
 
       c = getopt_long (argc, argv,
-		       "#:12a:A:b:BcC::d:D:e::E::f:F:gGhH::i:I:jJ:kKlL:mM:n:N:o:Op:P:qrRs:S:t:T:u::U:vVW:X:zZ",
+		       "#:123456789a:A:b:BcC::d:D:e::E::f:F:gGhH::i:I:jJ:kKlL:mM:n:N:o:Op:P:qrRs:S:t:T:u::U:vVW:X:zZ",
 		       long_options, &option_index);
 
       if (c == -1)
@@ -1809,13 +2023,25 @@ handle_options (int argc, char *argv[])
 	  cp = long_options[option_index].name;
 
 	  if (strcmp (cp, "columns") == 0)
-	    num_columns = atoi (optarg);
+	    {
+	      num_columns = atoi (optarg);
+	      if (num_columns < 1)
+		FATAL ((stderr,
+			_("number of columns must be larger than zero")));
+	    }
 	  break;
 
 	  /* Short options. */
 
-	case '1':		/* one column */
-	case '2':		/* two columns */
+	case '1':		/* 1 column */
+	case '2':		/* 2 columns */
+	case '3':		/* 3 columns */
+	case '4':		/* 4 columns */
+	case '5':		/* 5 columns */
+	case '6':		/* 6 columns */
+	case '7':		/* 7 columns */
+	case '8':		/* 8 columns */
+	case '9':		/* 9 columns */
 	  num_columns = c - '0';
 	  break;
 
@@ -1882,7 +2108,8 @@ handle_options (int argc, char *argv[])
 
 	case 'd':		/* specify printer */
 	case 'P':
-	  printer = optarg;
+	  xfree (printer);
+	  printer = xstrdup (optarg);
 	  output_file = OUTPUT_FILE_NONE;
 	  break;
 
@@ -1904,21 +2131,21 @@ handle_options (int argc, char *argv[])
 	    }
 	  break;
 
-	case 'E':		/* pretty-print */
-	  pretty_print = 1;
+	case 'E':		/* highlight */
+	  highlight = 1;
 	  special_escapes = 1;
 	  escape_char = '\0';
-	  pp_start_state = optarg;
+	  hl_start_state = optarg;
 	  break;
 
 	case 'f':		/* font */
-	  if (!parse_font_spec (optarg, &Fname, &Fpt))
+	  if (!parse_font_spec (optarg, &Fname, &Fpt, NULL))
 	    FATAL ((stderr, _("malformed font spec: %s"), optarg));
 	  user_body_font_defined = 1;
 	  break;
 
 	case 'F':		/* header font */
-	  if (!parse_font_spec (optarg, &HFname, &HFpt))
+	  if (!parse_font_spec (optarg, &HFname, &HFpt, NULL))
 	    FATAL ((stderr, _("malformed font spec: %s"), optarg));
 	  break;
 
@@ -1988,7 +2215,7 @@ handle_options (int argc, char *argv[])
 	  break;
 
 	case 'M':		/* select output media */
-	  media_name = optarg;
+	  media_name = xstrdup (optarg);
 	  break;
 
 	case 'n':		/* num copies */
@@ -2077,15 +2304,47 @@ handle_options (int argc, char *argv[])
 	  exit (0);
 	  break;
 
-	case 'W':		/* output language */
+	case 'w':		/* output language */
 	  output_language = optarg;
 	  if (strcmp (output_language, "PostScript") != 0)
 	    /* Other output languages are handled with states. */
 	    output_language_pass_through = 1;
 	  break;
 
+	case 'W':		/* a helper application option */
+	  cp = strchr (optarg, ',');
+	  if (cp == NULL)
+	    FATAL ((stderr,
+		    _("malformed argument `%s' for option -W, --option: \
+no comma found"),
+		      optarg));
+
+	  if (cp - optarg != 1)
+	    FATAL ((stderr, _("helper application specification must be \
+single character: %s"),
+			      optarg));
+
+	  /* Take the index of the helper application and update `cp'
+             to point to the beginning of the option. */
+	  i = *optarg;
+	  cp++;
+
+	  if (helper_options[i] == NULL)
+	    helper_options[i] = buffer_alloc ();
+	  else
+	    {
+	      /* We already had some options for this helper
+                 application.  Let's separate these arguments. */
+	      buffer_append (helper_options[i], " ");
+	    }
+
+	  /* Add this new option. */
+	  buffer_append (helper_options[i], cp);
+	  break;
+
 	case 'X':		/* input encoding */
-	  encoding_name = optarg;
+	  xfree (encoding_name);
+	  encoding_name = xstrdup (optarg);
 	  break;
 
 	case 'z':		/* no form feeds */
@@ -2097,7 +2356,7 @@ handle_options (int argc, char *argv[])
 	  break;
 
 	case 128:		/* underlay font */
-	  if (!parse_font_spec (optarg, &ul_font, &ul_ptsize))
+	  if (!parse_font_spec (optarg, &ul_font, &ul_ptsize, NULL))
 	    FATAL ((stderr, _("malformed font spec: %s"), optarg));
 	  break;
 
@@ -2106,7 +2365,8 @@ handle_options (int argc, char *argv[])
 	  break;
 
 	case 130:		/* page label format */
-	  page_label_format = optarg;
+	  xfree (page_label_format);
+	  page_label_format = xstrdup (optarg);
 	  break;
 
 	case 131:		/* download font */
@@ -2120,12 +2380,14 @@ handle_options (int argc, char *argv[])
 	  break;
 
 	case 133:		/* underlay position */
-	  ul_position = optarg;
+	  xfree (ul_position);
+	  ul_position = xstrdup (optarg);
 	  ul_position_p = 1;
 	  break;
 
 	case 134:		/* non-printable format */
-	  npf_name = optarg;
+	  xfree (npf_name);
+	  npf_name = xstrdup (optarg);
 	  break;
 
 	case 135:		/* help */
@@ -2138,7 +2400,8 @@ handle_options (int argc, char *argv[])
 	  break;
 
 	case 137:		/* underlay style */
-	  ul_style_str = optarg;
+	  xfree (ul_style_str);
+	  ul_style_str = xstrdup (optarg);
 	  break;
 
 	case 138:		/* filter stdin */
@@ -2156,20 +2419,23 @@ handle_options (int argc, char *argv[])
 	    FATAL ((stderr, _("slice must be greater than zero")));
 	  break;
 
-	case 141:		/* help-pretty-print */
-	  help_pretty_print = 1;
+	case 141:		/* help-highlight */
+	  help_highlight = 1;
 	  break;
 
-	case 142:		/* States color model. */
+	case 142:		/* States color? */
 	  if (optarg == NULL)
-	    strcpy (states_color_model, "emacs");
+	    states_color = 1;
 	  else
-	    strcpy (states_color_model, optarg);
+	    states_color = atoi (optarg);
 	  break;
 
 	case 143:		/* mark-wrapped-lines */
 	  if (optarg)
-	    strcpy (mark_wrapped_lines_style_name, optarg);
+	    {
+	      xfree (mark_wrapped_lines_style_name);
+	      mark_wrapped_lines_style_name = xstrdup (optarg);
+	    }
 	  else
 	    /* Set the system default. */
 	    mark_wrapped_lines_style = MWLS_BOX;
@@ -2204,6 +2470,31 @@ handle_options (int argc, char *argv[])
 	  rotate_even_pages = 1;
 	  break;
 
+	case 151:		/* highlight style */
+	  xfree (states_highlight_style);
+	  states_highlight_style = xstrdup (optarg);
+	  break;
+
+	case 152:		/* N-up colunwise */
+	  nup_columnwise = 1;
+	  break;
+
+	case 153:		/* swap even page margins */
+	  swap_even_page_margins = 1;
+	  break;
+
+	case 154:		/* extended return values */
+	  extended_return_values = 1;
+	  break;
+
+	case 155:		/* footer */
+	  page_footer = optarg;
+	  break;
+
+	case 156:		/* continuous page numbers */
+	  continuous_page_numbers = 1;
+	  break;
+
 	case '?':		/* Errors found during getopt_long(). */
 	option_error:
 	  fprintf (stderr, _("Try `%s --help' for more information.\n"),
@@ -2220,97 +2511,6 @@ handle_options (int argc, char *argv[])
 	  break;
 	}
     }
-}
-
-
-#define TF(val) ((val) ? 't' : 'f')
-
-static void
-do_list_options ()
-{
-  int i, j;
-  char *cp, *cp2;
-
-  printf ("libpath=\"%s\"\n", 	libpath);
-  printf ("printer=\"%s\"\n", 	printer ? printer : "");
-  printf ("queue_param=\"%s\"\n", 	queue_param);
-  printf ("verbose=%d\n", 		verbose);
-  printf ("num_copies=%d\n", 	num_copies);
-  printf ("title=\"%s\"\n", 	title ? title : "");
-  printf ("columns=%d\n", 		num_columns);
-  printf ("line_numbers=#%c\n", 	TF (line_numbers));
-  printf ("mail=#%c\n", 		TF (mail));
-  printf ("quiet=#%c\n", 		TF (quiet));
-  printf ("landscape=#%c\n", 	TF (landscape));
-
-  printf ("header=");
-  switch (header)
-    {
-    case HDR_NONE:
-      printf ("none");
-      break;
-
-    case HDR_SIMPLE:
-      printf ("simple");
-      break;
-
-    case HDR_FANCY:
-      printf ("fancy (%s)", fancy_header_name);
-      break;
-    }
-  printf ("\n");
-
-  printf ("page_header=\"%s\"\n", page_header ? page_header : "");
-  printf ("font: name=%s size=%g/%gpt\n", Fname, Fpt.w, Fpt.h);
-  printf ("header font: name=%s size=%g/%gpt\n", HFname, HFpt.w, HFpt.h);
-  printf ("output_file=%s\n",
-	  (output_file == OUTPUT_FILE_NONE
-	   ? "none"
-	   : (output_file == OUTPUT_FILE_STDOUT
-	      ? "stdout"
-	      : output_file)));
-  printf ("media=%s (w=%d, h=%d, llx=%d, lly=%d, urx=%d, ury=%d)\n",
-	  media->name, media->w, media->h, media->llx, media->lly,
-	  media->urx,media->ury);
-
-  printf ("encoding=%s\n", 		encoding_name);
-  printf ("interpret_formfeed=#%c\n",	TF (interpret_formfeed));
-  printf ("pass_through=#%c\n",		TF (pass_through));
-  printf ("spooler_command=\"%s\"\n", 	spooler_command);
-  printf ("special_escapes=#%c\n", 	TF (special_escapes));
-  printf ("tabsize=%d\n", 		tabsize);
-  printf ("baselineskip=%g\n", 	baselineskip);
-
-  /* statusdict key-value pairs */
-  printf ("statusdict: ");
-  for (i = strhash_get_first (statusdict, &cp, &j, (void **) &cp2); i;
-       i = strhash_get_next (statusdict, &cp, &j, (void **) &cp2))
-    printf ("%s %s ", cp2, cp);
-  printf ("\n");
-
-  /* setpagedevice key-value pairs */
-  printf ("setpagedevice: << ");
-  for (i = strhash_get_first (pagedevice, &cp, &j, (void **) &cp2); i;
-       i = strhash_get_next (pagedevice, &cp, &j, (void **) &cp2))
-    printf ("/%s %s ", cp, cp2);
-  printf (">>\n");
-
-  printf ("nl=%c\n", 		nl == '\n' ? 'n' : 'r');
-  printf ("AFM path=%s\n", 		afm_path ? afm_path : "(default)");
-
-  /* Underlay. */
-  printf ("underlay=(%s)\n", 	underlay ? underlay : "");
-  printf ("ul_gray=%g\n", 		ul_gray);
-  printf ("ul_font=%s %g/%gpt\n", 	ul_font, ul_ptsize.w, ul_ptsize.h);
-  printf ("ul_position=%s (%g, %g)\n",	ul_position, ul_x, ul_y);
-  printf ("ul_angle=%g\n",		ul_angle);
-
-  /* Download fonts. */
-  printf ("download-fonts:");
-  for (i = strhash_get_first (download_fonts, &cp, &j, (void **) &cp2); i;
-       i = strhash_get_next (download_fonts, &cp, &j, (void **) &cp2))
-    printf (" %s", cp);
-  printf ("\n");
 }
 
 
@@ -2338,7 +2538,7 @@ Mandatory arguments to long options are mandatory for short options too.\n\
           program);
 
   printf (_("\
-  -E, --pretty-print[=LANG]  pretty-print source code\n"));
+  -E, --highlight[=LANG]     highlight source code\n"));
 
   printf (_("\
   -f, --font=NAME            use font NAME for body text\n\
@@ -2385,23 +2585,29 @@ Mandatory arguments to long options are mandatory for short options too.\n\
   -U, --nup=NUM              print NUM logical pages on each output page\n\
   -v, --verbose              tell what we are doing\n\
   -V, --version              print version number\n\
-  -W, --language=LANG        set output language to LANG\n\
+  -w, --language=LANG        set output language to LANG\n\
+  -W, --options=APP,OPTION   pass option OPTION to helper application APP\n\
   -X, --encoding=NAME        use input encoding NAME\n\
   -z, --no-formfeed          do not interpret form feed characters\n\
   -Z, --pass-through         pass through PostScript and PCL files\n\
                              without any modifications\n"));
 
   printf (_("Long-only options:\n\
-  --color[=COLOR]            set output color model to COLOR\n\
+  --color[=bool]             create color outputs with states\n\
+  --continuous-page-numbers  count page numbers across input files.  Don't\n\
+                             restart numbering at beginning of each file.\n\
   --download-font=NAME       download font NAME\n\
+  --extended-return-values   enable extended return values\n\
   --filter-stdin=NAME        specify how stdin is shown to the input filter\n\
+  --footer=FOOTER            set page footer\n\
   --h-column-height=HEIGHT   set the horizontal column height to HEIGHT\n\
-  --help                     print this help and exit\n\
-  --help-pretty-print        describe all supported --pretty-print languages\n\
+  --help                     print this help and exit\n"));
+
+  printf (_("\
+  --help-highlight           describe all supported --highlight languages\n\
                              and file formats\n\
   --highlight-bar-gray=NUM   print highlight bars with gray NUM (0 - 1)\n\
   --list-media               list names of all known media\n\
-  --list-options             list all options and their values\n\
   --margins=LEFT:RIGHT:TOP:BOTTOM\n\
                              adjust page marginals\n\
   --mark-wrapped-lines[STYLE]\n\
@@ -2409,6 +2615,7 @@ Mandatory arguments to long options are mandatory for short options too.\n\
   --non-printable-format=FMT specify how non-printable chars are printed\n"));
 
   printf (_("\
+  --nup-columnwise           layout pages in the N-up printing columnwise\n\
   --nup-xpad=NUM             set the page x-padding of N-up printing to NUM\n\
   --nup-ypad=NUM             set the page y-padding of N-up printing to NUM\n\
   --page-label-format=FMT    set page label format to FMT\n\
@@ -2419,6 +2626,9 @@ Mandatory arguments to long options are mandatory for short options too.\n\
 
   printf (_("\
   --slice=NUM                print vertical slice NUM\n\
+  --style=STYLE              use highlight style STYLE\n\
+  --swap-even-page-margins   swap left and right side margins for each even\n\
+                             numbered page\n\
   --toc                      print table of contents\n\
   --ul-angle=ANGLE           set underlay text's angle to ANGLE\n\
   --ul-font=NAME             print underlays with font NAME\n\
@@ -2436,7 +2646,7 @@ static void
 version ()
 {
   printf ("%s\n\
-Copyright (C) 1998 Markku Rossi.\n\
+Copyright (C) 2003 Markku Rossi.\n\
 GNU enscript comes with NO WARRANTY, to the extent permitted by law.\n\
 You may redistribute copies of GNU enscript under the terms of the GNU\n\
 General Public License.  For more information about these matters, see\n\

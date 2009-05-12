@@ -3,7 +3,7 @@
  *  DTrace
  *
  *  Created by luser on 10/28/05.
- *  Copyright 2005 Apple Inc. All rights reserved.
+ *  Copyright 2005 __MyCompanyName__. All rights reserved.
  *
  */
 

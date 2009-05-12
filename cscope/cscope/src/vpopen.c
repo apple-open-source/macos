@@ -52,7 +52,7 @@ vpopen(char *path, int oflag)
 	    oflag == OPENFLAG_READ) {
 		vpinit(NULL);
 		for (i = 1; i < vpndirs; i++) {
-			(void) sprintf(buf, "%s/%s", vpdirs[i], path);
+			(void) snprintf(buf, sizeof(buf), "%s/%s", vpdirs[i], path);
 			if ((returncode = myopen(buf, oflag, 0666)) != -1) {
 				break;
 			}

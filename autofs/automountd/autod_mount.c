@@ -27,9 +27,7 @@
  */
 
 /*
- * Portions Copyright 2007 Apple Inc.
- *
- * $Id$
+ * Portions Copyright 2007-2009 Apple Inc.
  */
 
 #pragma ident	"@(#)autod_mount.c	1.71	05/06/08 SMI"

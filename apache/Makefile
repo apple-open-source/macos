@@ -2,7 +2,7 @@ Project    = httpd
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
-Version    = 2.2.9
+Version    = 2.2.11
 Sources    = $(SRCROOT)/$(Project)
 
 Patch_List = patch-config.layout \
@@ -15,7 +15,8 @@ Patch_List = patch-config.layout \
              patch-srclib__pcre__Makefile.in \
              PR-3853520.diff \
              apachectl.diff \
-             PR-5432464.diff
+             PR-5432464.diff \
+             CVE-2008-0456.diff
 
 Configure_Flags = --prefix=/usr \
                   --enable-layout=Darwin \

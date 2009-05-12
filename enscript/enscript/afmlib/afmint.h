@@ -1,6 +1,6 @@
 /*
  * Internal header for the AFM library.
- * Copyright (c) 1995-1998 Markku Rossi.
+ * Copyright (c) 1995-1999 Markku Rossi.
  *
  * Author: Markku Rossi <mtr@iki.fi>
  */
@@ -256,6 +256,8 @@ extern AFMEncodingTable afm_88593_encoding[];
 extern AFMEncodingTable afm_88594_encoding[];
 extern AFMEncodingTable afm_88595_encoding[];
 extern AFMEncodingTable afm_88597_encoding[];
+extern AFMEncodingTable afm_88599_encoding[];
+extern AFMEncodingTable afm_885910_encoding[];
 extern AFMEncodingTable afm_ibmpc_encoding[];
 extern AFMEncodingTable afm_mac_encoding[];
 extern AFMEncodingTable afm_vms_encoding[];
@@ -268,7 +270,7 @@ extern AFMEncodingTable afm_koi8_encoding[];
  */
 
 /* Print message if <level> is larger than library's verbose level. */
-void afm_message ___P ((AFMHandle handle, int level, char *message));
+void afm_message ___P ((AFMHandle handle, unsigned int level, char *message));
 
 /* Print error message to stderr. */
 void afm_error ___P ((AFMHandle handle, char *message));

@@ -43,22 +43,30 @@ namespace Security {
 // Simply a pair or (cpu type, cpu subtype), really.
 //
 class Architecture : public std::pair<cpu_type_t, cpu_subtype_t> {
+	typedef std::pair<cpu_type_t, cpu_subtype_t> _Pair;
 public:
 	Architecture() { }
-	explicit Architecture(cpu_type_t type, cpu_subtype_t sub = 0)
+	explicit Architecture(cpu_type_t type, cpu_subtype_t sub = CPU_SUBTYPE_MULTIPLE)
 		: std::pair<cpu_type_t, cpu_subtype_t>(type, sub) { }
 	Architecture(const fat_arch &archInFile);
 
 	cpu_type_t cpuType() const { return this->first; }
 	cpu_subtype_t cpuSubtype() const { return this->second; }
 	const char *name() const;
+
+	static const cpu_type_t none = 0;
+	operator bool () const { return cpuType() != none; }
+	bool operator ! () const { return cpuType() == none; }
 	
 public:
 	friend bool operator == (const Architecture &a1, const Architecture &a2)
-	{ return a1.cpuType() == a2.cpuType(); }
+	{ return _Pair(a1) == _Pair(a2); }
 
 	friend bool operator < (const Architecture &a1, const Architecture &a2)
-	{ return a1.cpuType() < a2.cpuType(); }
+	{ return _Pair(a1) < _Pair(a2); }
+
+	bool matches(const Architecture &templ) const
+	{ return first == templ.first && (second == templ.second || templ.second == 0 || templ.second == CPU_SUBTYPE_MULTIPLE); }
 
 public:
 	static Architecture local();
@@ -136,7 +144,7 @@ public:
 	typedef std::set<Architecture> Architectures;
 	void architectures(Architectures &archs);
 	
-	bool isUniversal() const { return mArchList; }
+	bool isUniversal() const { return mArchList != NULL; }
 	Architecture bestNativeArch() const;
 	
 public:

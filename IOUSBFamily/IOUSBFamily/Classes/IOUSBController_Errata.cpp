@@ -85,10 +85,10 @@ static ErrataListEntry  errataList[] = {
 	{0x8086, 0x8116, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable },   // Poulsbo UHCI #3
 	{0x8086, 0x8117, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataNeedsOvercurrentDebounce }	,			// Pouslbo EHCI #2
 
-	{0x10de, 0x0aa6, 0x00, 0xff, kErrataMCP79SplitIsoch | kErrataMissingPortChangeInt | kErrataMCP79IgnoreDisconnect | kErrataUse32bitEHCI },			// MCP79 EHCI #1
-	{0x10de, 0x0aa9, 0x00, 0xff, kErrataMCP79SplitIsoch | kErrataMissingPortChangeInt | kErrataMCP79IgnoreDisconnect | kErrataUse32bitEHCI},			// MCP79 EHCI #2
-	{0x10de, 0x0aa5, 0x00, 0xff, kErrataOHCINoGlobalSuspendOnSleep | kErrataMCP79IgnoreDisconnect },														// MCP79 OHCI #1
-	{0x10de, 0x0aa7, 0x00, 0xff, kErrataOHCINoGlobalSuspendOnSleep | kErrataMCP79IgnoreDisconnect },														// MCP79 OHCI #2
+	{0x10de, 0x0aa6, 0x00, 0xff, kErrataMCP79SplitIsoch | kErrataMissingPortChangeInt | kErrataUse32bitEHCI },			// MCP79 EHCI #1
+	{0x10de, 0x0aa9, 0x00, 0xff, kErrataMCP79SplitIsoch | kErrataMissingPortChangeInt | kErrataUse32bitEHCI},			// MCP79 EHCI #2
+	{0x10de, 0x0aa5, 0x00, 0xff, kErrataOHCINoGlobalSuspendOnSleep },														// MCP79 OHCI #1
+	{0x10de, 0x0aa7, 0x00, 0xff, kErrataOHCINoGlobalSuspendOnSleep },														// MCP79 OHCI #2
 
 	{0x8086, 0x3a34, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable },   // ICH10 UHCI #1
 	{0x8086, 0x3a35, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable },   // ICH10 UHCI #2

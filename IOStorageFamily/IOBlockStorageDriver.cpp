@@ -3492,7 +3492,13 @@ OSMetaClassDefineReservedUsed(IOBlockStorageDriver, 1);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-OSMetaClassDefineReservedUnused(IOBlockStorageDriver,  2);
+IOReturn
+IOBlockStorageDriver::requestIdle(void)
+{
+    return(getProvider()->requestIdle());
+}
+
+OSMetaClassDefineReservedUsed(IOBlockStorageDriver, 2);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

@@ -16,7 +16,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: json.c,v 1.9.2.21 2007/12/31 07:20:07 sebastian Exp $ */
+/* $Id: json.c,v 1.9.2.24 2008/10/02 03:41:24 felipe Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -84,7 +84,7 @@ static PHP_MINFO_FUNCTION(json)
 /* }}} */
 
 static void json_encode_r(smart_str *buf, zval *val TSRMLS_DC);
-static void json_escape_string(smart_str *buf, char *s, int len);
+static void json_escape_string(smart_str *buf, char *s, int len TSRMLS_DC);
 
 static int json_determine_array_type(zval **val TSRMLS_DC)  /* {{{ */
 {
@@ -181,6 +181,9 @@ static void json_encode_array(smart_str *buf, zval **val TSRMLS_DC) { /* {{{ */
                     if (i == HASH_KEY_IS_STRING) {
                         if (key[0] == '\0' && Z_TYPE_PP(val) == IS_OBJECT) {
                             /* Skip protected and private members. */
+							if (tmp_ht) {
+								tmp_ht->nApplyCount--;
+							}
                             continue;
                         }
 
@@ -190,7 +193,7 @@ static void json_encode_array(smart_str *buf, zval **val TSRMLS_DC) { /* {{{ */
                             need_comma = 1;
                         }
 
-                        json_escape_string(buf, key, key_len - 1);
+                        json_escape_string(buf, key, key_len - 1 TSRMLS_CC);
                         smart_str_appendc(buf, ':');
 
                         json_encode_r(buf, *data TSRMLS_CC);
@@ -230,7 +233,7 @@ static void json_encode_array(smart_str *buf, zval **val TSRMLS_DC) { /* {{{ */
 
 #define REVERSE16(us) (((us & 0xf) << 12) | (((us >> 4) & 0xf) << 8) | (((us >> 8) & 0xf) << 4) | ((us >> 12) & 0xf))
 
-static void json_escape_string(smart_str *buf, char *s, int len) /* {{{ */
+static void json_escape_string(smart_str *buf, char *s, int len TSRMLS_DC) /* {{{ */
 {
     int pos = 0;
     unsigned short us;
@@ -251,8 +254,14 @@ static void json_escape_string(smart_str *buf, char *s, int len) /* {{{ */
         {
             efree(utf16);
         }
-
-        smart_str_appendl(buf, "\"\"", 2);
+	if(len < 0) {
+		if(!PG(display_errors)) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid UTF-8 sequence in argument");
+		}
+	        smart_str_appendl(buf, "null", 4);
+	} else {
+	        smart_str_appendl(buf, "\"\"", 2);
+	}
         return;
     }
 
@@ -369,7 +378,7 @@ static void json_encode_r(smart_str *buf, zval *val TSRMLS_DC) /* {{{ */
             }
             break;
         case IS_STRING:
-            json_escape_string(buf, Z_STRVAL_P(val), Z_STRLEN_P(val));
+            json_escape_string(buf, Z_STRVAL_P(val), Z_STRLEN_P(val) TSRMLS_CC);
             break;
         case IS_ARRAY:
         case IS_OBJECT:

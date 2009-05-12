@@ -1,6 +1,6 @@
 #
 # Top level Makefile for enscript.
-# Copyright (c) 1995-1998 Markku Rossi
+# Copyright (c) 1995-1999 Markku Rossi
 #
 # Author: Markku Rossi <mtr@iki.fi>
 #
@@ -24,19 +24,11 @@
 # Boston, MA 02111-1307, USA.
 #
 
-SUBDIRS = compat afm afmlib lib scripts intl src po states tests
+SUBDIRS = intl  m4  compat afm afmlib lib scripts intl src po states docs w32
 
-man_MANS = enscript.1
+EXTRA_DIST = config.rpath  README.ESCAPES README.DOS ABOUT-NLS THANKS ascii.txt	\
+asciifise.txt asciidkno.txt 88591.txt 88592.txt 88593.txt 88594.txt	\
+88595.txt 88597.txt 88599.txt 885910.txt ibmpc.txt mac.txt vms.txt	\
+hp8.txt koi8.txt mtr.eps mtr_small.eps mtr_tiny.eps
 
-EXTRA_DIST = README.ESCAPES README.DOS ABOUT-NLS THANKS \
-	ascii.txt asciifise.txt asciidkno.txt 88591.txt 88592.txt \
-	88593.txt 88594.txt 88595.txt 88597.txt ibmpc.txt mac.txt \
-	vms.txt hp8.txt koi8.txt \
-	mtr.eps mtr_small.eps mtr_tiny.eps \
-	enscript.1.in \
-	FAQ.html
-
-enscript.man.html: enscript.1
-	nroff -man $(srcdir)/enscript.1 | ./clean-nroff.pl > enscript.man
-	enscript -E --color -q -Whtml -penscript.man.html enscript.man
-	rm -f enscript.man
+ACLOCAL_AMFLAGS = -I m4

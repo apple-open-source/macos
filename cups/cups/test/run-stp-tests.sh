@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# "$Id: run-stp-tests.sh 7731 2008-07-14 18:29:58Z mike $"
+# "$Id: run-stp-tests.sh 8146 2008-11-19 19:50:56Z mike $"
 #
 #   Perform the complete set of IPP compliance tests specified in the
 #   CUPS Software Test Plan.
@@ -307,6 +307,7 @@ FontPath /tmp/cups-$user/share/fonts
 DocumentRoot $root/doc
 RequestRoot /tmp/cups-$user/spool
 TempDir /tmp/cups-$user/spool/temp
+MaxSubscriptions 3
 MaxLogSize 0
 AccessLog /tmp/cups-$user/log/access_log
 ErrorLog /tmp/cups-$user/log/error_log
@@ -751,5 +752,5 @@ if test $fail != 0; then
 fi
 
 #
-# End of "$Id: run-stp-tests.sh 7731 2008-07-14 18:29:58Z mike $"
+# End of "$Id: run-stp-tests.sh 8146 2008-11-19 19:50:56Z mike $"
 #

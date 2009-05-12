@@ -17,6 +17,8 @@
 		<string>Config returns the correct sizes for both 32 and 64-bit</string>
 		<string>#29350: infinite loop fix when strftime fails</string>
 		<string>initial dtrace probe support</string>
+		<string>fix for CVE-2007-5116 regcomp vulnerabilities</string>
+		<string>fix for CVE-2008-1927 double free</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>Artistic</string>

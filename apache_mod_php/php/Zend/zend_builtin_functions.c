@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_builtin_functions.c,v 1.277.2.12.2.29 2008/02/21 15:14:12 dmitry Exp $ */
+/* $Id: zend_builtin_functions.c,v 1.277.2.12.2.32 2008/10/22 23:29:28 iliaa Exp $ */
 
 #include "zend.h"
 #include "zend_API.h"
@@ -454,35 +454,24 @@ ZEND_FUNCTION(error_reporting)
    Define a new constant */
 ZEND_FUNCTION(define)
 {
-	zval **var, **val, **non_cs, *val_free = NULL;
-	int case_sensitive;
+	char *name;
+	int name_len;
+	zval *val;
+	zval *val_free = NULL;
+	zend_bool non_cs = 0;
+	int case_sensitive = CONST_CS;
 	zend_constant c;
 
-	switch (ZEND_NUM_ARGS()) {
-		case 2:
-			if (zend_get_parameters_ex(2, &var, &val)==FAILURE) {
-				RETURN_FALSE;
-			}
-			case_sensitive = CONST_CS;
-			break;
-		case 3:
-			if (zend_get_parameters_ex(3, &var, &val, &non_cs)==FAILURE) {
-				RETURN_FALSE;
-			}
-			convert_to_long_ex(non_cs);
-			if (Z_LVAL_PP(non_cs)) {
-				case_sensitive = 0;
-			} else {
-				case_sensitive = CONST_CS;
-			}
-			break;
-		default:
-			ZEND_WRONG_PARAM_COUNT();
-			break;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sz|b", &name, &name_len, &val, &non_cs) == FAILURE) {
+		return;
+	}
+
+	if(non_cs) {
+		case_sensitive = 0;
 	}
 
 repeat:
-	switch (Z_TYPE_PP(val)) {
+	switch (Z_TYPE_P(val)) {
 		case IS_LONG:
 		case IS_DOUBLE:
 		case IS_STRING:
@@ -492,13 +481,13 @@ repeat:
 			break;
 		case IS_OBJECT:
 			if (!val_free) {
-				if (Z_OBJ_HT_PP(val)->get) {
-					val_free = *val = Z_OBJ_HT_PP(val)->get(*val TSRMLS_CC);
+				if (Z_OBJ_HT_P(val)->get) {
+					val_free = val = Z_OBJ_HT_P(val)->get(val TSRMLS_CC);
 					goto repeat;
-				} else if (Z_OBJ_HT_PP(val)->cast_object) {
+				} else if (Z_OBJ_HT_P(val)->cast_object) {
 					ALLOC_INIT_ZVAL(val_free);
-					if (Z_OBJ_HT_PP(val)->cast_object(*val, val_free, IS_STRING TSRMLS_CC) == SUCCESS) {
-						val = &val_free;
+					if (Z_OBJ_HT_P(val)->cast_object(val, val_free, IS_STRING TSRMLS_CC) == SUCCESS) {
+						val = val_free;
 						break;
 					}
 				}
@@ -511,16 +500,15 @@ repeat:
 			}
 			RETURN_FALSE;
 	}
-	convert_to_string_ex(var);
 	
-	c.value = **val;
+	c.value = *val;
 	zval_copy_ctor(&c.value);
 	if (val_free) {
 		zval_ptr_dtor(&val_free);
 	}
 	c.flags = case_sensitive; /* non persistent */
-	c.name = zend_strndup(Z_STRVAL_PP(var), Z_STRLEN_PP(var));
-	c.name_len = Z_STRLEN_PP(var)+1;
+	c.name = zend_strndup(name, name_len);
+	c.name_len = name_len+1;
 	c.module_number = PHP_USER_CONSTANT;
 	if (zend_register_constant(&c TSRMLS_CC) == SUCCESS) {
 		RETURN_TRUE;
@@ -710,8 +698,6 @@ ZEND_FUNCTION(is_a)
 /* {{{ add_class_vars */
 static void add_class_vars(zend_class_entry *ce, HashTable *properties, zval *return_value TSRMLS_DC)
 {
-	int instanceof = EG(scope) && instanceof_function(EG(scope), ce TSRMLS_CC);
-
 	if (zend_hash_num_elements(properties) > 0) {
 		HashPosition pos;
 		zval **prop;
@@ -720,20 +706,28 @@ static void add_class_vars(zend_class_entry *ce, HashTable *properties, zval *re
 		while (zend_hash_get_current_data_ex(properties, (void **) &prop, &pos) == SUCCESS) {
 			char *key, *class_name, *prop_name;
 			uint key_len;
-			ulong num_index;
+			ulong num_index, h;
+			int prop_name_len = 0;			
 			zval *prop_copy;
+			zend_property_info *property_info;
 
 			zend_hash_get_current_key_ex(properties, &key, &key_len, &num_index, 0, &pos);
 			zend_hash_move_forward_ex(properties, &pos);
+
 			zend_unmangle_property_name(key, key_len-1, &class_name, &prop_name);
-			if (class_name) {
-				if (class_name[0] != '*' && strcmp(class_name, ce->name)) {
-					/* filter privates from base classes */
-					continue;
-				} else if (!instanceof) {
-					/* filter protected if not inside class */
-					continue;
-				}
+			prop_name_len = strlen(prop_name);
+			
+			h = zend_get_hash_value(prop_name, prop_name_len+1);
+			if (zend_hash_quick_find(&ce->properties_info, prop_name, prop_name_len+1, h, (void **) &property_info) == FAILURE) {
+				continue;
+			}
+			
+			if (property_info->flags & ZEND_ACC_SHADOW) {
+				continue;
+			} else if ((property_info->flags & ZEND_ACC_PRIVATE) && EG(scope) != ce) {
+				continue;
+			} else if ((property_info->flags & ZEND_ACC_PROTECTED) && zend_check_protected(ce, EG(scope)) == 0) {
+				continue;
 			}
 
 			/* copy: enforce read only access */

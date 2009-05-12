@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: text.c,v 1.23.2.1.2.6 2008/02/04 15:23:11 sebastian Exp $ */
+/* $Id: text.c,v 1.23.2.1.2.8 2008/10/20 12:46:23 rrichards Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -91,7 +91,7 @@ PHP_METHOD(domtext, __construct)
 
 	intern = (dom_object *)zend_object_store_get_object(id TSRMLS_CC);
 	if (intern != NULL) {
-		oldnode = (xmlNodePtr)intern->ptr;
+		oldnode = dom_object_get_node(intern);
 		if (oldnode != NULL) {
 			php_libxml_node_free_resource(oldnode  TSRMLS_CC);
 		}
@@ -172,19 +172,19 @@ PHP_FUNCTION(dom_text_split_text)
 	if (cur == NULL) {
 		RETURN_FALSE;
 	}
-	length = xmlStrlen(cur);
+	length = xmlUTF8Strlen(cur);
 
 	if (offset > length || offset < 0) {
 		xmlFree(cur);
 		RETURN_FALSE;
 	}
 
-	first = xmlStrndup(cur, offset);
-	second = xmlStrdup(cur + offset);
+	first = xmlUTF8Strndup(cur, offset);
+	second = xmlUTF8Strsub(cur, offset, length - offset);
 	
 	xmlFree(cur);
 
-	xmlNodeSetContentLen(node, first, offset);
+	xmlNodeSetContent(node, first);
 	nnode = xmlNewDocText(node->doc, second);
 	
 	xmlFree(first);

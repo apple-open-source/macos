@@ -18,7 +18,7 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-static const char *const __rcs_file_version__ = "$Revision: 23528 $";
+static const char *const __rcs_file_version__ = "$Revision: 23748 $";
 
 #include "config.h"
 #include "launchd_runtime.h"
@@ -61,14 +61,14 @@ static const char *const __rcs_file_version__ = "$Revision: 23528 $";
 #include "launchd_internalServer.h"
 #include "launchd_internal.h"
 #include "notifyServer.h"
-#include "mach_excServer.h"
+#include "excServer.h"
 
 /* We shouldn't be including these */
 #include "launch.h"
 #include "launchd.h"
 #include "launchd_core_logic.h"
-#include "libvproc_internal.h"
-#include "job_reply.h"
+#include "vproc_internal.h"
+#include "protocol_job_reply.h"
 
 static mach_port_t ipc_port_set;
 static mach_port_t demand_port_set;
@@ -856,12 +856,13 @@ launchd_internal_demux(mach_msg_header_t *Request, mach_msg_header_t *Reply)
 	} else if (notify_server_routine(Request)) {
 		return notify_server(Request, Reply);
 	} else {
-		return mach_exc_server(Request, Reply);
+		return exc_server(Request, Reply);
 	}
 }
 
 kern_return_t
-do_mach_notify_port_destroyed(mach_port_t notify, mach_port_t rights)
+do_mach_notify_port_destroyed(mach_port_t notify __attribute__((unused)),
+	mach_port_t rights)
 {
 	/* This message is sent to us when a receive right is returned to us. */
 
@@ -873,7 +874,8 @@ do_mach_notify_port_destroyed(mach_port_t notify, mach_port_t rights)
 }
 
 kern_return_t
-do_mach_notify_port_deleted(mach_port_t notify, mach_port_name_t name)
+do_mach_notify_port_deleted(mach_port_t notify __attribute__((unused)),
+	mach_port_name_t name __attribute__((unused)))
 {
 	/* If we deallocate/destroy/mod_ref away a port with a pending
 	 * notification, the original notification message is replaced with
@@ -884,7 +886,8 @@ do_mach_notify_port_deleted(mach_port_t notify, mach_port_name_t name)
 }
 
 kern_return_t
-do_mach_notify_no_senders(mach_port_t notify, mach_port_mscount_t mscount)
+do_mach_notify_no_senders(mach_port_t notify,
+	mach_port_mscount_t mscount __attribute__((unused)))
 {
 	job_t j = job_mig_intran(notify);
 
@@ -902,7 +905,7 @@ do_mach_notify_no_senders(mach_port_t notify, mach_port_mscount_t mscount)
 }
 
 kern_return_t
-do_mach_notify_send_once(mach_port_t notify)
+do_mach_notify_send_once(mach_port_t notify __attribute__((unused)))
 {
 	/* This message is sent to us every time we close a port that we have
 	 * outstanding Mach notification requests on. We can safely ignore this
@@ -913,7 +916,8 @@ do_mach_notify_send_once(mach_port_t notify)
 }
 
 kern_return_t
-do_mach_notify_dead_name(mach_port_t notify, mach_port_name_t name)
+do_mach_notify_dead_name(mach_port_t notify __attribute__((unused)),
+	mach_port_name_t name)
 {
 	/* This message is sent to us when one of our send rights no longer has
 	 * a receiver somewhere else on the system.
@@ -1461,8 +1465,10 @@ runtime_del_ref(void)
 }
 
 kern_return_t
-catch_mach_exception_raise(mach_port_t exception_port, mach_port_t thread, mach_port_t task,
-		exception_type_t exception, mach_exception_data_t code, mach_msg_type_number_t codeCnt)
+catch_exception_raise(mach_port_t exception_port __attribute__((unused)),
+	mach_port_t thread, mach_port_t task,
+	exception_type_t exception, exception_data_t code,
+	mach_msg_type_number_t codeCnt)
 {
 	runtime_syslog(LOG_NOTICE, "%s(): thread: 0x%x task: 0x%x type: 0x%x code: %p codeCnt: 0x%x",
 			__func__, thread, task, exception, code, codeCnt);
@@ -1474,10 +1480,12 @@ catch_mach_exception_raise(mach_port_t exception_port, mach_port_t thread, mach_
 }
 
 kern_return_t
-catch_mach_exception_raise_state(mach_port_t exception_port,
-		exception_type_t exception, const mach_exception_data_t code, mach_msg_type_number_t codeCnt,
-		int *flavor, const thread_state_t old_state, mach_msg_type_number_t old_stateCnt,
-		thread_state_t new_state, mach_msg_type_number_t *new_stateCnt)
+catch_exception_raise_state(mach_port_t exception_port __attribute__((unused)),
+	exception_type_t exception,
+	const exception_data_t code, mach_msg_type_number_t codeCnt,
+	int *flavor,
+	const thread_state_t old_state, mach_msg_type_number_t old_stateCnt,
+	thread_state_t new_state, mach_msg_type_number_t *new_stateCnt)
 {
 	runtime_syslog(LOG_NOTICE, "%s(): type: 0x%x code: %p codeCnt: 0x%x flavor: %p old_state: %p old_stateCnt: 0x%x new_state: %p new_stateCnt: %p",
 			__func__, exception, code, codeCnt, flavor, old_state, old_stateCnt, new_state, new_stateCnt);
@@ -1489,10 +1497,13 @@ catch_mach_exception_raise_state(mach_port_t exception_port,
 }
 
 kern_return_t
-catch_mach_exception_raise_state_identity(mach_port_t exception_port, mach_port_t thread, mach_port_t task,
-		exception_type_t exception, mach_exception_data_t code, mach_msg_type_number_t codeCnt,
-		int *flavor, thread_state_t old_state, mach_msg_type_number_t old_stateCnt,
-		thread_state_t new_state, mach_msg_type_number_t *new_stateCnt)
+catch_exception_raise_state_identity(mach_port_t exception_port __attribute__((unused)),
+	mach_port_t thread, mach_port_t task,
+	exception_type_t exception,
+	exception_data_t code, mach_msg_type_number_t codeCnt,
+	int *flavor,
+	thread_state_t old_state, mach_msg_type_number_t old_stateCnt,
+	thread_state_t new_state, mach_msg_type_number_t *new_stateCnt)
 {
 	runtime_syslog(LOG_NOTICE, "%s(): thread: 0x%x task: 0x%x type: 0x%x code: %p codeCnt: 0x%x flavor: %p old_state: %p old_stateCnt: 0x%x new_state: %p new_stateCnt: %p",
 			__func__, thread, task, exception, code, codeCnt, flavor, old_state, old_stateCnt, new_state, new_stateCnt);

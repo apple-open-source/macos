@@ -2,7 +2,6 @@
 # hints.append
 #-------------------------------------------------------------------------
 prefix=/
-installprefix=${DSTROOT}/
 privlib="/System/Library/Perl/${version}"
 sitelib="/Library/Perl/${version}"
 vendorlib="/Network/Library/Perl/${version}"

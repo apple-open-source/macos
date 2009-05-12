@@ -24,9 +24,7 @@
  */
 
 /*
- * Portions Copyright 2007 Apple Inc.
- *
- * $Id$
+ * Portions Copyright 2007-2009 Apple Inc.
  */
 
 #pragma ident	"@(#)auto_vfsops.c	1.58	06/03/24 SMI"
@@ -398,7 +396,7 @@ auto_mount(mount_t mp, vnode_t devvp, user_addr_t data, vfs_context_t context)
 	if (fnip == NULL)
 		return (ENOMEM);
 	bzero(fnip, sizeof(*fnip));
-	fnip->fi_flags |= MF_DONTTRIGGER;	/* mount isn't finished yet */
+	fnip->fi_flags |= MF_MOUNTING;	/* mount isn't finished yet */
 
 	fnip->fi_mount_to = args.mount_to;
 	fnip->fi_mach_to = args.mach_to;
@@ -676,7 +674,7 @@ auto_update_options(struct autofs_update_args_64 *update_argsp)
 		fnip->fi_flags |= MF_DIRECT;
 	else
 		fnip->fi_flags &= ~MF_DIRECT;
-	fnip->fi_flags &= ~MF_DONTTRIGGER;
+	fnip->fi_flags &= ~(MF_MOUNTING|MF_UNMOUNTING);
 	fnip->fi_mntflags = update_argsp->mntflags;
 	fnip->fi_mount_to = update_argsp->mount_to;
 	fnip->fi_mach_to = update_argsp->mach_to;
@@ -714,7 +712,7 @@ auto_start(mount_t mp, int flags, vfs_context_t context)
 
 	fnip = vfstofni(mp);
 	lck_rw_lock_exclusive(fnip->fi_rwlock);
-	fnip->fi_flags &= ~MF_DONTTRIGGER;
+	fnip->fi_flags &= ~MF_MOUNTING;
 	lck_rw_unlock_exclusive(fnip->fi_rwlock);
 	return (0);
 }
@@ -807,7 +805,7 @@ auto_unmount(mount_t mp, int mntflags, vfs_context_t context)
 	/*
 	 * release last reference to the root vnode
 	 */
-	vnode_rele(rvp);
+	vnode_rele(rvp);	/* release reference from auto_mount() */
 
 	/*
 	 * Wait for in-flight operations to complete on any remaining vnodes
@@ -860,13 +858,13 @@ auto_root(mount_t mp, vnode_t *vpp, vfs_context_t context)
 	/*
 	 * If this is a direct map, and the mount of this file system
 	 * (not the mount *on* it, the mount *of* it; see auto_start()
-	 * for an explanation) is complete and we're not trying to unmount
+	 * for an explanation) is complete, and we're not trying to unmount
 	 * it, and we should trigger a mount for this vnode, do so, so that
 	 * our caller gets a vnode with something mounted on it if the mount
 	 * can be done.
 	 */
 	auto_fninfo_lock_shared(fnip, context);
-	if ((fnip->fi_flags & (MF_DIRECT|MF_DONTTRIGGER)) == MF_DIRECT &&
+	if ((fnip->fi_flags & (MF_DIRECT|MF_MOUNTING|MF_UNMOUNTING)) == MF_DIRECT &&
 	    !thread_notrigger()) {
 		fnp = vntofn(*vpp);
 	retry:
@@ -1442,8 +1440,24 @@ auto_control_ioctl(__unused dev_t dev, u_long cmd, caddr_t data,
 				break;
 			}
 			fnip = vfstofni(mp);
+
+			/*
+			 * Mark this as being unmounted, so that we
+			 * don't trigger any mounts on top of it (for
+			 * a direct map) and return ENOENT for any
+			 * lookups under it (for an indirect map).
+			 *
+			 * We block mounts on top of it for reasons
+			 * described below; we fail lookups under it
+			 * so that nobody creates triggers under us
+			 * while we're being unmounted, as that can
+			 * cause the root vnode of the indirect map
+			 * to have links to it while it's being
+			 * removed from the list of autofs mounts,
+			 * causing 6491044.
+			 */
 			lck_rw_lock_exclusive(fnip->fi_rwlock);
-			fnip->fi_flags |= MF_DONTTRIGGER;
+			fnip->fi_flags |= MF_UNMOUNTING;
 			lck_rw_unlock_exclusive(fnip->fi_rwlock);
 			
 			/*
@@ -1468,7 +1482,7 @@ auto_control_ioctl(__unused dev_t dev, u_long cmd, caddr_t data,
 			 *    wants an exclusive lock.
 			 *
 			 * Once this finishes, we know there won't be any
-			 * more automounts on it, as we set MF_DONTTRIGGER.
+			 * more automounts on it, as we set MF_UNMOUNTING.
 			 */
 			auto_wait4mount(vntofn(fnip->fi_rootvp),
 			    vfs_context_current());
@@ -1478,6 +1492,18 @@ auto_control_ioctl(__unused dev_t dev, u_long cmd, caddr_t data,
 			 */
 			error = vfs_unmountbyfsid((fsid_t *)data, 0,
 			    vfs_context_current());
+
+			/*
+			 * If that failed, we're no longer in the middle
+			 * of unmounting it.  (If it succeeded, it no
+			 * longer exists, so we can't unmark it as being
+			 * in the middle of being unmounted.
+			 */
+			if (error != 0) {
+				lck_rw_lock_exclusive(fnip->fi_rwlock);
+				fnip->fi_flags &= ~MF_UNMOUNTING;
+				lck_rw_unlock_exclusive(fnip->fi_rwlock);
+			}
 		}
 		break;
 

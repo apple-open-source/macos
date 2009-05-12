@@ -3,7 +3,7 @@
   node.h -
 
   $Author: shyouhei $
-  $Date: 2007-05-23 00:01:22 +0900 (Wed, 23 May 2007) $
+  $Date: 2008-07-07 15:01:50 +0900 (Mon, 07 Jul 2008) $
   created at: Fri May 28 15:14:02 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -371,6 +371,7 @@ typedef unsigned int rb_event_t;
 #define RUBY_EVENT_ALL      0xff
 
 typedef void (*rb_event_hook_func_t) _((rb_event_t,NODE*,VALUE,ID,VALUE));
+NODE *rb_copy_node_scope _((NODE *, NODE *));
 void rb_add_event_hook _((rb_event_hook_func_t,rb_event_t));
 int rb_remove_event_hook _((rb_event_hook_func_t));
 
@@ -466,6 +467,19 @@ extern VALUE (*ruby_sandbox_save)_((rb_thread_t));
 extern VALUE (*ruby_sandbox_restore)_((rb_thread_t));
 extern rb_thread_t rb_curr_thread;
 extern rb_thread_t rb_main_thread;
+
+enum {
+    RAISED_EXCEPTION     = 0x1000,
+    RAISED_STACKOVERFLOW = 0x2000,
+    RAISED_NOMEMORY      = 0x4000,
+    RAISED_MASK          = 0xf000
+};
+int rb_thread_set_raised(rb_thread_t th);
+int rb_thread_reset_raised(rb_thread_t th);
+#define rb_thread_raised_set(th, f)   ((th)->flags |= (f))
+#define rb_thread_raised_reset(th, f) ((th)->flags &= ~(f))
+#define rb_thread_raised_p(th, f)     (((th)->flags & (f)) != 0)
+#define rb_thread_raised_clear(th)    ((th)->flags = 0)
 
 #if defined(__cplusplus)
 }  /* extern "C" { */

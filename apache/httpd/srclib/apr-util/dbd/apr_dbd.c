@@ -25,6 +25,7 @@
 #include "apr_strings.h"
 #include "apr_hash.h"
 #include "apr_thread_mutex.h"
+#include "apr_lib.h"
 
 #include "apu_internal.h"
 #include "apr_dbd_internal.h"
@@ -96,10 +97,10 @@ APU_DECLARE(apr_status_t) apr_dbd_init(apr_pool_t *pool)
     /* Top level pool scope, need process-scope lifetime */
     for (parent = pool;  parent; parent = apr_pool_parent_get(pool))
          pool = parent;
-
+#if APU_DSO_BUILD
     /* deprecate in 2.0 - permit implicit initialization */
     apu_dso_init(pool);
-
+#endif
     drivers = apr_hash_make(pool);
 
 #if APR_HAS_THREADS
@@ -124,6 +125,12 @@ APU_DECLARE(apr_status_t) apr_dbd_init(apr_pool_t *pool)
 #if APU_HAVE_ORACLE
     DRIVER_LOAD("oracle", apr_dbd_oracle_driver, pool);
 #endif
+#if APU_HAVE_FREETDS
+    DRIVER_LOAD("freetds", apr_dbd_freetds_driver, pool);
+#endif
+#if APU_HAVE_ODBC
+    DRIVER_LOAD("odbc", apr_dbd_odbc_driver, pool);
+#endif
 #if APU_HAVE_SOME_OTHER_BACKEND
     DRIVER_LOAD("firebird", apr_dbd_other_driver, pool);
 #endif
@@ -145,14 +152,17 @@ APU_DECLARE(apr_status_t) apr_dbd_get_driver(apr_pool_t *pool, const char *name,
 #endif
     apr_status_t rv;
 
+#if APU_DSO_BUILD
     rv = apu_dso_mutex_lock();
     if (rv) {
         return rv;
     }
-
+#endif
     *driver = apr_hash_get(drivers, name, APR_HASH_KEY_STRING);
     if (*driver) {
+#if APU_DSO_BUILD
         apu_dso_mutex_unlock();
+#endif
         return APR_SUCCESS;
     }
 
@@ -174,6 +184,7 @@ APU_DECLARE(apr_status_t) apr_dbd_get_driver(apr_pool_t *pool, const char *name,
     rv = apu_dso_load(&symbol, modname, symname, pool);
     if (rv != APR_SUCCESS) { /* APR_EDSOOPEN or APR_ESYMNOTFOUND? */
         if (rv == APR_EINIT) { /* previously loaded?!? */
+            name = apr_pstrdup(pool, name);
             apr_hash_set(drivers, name, APR_HASH_KEY_STRING, *driver);
             rv = APR_SUCCESS;
         }
@@ -369,7 +380,7 @@ APU_DECLARE(int) apr_dbd_prepare(const apr_dbd_driver_t *driver,
     /* find the number of parameters in the query */
     for (q = query; *q; q++) {
         if (q[0] == '%') {
-            if (isalpha(q[1])) {
+            if (apr_isalpha(q[1])) {
                 nargs++;
             } else if (q[1] == '%') {
                 q++;
@@ -385,7 +396,7 @@ APU_DECLARE(int) apr_dbd_prepare(const apr_dbd_driver_t *driver,
 
     for (p = pq, q = query, i = 0; *q; q++) {
         if (q[0] == '%') {
-            if (isalpha(q[1])) {
+            if (apr_isalpha(q[1])) {
                 switch (q[1]) {
                 case 'd': t[i] = APR_DBD_TYPE_INT;   break;
                 case 'u': t[i] = APR_DBD_TYPE_UINT;  break;

@@ -181,6 +181,7 @@ main(argc, argv)
 	extern char **environ;
 	struct group *gr;
 	struct stat st;
+	int prio;
 #ifndef USE_PAM
 	struct utmp utmp;
 #endif /* USE_PAM */
@@ -206,6 +207,9 @@ main(argc, argv)
 	(void)alarm(timeout);
 	(void)signal(SIGQUIT, SIG_IGN);
 	(void)signal(SIGINT, SIG_IGN);
+#ifdef __APPLE__
+	prio = getpriority(PRIO_PROCESS, 0);
+#endif
 	(void)setpriority(PRIO_PROCESS, 0, 0);
 
 	openlog("login", LOG_ODELAY, LOG_AUTH);
@@ -675,6 +679,11 @@ main(argc, argv)
 	if (setlogin(pwd->pw_name) < 0)
 		syslog(LOG_ERR, "setlogin() failure: %m");
 
+	/* <rdar://problem/6041650> restore process priority if not changing uids */
+	if (uid == (uid_t)pwd->pw_uid) {
+		(void)setpriority(PRIO_PROCESS, 0, prio);
+	}
+	
 	/* Discard permissions last so can't get killed and drop core. */
 	if (rootlogin)
 		(void) setuid(0);

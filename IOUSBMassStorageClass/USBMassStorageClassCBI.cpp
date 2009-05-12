@@ -327,6 +327,19 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
 		CompleteSCSICommand( request, status );
 		return;
 	}
+    
+    if ( ( resultingStatus == kIOReturnNotResponding ) || ( resultingStatus == kIOReturnAborted ) )
+	{
+        
+		STATUS_LOG(( 5, "%s[%p]: CBIProtocolCommandCompletion previous command returned %x", getName(), this, resultingStatus ));
+		
+		// The transfer failed mid-transfer or was aborted by the USB layer. Either way the device will
+        // be non-responsive until we reset it, or we discover it has been disconnected.
+		FinishDeviceRecovery ( resultingStatus );
+		commandInProgress = true; 
+		goto Exit;
+		
+	}
 	
 	switch ( cbiRequestBlock->currentState )
 	{
@@ -722,6 +735,10 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
 		}
 		break;
 	}
+    
+    
+Exit:
+    
 
 	// If the command has been completed ( no longer pending ), call the clients completion routine.	
 	if ( commandInProgress == false )

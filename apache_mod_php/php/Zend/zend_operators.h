@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_operators.h,v 1.94.2.4.2.11 2007/12/31 07:20:03 sebastian Exp $ */
+/* $Id: zend_operators.h,v 1.94.2.4.2.12 2008/08/05 20:11:17 stas Exp $ */
 
 #ifndef ZEND_OPERATORS_H
 #define ZEND_OPERATORS_H
@@ -220,6 +220,9 @@ zend_memnstr(char *haystack, char *needle, int needle_len, char *end)
 	char *p = haystack;
 	char ne = needle[needle_len-1];
 
+	if(needle_len > end-haystack) {
+		return NULL;
+	}
 	end -= needle_len;
 
 	while (p <= end) {

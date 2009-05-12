@@ -1061,7 +1061,7 @@ main(int  argc,				/* I - Number of command-line args */
     }
     else if (ipp_status == IPP_SERVICE_UNAVAILABLE ||
 	     ipp_status == IPP_PRINTER_BUSY)
-      break;
+      continue;
     else
       copies_remaining --;
 
@@ -1190,6 +1190,19 @@ main(int  argc,				/* I - Number of command-line args */
   check_printer_state(http, uri, resource, argv[2], version, job_id);
 
  /*
+  * Update auth-info-required as needed...
+  */
+
+  if (ipp_status == IPP_NOT_AUTHORIZED)
+  {
+    if (!strncmp(httpGetField(http, HTTP_FIELD_WWW_AUTHENTICATE),
+                 "Negotiate", 9))
+      fputs("ATTR: auth-info-required=negotiate\n", stderr);
+    else
+      fputs("ATTR: auth-info-required=username,password\n", stderr);
+  }
+
+ /*
   * Free memory...
   */
 
@@ -1222,15 +1235,7 @@ main(int  argc,				/* I - Number of command-line args */
   */
 
   if (ipp_status == IPP_NOT_AUTHORIZED)
-  {
-   /*
-    * Authorization failures here mean that we need Kerberos.  Username +
-    * password authentication is handled in the password_cb function.
-    */
-
-    fputs("ATTR: auth-info-required=negotiate\n", stderr);
     return (CUPS_BACKEND_AUTH_REQUIRED);
-  }
   else if (ipp_status > IPP_OK_CONFLICT)
     return (CUPS_BACKEND_FAILED);
   else
@@ -1557,7 +1562,7 @@ report_printer_state(ipp_t *ipp,	/* I - IPP response */
   {
     reason = reasons->values[i].string.text;
 
-    if (job_id == 0 || strcmp(reason, "paused"))
+    if (strcmp(reason, "paused"))
     {
       strlcat(state, prefix, sizeof(state));
       strlcat(state, reason, sizeof(state));

@@ -1,5 +1,5 @@
 /*
- * $Id: openssl_missing.h 11708 2007-02-12 23:01:19Z shyouhei $
+ * $Id: openssl_missing.h 18333 2008-08-04 04:43:34Z shyouhei $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -13,6 +13,10 @@
 
 #if defined(__cplusplus)
 extern "C" {
+#endif
+
+#ifndef TYPEDEF_D2I_OF
+typedef char *d2i_of_void();
 #endif
 
 /*

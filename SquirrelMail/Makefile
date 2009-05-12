@@ -11,7 +11,7 @@
 # to appropriate places in the file system, and makes symlinks where necessary.
 
 PROJECT_NAME=squirrelmail
-PROJECT_VERSION=1.4.10a
+PROJECT_VERSION=1.4.17
 PROJECT_DIR=$(PROJECT_NAME)-$(PROJECT_VERSION)
 PROJECT_ARCHIVE=$(PROJECT_DIR).tar.gz
 PROJECT_LOCALE_ARCHIVE=all_locales-1.4.8-20060903.tar.gz
@@ -31,7 +31,13 @@ MOTD=Mac OS X Server WebMail
 CONFIG_DIR=/private/etc/$(PROJECT_NAME)
 CONFIG_DEFAULT_FILE=config_default_apple.php
 CONFIG_FILE=config.php
-HTTPD_CONF_DST=$(DSTROOT)/private/etc/httpd
+
+ifeq ($(MACOSX_DEPLOYMENT_TARGET), 10.6)
+	HTTPD_CONF_DST=$(DSTROOT)/private/etc/apache2
+else
+	HTTPD_CONF_DST=$(DSTROOT)/private/etc/httpd
+endif
+
 HTTPD_DEFAULT_CONF_FILE=httpd_squirrelmail_default.conf
 HTTPD_CONF_FILE=httpd_squirrelmail.conf
 DATA_DIR=/private/var/db/$(PROJECT_NAME)/data/
@@ -49,7 +55,7 @@ TMP_FILE=$(OBJROOT)/tmp-file
 SETUP_DIR_FULL=$(DSTROOT)/$(SYSTEM_LIBRARY_DIR)/ServerSetup/SetupExtras
 SETUP_FILE=squirrelmailsetup
 NEW_INDEX_FILE=index.php
-JA_PATCH_FILE=1.4.10a_ja_4223782_fix.patch
+JA_PATCH_FILE=1.4.17_ja_4223782_fix.patch
 PROJECT_FILES=Makefile $(LOGO) $(HTTPD_CONF_FILE) $(SETUP_FILE) $(NEW_INDEX_FILE) $(PROJECT_ARCHIVE) $(PROJECT_LOCALE_ARCHIVE) SquirrelMail.plist SquirrelMail.txt $(JA_PATCH_FILE)
 SRC_DIR_FULL=$(SHARE_DIR_FULL)/src
 PATCH=/usr/bin/patch
@@ -131,7 +137,7 @@ do_install: $(DSTROOT) $(HTTPD_CONF_DST) $(DATA_DIR_FULL) $(CONFIG_DIR_FULL) $(S
 	$(SILENT) $(ECHO) "Installing $(PROJECT_NAME)..."
 	$(SILENT) $(CHMOD) -R ugo-s $(PROJECT_DIR)/*
 	$(SILENT) $(CP) -r $(PROJECT_DIR)/* $(SHARE_DIR_FULL)
-	$(PATCH) -d "$(SHARE_DIR_FULL)" -p0 <$(SRCROOT)/$(JA_PATCH_FILE)
+	$(PATCH) -d "$(SHARE_DIR_FULL)" -p1 <$(SRCROOT)/$(JA_PATCH_FILE)
 	$(SILENT) $(CP) index.php $(SRC_DIR_FULL)
 	$(SILENT) $(MV) $(SHARE_DIR_FULL)/config $(CONFIG_DIR_FULL)
 	$(SILENT) $(CD) $(CONFIG_DIR_FULL); ln -s $(SHARE_DIR)/plugins .

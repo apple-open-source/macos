@@ -260,6 +260,13 @@ kern_return_t ucsp_server_teardown(UCSP_ARGS)
 	return KERN_SUCCESS;
 }
 
+kern_return_t ucsp_server_verifyPrivileged(UCSP_ARGS)
+{
+	BEGIN_IPCN
+	// This line intentionally left blank.
+	END_IPCN(CSSM)
+	return KERN_SUCCESS;
+}
 
 //
 // Common database operations

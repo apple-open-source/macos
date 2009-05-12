@@ -3667,11 +3667,18 @@ IOReturn AppleOnboardAudio::protectedInitHardware (IOService * provider) {
 	// Has to be after creating the controls so that interruptEventHandler isn't called before the selector controls exist.
 	mPlatformInterface->enableAmplifierMuteRelease();								//	[3514762]
 	mAllowDetectIrqDispatchesOnWake = TRUE;						//	don't do power management tasks until PMInit has executed
-	mPlatformInterface->registerDetectInterrupts ( (IOService*)mPlatformInterface );
-	mRemoteDetectInterruptEnabled = TRUE;
-	mPlatformInterface->registerNonDetectInterrupts ( (IOService*)mPlatformInterface );
-	mRemoteNonDetectInterruptEnabled = TRUE;
-	debugIOLog ( 6, "  AOA[%ld] where mRemoteDetectInterruptEnabled = %d, mRemoteNonDetectInterruptEnabled = %d", mInstanceIndex, mRemoteDetectInterruptEnabled, mRemoteNonDetectInterruptEnabled );
+
+	// <rdar://6144120> Flush the output selector's values here because it creates volume controls that corrupts iterator of
+	// the engine's defaultAudioControls list while it is being iterated over in flushAudioControls().
+	if (0 != mOutputSelector)
+	{
+		mOutputSelector->flushValue ();
+	}
+
+	if (0 != mInputSelector)
+	{
+		mInputSelector->flushValue ();
+	}
 
     flushAudioControls ();
 
@@ -3679,7 +3686,20 @@ IOReturn AppleOnboardAudio::protectedInitHardware (IOService * provider) {
 	{
 		mExternalClockSelector->flushValue ();		// Specifically flush the clock selector's values because flushAudioControls() doesn't seem to call it... ???
 	}
-	
+
+	// <rdar://6144120> Move the interrupt registration after flushAudioControls() so that the interrupt doesn't fired 
+	// while it is iterating the defaultAudioControls list. The defaultAudioControls list could get corrupted if the 
+	// interrupt fired as the volume controls are removed for SPDIF.
+	// Note: This is a workaround the actual issue where the PlatformInterface::comboDelayTimerCallback() doesn't
+	// do runAction to run PlatformInterface::platformRunComboDelayTasks(), which means it can be running at the
+	// same time as AppleOnboardAudio::protectedInitHardware(), leading the race condition that corrupts the
+	// defaultAudioControl list. We do this workaround to minimize impact of the fix for <rdar://6144120>.
+	mPlatformInterface->registerDetectInterrupts ( (IOService*)mPlatformInterface );
+	mRemoteDetectInterruptEnabled = TRUE;
+	mPlatformInterface->registerNonDetectInterrupts ( (IOService*)mPlatformInterface );
+	mRemoteNonDetectInterruptEnabled = TRUE;
+	debugIOLog ( 6, "  AOA[%ld] where mRemoteDetectInterruptEnabled = %d, mRemoteNonDetectInterruptEnabled = %d", mInstanceIndex, mRemoteDetectInterruptEnabled, mRemoteNonDetectInterruptEnabled );
+
 Exit:
 	if (0 != mInitHardwareThread) {
 		thread_call_free (mInitHardwareThread);

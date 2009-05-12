@@ -1,0 +1,473 @@
+This is enscript.info, produced by makeinfo version 4.0 from
+enscript.texi.
+
+INFO-DIR-SECTION Utilities
+START-INFO-DIR-ENTRY
+* Enscript: (enscript).		    GNU Enscript
+END-INFO-DIR-ENTRY
+
+   This file documents GNU enscript 1.6.4
+
+   Copyright (C) 1995-1999 Markku Rossi.
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided that
+the entire resulting derived work is distributed under the terms of a
+permission notice identical to this one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions, except that this permission notice may be stated in a
+translation approved by the Foundation.
+
+
+File: enscript.info,  Node: Top,  Next: Introduction,  Prev: (dir),  Up: (dir)
+
+GNU enscript
+************
+
+   This file documents the GNU enscript program.  This edition documents
+version 1.6.4.
+
+* Menu:
+
+* Introduction::
+* Invoking Enscript::
+* Basic Printing::
+* Advanced Usage::
+* Configuration Files::
+* Customization::
+* The states Program::
+* Writing New Highlighting Definitions::
+* Index::
+
+
+File: enscript.info,  Node: Introduction,  Next: Invoking Enscript,  Prev: Top,  Up: Top
+
+Introduction
+************
+
+   * overall
+
+   * design
+
+
+File: enscript.info,  Node: Invoking Enscript,  Next: Basic Printing,  Prev: Introduction,  Up: Top
+
+Invoking Enscript
+*****************
+
+
+File: enscript.info,  Node: Basic Printing,  Next: Advanced Usage,  Prev: Invoking Enscript,  Up: Top
+
+Basic Printing
+**************
+
+* Menu:
+
+* Input Encodings::
+* Selecting Fonts::
+* Page Headers::
+* Page Handling::
+* Highlighting::
+
+
+File: enscript.info,  Node: Input Encodings,  Next: Selecting Fonts,  Prev: Basic Printing,  Up: Basic Printing
+
+Input Encodings
+===============
+
+
+File: enscript.info,  Node: Selecting Fonts,  Next: Page Headers,  Prev: Input Encodings,  Up: Basic Printing
+
+Selecting Fonts
+===============
+
+
+File: enscript.info,  Node: Page Headers,  Next: Page Handling,  Prev: Selecting Fonts,  Up: Basic Printing
+
+Page Headers
+============
+
+
+File: enscript.info,  Node: Page Handling,  Next: Highlighting,  Prev: Page Headers,  Up: Basic Printing
+
+Page Handling
+=============
+
+* Menu:
+
+* Page Orientation::
+* N-up Printing::
+* Fitting Text to Page::
+
+
+File: enscript.info,  Node: Page Orientation,  Next: N-up Printing,  Prev: Page Handling,  Up: Page Handling
+
+Page Orientation
+----------------
+
+
+File: enscript.info,  Node: N-up Printing,  Next: Fitting Text to Page,  Prev: Page Orientation,  Up: Page Handling
+
+N-up Printing
+-------------
+
+
+File: enscript.info,  Node: Fitting Text to Page,  Prev: N-up Printing,  Up: Page Handling
+
+Fitting Text to Page
+--------------------
+
+
+File: enscript.info,  Node: Highlighting,  Prev: Page Handling,  Up: Basic Printing
+
+Highlighting
+============
+
+* Menu:
+
+* Different Output Languages::
+
+
+File: enscript.info,  Node: Different Output Languages,  Prev: Highlighting,  Up: Highlighting
+
+Different Output Languages
+--------------------------
+
+
+File: enscript.info,  Node: Advanced Usage,  Next: Configuration Files,  Prev: Basic Printing,  Up: Top
+
+Advanced Usage
+**************
+
+* Menu:
+
+* Selecting Pages::
+* Escape Sequences::
+* Input Filters::
+* Slice Printing::
+* PostScript Printer Controlling::
+* Pass-Through Mode::
+
+
+File: enscript.info,  Node: Selecting Pages,  Next: Escape Sequences,  Prev: Advanced Usage,  Up: Advanced Usage
+
+Selecting Pages
+===============
+
+
+File: enscript.info,  Node: Escape Sequences,  Next: Input Filters,  Prev: Selecting Pages,  Up: Advanced Usage
+
+Escape Sequences
+================
+
+
+File: enscript.info,  Node: Input Filters,  Next: Slice Printing,  Prev: Escape Sequences,  Up: Advanced Usage
+
+Input Filters
+=============
+
+
+File: enscript.info,  Node: Slice Printing,  Next: PostScript Printer Controlling,  Prev: Input Filters,  Up: Advanced Usage
+
+Slice Printing
+==============
+
+
+File: enscript.info,  Node: PostScript Printer Controlling,  Next: Pass-Through Mode,  Prev: Slice Printing,  Up: Advanced Usage
+
+PostScript Printer Controlling
+==============================
+
+
+File: enscript.info,  Node: Pass-Through Mode,  Prev: PostScript Printer Controlling,  Up: Advanced Usage
+
+Pass-Through Mode
+=================
+
+
+File: enscript.info,  Node: Configuration Files,  Next: Customization,  Prev: Advanced Usage,  Up: Top
+
+Configuration Files
+*******************
+
+
+File: enscript.info,  Node: Customization,  Next: The states Program,  Prev: Configuration Files,  Up: Top
+
+Customization
+*************
+
+* Menu:
+
+* Output Media::
+* User-Defined Fancy Headers::
+
+
+File: enscript.info,  Node: Output Media,  Next: User-Defined Fancy Headers,  Prev: Customization,  Up: Customization
+
+Output Media
+============
+
+
+File: enscript.info,  Node: User-Defined Fancy Headers,  Prev: Output Media,  Up: Customization
+
+User-Defined Fancy Headers
+==========================
+
+
+File: enscript.info,  Node: The states Program,  Next: Writing New Highlighting Definitions,  Prev: Customization,  Up: Top
+
+The `states' Program
+********************
+
+
+File: enscript.info,  Node: Writing New Highlighting Definitions,  Next: Index,  Prev: The states Program,  Up: Top
+
+Writing New Highlighting Definitions
+************************************
+
+   The highlighting works in three separate phases.  First, the
+"highlighing rules" process the input stream and parse it into logical
+components.  The components are called "faces".  A face presents one
+logical component of the input language, for example, a keyword, a
+comment, etc..  The enscript's highlighting model defines the following
+faces:
+
+bold
+italic
+bold_italic
+     Hard-coded faces for the bold, italic, and bold-italice text types.
+     These faces define the exact presentation of the face font, so the
+     style files have very little power in customizing their outlook.
+     These faces should be avoided as much as possible.
+
+comment
+     A comment, normally in a programming language.
+
+function_name
+     A function name.  The function names are normally recognized from
+     function definitions, not from an use of the function.
+
+variable_name
+     A variable name.  The variable names are normally recognized from
+     function, type, and variable definitions.
+
+keyword
+     A reserved keyword.  Normally, all occurrences of the keywords are
+     recognized.
+
+reference
+     A reference to another location in a file or to another file or
+     resource.  For example, in the C-language, the goto targets are
+     references.
+
+string
+     A string literal.
+
+builtin
+     A builtin function or property.  Normally, all occurrences of the
+     builtins are recognized.
+
+type
+     A type specifier.  The types are normally recognized from function,
+     type, and variable definitions.
+
+   As the second step, the "output style" specifies how the faces are
+presented in the generated output.  Each face has the following
+properties:
+
+fontname
+     The PostScript font name of the the font that is used for the face.
+     This property is used only for the PostScript outputs.
+
+boldp
+     A boolean flag which tells whether the face should be printed in
+     bold font.  This property is used for all output languages except
+     for the PostScript which uses the fontname property.
+
+italicp
+     A boolean flag which tells whether the face shuold be printed with
+     italic font.  This property is used for all output languages
+     except for the PostScript which uses the fontname property.
+
+fg_color
+     The foreground color of the face.
+
+bg_color
+     The background color of the face.  This property is not
+     implemented on all output languages.
+
+   Finally, the "output language" describes how the faces and other
+text are presented in the output language.  The output language defines
+a set of functions which are called to generate the output.
+
+* Menu:
+
+* Highlighting Rules::
+* Styles::
+* Output Languages::
+
+
+File: enscript.info,  Node: Highlighting Rules,  Next: Styles,  Prev: Writing New Highlighting Definitions,  Up: Writing New Highlighting Definitions
+
+Highlighting Rules
+==================
+
+
+File: enscript.info,  Node: Styles,  Next: Output Languages,  Prev: Highlighting Rules,  Up: Writing New Highlighting Definitions
+
+Styles
+======
+
+
+File: enscript.info,  Node: Output Languages,  Prev: Styles,  Up: Writing New Highlighting Definitions
+
+Output Languages
+================
+
+ - Function: map_color (r, g, b)
+
+ - Function: language_print (string)
+
+ - Function: language_symbol (symbol)
+
+ - Function: header ()
+
+ - Function: trailer ()
+
+ - Function: face_on (face)
+
+ - Function: face_off (face)
+
+ - Variable: LANGUAGE_SPECIALS
+
+   The following example creates a new output language `simple_html'
+that creates simple HTML outputs.  The output language is defined in a
+file called `lang_simple_html.st'.  The file must define a state called
+`lang_simple_html'.  The file can be located in any directory that is
+in the load path of the states program.
+
+   The output language definitions are defined in the `BEGIN' block of
+the `lang_simple_html' state.  Please, note that the `BEGIN' block is
+ended with a `return'-statement.  This statement will return the
+control to the calling state that is the start state of the enscript
+highlight program.  If the `return'-statement was omitted, the states
+would start processing the input with the `lang_simple_html' state
+which is obviously a wrong choice.
+
+     state lang_simple_html
+     {
+       BEGIN {
+         sub map_color (r, g, b)
+         {
+           return sprintf ("#%02X%02X%02X", r, g, b);
+         }
+     
+         sub language_print (str)
+         {
+           str = regsuball (str, /\&/, "&amp;");
+           str = regsuball (str, /</, "&lt;");
+           str = regsuball (str, />/, "&gt;");
+           str = regsuball (str, /\"/, "&quot;");
+           print (str);
+         }
+     
+         sub language_symbol (symbol)
+         {
+           return false;
+         }
+     
+         sub header ()
+         {
+           print ("<html>\n<head>\n<title>Simple HTML Output</title>\n");
+           print ("</head>\n<body>\n");
+         }
+     
+         sub trailer ()
+         {
+           print ("</body>\n</html>\n");
+         }
+     
+         sub fase_on (face)
+         {
+           if (face(boldp])
+             print ("<B>");
+           if (face(italicp])
+             print ("<I>");
+           if (face[fg_color])
+             print ("<FONT COLOR=\", face[fg_color], "\">");
+         }
+     
+         sub face_off (face)
+         {
+           if (face[fg_color])
+             print ("</FONT>");
+           if (face[italicp])
+             print ("</I>");
+           if (face[boldp])
+             print ("</B>");
+         }
+     
+         LANGUAGE_SPECIALS = /[<>\&\"]/;
+     
+         return;
+       }
+     }
+
+
+File: enscript.info,  Node: Index,  Prev: Writing New Highlighting Definitions,  Up: Top
+
+Index
+*****
+
+* Menu:
+
+* face_off:                              Output Languages.
+* face_on:                               Output Languages.
+* header:                                Output Languages.
+* language_print:                        Output Languages.
+* LANGUAGE_SPECIALS:                     Output Languages.
+* language_symbol:                       Output Languages.
+* map_color:                             Output Languages.
+* trailer:                               Output Languages.
+
+
+
+Tag Table:
+Node: Top932
+Node: Introduction1333
+Node: Invoking Enscript1479
+Node: Basic Printing1619
+Node: Input Encodings1857
+Node: Selecting Fonts2005
+Node: Page Headers2151
+Node: Page Handling2289
+Node: Page Orientation2500
+Node: N-up Printing2647
+Node: Fitting Text to Page2795
+Node: Highlighting2932
+Node: Different Output Languages3087
+Node: Advanced Usage3240
+Node: Selecting Pages3523
+Node: Escape Sequences3672
+Node: Input Filters3822
+Node: Slice Printing3965
+Node: PostScript Printer Controlling4124
+Node: Pass-Through Mode4319
+Node: Configuration Files4465
+Node: Customization4612
+Node: Output Media4809
+Node: User-Defined Fancy Headers4957
+Node: The states Program5111
+Node: Writing New Highlighting Definitions5281
+Node: Highlighting Rules8119
+Node: Styles8311
+Node: Output Languages8459
+Node: Index10994
+
+End Tag Table

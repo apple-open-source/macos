@@ -1,7 +1,7 @@
-{\rtf1\ansi\ansicpg1252\cocoartf949
+{\rtf1\ansi\ansicpg1252\cocoartf983
 {\fonttbl\f0\fswiss\fcharset0 Helvetica;\f1\fnil\fcharset0 LucidaGrande;}
 {\colortbl;\red255\green255\blue255;}
-\margl1440\margr1440\vieww18180\viewh17700\viewkind0
+\margl1440\margr1440\vieww18180\viewh17120\viewkind0
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural\pardirnatural
 
 \f0\fs24 \cf0 \
@@ -31,43 +31,28 @@ For the purposes of these instructions, assume that $SRCDIR is e.g. ~/tla. For p
 
 \b0 - Convert the certificate to DER form with either a .der, .crt, or .cer extension\
 - Copy the file to $SECCERTDIR/roots/\
-- Add the file to the security_certificates.xcode project in the "roots" folder, target security_certificates\
 - Test all anchors, including the one you just added. You must have built cspxutils and clxutils; see the section\
    entitled "
 \b To make the test tools". 
 \b0 \
-\
-		cd $SECCERTDIR/roots\
-		$SRCDIR/SecurityTests/clxutils/anchorTest/anchorSourceTest .\
-\
-   Another way to specify this would be like this:\
-\
-		export SRCTST=/SecurityTests/clxutils/anchorTest/\
-		$SRCTST/anchorSourceTest .\
+- Set SECCERTDIR to the security_certificates directory of your branch. Usually this can be omitted if you cd there\
+- Set SECTESTSDIR to the directory with the sources for SecurityTests, e.g. /Volumes/xenos/dev/tla2/SecurityTests\
+- Set LOCAL_BUILD_DIR\
 \
 On my machine, I use for example\
 \
 	export LOCAL_BUILD_DIR=/Volumes/xenos/dev/build\
-	export SRCDIR=/Volumes/xenos/dev/tla2\
-	export SRCTST=$SRCDIR/SecurityTests/clxutils/anchorTest/\
+	export SECCERTDIR=/Volumes/xenos/dev/tla-PR-6216412/security_certificates\
+	export SECTESTSDIR=/Volumes/xenos/dev/tla2/SecurityTests\
 \
-- Build a new SystemRootCertificates.keychain and SystemTrustSettings.plist in place on your branch like this:\
+- Run the root tests and build a new SystemRootCertificates.keychain and SystemTrustSettings.plist in place on your branch like this:\
 \
       		cd $SECCERTDIR\
-		./buildRootKeychain\
+		./addNewRoot\
 \
-- The results of running the buildRootKeychain script are placed in $SECCERTDIR/BuiltKeychains. Manually\
-   install those files like this, as root (this includes making a backup of the system files you're replacing):\
-\
-   		mkdir /System/Library/Keychains/saved\
-		cp /System/Library/Keychains/System* /System/Library/Keychains/saved\
-		cp $SECCERTDIR/BuiltKeychains/SystemRootCertificates.keychain $SECCERTDIR/BuiltKeychains/SystemTrustSettings.plist /System/Library/Keychains\
-\
-- Now run this (no longer as root, and assuming you've build cspxutils and clxutils):\
-\
-		$LOCAL_BUILD_DIR/anchorTest t\
-\
-   The 't' argument tells anchorTest to test SystemRootCertificates.keychain, not X509Anchors. \
+- The results of running the buildRootKeychain script are placed in $SECCERTDIR/BuiltKeychains. These are\
+   installed after making a backup of the system files you're replacing. The final operation in the script is to \
+   run the anchorTest script. The 't' argument tells anchorTest to test SystemRootCertificates.keychain, not X509Anchors. \
 \
 - Assuming that test passes, check your changes into SVK - 
 \b including the new SystemRootCertificates.keychain and SystemTrustSettings.plist. \
@@ -83,7 +68,7 @@ On my machine, I use for example\
 
 \b0 \cf0 - Follow the steps above "
 \b To add a root certificate:
-\b0 " if necessary. The project file additions can be done simultaneously,\
+\b0 " if necessary. The additions of files can be done simultaneously,\
    but the roots must be actually installed for the intermediate tests to run properly.\
 \pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\ql\qnatural
 \cf0 - Convert the certificate to DER form with either a .der, .crt, or .cer extension\
@@ -155,8 +140,39 @@ To build and run the test tools, you must have the LOCAL_BUILD_DIR env var set t
 - set LOCAL_BUILD_DIR ....\
 - make all\
 \
+\
 
-\b Converting from PEM
+\b Adding a new extended validation OID for a certificate authority\
+\pard\tx1440\tx2880\tx4320\tx5760\tx7200\tx8640\slleading40\ql\qnatural
+
+\b0 \cf0 \
+Certificate authorities define their own OID values for EV certificate issuance. The EV standard puts the onus onto the browser vendor to maintain a trusted mapping between each EV OID and the root certificates which are allowed to anchor chains for a given EV certificate containing that OID.\
+\
+To add a new EV OID for a CA, edit and then run the buildEVRoots script (in the security_certificates project.) This file contains the mappings from dotted-decimal OID representations to one or more allowed root certificates (which are specified by their filenames in the ./roots/ directory). For example, the line which specifies Entrust's EV OID looks like this, since the Entrust root lives in ./roots/webroot.cer:\
+\
+2.16.840.1.114028.10.1.2 "webroot.cer"\
+\
+\pard\tx1440\tx2880\tx4320\tx5760\tx7200\tx8640\slleading40\ql\qnatural
+
+\b \cf0 To build EVRoots.plist\
+\pard\tx1440\tx2880\tx4320\tx5760\tx7200\tx8640\slleading40\ql\qnatural
+
+\b0 \cf0 \
+To build the extended validation plist file, you must currently build or otherwise obtain the following tools:\
+- PlistBuddy (normally in /usr/libexec/PlistBuddy, but as of this writing, the tool has a fatal data length calculation bug <rdar://6208924> which requires you to apply the diffs attached to that bug and build a fixed version.) The script will verify the data values and let you know if the bug is present.\
+\
+Check out the security_certificates project and 'cd' into that directory:\
+	svk-co-branch PR-xxxxxxx security_certificates\
+	cd tla/security_certificates\
+\
+Edit the buildEVRoots script to set the location of the certlist and PlistBuddy tools, as needed.\
+\
+Finally, you can run the buildEVRoots script. This will generate a new EVRoots.plist file in the ./BuiltKeychains/ directory.\
+\
+\
+\pard\tx1440\tx2880\tx4320\tx5760\tx7200\tx8640\slleading40\ql\qnatural
+
+\b \cf0 Converting from PEM
 \b0 \
 \
 - openssl x509 -outform DER -in SoneraClass1CA.pem -out SoneraClass1.crt\

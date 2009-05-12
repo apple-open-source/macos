@@ -142,6 +142,9 @@ static CFArrayRef                   copyTimedOutAssertionsArray(void);
 // globals
 static CFMutableDictionaryRef       gAssertionsDict = NULL;
 static CFMutableArrayRef            gTimedOutArray = NULL;
+static bool			    gNotifyTimeOuts = false;
+static CFRunLoopTimerRef	    gUpdateAssertionStatusTimer = NULL;
+
 static int                          aggregate_assertions[kIOPMNumAssertionTypes];
 static int                          last_aggregate_assertions[kIOPMNumAssertionTypes];
 static CFStringRef                  assertion_types_arr[kIOPMNumAssertionTypes];
@@ -381,10 +384,22 @@ publishAssertionStatus(void)
     static CFStringRef      pidToAssertionsSCKey                = NULL;
     static CFStringRef      aggregateValuesSCKey                = NULL;
     static CFStringRef      timedOutArraySCKey                  = NULL;
+    static CFMutableDictionaryRef  keysToSet			= NULL;
+    static CFMutableArrayRef       keysToRemove			= NULL;
     
     sharedDSRef = _getSharedPMDynamicStore();
-    
-    if (!sharedDSRef)
+    if (!keysToSet)
+    {
+	keysToSet = CFDictionaryCreateMutable(0, 0, 
+			&kCFTypeDictionaryKeyCallBacks,
+			&kCFTypeDictionaryValueCallBacks);
+    }
+    if (!keysToRemove)
+    {
+	keysToRemove = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
+    }
+
+    if (!sharedDSRef || !keysToSet || !keysToRemove)
         goto exit;
 
     /*
@@ -402,13 +417,10 @@ publishAssertionStatus(void)
 
         if (publishPIDToAssertionsArray) 
         {
-            SCDynamicStoreSetValue(sharedDSRef, 
-                                    pidToAssertionsSCKey, 
-                                    publishPIDToAssertionsArray);
-            
+	    CFDictionarySetValue(keysToSet, pidToAssertionsSCKey, publishPIDToAssertionsArray);
             CFRelease(publishPIDToAssertionsArray);
         } else {
-            SCDynamicStoreRemoveValue(sharedDSRef, pidToAssertionsSCKey);
+	    CFArrayAppendValue(keysToRemove, pidToAssertionsSCKey);
         }
     }
     
@@ -428,13 +440,10 @@ publishAssertionStatus(void)
         
         if (publishAggregateValuesDictionary)
         {
-            SCDynamicStoreSetValue(sharedDSRef, 
-                                    aggregateValuesSCKey, 
-                                    publishAggregateValuesDictionary);
-
+	    CFDictionarySetValue(keysToSet, aggregateValuesSCKey, publishAggregateValuesDictionary);
             CFRelease(publishAggregateValuesDictionary);
         } else {
-            SCDynamicStoreRemoveValue(sharedDSRef, aggregateValuesSCKey);
+	    CFArrayAppendValue(keysToRemove, aggregateValuesSCKey);
         }
     }
 
@@ -455,25 +464,47 @@ publishAssertionStatus(void)
 
         if (publishTimedOutArray)
         {
-            SCDynamicStoreSetValue(sharedDSRef, 
-                                    timedOutArraySCKey, 
-                                    publishTimedOutArray);
-
+	    CFDictionarySetValue(keysToSet, timedOutArraySCKey, publishTimedOutArray);
             CFRelease(publishTimedOutArray);            
         }else {
-            SCDynamicStoreRemoveValue(sharedDSRef, timedOutArraySCKey);
+	    CFArrayAppendValue(keysToRemove, timedOutArraySCKey);
         }
     }
+
+    SCDynamicStoreSetMultiple(sharedDSRef, keysToSet, keysToRemove, NULL);
+    CFDictionaryRemoveAllValues(keysToSet);
+    CFArrayRemoveAllValues(keysToRemove);
 
 exit:
     return;
 }
 
 static void
+updateAssertionStatusCallback(CFRunLoopTimerRef timer, void *info)
+{
+    publishAssertionStatus();
+    
+    // Tell the world that an assertion has been created, released,
+    // or an interested application has died.
+    // The state of active assertions may not have changed as a result
+    // of this assertion action - i.e. may be no changes to user.
+    uint32_t status;
+    status = notify_post( kIOPMAssertionsChangedNotifyString );
+    if (NOTIFY_STATUS_OK != status) {
+        syslog(LOG_ERR, "Notify post com.apple.system.powermanagement.assertions failed %u\n", status);
+    }
+    if (gNotifyTimeOuts)
+    {
+	gNotifyTimeOuts = false;
+	// After our data is in place, notify the world
+	notify_post( kIOPMAssertionTimedOutNotifyString );
+    }
+}
+
+static void
 evaluateAssertions(void)
 {
     calculateAggregates();
-    publishAssertionStatus();
 
     // Override PM settings
     overrideSetting( kPMForceHighSpeed, 
@@ -516,18 +547,26 @@ evaluateAssertions(void)
                             sizeof(aggregate_assertions));
     
     activateSettingOverrides();
-    
-    // Tell the world that an assertion has been created, released,
-    // or an interested application has died.
-    // The state of active assertions may not have changed as a result
-    // of this assertion action - i.e. may be no changes to user.
-    uint32_t status;
-    status = notify_post( kIOPMAssertionsChangedNotifyString );
-    if (NOTIFY_STATUS_OK != status) {
-        syslog(LOG_ERR, "Notify post com.apple.system.powermanagement.assertions failed %u\n", status);
+
+    CFAbsoluteTime fireTime = (CFAbsoluteTimeGetCurrent() + 5.0);
+    if (gUpdateAssertionStatusTimer)
+    {
+	CFRunLoopTimerSetNextFireDate(gUpdateAssertionStatusTimer, fireTime);
+    }
+    else
+    {
+	/* timer will repeat roughly once every 100 years, i.e. never. We need
+	 a repeating timer so that it doesn't get removed from the runloop and
+	 and we can set the next fire date to our next wakeup time. */
+	static const CFAbsoluteTime intervalNever = 100. * 365. * 24. * 60. * 60.;
+	gUpdateAssertionStatusTimer = CFRunLoopTimerCreate(0, fireTime, intervalNever, 0,
+                                             0, updateAssertionStatusCallback, 0);
+	if (gUpdateAssertionStatusTimer)
+	{
+	    CFRunLoopAddTimer(CFRunLoopGetCurrent(), gUpdateAssertionStatusTimer, kCFRunLoopDefaultMode);
+	}
     }
 }
-
 
 #if HAVE_SMART_BATTERY
 static void
@@ -1314,7 +1353,7 @@ cleanupAssertions(
             
             for (i=0; i<assertions_count; i++)
             {
-                CFMutableDictionaryRef  releaseAssertion = (CFMutableArrayRef) \
+                CFMutableDictionaryRef  releaseAssertion = (CFMutableDictionaryRef) \
                                     CFArrayGetValueAtIndex(dead_task_assertions, i);
 
                 if (!releaseAssertion || !isA_CFDictionary(releaseAssertion)) {
@@ -1411,8 +1450,7 @@ static void timeoutExpirationCallBack(CFRunLoopTimerRef timer, void *info)
     // Sync up changes to assertion with SCDynamicStore and user clients
     evaluateAssertions();
     
-    // After our data is in place, notify the world
-    notify_post( kIOPMAssertionTimedOutNotifyString );
+    gNotifyTimeOuts = true;
 }
 
 

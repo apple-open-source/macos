@@ -208,15 +208,15 @@ stop_cache(const char *pfname, int debugging)
 	int nentries, error;
 
 	/*
-	 * Stop the cache and fetch the history list.
-	 */
-	if ((error = BC_stop(&he, &nentries)) != 0)
-		err(1, "could not stop cache/fetch history");
-
-	/*
 	 * Notify whoever cares that BootCache has stopped recording.
 	 */
 	notify_post("com.apple.system.private.bootcache.done");
+
+	/*
+	 * Stop the cache and fetch the history list.
+	 */
+	if ((error = BC_stop(&he, &nentries)) != 0)
+		return error;
 
 	/*
 	 * Fetch cache statistics and print if requested.

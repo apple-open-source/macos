@@ -3,7 +3,7 @@
   bignum.c -
 
   $Author: shyouhei $
-  $Date: 2007-09-19 11:13:21 +0900 (Wed, 19 Sep 2007) $
+  $Date: 2008-08-04 13:52:05 +0900 (Mon, 04 Aug 2008) $
   created at: Fri Jun 10 00:48:55 JST 1994
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -11,6 +11,7 @@
 **********************************************************************/
 
 #include "ruby.h"
+#include "rubysig.h"
 
 #include <math.h>
 #include <ctype.h>
@@ -36,7 +37,21 @@ VALUE rb_cBignum;
 #define BIGLO(x) ((BDIGIT)((x) & (BIGRAD-1)))
 #define BDIGMAX ((BDIGIT)-1)
 
-#define BIGZEROP(x) (RBIGNUM(x)->len == 0 || (RBIGNUM(x)->len == 1 && BDIGITS(x)[0] == 0))
+#define BIGZEROP(x) (RBIGNUM(x)->len == 0 || \
+		     (BDIGITS(x)[0] == 0 && \
+		      (RBIGNUM(x)->len == 1 || bigzero_p(x))))
+
+static int bigzero_p(VALUE);
+static int
+bigzero_p(x)
+    VALUE x;
+{
+    long i;
+    for (i = 0; i < RBIGNUM(x)->len; ++i) {
+	if (BDIGITS(x)[i]) return 0;
+    }
+    return 1;
+}
 
 static VALUE
 bignew_1(klass, len, sign)
@@ -446,7 +461,7 @@ rb_cstr_to_inum(str, base, badcheck)
     }
     if (*str == '0') {		/* squeeze preceeding 0s */
 	while (*++str == '0');
-	if (!*str) --str;
+	if (!(c = *str) || ISSPACE(c)) --str;
     }
     c = *str;
     c = conv_digit(c);
@@ -652,6 +667,9 @@ rb_big2str0(x, base, trim)
     if (BIGZEROP(x)) {
 	return rb_str_new2("0");
     }
+    if (i >= LONG_MAX/SIZEOF_BDIGITS/CHAR_BIT) {
+	rb_raise(rb_eRangeError, "bignum too big to convert into `string'");
+    }
     j = SIZEOF_BDIGITS*CHAR_BIT*i;
     switch (base) {
       case 2: break;
@@ -692,6 +710,7 @@ rb_big2str0(x, base, trim)
     s = RSTRING(ss)->ptr;
 
     s[0] = RBIGNUM(x)->sign ? '+' : '-';
+    TRAP_BEG;
     while (i && j > 1) {
 	long k = i;
 	BDIGIT_DBL num = 0;
@@ -706,7 +725,7 @@ rb_big2str0(x, base, trim)
 	while (k--) {
 	    s[--j] = ruby_digitmap[num % base];
 	    num /= base;
-	    if (!trim && j < 1) break;
+	    if (!trim && j <= 1) break;
 	    if (trim && i == 0 && num == 0) break;
 	}
     }
@@ -721,6 +740,7 @@ rb_big2str0(x, base, trim)
 	RSTRING(ss)->len = i;
     }
     s[RSTRING(ss)->len] = '\0';
+    TRAP_END;
 
     return ss;
 }

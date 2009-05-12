@@ -15,7 +15,7 @@
   | Author: Georg Richter <georg@php.net>                                |
   +----------------------------------------------------------------------+
 
-  $Id: mysqli_repl.c,v 1.3.2.2.2.2 2007/12/31 07:20:08 sebastian Exp $
+  $Id: mysqli_repl.c,v 1.3.2.2.2.3 2008/05/05 12:30:38 andrey Exp $
 */
 
 #ifdef HAVE_CONFIG_H
@@ -29,6 +29,7 @@
 #include "ext/standard/info.h"
 #include "php_mysqli.h"
 
+#ifdef HAVE_LIBMYSQL_REPLICATION
 /* {{{ proto void mysqli_disable_reads_from_master(object link)
 */
 PHP_FUNCTION(mysqli_disable_reads_from_master)
@@ -210,6 +211,8 @@ PHP_FUNCTION(mysqli_slave_query)
 	RETURN_TRUE;
 }
 /* }}} */
+
+#endif /* HAVE_LIBMYSQL_REPLICATION */
 
 /*
  * Local variables:

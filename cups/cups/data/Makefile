@@ -47,6 +47,7 @@ CHARMAPS =	\
 		iso-8859-7.txt \
 		iso-8859-8.txt \
 		iso-8859-9.txt \
+		jis-x0213.txt \
 		koi8-r.txt \
 		koi8-u.txt \
 		mac-roman.txt \

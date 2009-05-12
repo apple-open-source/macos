@@ -141,7 +141,7 @@ Access::Access(const CSSM_ACL_OWNER_PROTOTYPE &owner,
 }
 
 
-Access::~Access() throw()
+Access::~Access() 
 {
 }
 

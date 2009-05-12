@@ -1664,6 +1664,29 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        case DKIOCREQUESTIDLE:                                         // (void)
+        {
+            //
+            // This ioctl asks that the device enter an idle state.
+            //
+
+            IOBlockStorageDriver * driver;
+            IOReturn               status;
+
+            driver = (IOBlockStorageDriver *) minor->media->getProvider();
+            driver = OSDynamicCast(IOBlockStorageDriver, driver);
+
+            // Determine whether this media has an IOBlockStorageDriver parent.
+
+            if ( driver == 0 )  { error = ENOTTY;  break; }
+
+            // Request that the drive enter an idle state.
+
+            status = driver->requestIdle();
+            error  = minor->media->errnoFromReturn(status);
+
+        } break;
+
         case DKIOCGETBSDUNIT:                                    // (uint32_t *)
         {
             //

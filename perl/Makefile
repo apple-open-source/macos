@@ -20,7 +20,7 @@ Configure           = '$(SRCROOT)/env_no_rc_trace' '$(BuildDirectory)'/Configure
 Extra_Environment   = HTMLDIR='$(Install_HTML)'						\
 		      AR='$(SRCROOT)/ar.sh'  DYLD_LIBRARY_PATH='$(BuildDirectory)'
 Extra_Install_Flags = HTMLDIR='$(RC_Install_HTML)' HTMLROOT='$(Install_HTML)'
-GnuAfterInstall     = fix-dstroot zap-sitedirs link-man-page
+GnuAfterInstall     = zap-sitedirs link-man-page
 Extra_CC_Flags      = -Wno-precomp
 ifeq "$(RC_XBS)" "YES"
 GnuNoBuild	    = YES
@@ -36,10 +36,7 @@ Extra_CC_Flags  =
 Configure_Flags = -ds -e -Dprefix='$(Install_Prefix)' -Dccflags='$(CFLAGS)' -Dldflags='$(LDFLAGS)' -Dman3ext=3pm -Duseithreads -Duseshrplib
 
 ##---------------------------------------------------------------------
-# Patch pyconfig.h just after running configure
-#
-# Makefile.ed is used to workaround a bug in dyld (3661976).  It can be
-# removed when dyld is fixed.
+# Patch config.h, Makefile and others just after running configure
 ##---------------------------------------------------------------------
 ConfigStamp2 = $(ConfigStamp)2
 
@@ -48,29 +45,12 @@ configure:: $(ConfigStamp2)
 $(ConfigStamp2): $(ConfigStamp)
 	$(_v) sed -e 's/@PREPENDFILE@/$(PREPENDFILE)/' \
 	    -e 's/@APPENDFILE@/$(APPENDFILE)/' \
+	    -e 's,@ENV_UPDATESLIB@,$(ENV_UPDATESLIB),' \
 	    -e 's/@VERSION@/$(_VERSION)/' < '$(SRCROOT)/fix/config.h.ed' | \
 	    ed - '${BuildDirectory}/config.h'
 	$(_v) ed - '${BuildDirectory}/Makefile' < '$(SRCROOT)/fix/Makefile.ed'
 	$(_v) ed - '${BuildDirectory}/GNUmakefile' < '$(SRCROOT)/fix/Makefile.ed'
 	$(_v) $(TOUCH) $(ConfigStamp2)
-
-##--------------------------------------------------------------------------
-# We need to strip $(DSTROOT) from Config.pm and .packlist.
-#
-# We may be building perl fat here, but a system may only have thin libraries
-# installed.  So now we need to remove the -arch build flags from Config.pm so
-# you can build modules on those systems.  This means modules are build thin
-# by default.
-#
-# We do both of these things in the fix-dstroot.pl script
-#
-# Setting DYLD_IGNORE_PREBINDING is used to workaround a bug in dyld (3661976).
-# It can be removed when dyld is fixed.
-##--------------------------------------------------------------------------
-MINIPERL = DYLD_IGNORE_PREBINDING=all DYLD_LIBRARY_PATH='$(BuildDirectory)' '$(BuildDirectory)/miniperl'
-
-fix-dstroot:
-	$(_v) $(MINIPERL) -I'$(BuildDirectory)/lib' '$(SRCROOT)/fix-dstroot.pl' '$(DSTROOT)'
 
 zap-sitedirs:
 	$(_v) $(RMDIR) '$(DSTROOT)$(NSLOCALDIR)$(NSLIBRARYSUBDIR)'

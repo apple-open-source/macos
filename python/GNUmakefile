@@ -143,6 +143,14 @@ $(OBJROOT)/$(PROJECT):
 	    echo '#' > $$i; \
 	done
 	cd '$(OBJROOT)/$(PROJECT)' && patch -p1 -i $(FIX)/CVE-2007-4965-int-overflow.patch
+	cd '$(OBJROOT)/$(PROJECT)' && patch -p1 -i $(FIX)/CVE-2008-1679-int-overflow.patch
+	cd '$(OBJROOT)/$(PROJECT)' && patch -p3 -i $(FIX)/CVE-2008-1887-buffer-overflow.patch
+	cd '$(OBJROOT)/$(PROJECT)' && patch -p0 -i $(FIX)/CVE-2008-2315-int-overflow.patch
+	cd '$(OBJROOT)/$(PROJECT)' && patch -p3 -i $(FIX)/CVE-2008-2316-int-overflow.patch
+	cd '$(OBJROOT)/$(PROJECT)' && patch -p3 -i $(FIX)/CVE-2008-3142-int-overflow.patch
+	cd '$(OBJROOT)/$(PROJECT)' && patch -p3 -i $(FIX)/CVE-2008-3144-int-overflow.patch
+	cd '$(OBJROOT)/$(PROJECT)' && patch -p2 -i $(FIX)/CVE-2008-5031-expandtabs.patch
+	cd '$(OBJROOT)/$(PROJECT)' && patch -p3 -i $(FIX)/CESA-2008-008.patch
 	cd '$(OBJROOT)/$(PROJECT)' && autoconf
 	dtrace -h -s $(FIX)/pydtrace.d -o '$(PYDTRACE_H)'
 

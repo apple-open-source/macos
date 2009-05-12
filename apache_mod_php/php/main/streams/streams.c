@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: streams.c,v 1.82.2.6.2.22 2008/03/24 16:28:56 tony2001 Exp $ */
+/* $Id: streams.c,v 1.82.2.6.2.31 2008/11/24 15:37:33 dsp Exp $ */
 
 #define _GNU_SOURCE
 #include "php.h"
@@ -164,7 +164,11 @@ void php_stream_display_wrapper_errors(php_stream_wrapper *wrapper, const char *
 
 			free_msg = 1;
 		} else {
-			msg = strerror(errno);
+			if (wrapper == &php_plain_files_wrapper) {
+				msg = strerror(errno);
+			} else {
+				msg = "operation failed";
+			}
 		}
 	} else {
 		msg = "no suitable wrapper could be found";
@@ -434,6 +438,10 @@ static void php_stream_fill_read_buffer(php_stream *stream, size_t size TSRMLS_D
 		php_stream_bucket_brigade brig_in = { NULL, NULL }, brig_out = { NULL, NULL };
 		php_stream_bucket_brigade *brig_inp = &brig_in, *brig_outp = &brig_out, *brig_swap;
 
+		/* Invalidate the existing cache, otherwise reads can fail, see note in
+		   main/streams/filter.c::_php_stream_filter_append */
+		stream->writepos = stream->readpos = 0;
+
 		/* allocate a buffer for reading chunks */
 		chunk_buf = emalloc(stream->chunk_size);
 
@@ -523,16 +531,16 @@ static void php_stream_fill_read_buffer(php_stream *stream, size_t size TSRMLS_D
 		efree(chunk_buf);
 
 	} else {
+		/* reduce buffer memory consumption if possible, to avoid a realloc */
+		if (stream->readbuf && stream->readbuflen - stream->writepos < stream->chunk_size) {
+			memmove(stream->readbuf, stream->readbuf + stream->readpos, stream->readbuflen - stream->readpos);
+			stream->writepos -= stream->readpos;
+			stream->readpos = 0;
+		}
 		/* is there enough data in the buffer ? */
-		if (stream->writepos - stream->readpos < (off_t)size) {
+		while (stream->writepos - stream->readpos < (off_t)size) {
 			size_t justread = 0;
-
-			/* reduce buffer memory consumption if possible, to avoid a realloc */
-			if (stream->readbuf && stream->readbuflen - stream->writepos < stream->chunk_size) {
-				memmove(stream->readbuf, stream->readbuf + stream->readpos, stream->readbuflen - stream->readpos);
-				stream->writepos -= stream->readpos;
-				stream->readpos = 0;
-			}
+			size_t toread;
 
 			/* grow the buffer if required
 			 * TODO: this can fail for persistent streams */
@@ -542,12 +550,16 @@ static void php_stream_fill_read_buffer(php_stream *stream, size_t size TSRMLS_D
 						stream->is_persistent);
 			}
 
+			toread = stream->readbuflen - stream->writepos;
 			justread = stream->ops->read(stream, stream->readbuf + stream->writepos,
-					stream->readbuflen - stream->writepos
+					toread
 					TSRMLS_CC);
 
 			if (justread != (size_t)-1) {
 				stream->writepos += justread;
+			}
+			if (stream->eof || justread != toread) {
+				break;
 			}
 		}
 	}
@@ -869,6 +881,9 @@ PHPAPI char *php_stream_get_record(php_stream *stream, size_t maxlen, size_t *re
 		}
 
 		if (!e) {
+			if (seek_len < maxlen && !stream->eof) {
+				return NULL;
+			}
 			toread = maxlen;
 		} else {
 			toread = e - (char *) stream->readbuf - stream->readpos;
@@ -1219,7 +1234,7 @@ PHPAPI size_t _php_stream_copy_to_mem(php_stream *src, char **buf, size_t maxlen
 
 	if (maxlen > 0) {
 		ptr = *buf = pemalloc_rel_orig(maxlen + 1, persistent);
-		while ((len < maxlen) & !php_stream_eof(src)) {
+		while ((len < maxlen) && !php_stream_eof(src)) {
 			ret = php_stream_read(src, ptr, maxlen - len);
 			len += ret;
 			ptr += ret;
@@ -1503,7 +1518,7 @@ PHPAPI php_stream_wrapper *php_stream_locate_url_wrapper(const char *path, char 
 		n++;
 	}
 
-	if ((*p == ':') && (n > 1) && (!strncmp("//", p+1, 2) || !memcmp("data", path, 4))) {
+	if ((*p == ':') && (n > 1) && (!strncmp("//", p+1, 2) || (n == 4 && !memcmp("data:", path, 5)))) {
 		protocol = path;
 	} else if (n == 5 && strncasecmp(path, "zlib:", 5) == 0) {
 		/* BC with older php scripts and zlib wrapper */
@@ -1706,7 +1721,7 @@ PHPAPI php_stream *_php_stream_opendir(char *path, int options,
 
 		if (stream) {
 			stream->wrapper = wrapper;
-			stream->flags |= PHP_STREAM_FLAG_NO_BUFFER;
+			stream->flags |= PHP_STREAM_FLAG_NO_BUFFER | PHP_STREAM_FLAG_IS_DIR;
 		}
 	} else if (wrapper) {
 		php_stream_wrapper_log_error(wrapper, options ^ REPORT_ERRORS TSRMLS_CC, "not implemented");

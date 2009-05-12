@@ -183,7 +183,7 @@ octal	hex	PostScript	HTML entity	character
 0237	0x9f	non-printable
 
 0240	0xa0	/space				 
-0241	0xa1	/Hstroke			¡
+0241	0xa1	/Hbar				¡
 0242	0xa2	/breve				¢
 0243	0xa3	/sterling			£
 0244	0xa4	/currency			¤
@@ -192,16 +192,16 @@ octal	hex	PostScript	HTML entity	character
 0247	0xa7	/section			§
 
 0250	0xa8	/dieresis			¨
-0251	0xa9	/Idot				©
+0251	0xa9	/Idotaccent			©
 0252	0xaa	/Scedilla			ª
 0253	0xab	/Gbreve				«
 0254	0xac	/Jcircumflex			¬
 0255	0xad	/hyphen				­
 0256	0xae	/registered                     ®
-0257	0xaf	/Zdot				¯
+0257	0xaf	/Zdotaccent			¯
 
 0260	0xb0	/degree				°
-0261	0xb1	/hstroke			±
+0261	0xb1	/hbar				±
 0262	0xb2	/twosuperior			²
 0263	0xb3	/threesuperior			³
 0264	0xb4	/acute				´
@@ -216,14 +216,14 @@ octal	hex	PostScript	HTML entity	character
 0274	0xbc	/jcircumflex			¼
 0275	0xbd	/onehalf			½
 0276	0xbe	/threequarters                  ¾
-0277	0xbf	/zdot				¿
+0277	0xbf	/zdotaccent			¿
 
 0300	0xc0	/Agrave        	&Agrave;  	À
 0301	0xc1	/Aacute        	&Aacute;  	Á
 0302	0xc2	/Acircumflex   	&Acirc;   	Â
 0303	0xc3	/Atilde        	&Atilde;  	Ã
 0304	0xc4	/Adieresis     	&Auml;    	Ä
-0305	0xc5	/Cdot				Å
+0305	0xc5	/Cdotaccent			Å
 0306	0xc6	/Ccircumflex			Æ
 0307	0xc7	/Ccedilla      	&Ccedil;  	Ç
 
@@ -241,7 +241,7 @@ octal	hex	PostScript	HTML entity	character
 0322	0xd2	/Ograve        	&Ograve;  	Ò
 0323	0xd3	/Oacute        	&Oacute;  	Ó
 0324	0xd4	/Ocircumflex   	&Ocirc;   	Ô
-0325	0xd5	/Gdot				Õ
+0325	0xd5	/Gdotaccent			Õ
 0326	0xd6	/Odieresis     	&Ouml;    	Ö
 0327	0xd7	/multiply			×
 
@@ -259,7 +259,7 @@ octal	hex	PostScript	HTML entity	character
 0342	0xe2	/acircumflex   	&acirc;   	â
 0343	0xe3	/atilde        	&atilde;  	ã
 0344	0xe4	/adieresis     	&auml;    	ä
-0345	0xe5	/cdot				å
+0345	0xe5	/cdotaccent			å
 0346	0xe6	/ccircumflex			æ
 0347	0xe7	/ccedilla      	&ccedil;  	ç
 
@@ -277,7 +277,7 @@ octal	hex	PostScript	HTML entity	character
 0362	0xf2	/ograve        	&ograve;  	ò
 0363	0xf3	/oacute        	&oacute;  	ó
 0364	0xf4	/ocircumflex   	&ocirc;   	ô
-0365	0xf5	/gdot				õ
+0365	0xf5	/gdotaccent			õ
 0366	0xf6	/odieresis     	&ouml;    	ö
 0367	0xf7	/divide				÷
 

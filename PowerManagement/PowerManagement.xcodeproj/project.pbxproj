@@ -956,9 +956,6 @@
 			mainGroup = 08FB7794FE84155DC02AAC07 /* pmconfigd */;
 			projectDirPath = "";
 			projectRoot = "";
-			projectRoots = (
-				"",
-			);
 			targets = (
 				409C6E9901A0B1A80ACA2928 /* PowerManagement */,
 				A661C2440CFE1C3D00B7CC2B /* PowerManagement-Embedded */,

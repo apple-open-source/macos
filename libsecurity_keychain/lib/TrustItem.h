@@ -57,7 +57,7 @@ public:
 public:
 	// new item constructor
     UserTrustItem(Certificate *cert, Policy *policy, const TrustData &trust);
-    virtual ~UserTrustItem() throw();
+    virtual ~UserTrustItem();
 
 	TrustData trust();
 	

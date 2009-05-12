@@ -1,0 +1,322 @@
+commit 2547b637ab615884ea51458dfb793f1a70bc5201
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Fri Feb 1 00:08:27 2008 +0100
+
+    Bump to 1.0.3.
+
+commit bde6425192d06d4168048c32ca92abbade085869
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Fri Feb 1 00:05:56 2008 +0100
+
+    Make ChangeLog hook safer.
+
+commit e1a002217cabdb0806f28a0530a9cb972f370312
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Tue Jan 29 21:45:35 2008 +0100
+
+    Define _XOPEN_SOURCE to 500 on linux
+    
+    strdup() is only exposed by glibc headers if _XOPEN_SOURCE is defined to
+    a value >= 500.
+
+commit abca524c0298e629810bd98d18b73eceb0eca8d9
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Jan 28 18:23:40 2008 -0800
+
+    Set locale.alias file in man page to match the one set by configure
+
+commit bada8600b282d453727c6202ab69f3cb2c8fc7fb
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Jan 28 16:19:05 2008 -0800
+
+    Constify a bit
+
+commit 673fd4184c005909db20035006f6b98eb6210bd4
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Jan 28 15:54:55 2008 -0800
+
+    Replace malloc/strcpy pairs with strdup
+
+commit 9ca1cdabb4f04cc7e8c437b48821f0672f58af60
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Jan 28 14:40:30 2008 -0800
+
+    Man page typo fixes
+
+commit 87a181ce2647225e21e5824104ca1f7b04a221c7
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Jan 28 14:33:41 2008 -0800
+
+    Fix sparse warnings: non-ANSI function declaration (missing void)
+
+commit 191f62fab880b9aa001a566a95343c4fe5565b40
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Jan 28 14:31:31 2008 -0800
+
+    Fix many sparse warnings of Using plain integer as NULL pointer
+
+commit 98cd8b69a5ad042087a7f081482d4fd4d001cc3e
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Jan 28 14:25:15 2008 -0800
+
+    Change luit_CFLAGS to AM_CFLAGS to make automake-1.10 happier
+    
+    Makefile.am:29: compiling `charset.c' with per-target flags requires `AM_PROG_CC_C_O' in `configure.ac'
+
+commit a1b53290954cfabfbb28ac0bb932570754e118ae
+Author: Karsten Hilbert <karsten.hilbert@gmx.net>
+Date:   Thu Oct 11 15:44:28 2007 +0200
+
+    Fix typo in luit.man
+    
+    Debian bug#446216.
+
+commit 599d3c2049bc71929c29e864e4d76b2bdfc0c550
+Author: Dan Nicholson <dbn.lists@gmail.com>
+Date:   Fri Sep 21 14:52:09 2007 -0400
+
+    Match luit locale.alias location to libX11 default
+    Luit expects to find the locale.alias file in ${libdir}/X11/locale. However,
+    libX11 installs the locale files in ${datadir}/X11/locale, by default.
+
+commit ff27bd043f93ee9505f7f6cd0aed417ef264351e
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Mon Sep 3 05:51:03 2007 -0400
+
+    Add *~ to .gitignore to skip patch/emacs droppings
+
+commit 47c5031b9ac3e14e5bffcae9edb4daa6306b754d
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Aug 23 19:24:26 2007 -0400
+
+    Rename .cvsignore to .gitignore
+
+commit 0277a1b8d6f2f1cf8156967862436207a170f111
+Author: Juliusz Chroboczek <jch@pps.jussieu.fr>
+Date:   Tue Nov 14 16:37:21 2006 +0100
+
+    Include corrected PHONY in Makefile.
+    Thanks to Donnie Berkholz for noticing I'm stupid.
+
+commit 2d4743cac9e2ceb81781586d396ebcc151fd123b
+Author: Juliusz Chroboczek <jch@pps.jussieu.fr>
+Date:   Tue Nov 14 03:37:14 2006 +0100
+
+    Remove incorrect .PHONY in Makefile.
+
+commit c89bc49b6dc037c6b5177f2c79370257efd54b7e
+Author: Julien Cristau <julien.cristau@ens-lyon.org>
+Date:   Tue Nov 7 17:27:36 2006 +0100
+
+    [PATCH] Add a rule to autogenerate ChangeLog for distribution.
+    
+    The current ChangeLog is not getting updated, so we generate it from git-log
+    instead.  Also clean it in "make maintainer-clean".
+    
+    Signed-off-by: Julien Cristau <julien.cristau@ens-lyon.org>
+    Signed-off-by: Juliusz Chroboczek <jch@pps.jussieu.fr>
+
+commit 0190002a9730185dec0ab8bcf27ce730d295e39d
+Author: Julien Cristau <julien.cristau@ens-lyon.org>
+Date:   Tue Nov 7 17:27:35 2006 +0100
+
+    [PATCH] Delete ChangeLog file.
+    
+    Signed-off-by: Julien Cristau <julien.cristau@ens-lyon.org>
+    Signed-off-by: Juliusz Chroboczek <jch@pps.jussieu.fr>
+
+commit 930c1fb0cce2bdd65553b85e4231fe14ccf7a2e7
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Wed Nov 8 16:24:26 2006 +0200
+
+    bump to 1.0.2
+
+commit 33c99a9408fc236ec68cc027c1caddc805e80efe
+Author: Juliusz Chroboczek <jch@pps.jussieu.fr>
+Date:   Sun Nov 5 23:43:52 2006 +0100
+
+    Set up parent pty before forking (bug 8490).
+    This avoids a race condition when the child reads the terminal settings
+    before the parent has set the pty up.
+
+commit 605d8b15add136788f1316534c275f0f6d0fe792
+Author: Juliusz Chroboczek <jch@pps.jussieu.fr>
+Date:   Tue Oct 31 17:05:20 2006 +0100
+
+    Added random IBM codepages to the encodings vector.
+    I didn't modify the locales vector -- people using non-standard encodings
+    should directly set the ISO 2022 state using -gr, -g2 and friends.
+
+commit 0318e87e279527ea0fba6c07b9d3e7ce5598c934
+Author: Juliusz Chroboczek <jch@pps.jussieu.fr>
+Date:   Tue Oct 31 01:22:36 2006 +0100
+
+    Updated COPYING.
+
+commit a4e6e5a6c618706d5375ff1a9ffc34cce23fcf76
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 21 02:29:43 2005 +0000
+
+    Update package version for X11R7 release.
+
+commit b5e1535b07183305313ec74612525286b11d5deb
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Dec 19 16:22:40 2005 +0000
+
+    Stub COPYING files
+
+commit 899331d63218a9ef190f3575811e76bced5d67e1
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:02 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit 9b949814b988ffb0d01bfd945b207bbb8379e573
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 8 17:55:17 2005 +0000
+
+    Add configure options to allow hard-coded paths to be changed.
+
+commit 6f19ff5947590d28e17fd86a47af38f2d3abf90d
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Dec 6 22:48:17 2005 +0000
+
+    Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+commit 7cad59b8eb72df9c6c51c6deff4b353a0ce2f9e8
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:16 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit da7d5db0365ad51888dc262c0ed6b8e63c479af8
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 28 22:01:37 2005 +0000
+
+    Change *mandir targets to use new *_MAN_DIR variables set by xorg-macros.m4
+        update to fix bug #5167 (Linux prefers *.1x man pages in man1 subdir)
+
+commit 0970cf337c42939a1865048aef1a49782de5d3b0
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Mon Nov 21 10:34:56 2005 +0000
+
+    Another pass at .cvsignores for apps.
+
+commit aea3251136908221d6547f2dea67ea1e81a94acd
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Sun Nov 20 22:08:48 2005 +0000
+
+    Add/improve .cvsignore files for apps.
+
+commit 22f85fed95a41f35410d49452a1ca891807fdf03
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:47:49 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit 52cd38a1849b80cdf8f393402061e259250ccee9
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Oct 17 23:56:19 2005 +0000
+
+    Use @APP_MAN_SUFFIX@ instead of $(APP_MAN_SUFFIX) in macro substitutions to
+        work better with BSD make
+
+commit 889af994115911897dbaff5d1262275d1a25fc73
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Oct 14 00:25:41 2005 +0000
+
+    Use sed to fill in variables in man page
+
+commit 77bdecc7b28208b6a74f80d6ad169e4be81fc311
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Aug 1 20:25:28 2005 +0000
+
+    Install man pages to section 1 instead of section m (Patch from Donnie
+        Berkholz)
+
+commit e751086392e8379b0a92dfdbe7b1effdbbf11b8d
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Aug 1 15:11:56 2005 +0000
+
+    Define _XOPEN_SOURCE on Linux (patch from Stefan Dirsch)
+
+commit d235388c5d3130966c8524e041184fd52b668225
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:29 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit d9df2dbe4186d6662c40e364c527b157335d05c0
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Jul 20 19:31:49 2005 +0000
+
+    Use a unique token for PKG_CHECK_MODULES. Otherwise, if you use a global
+        configure cache, you cache it, and the cached value is probably wrong.
+
+commit b9846be287e3f5a00b9012af2f060255bed4879f
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Wed Jul 6 16:30:11 2005 +0000
+
+    Build system for luit
+
+commit 94118c5d40a3b355eeafb95631c741574ba43342
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 19:54:35 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit 52c779f3fe3dd8116e6c54ec1cca05b89cecf0ca
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:34:54 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit 86bdb1f20619208e22e27cc91dffc14e0cd91406
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:12:53 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit 5d8090493ad08e657d1a57518ccf98d4b6a3885e
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:36:15 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit f466b8b816201dd6385e4897fcad7888dae3d502
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:23:55 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit c65c9b70829cf3e7e82729a7756cad05189c31ec
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Jan 29 08:09:01 2004 +0000
+
+    Importing vendor version xf86-012804-2330 on Thu Jan 29 00:06:33 PST 2004
+
+commit 0afe748d654f553771ee2f4b07ab1ccce30b9ddd
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:29:02 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit f0c47a47ea65135be8b78cd215ba4a67ecc44a57
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:57 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit 84208ce0135c0376208346d20a76add90d52aae4
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:57 2003 +0000
+
+    Initial revision

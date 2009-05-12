@@ -47,7 +47,7 @@ is an optional, comma-separated list of default
 mount options to be used by any entries in the map
 that do not have their own mount options.
 The
-.Fl nobrowse
+.Cm nobrowse
 option is used on maps that have the potential to
 produce entries too numerous for browsing to
 be practical. This option as used in the master
@@ -61,7 +61,12 @@ name beginning with / is
 the pathname of a file containing the map, otherwise
 the name represents a map to be found as a file in
 .Pa /etc
-or to be read from Directory Services.
+or to be read from Directory Service (and thus from whatever sources
+Directory Service uses, such as NIS or LDAP servers).
+.Pp
+Note that, in order to get automounter maps from NIS, the "BSD Flat File
+and NIS" plugin must, in the Directory Utility application, be enabled
+and configured to "Use NIS domain for authentication".
 .Pp
 If more than one entry in the master map has the same
 .Va mountpoint
@@ -164,19 +169,63 @@ as an argument and receiving the
 string on stdout.
 If the automounter needs to enumerate map keys for a directory listing,
 it invokes the map with no arguments and expects a newline-separated
-list of keys on stdout.  For example:
-.Bd -literal
-	#!/bin/sh
-	if [ $# = 0 ]; then # List keys
-		ypcat -k auto_entries | awk '{print $1}'
-		exit
-	fi
-	# Return location
-	ypmatch $1 auto_entries
-.Ed
+list of keys on stdout.
 .Pp
 If an error occurs, the executable map must return a non-zero
 exit status and no output.
+.Pp
+For example, a map that, when bound to an Open
+Directory server, has one entry for every user, with the key being the
+user's login name and the entry being the URL of the user's home
+directory, could be implemented as
+.Bd -literal -offset indent
+#!/bin/sh
+if [ $# = 0 ]; then # List keys
+	dscl /Search -list Users
+	exit
+fi
+# Return location
+homedirloc=`dscl /Search -read Users/$1 HomeDirectory`
+case "$homedirloc" in
+
+"No such key: HomeDirectory"*)
+	homedirloc=`dscl /Search -read Users/$1 NFSHomeDirectory`
+	case "$homedirloc" in
+
+	"NFSHomeDirectory: /Network/Servers/"*)
+		#
+		# NFS home directory
+		#
+		echo "$homedirloc" | sed 's;NFSHomeDirectory: /Network/Servers/\([^/]*\)/\(.*\);\1:/\2;'
+		;;
+
+	*)
+		#
+		# Unknown
+		#
+		exit 1
+		;;
+	esac
+	;;
+
+"HomeDirectory: <home_dir><url>smb://"*)
+	#
+	# SMB home directory
+	#
+	echo "$homedirloc" | sed -e 's;HomeDirectory: <home_dir><url>;;' -e 's;</url><path>;/;' -e 's;</path></home_dir>;;'
+	;;
+
+*)
+	#
+	# Unknown
+	#
+	exit 1
+	;;
+esac
+.Ed
+.Pp
+(this is a simplified example; it does not handle users who do not have
+a network home directory, but includes them in the directory listing).
 .Sh Special Maps
 The special maps have reserved names and are built into the automounter.
 .Bl -tag
@@ -266,4 +315,7 @@ The master map file.
 .Xr automount 8 ,
 .Xr automountd 8 ,
 .Xr autofsd 8 ,
-.Xr autofs.conf 5
+.Xr autofs.conf 5 ,
+.Xr fstab 5 ,
+.Xr getfsent 3 ,
+.Xr DirectoryService 8

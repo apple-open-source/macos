@@ -1,3 +1,41 @@
+1999-08-26  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* a2ps.hdr: Some updates by John Hutchison
+	<John.Hutchison@lmco.com>.
+
+1998-12-29  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* enscript-color.hdr: New enscript-styled header for color
+	printers.
+
+1998-12-23  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* Makefile.am: Added ISO-8859-{9,10} encodings.
+
+1998-11-25  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* squeeze.hdr: New header to maximize the amount of code that can
+	be printed on a page.
+
+1998-10-26  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.cfg.in (StatesPath): As a default, do not define.
+	Enscript gives us a better default.
+
+1998-10-23  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.cfg.in: Changed to use the new highlighting style.
+
+1998-10-16  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.pro: New procedures MF_PS and SUF_PS to define a new
+	user font preserving the font's default encoding.
+
+1998-07-31  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.cfg.in: Added 0.5 cm to left and right margins in the
+	Letter media.
+
 1998-06-23  Markku Rossi  <mtr@ngs.fi>
 
 	* enscript.cfg.in (PostScriptLevel): Added option to control the

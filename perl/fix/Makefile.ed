@@ -7,9 +7,5 @@
 	    $(filter-out op$(OBJ_EXT),$(obj)) $(libs)
 .
 /-o perl/s//-mdynamic-no-pic &/
-/perl installperl/i
-	# fix 64-bit sizes
-	ed - lib/Config_heavy.pl < $(SRCROOT)/fix/Config_heavy.pl.ed
-.
 g,//$,d
 w

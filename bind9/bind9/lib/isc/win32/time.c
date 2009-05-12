@@ -1,8 +1,8 @@
 /*
- * Copyright (C) 2004  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2008  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1998-2001, 2003  Internet Software Consortium.
  *
- * Permission to use, copy, modify, and distribute this software for any
+ * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: time.c,v 1.38 2004/03/16 05:52:22 marka Exp $ */
+/* $Id: time.c,v 1.38.18.2 2008/08/29 23:46:17 tbox Exp $ */
 
 #include <config.h>
 
@@ -64,8 +64,11 @@ isc_interval_set(isc_interval_t *i, unsigned int seconds,
 	REQUIRE(i != NULL);
 	REQUIRE(nanoseconds < NS_PER_S);
 
+	/*
+	 * This rounds nanoseconds up not down.
+	 */
 	i->interval = (LONGLONG)seconds * INTERVALS_PER_S
-		+ nanoseconds / NS_INTERVAL;
+		+ (nanoseconds + NS_INTERVAL - 1) / NS_INTERVAL;
 }
 
 isc_boolean_t
@@ -232,9 +235,9 @@ isc_time_formattimestamp(const isc_time_t *t, char *buf, unsigned int len) {
 	SYSTEMTIME st;
 	char DateBuf[50];
 	char TimeBuf[50];
-	
+
 	static const char badtime[] = "99-Bad-9999 99:99:99.999";
-	
+
 	REQUIRE(len > 0);
 	if (FileTimeToLocalFileTime(&t->absolute, &localft) &&
 	    FileTimeToSystemTime(&localft, &st)) {
@@ -242,10 +245,10 @@ isc_time_formattimestamp(const isc_time_t *t, char *buf, unsigned int len) {
 			      DateBuf, 50);
 		GetTimeFormat(LOCALE_USER_DEFAULT, TIME_NOTIMEMARKER|
 			      TIME_FORCE24HOURFORMAT, &st, NULL, TimeBuf, 50);
-		
+
 		snprintf(buf, len, "%s %s.%03u", DateBuf, TimeBuf,
 			 st.wMilliseconds);
-		
+
 	} else
 		snprintf(buf, len, badtime);
 }

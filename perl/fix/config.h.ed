@@ -155,5 +155,11 @@ $i
  */
 #define	PERL_APPENDTOPATH	"/Library/Perl/@VERSION@/@APPENDFILE@"
 
+/* APPLLIB_EXP:
+ *	This is the path to the Updates directory (which comes before
+ *	the system perl directory in @INC.
+ */
+#define APPLLIB_EXP		"@ENV_UPDATESLIB@"
+
 .
 w

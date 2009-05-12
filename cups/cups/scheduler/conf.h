@@ -4,7 +4,7 @@
  *   Configuration file definitions for the Common UNIX Printing System (CUPS)
  *   scheduler.
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -46,6 +46,17 @@ typedef enum
 
 
 /*
+ * ServerAlias data...
+ */
+
+typedef struct
+{
+  size_t	namelen;		/* Length of alias name */
+  char		name[1];		/* Alias name */
+} cupsd_alias_t;
+
+
+/*
  * Globals...
  */
 
@@ -65,7 +76,12 @@ VAR char		*ConfigurationFile	VALUE(NULL),
 					/* Directory for request files */
 			*DocumentRoot		VALUE(NULL);
 					/* Root directory for documents */
-VAR int			ServerNameIsIP		VALUE(0);
+VAR cups_array_t	*ServerAlias		VALUE(NULL);
+					/* Alias names for server */
+VAR int			RemoteAccessEnabled	VALUE(0),
+					/* Are we listening on non-local addresses? */
+			ServerNameIsIP		VALUE(0);
+					/* Is the ServerName an IP address? */
 VAR int			NumSystemGroups		VALUE(0);
 					/* Number of system group names */
 VAR char		*SystemGroups[MAX_SYSTEM_GROUPS]

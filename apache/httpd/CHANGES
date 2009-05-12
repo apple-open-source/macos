@@ -1,4 +1,144 @@
                                                          -*- coding: utf-8 -*-
+Changes with Apache 2.2.11
+
+  *) core: When the ap_http_header_filter processes an error bucket, cleanup
+     the passed brigade before returning AP_FILTER_ERROR down the filter 
+     chain. This unambiguously ensures the same error bucket isn't revisited
+     [Ruediger Pluem]
+
+  *) core: Error responses set by filters were being coerced into 500 errors,
+     sometimes appended to the original error response. Log entry of:
+     'Handler for (null) returned invalid result code -3'
+     [Eric Covener]
+
+  *) configure: Don't reject libtool 2.x
+     PR 44817 [Arfrever Frehtes Taifersar Arahesis <Arfrever.FTA gmail.com>]
+
+  *) mod_autoindex: add configuration option to insert string
+     in HTML HEAD (IndexHeadInsert). [Nick Kew]
+
+  *) Add new LogFormat parameter, %k, which logs the number of
+     keepalive requests on this connection for this request.
+     PR 45762 [Dan Poirier <poirier pobox.com>, Jim Jagielski]
+
+  *) Export and install the mod_rewrite.h header to ensure the optional
+     rewrite_mapfunc_t and ap_register_rewrite_mapfunc functions are
+     available to third party modules. [Graham Leggett]
+
+  *) mod_cache: Convert age of cached object to seconds before comparing it to
+     age supplied by the request when checking whether to send a Warning
+     header for a stale response. PR 39713. [Owen Taylor <otaylor redhat.com>]
+
+  *) Build: Correctly set SSL_LIBS during openssl detection if pkgconfig is
+     not available. PR 46018 [Ruediger Pluem]
+
+  *) mod_proxy_ajp: Do not fail if response data is sent before all request
+     data is read. PR 45911 [Ruediger Pluem]
+
+  *) mod_proxy_balancer: Add in forced recovery for balancer members if
+     all are in error state. [Mladen Turk]
+
+  *) mod_proxy: Prevent segmentation faults by correctly adjusting the
+     lifetime of the buckets read from the proxy backend. PR 45792
+     [Ruediger Pluem]
+
+  *) mod_expires: Do not sets negative max-age / Expires header in the past.
+     PR 39774 [Jim Jagielski]
+
+  *) mod_info: Was displaying the wrong value for the KeepAliveTimeout
+     value. [Jim Jagielski]
+
+  *) mod_proxy_ajp: Fix wrongly formatted requests where client
+     sets Content-Length header, but doesn't provide a body.
+     Servlet container always expects that next packet is
+     body whenever C-L is present in the headers. This can lead
+     to wrong interpretation of the packets. In this case
+     send the empty body packet, so container can deal with
+     that. [Mladen Turk]
+
+  *) core: Add ap_timeout_parameter_parse to public API. [Ruediger Pluem]
+
+  *) mod_proxy: Add the possibility to set the worker parameters
+     connectiontimeout and ping in milliseconds. [Ruediger Pluem]
+
+  *) Worker MPM: Crosscheck that idle workers are still available before using
+     them and thus preventing an overflow of the worker queue which causes
+     a SegFault. PR 45605 [Denis Ustimenko <denusk gmail.com>]
+
+  *) Windows: Always build the odbc dbd driver on windows, to be consistent 
+     with the apr-util default. [Tom Donovan]
+
+Changes with Apache 2.2.10
+
+  *) SECURITY: CVE-2008-2939 (cve.mitre.org)
+     mod_proxy_ftp: Prevent XSS attacks when using wildcards in the path of
+     the FTP URL. Discovered by Marc Bevand of Rapid7. [Ruediger Pluem]
+
+  *) Allow for smax to be 0 for balancer members so that all idle
+     connections are able to be dropped should they exceed ttl.
+     PR 43371 [Phil Endecott <spam_from_apache_bugzilla chezphil.org>,
+     Jim Jagielski]
+
+  *) mod_proxy_http: Don't trigger a retry by the client if a failure to
+     read the response line was the result of a timeout.
+     [Adam Woodworth <mirkperl gmail.com>]
+
+  *) Support chroot on Unix-family platforms
+     PR 43596 [Dimitar Pashev <mitko banksoft-bg.com>]
+
+  *) mod_ssl: implement dynamic mutex callbacks for the benefit of
+     OpenSSL.  [Sander Temme]
+
+  *) mod_proxy_balancer: Add 'bybusyness' load balance method.
+     [Joel Gluth <joelgluth yahoo.com.au>, Jim Jagielski]
+
+  *) mod_authn_alias: Detect during startup when AuthDigestProvider
+     is configured to use an incompatible provider via AuthnProviderAlias.
+     PR 45196 [Eric Covener]
+
+  *) mod_proxy: Add 'scolonpathdelim' parameter to allow for ';' to also be
+     used as a session path separator/delim  PR 45158. [Jim Jagielski]
+
+  *) mod_charset_lite: Avoid dropping error responses by handling meta buckets
+     correctly. PR 45687 [Dan Poirier <poirier pobox.com>]
+
+  *) mod_proxy_http: Introduce environment variable proxy-initial-not-pooled to
+     avoid reusing pooled connections if the client connection is an initial
+     connection. PR 37770. [Ruediger Pluem]
+
+  *) mod_rewrite: Allow Cookie option to set secure and HttpOnly flags.
+     PR 44799 [Christian Wenz <christian wenz.org>]
+
+  *) mod_ssl: Rewrite shmcb to avoid memory alignment issues.  PR 42101.
+     [Geoff Thorpe]
+
+  *) mod_proxy: Add connectiontimeout parameter for proxy workers in order to
+     be able to set the timeout for connecting to the backend separately.
+     PR 45445. [Ruediger Pluem, rahul <rahul sun.com>]
+
+  *) mod_dav_fs: Retrieve minimal system information about directory
+     entries when walking a DAV fs, resolving a performance degradation on
+     Windows.  PR 45464.  [Joe Orton, Jeff Trawick]
+
+  *) mod_cgid: Pass along empty command line arguments from an ISINDEX
+     query that has consecutive '+' characters in the QUERY_STRING,
+     matching the behavior of mod_cgi.
+     [Eric Covener]
+
+  *) mod_headers: Prevent Header edit from processing only the first header
+     of possibly multiple headers with the same name and deleting the
+     remaining ones. PR 45333.  [Ruediger Pluem]
+
+  *) mod_proxy_balancer: Move nonce field in the balancer manager page inside
+     the html form where it belongs. PR 45578. [Ruediger Pluem]
+
+  *) mod_proxy_http: Do not forward requests with 'Expect: 100-continue' to
+     known HTTP/1.0 servers. Return 'Expectation failed' (417) instead.
+     [Ruediger Pluem]
+
+  *) mod_rewrite: Preserve the query string when [proxy,noescape]. PR 45247.
+     [Tom Donovan]
+
 Changes with Apache 2.2.9
 
   *) SECURITY: CVE-2008-2364 (cve.mitre.org)

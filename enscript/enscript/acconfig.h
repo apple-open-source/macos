@@ -1,5 +1,6 @@
 /* Character which is used to separate path components. */
 #undef PATH_SEPARATOR
+#undef PATH_SEPARATOR_STR
 
 /* Package name. */
 #undef PACKAGE

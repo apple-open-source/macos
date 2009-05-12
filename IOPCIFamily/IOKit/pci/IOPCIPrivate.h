@@ -25,6 +25,19 @@
 #define _IOKIT_IOPCIPRIVATE_H
 
 #include <IOKit/pci/IOPCIDevice.h>
+#include <libkern/OSDebug.h>
+
+#if defined(__i386__) || defined(__x86_64__)
+#define USE_IOPCICONFIGURATOR	1
+#define USE_MSI			1
+#define USE_LEGACYINTS		1
+#define ACPI_SUPPORT		1
+#endif
+
+#if OSTYPES_K64_REV < 1
+typedef long IOInterruptVectorNumber;
+#endif
+
 
 struct IOPCIDeviceExpansionData
 {

@@ -13191,7 +13191,6 @@ if test "$ac_cv_search_getaddrinfo" = "none required" ; then
 echo $ECHO_N "checking if your getaddrinfo is async-signal-safe... $ECHO_C" >&6; }
     gai_ts=no
         case $target_os in
-	darwin9*)				gai_ts=yes ;;
 	linux*)					gai_ts=yes ;;
 	freebsd5.5|freebsd6*|freebsd7*)		gai_ts=yes ;;
 	solaris2.8|solaris2.9|solaris2.10)	gai_ts=yes ;;

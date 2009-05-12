@@ -2,7 +2,7 @@
 
   re.c -
 
-  $Author: shyouhei $
+  $Author: matz $
   created at: Mon Aug  9 18:24:49 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -78,7 +78,7 @@ rb_memcicmp(x, y, len)
     int tmp;
 
     while (len--) {
-	if (tmp = casetable[(unsigned)*p1++] - casetable[(unsigned)*p2++])
+	if ((tmp = casetable[(unsigned)*p1++] - casetable[(unsigned)*p2++]) != 0)
 	    return tmp;
     }
     return 0;
@@ -892,7 +892,7 @@ rb_reg_search(re, str, pos, reverse)
 {
     long result;
     VALUE match;
-    static struct re_registers regs;
+    struct re_registers regs;
     long range;
 
     if (pos > RSTRING(str)->len || pos < 0) {
@@ -914,6 +914,7 @@ rb_reg_search(re, str, pos, reverse)
     else {
 	range = RSTRING(str)->len - pos;
     }
+    MEMZERO(&regs, struct re_registers, 1);
     result = re_search(RREGEXP(re)->ptr,RSTRING(str)->ptr,RSTRING(str)->len,
 		       pos, range, &regs);
 
@@ -926,6 +927,7 @@ rb_reg_search(re, str, pos, reverse)
     }
 
     if (result < 0) {
+	re_free_registers(&regs);
 	rb_backref_set(Qnil);
 	return result;
     }
@@ -942,6 +944,7 @@ rb_reg_search(re, str, pos, reverse)
     }
 
     re_copy_registers(RMATCH(match)->regs, &regs);
+    re_free_registers(&regs);
     RMATCH(match)->str = rb_str_new4(str);
     rb_backref_set(match);
 
@@ -1754,7 +1757,7 @@ rb_reg_quote(str)
 	    goto meta_found;
 	}
     }
-    return str;
+    return rb_str_new3(str);
 
   meta_found:
     tmp = rb_str_new(0, RSTRING(str)->len*2);

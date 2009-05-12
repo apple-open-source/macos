@@ -1,0 +1,26 @@
+--- ext/openssl/ossl_ocsp.c.orig	2009-02-17 11:02:14.000000000 -0800
++++ ext/openssl/ossl_ocsp.c	2009-02-17 11:04:57.000000000 -0800
+@@ -593,18 +593,19 @@
+     OCSP_BASICRESP *bs;
+     STACK_OF(X509) *x509s;
+     X509_STORE *x509st;
+-    int flg, result;
++    int flg;
++    VALUE result;
+ 
+     rb_scan_args(argc, argv, "21", &certs, &store, &flags);
+     x509st = GetX509StorePtr(store);
+     flg = NIL_P(flags) ? 0 : INT2NUM(flags);
+     x509s = ossl_x509_ary2sk(certs);
+     GetOCSPBasicRes(self, bs);
+-    result = OCSP_basic_verify(bs, x509s, x509st, flg);
++    result = OCSP_basic_verify(bs, x509s, x509st, flg) <= 0 ? Qfalse : Qtrue;
+     sk_X509_pop_free(x509s, X509_free);
+-    if(!result) rb_warn("%s", ERR_error_string(ERR_peek_error(), NULL));
++    if(!RTEST(result)) rb_warn("%s", ERR_error_string(ERR_peek_error(), NULL));
+ 
+-    return result ? Qtrue : Qfalse;
++    return result;
+ }
+ 
+ /*

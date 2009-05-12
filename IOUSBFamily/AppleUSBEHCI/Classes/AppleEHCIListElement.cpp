@@ -107,6 +107,10 @@ AppleEHCIQueueHead::print(int level)
     USBLog(level, "AppleEHCIQueueHead::print - shared.extBuffPtr[2][%p]", (void*)USBToHostLong(shared->extBuffPtr[2]));
     USBLog(level, "AppleEHCIQueueHead::print - shared.extBuffPtr[3][%p]", (void*)USBToHostLong(shared->extBuffPtr[3]));
     USBLog(level, "AppleEHCIQueueHead::print - shared.extBuffPtr[4][%p]", (void*)USBToHostLong(shared->extBuffPtr[4]));
+	USBLog(level, "AppleEHCIQueueHead::print - _qTD[%p]", (void*)_qTD);
+	USBLog(level, "AppleEHCIQueueHead::print - _TailTD[%p]", (void*)_TailTD);
+	USBLog(level, "AppleEHCIQueueHead::print - _maxPacketSize[%p]", (void*)_maxPacketSize);
+	USBLog(level, "AppleEHCIQueueHead::print - _direction[%p]", (void*)_direction);
 	USBLog(level, "----------------------------------------------------");
 }
 

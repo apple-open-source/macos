@@ -89,7 +89,7 @@ static int sc_for_req_header(const char *header_name)
         case 'C':
             if(strcmp(p, "OOKIE2") == 0)
                 return SC_COOKIE2;
-	    else if (strcmp(p, "OOKIE") == 0)
+            else if (strcmp(p, "OOKIE") == 0)
                 return SC_COOKIE;
             else if(strcmp(p, "ONNECTION") == 0)
                 return SC_CONNECTION;
@@ -457,6 +457,11 @@ body_chunk :=
 
  */
 
+static int addit_dammit(void *v, const char *key, const char *val)
+{
+    apr_table_addn(v, key, val);
+    return 1;
+}
 
 static apr_status_t ajp_unmarshal_response(ajp_msg_t *msg,
                                            request_rec *r,
@@ -493,7 +498,17 @@ static apr_status_t ajp_unmarshal_response(ajp_msg_t *msg,
 
     rc = ajp_msg_get_uint16(msg, &num_headers);
     if (rc == APR_SUCCESS) {
-        r->headers_out = apr_table_make(r->pool, num_headers);
+        apr_table_t *save_table;
+
+        /* First, tuck away all already existing cookies */
+        /*
+         * Could optimize here, but just in case we want to
+         * also save other headers, keep this logic.
+         */
+        save_table = apr_table_make(r->pool, num_headers + 2);
+        apr_table_do(addit_dammit, save_table, r->headers_out,
+                     "Set-Cookie", NULL);
+        r->headers_out = save_table;
     } else {
         r->headers_out = NULL;
         num_headers = 0;

@@ -1,12 +1,12 @@
 ;;;
 ;;;  ruby-mode.el -
 ;;;
-;;;  $Author: knu $
-;;;  $Date: 2007-03-11 19:05:02 +0900 (Sun, 11 Mar 2007) $
+;;;  $Author: shyouhei $
+;;;  $Date: 2008-06-15 20:28:08 +0900 (Sun, 15 Jun 2008) $
 ;;;  created at: Fri Feb  4 14:49:13 JST 1994
 ;;;
 
-(defconst ruby-mode-revision "$Revision: 12032 $")
+(defconst ruby-mode-revision "$Revision: 17210 $")
 
 (defconst ruby-mode-version
   (progn
@@ -255,7 +255,7 @@ The variable ruby-indent-level controls the amount of indentation.
   (make-local-variable 'add-log-current-defun-function)
   (setq add-log-current-defun-function 'ruby-add-log-current-method)
 
-  (run-hooks 'ruby-mode-hook))
+  (run-mode-hooks 'ruby-mode-hook))
 
 (defun ruby-current-indentation ()
   (save-excursion

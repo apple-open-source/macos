@@ -350,8 +350,10 @@ AppleUSBEHCI::UIMInitialize(IOService * provider)
 		}
 		
 		_isochBandwidthAvail = 5 *1024;
-		_outSlot = kEHCIPeriodicListEntries+1;	/* No Isoc transactions currently. */
+		_outSlot = kEHCIPeriodicListEntries+1;			// No Isoc transactions currently
 		_frameNumber = 0;
+		_expansionData->_isochMaxBusStall = 25000;		// we need a requireMaxBusStall of 25 microseconds for EHCI
+		
 		if ((err = InterruptInitialize()))
 			continue;
 
@@ -1147,6 +1149,10 @@ AppleUSBEHCI::EnableAsyncSchedule(bool waitForON)
     int			i;
     IOReturn	stat = kIOReturnSuccess;
 	
+	if (!_pEHCIRegisters->AsyncListAddr)
+	{
+		USBLog(1, "AppleUSBEHCI[%p]::EnableAsyncSchedule.. AsyncListAddr is NULL!! We shouldn't be doing this", this);
+	}
     if (!(_pEHCIRegisters->USBCMD & HostToUSBLong(kEHCICMDAsyncEnable)))
     {
 		USBLog(7, "AppleUSBEHCI[%p]::EnableAsyncSchedule: enabling schedule",  this);
@@ -1375,10 +1381,10 @@ AppleUSBEHCI::message( UInt32 type, IOService * provider,  void * argument )
 			parentHub = OSDynamicCast(IOUSBRootHubDevice, nub->getParentEntry(usbPlane));
 
 			nub->retain();
-			USBLog(1, "AppleUSBUHCI[%p]::message - got kIOUSBMessageExpressCardCantWake from driver %s[%p] argument is %s[%p]", this, provider->getName(), provider, nub->getName(), nub);
+			USBLog(1, "AppleUSBEHCI[%p]::message - got kIOUSBMessageExpressCardCantWake from driver %s[%p] argument is %s[%p]", this, provider->getName(), provider, nub->getName(), nub);
 			if (parentHub == _rootHubDevice)
 			{
-				USBLog(1, "AppleUSBUHCI[%p]::message - device is attached to my root hub!!", this);
+				USBLog(1, "AppleUSBEHCI[%p]::message - device is attached to my root hub!!", this);
 				_badExpressCardAttached = true;
 			}
 			nub->release();

@@ -1,6 +1,6 @@
 /*
  * String hash table.
- * Copyright (c) 1995, 1996, 1997 Markku Rossi.
+ * Copyright (c) 1995-1999 Markku Rossi.
  *
  * Author: Markku Rossi <mtr@iki.fi>
  */
@@ -378,10 +378,11 @@ strhash_debug (StringHashPtr hash)
 static int
 count_hash (const char *key, int keylen)
 {
-  unsigned int val = 0, i;
+  unsigned int val = 0;
+  int i;
 
   for (i = 0; i < keylen; i++)
-    val = (val << 5) ^ (unsigned char)key[i]
+    val = (val << 5) ^ (unsigned char) key[i]
       ^ (val >> 16) ^ (val >> 7);
   return val % HASH_SIZE;
 }

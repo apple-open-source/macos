@@ -1,6 +1,6 @@
 #
 # Makefile template for the compat libaray.
-# Copyright (c) 1995-1998 Markku Rossi.
+# Copyright (c) 1995-1999 Markku Rossi.
 #
 # Author: Markku Rossi <mtr@iki.fi>
 #
@@ -31,9 +31,15 @@ libcompat_a_SOURCES = getopt.c getopt1.c xalloc.c regex.c
 libcompat_a_LIBADD = @LIBOBJS@ @ALLOCA@
 libcompat_a_DEPENDENCIES = @LIBOBJS@ @ALLOCA@
 
-noinst_HEADERS = dummypwd.h getopt.h regex.h xalloc.h
+libcompat_a_SOURCES_windelta =	\
+	+../w32/gethostname.c	\
+	+../w32/getpwd.c	\
+	+../w32/getuid.c
 
-EXTRA_DIST = gethostname.c getpwd.c getuid.c strerror.c memmove.c \
-memcpy.c strtol.c strtoul.c config.dos
+noinst_HEADERS = getopt.h regex.h xalloc.h
+
+EXTRA_DIST = strerror.c memmove.c memcpy.c strtol.c strtoul.c
 
 INCLUDES = -I$(srcdir)/../intl -I../intl
+
+INCLUDES_windelta = +-I../w32

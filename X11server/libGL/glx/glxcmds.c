@@ -49,6 +49,9 @@
 #include "glcontextmodes.h"
 #include <sys/time.h>
 
+
+//#define DEBUG 1
+
 const char __glXGLClientExtensions[] = 
 			"GL_ARB_depth_texture "
 			"GL_ARB_imaging "
@@ -542,6 +545,7 @@ GLXContext CreateContext(Display *dpy, XVisualInfo *vis,
 	gc->imported = GL_TRUE;
     }
 
+
     return gc;
 }
 
@@ -1005,6 +1009,23 @@ int GLX_PREFIX(glXGetConfig)(Display *dpy, XVisualInfo *vis, int attribute,
 	    } \
 	} while ( 0 )
 
+/* According to the manual here: 
+ http://www.opengl.org/sdk/docs/man/xhtml/glXChooseVisual.xml
+*/
+/* Colors may be 0 to request the smallest color size. */
+/* Colors that are > 0 request >= visual->colorSize. */
+#define MATCH_COLOR(param) do { \
+	if(0 == a->param || GLX_DONT_CARE == a->param) { \
+	    /* Accept b whatever it is. */ \
+	} else if(b->param < a->param) { \
+	    /* The user's specified value is greater than this \
+	     * server (b) visual. \
+	     */		  \
+	    return False; \
+	} \
+    } while(0)
+ 
+
 /**
  * Determine if two GLXFBConfigs are compatible.
  *
@@ -1015,19 +1036,54 @@ static Bool
 fbconfigs_compatible( const __GLcontextModes * const a,
 		      const __GLcontextModes * const b )
 {
-    MATCH_DONT_CARE( doubleBufferMode );
+
+#ifdef DEBUG
+    printf("app config doubleBufferMode %d\n", a->doubleBufferMode);
+    printf("server specified config doubleBufferMode %d\n",
+	   b->doubleBufferMode);
+
+    printf("samples\tapp %d\tserver %d\n", a->samples, b->samples);
+    printf("sampleBuffers\tapp %d\tserver %d\n", a->sampleBuffers, 
+	   b->sampleBuffers);
+#endif
+
+    if(a->doubleBufferMode != b->doubleBufferMode) {
+	return False;
+    }
+
     MATCH_DONT_CARE( visualType );
     MATCH_DONT_CARE( visualRating );
     MATCH_DONT_CARE( xRenderable );
     MATCH_DONT_CARE( fbconfigID );
     MATCH_DONT_CARE( swapMethod );
 
-    MATCH_MINIMUM( rgbBits );
-    MATCH_MINIMUM( numAuxBuffers );
-    MATCH_MINIMUM( redBits );
-    MATCH_MINIMUM( greenBits );
-    MATCH_MINIMUM( blueBits );
-    MATCH_MINIMUM( alphaBits );
+    /*
+     * The GLX_BUFFER_SIZE (rgbBits) should only be used if the application
+     * has not requested GLX_RGBA when choosing a visual, thus a color indexed
+     * mode.
+     */
+    if(a->renderType == GLX_COLOR_INDEX_BIT) {
+	MATCH_MINIMUM( rgbBits );
+    }
+
+    /* 
+     * Try to find an AUX buffer request at least equal to the request.
+     */
+    if(GLX_DONT_CARE == a->numAuxBuffers) {
+	/* We don't care how many aux buffers the visual has. */
+    } else if(a->numAuxBuffers > b->numAuxBuffers) {
+	/* 
+	 * The program/user requested more aux buffers -- try to  
+	 * honor that request.
+	 */
+	return False;
+    }
+    
+    MATCH_COLOR(redBits);
+    MATCH_COLOR(greenBits);
+    MATCH_COLOR(blueBits);
+    MATCH_COLOR(alphaBits);
+
     MATCH_MINIMUM( depthBits );
     MATCH_MINIMUM( stencilBits );
     MATCH_MINIMUM( accumRedBits );
@@ -1040,7 +1096,9 @@ fbconfigs_compatible( const __GLcontextModes * const a,
     MATCH_MINIMUM( maxPbufferPixels );
     MATCH_MINIMUM( samples );
 
-    MATCH_DONT_CARE( stereoMode );
+    if(a->stereoMode != b->stereoMode)
+	return False;
+
     MATCH_EXACT( level );
 
     if ( ((a->drawableType & b->drawableType) == 0)
@@ -1059,6 +1117,11 @@ fbconfigs_compatible( const __GLcontextModes * const a,
      * the (broken) drivers.
      */
 
+    /* gstaplin: We don't support transparent pixels yet, and may never.  
+     * I haven't been able to find CGL support for such things.
+     */
+     
+#if 0
     if ( a->transparentPixel != GLX_DONT_CARE
          && a->transparentPixel != 0 ) {
         if ( a->transparentPixel == GLX_NONE ) {
@@ -1084,7 +1147,12 @@ fbconfigs_compatible( const __GLcontextModes * const a,
 	    break;
 	}
     }
+#endif
 
+#ifdef DEBUG
+    puts("compatible");
+#endif
+   
     return True;
 }
 
@@ -1113,23 +1181,191 @@ fbconfigs_compatible( const __GLcontextModes * const a,
  *          equal, zero is returned.
  * \sa qsort, glXChooseVisual, glXChooseFBConfig, glXChooseFBConfigSGIX
  */
+
+/*
+ * a is a configuration that is based on the req.
+ * b is a visual config.
+ * req is the actual request.
+ */
 static int
-fbconfig_compare( const __GLcontextModes * const * const a,
-		  const __GLcontextModes * const * const b )
+visual_mode_compare( const __GLcontextModes * const * const a,
+		  const __GLcontextModes * const * const b, 
+		  const __GLcontextModes * const req)
 {
     /* The order of these comparisons must NOT change.  It is defined by
      * SGIX_fbconfig, SGIX_pbuffer, and ARB_multisample.
      */
 
-    PREFER_SMALLER( visualSelectGroup );
+    //PREFER_SMALLER( visualSelectGroup );
 
-    /* The sort order for the visualRating is GLX_NONE, GLX_SLOW, and
-     * GLX_NON_CONFORMANT_CONFIG.  It just so happens that this is the
-     * numerical sort order of the enums (0x8000, 0x8001, and 0x800D).
+#ifdef DEBUG
+    printf("%p (*a)->visualRating fast? %s\n", 
+	   (void *)*a, ((*a)->visualRating == GLX_NONE) ? "yes" : "no");
+    printf("%p (*b)->visualRating fast? %s\n", 
+	   (void *)*b, ((*b)->visualRating == GLX_NONE) ? "yes": "no");
+#endif
+
+    if(GLX_NONE == (*a)->visualRating && GLX_NONE == (*b)->visualRating) {
+	/* They are a good match -- continue. */
+    } else if(GLX_SLOW_VISUAL_EXT == (*a)->visualRating
+	      && GLX_SLOW_VISUAL_EXT == (*b)->visualRating) {
+	/* They are the same -- slow. */
+    } else if((*b)->visualRating != GLX_SLOW_VISUAL_EXT) {
+	/* Choose b, because it should be faster. */
+	return 1;
+    } else if((*a)->visualRating != GLX_SLOW_VISUAL_EXT) {
+	/* Choose a, because it should be faster. */
+	return -1;
+    }
+
+    //PREFER_SMALLER( rgbBits );
+
+#ifdef DEBUG
+    printf("req->doubleBufferMode %d\n", req->doubleBufferMode);
+#endif
+    /*
+     * The fbconfigs_compatible() above should only indicate the visuals
+     * a or b are compatible if they have the exact same stereoMode.
+     *
+     * Use !! to make sure we are comparing boolean values.
      */
-    PREFER_SMALLER( visualRating );
+    assert(!!req->stereoMode == !!(*a)->stereoMode);
+    assert(!!req->stereoMode == !!(*b)->stereoMode);
+
+    if ( ((*a)->doubleBufferMode != (*b)->doubleBufferMode) ) {
+	/* Prefer single-buffer.
+	 */
+	return ( !(*a)->doubleBufferMode ) ? -1 : 1;
+    }
+
+    /*
+     * This is bound by fbconfig_compatible (above).
+     * The behavior is such that we try to find the lowest numAuxBuffers
+     * that is not less than 0 or the request.
+     */
+    PREFER_SMALLER( numAuxBuffers );
+
+    /* 
+     * According to the OpenGL.org/GLX documentation:
+     * When the value is 0 in the request we should try to
+     * prefer the smallest value.  Otherwise try to find 
+     * the >= value.  We do this for the RGBA bits.
+     */
+
+#define HANDLE_COLOR(typeBits) do { \
+	if(0 == req->typeBits) { \
+	    PREFER_SMALLER(typeBits); \
+	} else if((*a)->typeBits != (*b)->typeBits) { \
+	    int adelta = (*a)->typeBits - req->typeBits; \
+	    int bdelta = (*b)->typeBits - req->typeBits; \
+	    if(adelta > bdelta) { \
+		/* Choose a */ \
+		return -1; \
+	    } else { \
+		/* Choose b */ \
+		return 1; \
+	    } \
+	} \
+} while(0)
+
+#ifdef DEBUG
+    puts("handling colors");
+#endif
+
+    HANDLE_COLOR(redBits);
+    HANDLE_COLOR(greenBits);
+    HANDLE_COLOR(blueBits);
+    HANDLE_COLOR(alphaBits);
+
+#undef HANDLE_COLOR    
+    /*
+     * If the stencil size is 0, visuals with no stencil are preferred.
+     * Otherwise the stencilSize should be > 0 and the smallest that is
+     * >= req->stencilBits is preferred.
+     */
+
+    if(GLX_DONT_CARE == req->stencilBits) {
+	/* Accept anything. */
+    } else if(0 == req->stencilBits) {
+	PREFER_SMALLER(stencilBits);
+    } else if((*a)->stencilBits != (*b)->stencilBits) {
+	if (((*b)->stencilBits >= req->stencilBits)
+	    && ((*a)->stencilBits < req->stencilBits)) {
+	    return /* Choose the b config.*/ 1;
+	} else {
+	    /* choose a */
+	    return -1;
+	}
+    }
+
+#define HANDLE_ACCUM(typeBits) do { \
+	if(GLX_DONT_CARE ==  req->typeBits) { \
+	    /* Accept anything. */ \
+	} else if(0 == req->typeBits) { \
+	    PREFER_SMALLER(typeBits); \
+	} else if((*a)->typeBits != (*b)->typeBits) { \
+	    if((*a)->typeBits < req->typeBits) { \
+		PREFER_LARGER(typeBits); \
+	    } else { \
+		PREFER_SMALLER(typeBits); \
+	    } \
+	} \
+    } while(0)
+    
+    /* 
+     * If the accum size requested is 0 then try to find the smallest. 
+     * If accum is > 0 then try to find an accum >= the request.
+     */
+
+    HANDLE_ACCUM(accumRedBits);
+    HANDLE_ACCUM(accumGreenBits);
+    HANDLE_ACCUM(accumBlueBits);
+    HANDLE_ACCUM(accumAlphaBits);
+
+#undef HANDLE_ACCUM
+
+    PREFER_SMALLER( sampleBuffers );
+    PREFER_SMALLER( samples );
+
+    PREFER_LARGER( maxPbufferWidth );
+    PREFER_LARGER( maxPbufferHeight );
+    PREFER_LARGER( maxPbufferPixels );
+
+    PREFER_LARGER( drawableType );
+    PREFER_LARGER( renderType );
+   
+    return 0;
+}
+
+static int
+fbconfig_compare(const void *aptr, const void *bptr) {
+    const __GLcontextModes * const * const a = aptr;
+    const __GLcontextModes * const * const b = bptr;
+
+  /* The order of these comparisons must NOT change.  It is defined by
+     * SGIX_fbconfig, SGIX_pbuffer, and ARB_multisample.
+     */
+
+    //PREFER_SMALLER( visualSelectGroup );
+
+    if(GLX_NONE == (*a)->visualRating && GLX_NONE == (*b)->visualRating) {
+	/* They are a good match -- continue. */
+    } else if(GLX_SLOW_VISUAL_EXT == (*a)->visualRating
+	      && GLX_SLOW_VISUAL_EXT == (*b)->visualRating) {
+	/* They are the same -- slow. */
+    } else if((*b)->visualRating != GLX_SLOW_VISUAL_EXT) {
+	/* Choose b, because it should be faster. */
+	return 1;
+    } else if((*a)->visualRating != GLX_SLOW_VISUAL_EXT) {
+	/* Choose a, because it should be faster. */
+	return -1;
+    }
 
     PREFER_SMALLER( rgbBits );
+
+#ifdef DEBUG
+    printf("req->doubleBufferMode %d\n", req->doubleBufferMode);
+#endif
 
     if ( ((*a)->doubleBufferMode != (*b)->doubleBufferMode) ) {
 	/* Prefer single-buffer.
@@ -1158,7 +1394,7 @@ fbconfig_compare( const __GLcontextModes * const * const a,
 
     PREFER_LARGER( drawableType );
     PREFER_LARGER( renderType );
-
+   
     return 0;
 }
 
@@ -1243,25 +1479,57 @@ XVisualInfo *GLX_PREFIX(glXChooseVisual)(Display *dpy, int screen, int *attribLi
     XVisualInfo *visualList;
     __GLXdisplayPrivate *priv;
     __GLXscreenConfigs *psc;
-    __GLcontextModes  test_config;
+    __GLcontextModes test_config;
     const __GLcontextModes *best_config = NULL;
     int i;
-
+ 
     /*
     ** Get a list of all visuals, return if list is empty
     */
     if ( GetGLXPrivScreenConfig( dpy, screen, & priv, & psc ) != Success ) {
-	return None;
+	return NULL;
     }
-   
 
+#if 0
+    i = 0;
+    do {
+	switch(attribList[i++]) {
+	case GLX_RGBA:
+	    break;
+	case GLX_RED_SIZE:
+	    printf("R bits %d\n", attribList[i]);
+	    ++i;
+	    break;
+	case GLX_GREEN_SIZE:
+	    printf("G bits %d\n", attribList[i]);
+	    ++i;
+	    break;
+	case GLX_BLUE_SIZE:
+	    printf("B bits %d\n", attribList[i]);
+	    ++i;
+	    break;
+	case GLX_ALPHA_SIZE:
+	    printf("alpha bits %d\n", attribList[i]);
+	    ++i;
+	    break;
+	default:
+	    ++i;
+	}
+    } while(attribList[i] != None);
+#endif
+ 
     /*
     ** Build a template from the defaults and the attribute list
     ** Free visual list and return if an unexpected token is encountered
     */
-    __glXInitializeVisualConfigFromTags( & test_config, 512, 
+    __glXInitializeVisualConfigFromTags(&test_config, 512,
 					 (const INT32 *) attribList,
-					 GL_TRUE, GL_FALSE );
+					 /*tagged only*/ GL_TRUE,
+					 /*fbconfig style tags*/ GL_FALSE);
+
+#ifdef DEBUG
+    printf("test_config.doubleBufferMode %d\n", test_config.doubleBufferMode);
+#endif
 
     /*
     ** Eliminate visuals that don't meet minimum requirements
@@ -1269,18 +1537,47 @@ XVisualInfo *GLX_PREFIX(glXChooseVisual)(Display *dpy, int screen, int *attribLi
     ** Remember which visual, if any, got the highest score
     */
     for (i = 0; i < psc->numConfigs; i++) {
-	if ( fbconfigs_compatible( & test_config, &psc->configs[i] ) ) {
-	    const __GLcontextModes * const temp = &psc->configs[i];
+#ifdef DEBUG
+	printf("%s is test_config compatible with server visualID: %x?  ",
+	       __func__, psc->configs[i].visualID);
+#endif
 
-	    if ( (best_config == None)
-		 || (fbconfig_compare( &temp, &best_config ) > 0) ) {
-		best_config = &psc->configs[i];
+	if (fbconfigs_compatible( &test_config, &psc->configs[i] ) ) {
+#ifdef DEBUG
+	    puts("yes.");
+#endif
+	    const __GLcontextModes * const temp = &psc->configs[i];
+	    
+	    if(NULL == best_config) {
+		best_config = temp;
+	    } else {
+#ifdef DEBUG
+		printf("%s temp->visualID %x\n", __func__, temp->visualID);
+#endif
+		int cmp = visual_mode_compare( &temp, &best_config, &test_config);
+	
+#ifdef DEBUG
+		printf("%s cmp %d\n", __func__, cmp);
+#endif
+		if (cmp < 0) {
+#ifdef DEBUG
+		    printf("%s new best_config visualID %x\n", __func__,
+			   psc->configs[i].visualID);
+#endif
+
+		    /* The current best_config is less of a match than temp. */
+		    best_config = &psc->configs[i];
+		}
 	    }
+	} else {
+#ifdef DEBUG
+	    puts("no.");
+#endif
 	}
     }
 
     /*
-    ** If no visual is acceptable, return None
+    ** If no visual is acceptable, return NULL (as per the documentation).
     ** Otherwise, create an XVisualInfo list with just the selected X visual
     **   and return this after freeing the original list
     */
@@ -1288,8 +1585,17 @@ XVisualInfo *GLX_PREFIX(glXChooseVisual)(Display *dpy, int screen, int *attribLi
     if (best_config != NULL) {
 	visualTemplate.screen = screen;
 	visualTemplate.visualid = best_config->visualID;
+	
+#ifdef DEBUG
+	printf("best_config->visualID %x\n", best_config->visualID);
+#endif
+
 	visualList = XGetVisualInfo( dpy, VisualScreenMask|VisualIDMask,
 				     &visualTemplate, &i );
+    }
+
+    if(visualList && getenv("LIBGL_DUMP_VISUAL_ID")) {
+	printf("visualid %lx\n", visualList[0].visualid);
     }
 
     return visualList;

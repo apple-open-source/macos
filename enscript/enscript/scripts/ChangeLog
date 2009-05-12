@@ -1,3 +1,8 @@
+1999-09-13  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* sliceprint.in: Added option `--extended-return-values' since it
+	is not needed to get the extended return values.
+
 1998-05-18  Markku Rossi  <mtr@ngs.fi>
 
 	* diffpp.in: Updated.  Thanks to Tait Cyrus <tait.cyrus@mci.com>

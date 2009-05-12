@@ -3,7 +3,7 @@
  *  dtrace
  *
  *  Created by luser on 3/9/07.
- *  Copyright 2007 Apple Inc. All rights reserved.
+ *  Copyright 2007 __MyCompanyName__. All rights reserved.
  *
  */
 #include <mach/mach.h>

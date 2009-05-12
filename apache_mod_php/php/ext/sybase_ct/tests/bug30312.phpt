@@ -6,7 +6,7 @@ Sybase-CT bug #30312 (sybase_unbuffered_query calls)
 <?php
 /* This file is part of PHP test framework for ext/sybase_ct
  *
- * $Id: bug30312.phpt,v 1.1.4.1 2007/03/14 11:46:06 thekid Exp $
+ * $Id: bug30312.phpt,v 1.1.4.2 2008/11/08 14:24:38 thekid Exp $
  */
 
   require('test.inc');
@@ -14,14 +14,14 @@ Sybase-CT bug #30312 (sybase_unbuffered_query calls)
 
   $db= sybase_connect_ex();
 
-  $query= sybase_unbuffered_query('select getdate()');
+  $query= sybase_unbuffered_query('select datepart(yy, getdate())');
   $array= sybase_fetch_array($query);
   var_dump($array[0]);
 
-  $query= sybase_unbuffered_query('select getdate()');
+  $query= sybase_unbuffered_query('select datepart(yy, getdate())');
   $array= sybase_fetch_array($query);
   var_dump($array[0]);
 ?>
 --EXPECTF--
-string(%d) "%s %d %d %d:%d%s"
-string(%d) "%s %d %d %d:%d%s"
+int(%d)
+int(%d)

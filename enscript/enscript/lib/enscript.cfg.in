@@ -29,7 +29,7 @@
 AcceptCompositeCharacters: 0
 
 # Lookup path for the AFM files.
-AFMPath: @DATADIR@/enscript:/usr/local/lib/ps:/usr/lib/ps
+AFMPath: @DATADIR@/enscript/afm:/usr/local/lib/ps:/usr/lib/ps
 
 # Append ^D character to the end of the output.  Some printers like HP
 # LaserJet 5 require this but the default is `false'.
@@ -90,7 +90,7 @@ Media:	A3		842	1190	24	24	818	1166
 Media:	A4		595	842	24	24	571	818
 Media:	A5		420	595	24	24	396	571
 Media:	Legal		612	1008	24	24	588	984
-Media:  Letter		612	792	24	24	588	768
+Media:  Letter		612	792	38	24	574	768
 
 # HP DeskJet media (DeskJet can't print on the bottom 1/2" of the paper).
 Media:	A4dj		595	842	24	50	571	818
@@ -132,22 +132,20 @@ QueueParam: -P
 # Printer spooler command name.
 Spooler: @spooler@
 
-# States' color model.  Possible values are:
-#   blackwhite	no colors, just black and white
-#   emacs	similar to emacs' font lock highlighting
-StatesColorModel: blackwhite
+# An absolute path to the states program.
+StatesBinary: @BINDIR@/states
 
-# Configuration file for the States input filter.
-StatesConfigFile: @DATADIR@/enscript/enscript.st
+# Create color outputs with States?
+StatesColor: 0
 
-# States' default highlight level.  Possible values are:
-#   none	no highlighting
-#   light	light highlighting
-#   heavy	give all
-StatesHighlightLevel: heavy
+# The name of the States configuration file.
+StatesConfigFile: @DATADIR@/enscript/hl/enscript.st
 
-# Path for the states program.
-StatesPath: @BINDIR@/states
+# States' default highlight style.
+StatesHighlightStyle: emacs
+
+# Path for the States program.
+# StatesPath: @DATADIR@/enscript/hl
 
 # Pass following statusdict options to the generated output.
 #

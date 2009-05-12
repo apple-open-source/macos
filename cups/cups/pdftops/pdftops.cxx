@@ -4,7 +4,7 @@
 //   PDF to PostScript filter front-end for the Common UNIX Printing
 //   System (CUPS).
 //
-//   Copyright 2007-2008 by Apple Inc.
+//   Copyright 2007-2009 by Apple Inc.
 //   Copyright 1997-2006 by Easy Software Products.
 //
 //   These coded instructions, statements, and computer programs are the
@@ -224,12 +224,10 @@ main(int  argc,				// I - Number of command-line args
 
   globalParams = new GlobalParams(buffer);
 
-  if (fit || globalParams->getPSPaperWidth() > 0)
+  if (fit)
   {
     // Only set paper size and area if we are fitting to the job's
-    // page size or the pdftops.conf file does not contain
-    // "psPaperSize match"...
-
+    // page size...
     fprintf(stderr, "DEBUG: Setting paper dimensions to %dx%d!\n", width,
             length);
 

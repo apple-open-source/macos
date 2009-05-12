@@ -24,10 +24,11 @@
 # Boston, MA 02111-1307, USA.
 #
 
-pkgdata_DATA = ascii.enc asciifise.enc asciidkno.enc hp8.enc ibmpc.enc \
-koi8.enc 88591.enc 88592.enc 88593.enc 88594.enc 88595.enc 88597.enc \
-mac.enc ps.enc pslatin1.enc vms.enc a2ps.hdr edd.hdr emacs.hdr \
-enscript.hdr frame.hdr mp.hdr simple.hdr enscript.pro
+pkgdata_DATA = ascii.enc asciifise.enc asciidkno.enc hp8.enc ibmpc.enc	\
+koi8.enc 88591.enc 88592.enc 88593.enc 88594.enc 88595.enc 88597.enc	\
+88599.enc 885910.enc mac.enc ps.enc pslatin1.enc vms.enc a2ps.hdr	\
+edd.hdr emacs.hdr enscript.hdr enscript-color.hdr frame.hdr mp.hdr	\
+simple.hdr squeeze.hdr enscript.pro
 
 EXTRA_DIST = enscript.cfg.in $(pkgdata_DATA) Makefile-encodings \
 make-encoding.pl

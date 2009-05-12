@@ -2,14 +2,14 @@
 # -*- perl -*-
 #
 # Print documents with long lines.
-# Copyright (c) 1996 Markku Rossi
+# Copyright (c) 1996-1999 Markku Rossi
 #
 # Author: Markku Rossi <mtr@iki.fi>
 #
 
 #
 # This file is part of GNU enscript.
-# 
+#
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 2, or (at your option)
@@ -36,7 +36,7 @@ sub usage {
 }
 
 # Handle arguments.
-$args = "";
+$args = "--extended-return-values";
 $files = "";
 while ($arg = shift(@ARGV)) {
     if ($arg eq "--help") {

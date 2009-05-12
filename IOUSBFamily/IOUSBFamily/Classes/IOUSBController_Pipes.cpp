@@ -707,23 +707,11 @@ IOUSBController::IsocIO(IOMemoryDescriptor *				buffer,
 		return kIOReturnNoResources;
 	}
 
-	//USBLog(1, "%s[%p]::IsocIO preparing memory descriptor (%p)", getName(), this, buffer);
-	// buffer->retain();					// should i do this?
-	// err = buffer->prepare();				// should i do this?
-	if (0) // if (err)
-	{
-		USBLog(3,"%s[%p]::IsocIO err (%p) trying to prepare buffer (%p)", getName(), this, (void*)err, buffer);
-		_freeUSBIsocCommandPool->returnCommand(command);
-		buffer->release();
-		return err;
-	}
 	USBLog(7, "%s[%p]::IsocIO - putting buffer (%p) into dmaCommand (%p) which has getMemoryDescriptor (%p)", getName(), this, buffer, command->GetDMACommand(), command->GetDMACommand()->getMemoryDescriptor());
 	err = dmaCommand->setMemoryDescriptor(buffer);								// this automatically calls prepare()
 	if (err)
 	{
 		USBLog(1, "%s[%p]::IsocIO - dmaCommand[%p]->setMemoryDescriptor(%p) failed with status (%p)", getName(), this, command->GetDMACommand(), buffer, (void*)err);
-		// buffer->complete();				// should i do this?
-		//buffer->release();				// should i do this?
 		_freeUSBIsocCommandPool->returnCommand(command);
 		return err;
 	}
@@ -762,6 +750,22 @@ IOUSBController::IsocIO(IOMemoryDescriptor *				buffer,
 	command->SetLowLatency(false);
 
 	err = _commandGate->runAction(DoIsocTransfer, command);
+
+	// If we have a sync request, then we always return the command after the DoIsocTransfer.  If it's an async request, we only return it if 
+	// we get an immediate error
+	//
+	if ( syncTransfer || (kIOReturnSuccess != err) )
+	{
+		IODMACommand		*dmaCommand = command->GetDMACommand();
+		IOMemoryDescriptor	*memDesc = dmaCommand ? (IOMemoryDescriptor *)dmaCommand->getMemoryDescriptor() : NULL;
+		
+		if (memDesc)
+		{
+			USBLog(7, "%s[%p]::IsocIO - sync xfer or err return - clearing memory descriptor (%p) from dmaCommand (%p)", getName(), this, memDesc, dmaCommand);
+			dmaCommand->clearMemoryDescriptor();
+		}
+		_freeUSBIsocCommandPool->returnCommand(command);
+	}
 
     return err;
 }
@@ -838,23 +842,11 @@ IOUSBController::IsocIO(IOMemoryDescriptor *			buffer,
 		return kIOReturnNoResources;
 	}
 	
-	//USBLog(1, "%s[%p]::IsocIO(LL) preparing memory descriptor (%p)", getName(), this, buffer);
-	// buffer->retain();						// should i do this?
-	// err = buffer->prepare();					// should i do this?
-	if (0) // if (err)
-	{
-		USBLog(3,"%s[%p]::IsocIO(LL) err (%p) trying to prepare buffer (%p)", getName(), this, (void*)err, buffer);
-		_freeUSBIsocCommandPool->returnCommand(command);
-		buffer->release();
-		return err;
-	}
 	USBLog(7, "%s[%p]::IsocIO(LL) - putting buffer %p into dmaCommand %p which has getMemoryDescriptor %p", getName(), this, buffer, command->GetDMACommand(), command->GetDMACommand()->getMemoryDescriptor());
 	err = dmaCommand->setMemoryDescriptor(buffer);								// this automatically calls prepare()
 	if (err)
 	{
 		USBLog(1, "%s[%p]::IsocIO(LL) - dmaCommand[%p]->setMemoryDescriptor(%p) failed with status (%p)", getName(), this, command->GetDMACommand(), buffer, (void*)err);
-		// buffer->complete();					// should i do this?
-		// buffer->release();					// should i do this?
 		_freeUSBIsocCommandPool->returnCommand(command);
 		return err;
 	}
@@ -895,6 +887,22 @@ IOUSBController::IsocIO(IOMemoryDescriptor *			buffer,
 
 	err = _commandGate->runAction(DoIsocTransfer, command);
 	
+	// If we have a sync request, then we always return the command after the DoIsocTransfer.  If it's an async request, we only return it if 
+	// we get an immediate error
+	//
+	if ( syncTransfer || (kIOReturnSuccess != err) )
+	{
+		IODMACommand		*dmaCommand = command->GetDMACommand();
+		IOMemoryDescriptor	*memDesc = dmaCommand ? (IOMemoryDescriptor	*)dmaCommand->getMemoryDescriptor() : NULL;
+		
+		if (memDesc)
+		{
+			USBLog(7, "%s[%p]::IsocIO(LL) - sync xfer or err return - clearing memory descriptor (%p) from dmaCommand (%p)", getName(), this, memDesc, dmaCommand);
+			dmaCommand->clearMemoryDescriptor();
+		}
+		_freeUSBIsocCommandPool->returnCommand(command);
+	}
+
     return err;
 }
 

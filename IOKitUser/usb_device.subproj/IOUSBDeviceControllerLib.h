@@ -225,6 +225,10 @@ CF_EXPORT
 void IOUSBDeviceDescriptionRemoveAllConfigurations(IOUSBDeviceDescriptionRef devDesc)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
+CF_EXPORT
+io_service_t IOUSBDeviceControllerGetService(IOUSBDeviceControllerRef controller);
+AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
 __END_DECLS
 
 #endif

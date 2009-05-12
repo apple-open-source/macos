@@ -49,7 +49,7 @@ public:
 public:
 	// new item constructor
     UnlockReferralItem();
-    virtual ~UnlockReferralItem() throw();
+    virtual ~UnlockReferralItem();
 
 protected:
 	virtual PrimaryKey add(Keychain &keychain);

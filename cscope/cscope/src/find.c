@@ -673,7 +673,7 @@ findinit(char *pattern)
 		/* must be an exact match */
 		/* note: regcomp doesn't recognize ^*keypad$ as a syntax error
 		         unless it is given as a single arg */
-		(void) sprintf(buf, "^%s$", s);
+		(void) snprintf(buf, sizeof(buf), "^%s$", s);
 		if (regcomp (&regexp, buf, REG_EXTENDED | REG_NOSUB) != 0) {
 			return(REGCMPERROR);
 		}

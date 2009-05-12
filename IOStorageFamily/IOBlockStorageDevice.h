@@ -446,9 +446,19 @@ public:
 
     OSMetaClassDeclareReservedUsed(IOBlockStorageDevice, 3); /* 10.5.0 */
 
-    OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  4);
+    /*!
+     * @function requestIdle
+     * @abstract
+     * Request that the device enter an idle state.
+     * @discussion
+     * Request that the device enter an idle state.  The device will exit this state on the
+     * next read or write request, or as it sees necessary.  One example is for a DVD drive
+     * to spin down when it enters such an idle state, and spin up on the next read request
+     * from the system.
+     */
+    virtual IOReturn	requestIdle(void);
 
-public:
+    OSMetaClassDeclareReservedUsed(IOBlockStorageDevice, 4); /* 10.6.0 */
 
     /*!
      * @function doDiscard

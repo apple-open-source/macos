@@ -89,9 +89,9 @@ bool IOFireWireIPUnit::start(IOService *provider)
 													serviceMatching("IOFWIPBusInterface"), 
 													&busInterfaceTerminate, this, (void*)fFWBusInterface, 0);
 
-    registerService();
-
 	fStarted = true;
+
+    registerService();
 	
     return true;
 }

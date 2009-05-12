@@ -116,6 +116,8 @@
 #define APU_HAVE_ORACLE         0
 #define APU_HAVE_FREETDS        0
 #endif
+/* Windows always has ODBC */
+#define APU_HAVE_ODBC           1
 
 #define APU_HAVE_APR_ICONV      1
 #define APU_HAVE_ICONV          0

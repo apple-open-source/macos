@@ -1,0 +1,181 @@
+#
+#
+#  Copyright (C) 2000,2003,2004,2006 Silicon Graphics, Inc.  All Rights Reserved.
+#
+#  This program is free software; you can redistribute it and/or modify it
+#  under the terms of version 2.1 of the GNU Lesser General Public License 
+#  as published by the Free Software Foundation.
+#
+#  This program is distributed in the hope that it would be useful, but
+#  WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+#
+#  Further, this software is distributed without any warranty that it is
+#  free of the rightful claim of any third person regarding infringement 
+#  or the like.  Any license provided herein, whether implied or 
+#  otherwise, applies only to this software file.  Patent licenses, if
+#  any, provided herein do not apply to combinations of this program with 
+#  other software, or any other product whatsoever.  
+#
+#  You should have received a copy of the GNU Lesser General Public 
+#  License along with this program; if not, write the Free Software 
+#  Foundation, Inc., 59 Temple Place - Suite 330, Boston MA 02111-1307, 
+#  USA.
+#
+#  Contact information:  Silicon Graphics, Inc., 1500 Crittenden Lane,
+#  Mountain View, CA 94043, or:
+#
+#  http://www.sgi.com
+#
+#  For further information regarding this notice, see:
+#
+#  http://oss.sgi.com/projects/GenInfo/NoticeExplan
+#
+#
+
+#
+#  Makefile for libdwarf
+#  This is made very simple so it should work with
+#  any 'make'.
+#
+
+srcdir =	@srcdir@
+VPATH =		@srcdir@
+
+prefix =	@prefix@
+exec_prefix =	@exec_prefix@
+bindir =	$(exec_prefix)/bin
+libdir =	$(exec_prefix)/lib
+
+INSTALL =	@INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_DATA =	@INSTALL_DATA@
+SHELL =		/bin/sh
+CC =		@CC@
+AR =		@AR@
+#ARFLAGS =	@ARFLAGS@
+RM =		rm
+RANLIB =	@RANLIB@
+DEFS =		@DEFS@
+LIBS =		@LIBS@
+INCLUDES =	-I. -I$(srcdir)
+CFLAGS =	@CFLAGS@ $(INCLUDES)
+# For more checking add -DWANT_LIBBDWARF_MALLOC_CHECK=1 to CFLAGS
+LDFLAGS =	@LDFLAGS@
+
+
+BUILD_BASE = .
+
+OBJS= dwarf_abbrev.o \
+        dwarf_alloc.o \
+        dwarf_arange.o \
+        dwarf_die_deliv.o \
+        dwarf_error.o \
+        dwarf_form.o \
+        dwarf_frame.o \
+        dwarf_frame2.o \
+        dwarf_frame3.o \
+        dwarf_funcs.o \
+        dwarf_global.o \
+        dwarf_init_finish.o  \
+        dwarf_line.o \
+        dwarf_line2.o \
+        dwarf_loc.o \
+        dwarf_query.o \
+        dwarf_string.o \
+        dwarf_stubs.o \
+        dwarf_pubtypes.o \
+        dwarf_types.o \
+        dwarf_util.o \
+        dwarf_leb.o \
+        dwarf_vars.o \
+        dwarf_weaks.o    \
+        dwarf_addr_finder.o \
+	dwarf_sort_line.o \
+	dwarf_print_lines.o \
+	dwarf_macro.o \
+	malloc_check.o \
+        pro_alloc.o \
+        pro_arange.o \
+        pro_die.o \
+	pro_encode_nm.o \
+        pro_error.o \
+        pro_expr.o \
+        pro_finish.o \
+        pro_forms.o \
+        pro_funcs.o \
+        pro_frame.o \
+        pro_init.o \
+        pro_line.o \
+        pro_reloc.o \
+        pro_reloc_stream.o \
+        pro_reloc_symbolic.o \
+        pro_pubnames.o \
+        pro_section.o \
+        pro_types.o \
+        pro_vars.o \
+	pro_macinfo.o \
+        pro_weaks.o
+        
+
+all: @build_shared@ @build_nonshared@
+
+libdwarf.a:	$(OBJS)
+	$(AR) $(ARFLAGS) $@ $(OBJS) 
+
+libdwarf.so:	$(OBJS)
+	$(CC) $(CFLAGS) -shared $(OBJS) -o $@
+
+none:
+	echo "do nothing"
+
+#
+# The following are very SGI-centric
+# psroff is just a troff formatter.
+# the .mm files are in ATT/USL/USG mm form.
+#
+
+psbld:		libdwarf2.1.ps libdwarf2p.1.ps dwarf.v2.ps index.v2.ps mips_extensions.ps
+
+# pr expands tabs to spaces: this avoids problems with tab
+# interpretation
+
+libdwarf2.1.ps:  $(BUILD_BASE)/libdwarf2.1.mm
+		pr -t -e $(BUILD_BASE)/libdwarf2.1.mm \
+		  | tbl | psroff -t -mm >libdwarf2.1.ps
+
+libdwarf2p.1.ps:  $(BUILD_BASE)/libdwarf2p.1.mm
+		pr -t -e  $(BUILD_BASE)/libdwarf2p.1.mm \
+		  | tbl | psroff -t -mm >libdwarf2p.1.ps
+
+# At present, the newIndex is not usable: we have no tools
+# to build a new index page at the moment.
+
+dwarf.v2.ps:	$(BUILD_BASE)/dwarf.v2.mm
+		pic $(BUILD_BASE)/dwarf.v2.mm \
+		  | tbl | psroff -t -mm >dwarf.v2.ps 2> newIndex
+		-cp dwarf.v2.ps $(BUILD_BASE)
+		-cp newIndex $(BUILD_BASE)
+
+# the index is only useful till the document changes: it is
+# not autmatically correct. It was prepared by tools internal
+# to USL/Novell
+
+index.v2.ps:  index.v2.mm
+		pic index.v2.mm | tbl | psroff -t -mm >index.v2.ps
+
+
+mips_extensions.ps: mips_extensions.mm
+		pr -t -e mips_extensions.mm | tbl | \
+                 psroff -t -mm >mips_extensions.ps
+
+clean:
+		rm -f *.o libdwarf.a 
+
+distclean:	clean
+		rm -f config.status config.log config.cache config.h
+
+shar:
+		@echo "shar not set up yet"
+dist:
+		@echo "dist not set up yet"

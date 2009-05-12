@@ -21,7 +21,7 @@ AEP_Version    = 15.6
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = ncurses.patch
+AEP_Patches    = ncurses.patch sprintf.patch
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
     AEP_ExtractOption = j
@@ -35,7 +35,7 @@ ifeq ($(AEP),YES)
 	$(RMDIR) $(SRCROOT)/$(AEP_Project)
 	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(AEP_Project)
 	for patchfile in $(AEP_Patches); do \
-	    cd $(SRCROOT)/$(Project) && patch -lp0 < $(SRCROOT)/patches/$$patchfile; \
+	    (cd $(SRCROOT)/$(Project) && patch -p0 -F0 < $(SRCROOT)/patches/$$patchfile) || exit 1; \
 	done
 endif
 

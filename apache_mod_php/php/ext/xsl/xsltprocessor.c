@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: xsltprocessor.c,v 1.39.2.2.2.13 2008/01/29 21:21:28 sebastian Exp $ */
+/* $Id: xsltprocessor.c,v 1.39.2.2.2.14 2008/05/04 15:15:01 rrichards Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -280,7 +280,9 @@ static void xsl_ext_function_php(xmlXPathParserContextPtr ctxt, int nargs, int t
 				}
 				break;
 			default:
-			ZVAL_STRING(args[i], xmlXPathCastToString(obj), 1);
+				str = xmlXPathCastToString(obj);
+				ZVAL_STRING(args[i], str, 1);
+				xmlFree(str);
 		}
 		xmlXPathFreeObject(obj);
 		fci.params[i] = &args[i];

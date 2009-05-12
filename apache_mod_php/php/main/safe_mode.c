@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: safe_mode.c,v 1.62.2.1.2.15 2007/12/31 07:20:15 sebastian Exp $ */
+/* $Id: safe_mode.c,v 1.62.2.1.2.17 2008/07/24 16:01:59 felipe Exp $ */
 
 #include "php.h"
 
@@ -52,7 +52,6 @@ PHPAPI int php_checkuid_ex(const char *filename, const char *fopen_mode, int mod
 	long uid=0L, gid=0L, duid=0L, dgid=0L;
 	char path[MAXPATHLEN];
 	char *s, filenamecopy[MAXPATHLEN];
-	php_stream_wrapper *wrapper = NULL;
 	TSRMLS_FETCH();
 
 	path[0] = '\0';
@@ -73,14 +72,6 @@ PHPAPI int php_checkuid_ex(const char *filename, const char *fopen_mode, int mod
 			mode = CHECKUID_CHECK_FILE_AND_DIR;
 		}
 	}
-
-	/* 
-	 * If given filepath is a URL, allow - safe mode stuff
-	 * related to URL's is checked in individual functions
-	 */
-	wrapper = php_stream_locate_url_wrapper(filename, NULL, STREAM_LOCATE_WRAPPERS_ONLY TSRMLS_CC);
-	if (wrapper != NULL)
-		return 1;
 		
 	/* First we see if the file is owned by the same user...
 	 * If that fails, passthrough and check directory...

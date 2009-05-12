@@ -1,13 +1,13 @@
-/* 
+/*
  * Non-failing memory allocation routines.
- * Copyright (c) 1995 Markku Rossi.
+ * Copyright (c) 1995-1999 Markku Rossi.
  *
  * Author: Markku Rossi <mtr@iki.fi>
  */
 
 /*
  * This file is part of GNU enscript.
- * 
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2, or (at your option)
@@ -25,17 +25,25 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
 
 #if STDC_HEADERS
+
 #include <stdlib.h>
+#include <string.h>
+
 #else /* no STDC_HEADERS */
 
 #if HAVE_STDLIB_H
 #include <stdlib.h>
+#endif
+
+#if HAVE_STRING_H
+#include <string.h>
 #endif
 
 #endif /* no STDC_HEADERS */
@@ -107,7 +115,7 @@ xrealloc (ptr, size)
 }
 
 
-void 
+void
 xfree (ptr)
      void *ptr;
 {

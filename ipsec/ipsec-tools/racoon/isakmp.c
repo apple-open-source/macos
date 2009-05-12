@@ -764,20 +764,23 @@ ph1_main(iph1, msg)
 			    [iph1->side]
 			    [iph1->status])(iph1, msg);
 	if (error != 0) {
-#if 0
 		/* XXX
 		 * When an invalid packet is received on phase1, it should
 		 * be selected to process this packet.  That is to respond
 		 * with a notify and delete phase 1 handler, OR not to respond
-		 * and keep phase 1 handler.
+		 * and keep phase 1 handler. However, in PHASE1ST_START when
+		 * acting as RESPONDER we must not keep phase 1 handler or else
+		 * it will stay forever.
 		 */
-		plog(LLV_ERROR, LOCATION, iph1->remote,
-			"failed to pre-process packet.\n");
-		return -1;
-#else
-		/* ignore the error and keep phase 1 handler */
-		return 0;
-#endif
+        
+		if (iph1->side == RESPONDER && iph1->status == PHASE1ST_START) {
+			plog(LLV_ERROR, LOCATION, iph1->remote,
+			     "failed to pre-process packet.\n");
+			return -1;
+		} else {
+			/* ignore the error and keep phase 1 handler */
+			return 0;
+		}	
 	}
 
 	/* free resend buffer */

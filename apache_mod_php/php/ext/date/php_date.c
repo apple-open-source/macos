@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_date.c,v 1.43.2.45.2.58 2008/04/16 17:21:46 derick Exp $ */
+/* $Id: php_date.c,v 1.43.2.45.2.62 2008/12/02 18:01:57 derick Exp $ */
 
 #include "php.h"
 #include "php_streams.h"
@@ -269,9 +269,9 @@ struct _php_timezone_obj {
 	int             initialized;
 	int             type;
 	union {
-		timelib_tzinfo *tz; // TIMELIB_ZONETYPE_ID;
-		timelib_sll     utc_offset; // TIMELIB_ZONETYPE_OFFSET
-		struct                      // TIMELIB_ZONETYPE_ABBR
+		timelib_tzinfo *tz; /* TIMELIB_ZONETYPE_ID; */
+		timelib_sll     utc_offset; /* TIMELIB_ZONETYPE_OFFSET */
+		struct                      /* TIMELIB_ZONETYPE_ABBR */
 		{
 			timelib_sll  utc_offset;
 			char        *abbr;
@@ -731,7 +731,7 @@ static char *date_format(char *format, int format_len, timelib_time *t, int loca
 	char                 buffer[33];
 	timelib_time_offset *offset = NULL;
 	timelib_sll          isoweek, isoyear;
-	int                  rfc_colon = 0;
+	int                  rfc_colon;
 
 	if (!format_len) {
 		return estrdup("");
@@ -761,6 +761,7 @@ static char *date_format(char *format, int format_len, timelib_time *t, int loca
 	timelib_isoweek_from_date(t->y, t->m, t->d, &isoweek, &isoyear);
 
 	for (i = 0; i < format_len; i++) {
+		rfc_colon = 0;
 		switch (format[i]) {
 			/* day */
 			case 'd': length = slprintf(buffer, 32, "%02d", (int) t->d); break;
@@ -1146,14 +1147,6 @@ PHP_FUNCTION(strtotime)
 	timelib_update_ts(t, tzi);
 	ts = timelib_date_to_int(t, &error2);
 
-	/* if tz_info is not a copy, avoid double free */
-	if (now->tz_info != tzi && now->tz_info) {
-		timelib_tzinfo_dtor(now->tz_info);
-	}
-	if (t->tz_info != tzi) {
-		timelib_tzinfo_dtor(t->tz_info);
-	}
-
 	timelib_time_dtor(now);
 	timelib_time_dtor(t);
 
@@ -1195,7 +1188,7 @@ PHPAPI void php_mktime(INTERNAL_FUNCTION_PARAMETERS, int gmt)
 		case 6:
 			if (yea >= 0 && yea < 70) {
 				yea += 2000;
-			} else if (yea >= 70 && yea <= 110) {
+			} else if (yea >= 70 && yea <= 100) {
 				yea += 1900;
 			}
 			now->y = yea;
@@ -1560,7 +1553,7 @@ static zend_object_value date_object_clone_date(zval *this_ptr TSRMLS_DC)
 		new_obj->time->tz_abbr = strdup(old_obj->time->tz_abbr);
 	}
 	if (old_obj->time->tz_info) {
-		new_obj->time->tz_info = timelib_tzinfo_clone(old_obj->time->tz_info);
+		new_obj->time->tz_info = old_obj->time->tz_info;
 	}
 	
 	return new_ov;
@@ -1644,9 +1637,6 @@ static void date_object_free_storage_date(void *object TSRMLS_DC)
 	php_date_obj *intern = (php_date_obj *)object;
 
 	if (intern->time) {
-		if (intern->time->tz_info) {
-			timelib_tzinfo_dtor(intern->time->tz_info);
-		}
 		timelib_time_dtor(intern->time);
 	}
 
@@ -1684,14 +1674,11 @@ static int date_initialize(php_date_obj *dateobj, /*const*/ char *time_str, int 
 	timelib_time   *now;
 	timelib_tzinfo *tzi;
 	timelib_error_container *err = NULL;
-	int free_tzi = 0, type = TIMELIB_ZONETYPE_ID, new_dst, errors_found = 0;
+	int type = TIMELIB_ZONETYPE_ID, new_dst, errors_found = 0;
 	char *new_abbr;
 	timelib_sll     new_offset;
 	
 	if (dateobj->time) {
-		if (dateobj->time->tz_info) {
-			timelib_tzinfo_dtor(dateobj->time->tz_info);
-		}
 		timelib_time_dtor(dateobj->time);
 	}
 	dateobj->time = timelib_strtotime(time_str_len ? time_str : "now", time_str_len ? time_str_len : sizeof("now") -1, &err, DATE_TIMEZONEDB);
@@ -1715,8 +1702,7 @@ static int date_initialize(php_date_obj *dateobj, /*const*/ char *time_str, int 
 		tzobj = (php_timezone_obj *) zend_object_store_get_object(timezone_object TSRMLS_CC);
 		switch (tzobj->type) {
 			case TIMELIB_ZONETYPE_ID:
-				tzi = timelib_tzinfo_clone(tzobj->tzi.tz);
-				free_tzi = 1;
+				tzi = tzobj->tzi.tz;
 				break;
 			case TIMELIB_ZONETYPE_OFFSET:
 				new_offset = tzobj->tzi.utc_offset;
@@ -1729,8 +1715,7 @@ static int date_initialize(php_date_obj *dateobj, /*const*/ char *time_str, int 
 		}
 		type = tzobj->type;
 	} else if (dateobj->time->tz_info) {
-		tzi = timelib_tzinfo_clone(dateobj->time->tz_info);
-		free_tzi = 1;
+		tzi = dateobj->time->tz_info;
 	} else {
 		tzi = get_timezone_info(TSRMLS_C);
 	}
@@ -1757,12 +1742,6 @@ static int date_initialize(php_date_obj *dateobj, /*const*/ char *time_str, int 
 
 	dateobj->time->have_weekday_relative = dateobj->time->have_relative = 0;
 
-	if (type == TIMELIB_ZONETYPE_ID && now->tz_info != tzi) {
-		timelib_tzinfo_dtor(now->tz_info);
-	}
-	if (free_tzi) {
-		timelib_tzinfo_dtor(tzi);
-	}
 	timelib_time_dtor(now);
 
 	return 1;
@@ -1941,13 +1920,7 @@ PHP_FUNCTION(date_modify)
 	DATE_CHECK_INITIALIZED(dateobj->time, DateTime);
 
 	tmp_time = timelib_strtotime(modify, modify_len, NULL, DATE_TIMEZONEDB);
-	dateobj->time->relative.y = tmp_time->relative.y;
-	dateobj->time->relative.m = tmp_time->relative.m;
-	dateobj->time->relative.d = tmp_time->relative.d;
-	dateobj->time->relative.h = tmp_time->relative.h;
-	dateobj->time->relative.i = tmp_time->relative.i;
-	dateobj->time->relative.s = tmp_time->relative.s;
-	dateobj->time->relative.weekday = tmp_time->relative.weekday;
+	memcpy(&dateobj->time->relative, &tmp_time->relative, sizeof(struct timelib_rel_time));
 	dateobj->time->have_relative = tmp_time->have_relative;
 	dateobj->time->have_weekday_relative = tmp_time->have_weekday_relative;
 	dateobj->time->sse_uptodate = 0;
@@ -2014,11 +1987,9 @@ PHP_FUNCTION(date_timezone_set)
 	tzobj = (php_timezone_obj *) zend_object_store_get_object(timezone_object TSRMLS_CC);
 	if (tzobj->type != TIMELIB_ZONETYPE_ID) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Can only do this for zones with ID for now");
+		return;
 	}
-	if (dateobj->time->tz_info) {
-		timelib_tzinfo_dtor(dateobj->time->tz_info);
-	}
-	timelib_set_timezone(dateobj->time, timelib_tzinfo_clone(tzobj->tzi.tz));
+	timelib_set_timezone(dateobj->time, tzobj->tzi.tz);
 	timelib_unixtime2local(dateobj->time, dateobj->time->sse);
 }
 /* }}} */

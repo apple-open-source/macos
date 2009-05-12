@@ -80,7 +80,7 @@ protected:
 	static const CSSM_DATA &defaultAttributeValue(const CSSM_DB_ATTRIBUTE_INFO &info);
 
 public:
-    virtual ~ItemImpl() throw();
+    virtual ~ItemImpl(); 
     bool isPersistent() const;
     bool isModified() const;
 

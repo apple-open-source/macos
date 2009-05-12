@@ -1,14 +1,15 @@
 dnl Process this file with autoconf to produce a configure script.
+AC_INIT(enscript, 1.6.4, mtr@iki.fi)
+AC_CONFIG_SRCDIR([src/gsint.h])
 
-AC_PREREQ(2.12)
+AC_PREREQ(2.57)
 
-AC_INIT(src/gsint.h)
-AM_INIT_AUTOMAKE(enscript, 1.6.1)
+AM_INIT_AUTOMAKE
 AM_CONFIG_HEADER(config.h)
 
-AC_REVISION($Revision: 1.1 $)
+AC_REVISION($Revision: 1.1.1.1 $)
 
-AM_PROG_INSTALL
+AC_PROG_INSTALL
 
 AC_ARG_WITH(cc,
 [  --with-cc(=CC)	  use system's native compiler (or compiler CC)],
@@ -36,26 +37,11 @@ AC_FUNC_ALLOCA
 
 AC_STDC_HEADERS
 AC_HAVE_HEADERS(string.h stdlib.h unistd.h stdarg.h math.h pwd.h)
+AC_HAVE_HEADERS(sys/types.h sys/stat.h)
 
 dnl Check some functions.
-AC_CHECK_FUNCS(strchr)
-AC_CHECK_FUNC(strerror, AC_DEFINE(HAVE_STRERROR), [
-  LIBOBJS="$LIBOBJS strerror.o"
-])
-AC_CHECK_FUNC(memmove, AC_DEFINE(HAVE_MEMMOVE), [
-  LIBOBJS="$LIBOBJS memmove.o"
-])
-AC_CHECK_FUNC(memcpy, AC_DEFINE(HAVE_MEMCPY), [
-  LIBOBJS="$LIBOBJS memcpy.o"
-])
-AC_CHECK_FUNC(strtoul, AC_DEFINE(HAVE_STRTOUL), [
-  LIBOBJS="$LIBOBJS strtoul.o"
-])
-
-AC_CHECK_FUNC(getcwd, AC_DEFINE(HAVE_GETCWD), [
-  AC_CHECK_FUNC(getwd, AC_DEFINE(HAVE_GETWD))
-])
-
+AC_CHECK_FUNCS(strchr getcwd)
+AC_REPLACE_FUNCS(strerror memmove memcpy strtoul)
 AC_FUNC_VPRINTF
 
 dnl -lsun is needed on IRIX-4.0 to get the user passwd entry through
@@ -63,7 +49,11 @@ dnl the yellow pages / NIS.
 AC_CHECK_LIB(sun, main)
 
 dnl Find out where the gethostname() is.
-AC_CHECK_FUNC(gethostname, , AC_CHECK_LIB(nsl, main))
+AC_CHECK_FUNC(gethostname, , [
+  AC_CHECK_LIB(nsl, gethostname, LIBS="$LIBS -lnsl", [
+    AC_CHECK_LIB(socket, gethostname)
+  ])
+])
 
 AC_PROG_RANLIB
 AC_PROG_YACC
@@ -125,12 +115,12 @@ AC_ARG_WITH(ps-level,
 AC_SUBST(PSLEVEL)
 
 dnl Internationalization.
-ALL_LINGUAS="de es fi fr nl sl"
+ALL_LINGUAS="de es fi fr nl ru sl"
 AM_GNU_GETTEXT
-AC_LINK_FILES($nls_cv_header_libgt, $nls_cv_header_intl)
 
 dnl Path separator character.
 AC_DEFINE_UNQUOTED(PATH_SEPARATOR, ':')
+AC_DEFINE_UNQUOTED(PATH_SEPARATOR_STR, ":")
 
 dnl
 dnl Scripts
@@ -144,9 +134,22 @@ dnl substitutions
 
 AC_SUBST(CFLAGS)
 AC_SUBST(LDFLAGS)
-AC_SUBST(LIBOBJS)
 
-AC_OUTPUT([Makefile enscript.1 compat/Makefile afm/Makefile afmlib/Makefile src/Makefile lib/Makefile scripts/Makefile intl/Makefile po/Makefile.in states/Makefile states/states.1 states/tests/Makefile tests/Makefile], [sed -e "/POTFILES =/r po/POTFILES" po/Makefile.in >po/Makefile])
+AC_CONFIG_FILES([Makefile  po/Makefile.in m4/Makefile  intl/Makefile po/Makefile \
+	compat/Makefile \
+	afm/Makefile \
+	afmlib/Makefile \
+	src/Makefile \
+	src/tests/Makefile \
+	lib/Makefile \
+	scripts/Makefile \
+	states/Makefile \
+	states/hl/Makefile \
+	states/tests/Makefile \
+	docs/Makefile \
+	w32/Makefile])
+AC_CONFIG_COMMANDS([default],[[ echo timestamp > stamp-h ]], [[]])
+AC_OUTPUT
 
 echo ""
 

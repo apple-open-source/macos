@@ -1,7 +1,7 @@
 %{
 /*
  * Lexer for states.
- * Copyright (c) 1997 Markku Rossi.
+ * Copyright (c) 1997-1998 Markku Rossi.
  *
  * Author: Markku Rossi <mtr@iki.fi>
  */
@@ -26,7 +26,7 @@
  */
 
 /*
- * $Id: lex.l,v 1.1 1999/04/20 23:26:46 wsanchez Exp $
+ * $Id: lex.l,v 1.1.1.1 2003/03/05 07:25:52 mtr Exp $
  */
 
 #include "defs.h"
@@ -106,6 +106,7 @@ symbol	[a-zA-Z_][a-zA-Z_0-9]*|\$.
 "END" 		{ return tEND; }
 "div" 		{ return tDIV; }
 "else" 		{ return tELSE; }
+"extends"	{ return tEXTENDS; }
 "for" 		{ return tFOR; }
 "if" 		{ return tIF; }
 "local"		{ return tLOCAL; }

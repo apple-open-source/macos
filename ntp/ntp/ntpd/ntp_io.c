@@ -1966,6 +1966,7 @@ sendpkt(
 	)
 {
 	int cc, slot;
+	static int last_errno;
 #ifdef SYS_WINNT
 	DWORD err;
 #endif /* SYS_WINNT */
@@ -2134,8 +2135,11 @@ sendpkt(
 				exit(1);
 			}
 
-			netsyslog(LOG_ERR, "sendto(%s) (fd=%d): %m",
-				  stoa(dest), inter->fd);
+ 			if (last_errno != errno) {
+ 				last_errno = errno;
+ 				netsyslog(LOG_ERR, "sendto(%s) (fd=%d): %m",
+ 					  stoa(dest), inter->fd);
+ 			}
 #ifdef __APPLE__
 			switch (errno) { /* interface probably changed address or disconnected */
 			case ENETDOWN:
@@ -2162,6 +2166,7 @@ sendpkt(
 	}
 	else
 	{
+		last_errno = 0;
 		inter->sent++;
 		packets_sent++;
 		/*

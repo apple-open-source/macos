@@ -39,6 +39,8 @@
 #include <Xlibint.h>
 #include <stdio.h>
 
+#include "patch_dispatch.h"
+
 #ifdef __GNUC__
 # define GCC_VERSION (__GNUC__ * 1000 + __GNUC_MINOR__)
 #else
@@ -139,5 +141,7 @@ XAppleDRIGetIndirectContext (void)
     /* then install the functions we actually support */
     INDIRECT_DISPATCH_INIT (((void **) (&ctx->disp)), indirect__);
 
+    __glApplePatchDispatch(ctx);
+    
     return ctx;
 }

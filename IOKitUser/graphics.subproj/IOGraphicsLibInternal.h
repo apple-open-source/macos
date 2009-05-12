@@ -324,6 +324,8 @@ struct IOFBConnect
     IODisplayModeID		defaultMode;
     IOIndex			defaultDepth;
     IODisplayModeID		default4By3Mode;
+    UInt32			defaultMinWidth;
+    UInt32			defaultMinHeight;
     UInt32			ovrFlags;
     UInt32			mirrorDefaultFlags;
     IODisplayVendorID		displayVendor;
@@ -347,6 +349,8 @@ struct IOFBConnect
     Boolean			hasCEAExt;
     Boolean			hasDIEXT;
     Boolean			hasInterlaced;
+    Boolean			hasHDMI;
+    Boolean			hasShortVideoDescriptors;
     Boolean			suppressRefresh;
     Boolean			detailedRefresh;
     Boolean			useScalerUnderscan;

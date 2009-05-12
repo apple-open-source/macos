@@ -15,7 +15,7 @@
   | Author: Georg Richter <georg@php.net>                                |
   +----------------------------------------------------------------------+
 
-  $Id: mysqli_nonapi.c,v 1.54.2.7.2.6 2007/12/31 07:20:08 sebastian Exp $ 
+  $Id: mysqli_nonapi.c,v 1.54.2.7.2.7 2008/10/27 14:36:02 andrey Exp $ 
 */
 
 #ifdef HAVE_CONFIG_H
@@ -56,14 +56,20 @@ PHP_FUNCTION(mysqli_connect)
 	/* TODO: safe mode handling */
 	if (PG(sql_safe_mode)){
 	} else {
+		if (!socket_len || !socket) {
+			socket = MyG(default_socket);
+		}
+		if (!port) {
+			port = MyG(default_port);
+		}
 		if (!passwd) {
 			passwd = MyG(default_pw);
-			if (!username){
-				username = MyG(default_user);
-				if (!hostname) {
-					hostname = MyG(default_host);
-				}
-			}
+		}
+		if (!username){
+			username = MyG(default_user);
+		}
+		if (!hostname) {
+			hostname = MyG(default_host);
 		}
 	}
 

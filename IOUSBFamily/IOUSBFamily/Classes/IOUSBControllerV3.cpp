@@ -733,11 +733,13 @@ IOUSBControllerV3::CheckPowerModeBeforeGatedCall(char *fromStr)
 			// we are not on the thread, but we are about to be. In that case, sleep the running thread until we wake up
 			while ( (_myPowerState != kUSBPowerStateOn) and (retries-- > 0) )
 			{
+#if 0
 				char*		bt[8];
 				
 				OSBacktrace((void**)bt, 8);
 				
 				USBLog(4, "IOUSBControllerV3(%s)[%p]::CheckPowerModeBeforeGatedCall - call (%s) while _myPowerState(%d) _controllerAvailable(%s) _powerStateChangingTo(%d) - sleeping thread, bt:[%p][%p][%p][%p][%p][%p][%p]", getName(), this, fromStr, (int)_myPowerState, _controllerAvailable ? "true" : "false", (int)_powerStateChangingTo, bt[1], bt[2], bt[3], bt[4], bt[5], bt[6], bt[7]);
+#endif
 				IOSleep(10);
 			}
 		}

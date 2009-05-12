@@ -1271,10 +1271,10 @@ again:
 #if defined(__APPLE__)
 	//XXX please don't nuke any of these dt_dprintf's... I need them to track the correctness
 	//XXX of the function calls while I'm breaking the consume routines into collect/analyze 
-	//XXX modules that can be called separately
+	//XXX modules that can be called separately -- epmiller 05/04/07
 	//XXX I'll pull them out once everything is 100%, it's about 95% now
 	
-	// XXX DEBUG PRINT
+	// EPM DEBUG PRINT
 	// dt_dprintf("---0-------> dt_consume_cpu - %d start: %d end: %d\n",cpu, start, end);
 #endif
 	for (offs = start; offs < end; ) {
@@ -1285,7 +1285,7 @@ again:
 		 */
 		id = *(uint32_t *)((uintptr_t)buf->dtbd_data + offs);
 #if defined(__APPLE__)
-		// XXX DEBUG PRINT
+		// EPM DEBUG PRINT
 		// dt_dprintf("---1-------> dt_consume_cpu - %d ID: %d\n",cpu, id);
 #endif
 		if (id == DTRACE_EPIDNONE) {
@@ -1301,7 +1301,7 @@ again:
 		    &data.dtpda_pdesc)) != 0)
 			return (rval);
 #if defined(__APPLE__)
-		// XXX DEBUG PRINT
+		// EPM DEBUG PRINT
 		// dt_dprintf("-----> dt_epid_lookup - %d ID: %d\n",cpu, id);
 #endif
 		epd = data.dtpda_edesc;
@@ -1340,7 +1340,7 @@ again:
 			dtrace_recdesc_t *rec = &epd->dtepd_rec[i];
 			dtrace_actkind_t act = rec->dtrd_action;
 #if defined(__APPLE__)
-			// XXX DEBUG PRINT
+			// EPM DEBUG PRINT
 			// dt_dprintf("----------> dt_consume_cpu - %d ACT: %d\n",cpu, act);
 #endif
 			data.dtpda_data = buf->dtbd_data + offs +
@@ -1648,7 +1648,7 @@ nextepid:
 		offs += epd->dtepd_size;
 		last = id;
 #if defined(__APPLE__)
-		// XXX DEBUG PRINT
+		// EPM DEBUG PRINT
 		// dt_dprintf("---E-------> dt_consume_cpu - %d ID: %d\n",cpu, id);
 #endif
 	}
@@ -1657,7 +1657,7 @@ nextepid:
 		end = buf->dtbd_oldest;
 		start = 0;
 #if defined(__APPLE__)
-		// XXX DEBUG PRINT
+		// EPM DEBUG PRINT
 		// dt_dprintf("---2-------> dt_consume_cpu - %d AGAIN!!\n");
 #endif
 		goto again;
@@ -1672,7 +1672,7 @@ nextepid:
 	buf->dtbd_drops = 0;
         
 #if defined(__APPLE__)
-	// XXX DEBUG PRINT
+	// EPM DEBUG PRINT
 	// dt_dprintf("-XXXXX----> dt_consume_cpu - %d DROPS!!\n",cpu);
 #endif
 	return (dt_handle_cpudrop(dtp, cpu, DTRACEDROP_PRINCIPAL, drops));
@@ -1783,7 +1783,7 @@ dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp, dtrace_bufdesc_t *buf,
 		if (errno == ENOENT)
 			return (0);
 #if defined(__APPLE__)
-		// XXX DEBUG PRINT
+		// EPM DEBUG PRINT
 		// dt_dprintf("1) dt consume begin: buf snap failed... returning\n");
 #endif
 		return (dt_set_errno(dtp, errno));
@@ -1791,7 +1791,7 @@ dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp, dtrace_bufdesc_t *buf,
 
 	if (!dtp->dt_stopped || buf->dtbd_cpu != dtp->dt_endedon) {
 #if defined(__APPLE__)
-		// XXX DEBUG PRINT
+		// EPM DEBUG PRINT
 		// dt_dprintf("]]]] dt_consume_cpu on: %d, simple case\n",cpu);
 #endif
 		/*
@@ -1816,7 +1816,7 @@ dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp, dtrace_bufdesc_t *buf,
 	dtp->dt_errhdlr = dt_consume_begin_error;
 	dtp->dt_errarg = &begin;
 #if defined(__APPLE__)
-	// XXX DEBUG PRINT
+	// EPM DEBUG PRINT
 	// dt_dprintf("]]]] dt_consume_cpu: (begin) : %d\n", cpu);
 #endif
 	rval = dt_consume_cpu(dtp, fp, cpu, buf, dt_consume_begin_probe,
@@ -1852,7 +1852,7 @@ dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp, dtrace_bufdesc_t *buf,
 			if (errno == ENOENT)
 				continue;
 #if defined(__APPLE__)
-			// XXX DEBUG PRINT
+			// EPM DEBUG PRINT
 			// dt_dprintf("2) dt consume begin: buf snap failed... returning\n");
 #endif
 			free(nbuf.dtbd_data);
@@ -1861,7 +1861,7 @@ dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp, dtrace_bufdesc_t *buf,
 		}
 
 #if defined(__APPLE__)
-		// XXX DEBUG PRINT
+		// EPM DEBUG PRINT
 		// dt_dprintf("]]]] dt_consume_cpu: (every other) : %d\n", i);
 #endif
 		if ((rval = dt_consume_cpu(dtp, fp,
@@ -1888,7 +1888,7 @@ dt_consume_begin(dtrace_hdl_t *dtp, FILE *fp, dtrace_bufdesc_t *buf,
 	dtp->dt_errarg = &begin;
 
 #if defined(__APPLE__)
-	// XXX DEBUG PRINT
+	// EPM DEBUG PRINT
 	// dt_dprintf("]]]] dt_consume_cpu: (reconsume first) : %d\n", cpu);
 #endif
 	rval = dt_consume_cpu(dtp, fp, cpu, buf, dt_consume_begin_probe,
@@ -1914,7 +1914,7 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
 	if (dtp->dt_lastswitch != 0) {
 		if (now - dtp->dt_lastswitch < interval) {
 #if defined(__APPLE__)
-			// XXX DEBUG PRINT
+			// EPM DEBUG PRINT
 			// dt_dprintf("rrrrr consume: It's not time to consume yet...%lld < %lld returning\n",now - dtp->dt_lastswitch,interval);
 #endif
 			return (0);
@@ -1926,7 +1926,7 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
 
 	if (!dtp->dt_active) {
 #if defined(__APPLE__)
-		// XXX DEBUG PRINT
+		// EPM DEBUG PRINT
 		// dt_dprintf("act act act dtrace no longer active... returning\n");
 #endif
 		return (dt_set_errno(dtp, EINVAL));
@@ -1948,7 +1948,7 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
 		buf->dtbd_size = size;
 	}
 #if defined(__APPLE__)
-	// XXX DEBUG PRINT
+	// EPM DEBUG PRINT
 	// dt_dprintf("Time: CONSUME: timing...E %lld : I %lld\n",now - dtp->dt_lastswitch, interval);
 #endif
 	/*
@@ -1981,14 +1981,14 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
 			if (errno == ENOENT)
 				continue;
 #if defined(__APPLE__)
-			// XXX DEBUG PRINT
+			// EPM DEBUG PRINT
 			// dt_dprintf("1) consume: buf snap failed... returning\n");
 #endif
 			return (dt_set_errno(dtp, errno));
 		}
 
 #if defined(__APPLE__)
-		// XXX DEBUG PRINT
+		// EPM DEBUG PRINT
 		// dt_dprintf("]]]] calling dt_consume_cpu on %d, in everything else loop\n",i);
 #endif
 		if ((rval = dt_consume_cpu(dtp, fp, i, buf, pf, rf, arg)) != 0)
@@ -2013,14 +2013,14 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
 		if (errno == ENOENT)
 			return (0);
 #if defined(__APPLE__)
-		// XXX DEBUG PRINT
+		// EPM DEBUG PRINT
 		// dt_dprintf("2) consume: buf snap failed... returning\n");
 #endif
 		return (dt_set_errno(dtp, errno));
 	}
 
 #if defined(__APPLE__)
-	// XXX DEBUG PRINT
+	// EPM DEBUG PRINT
 	// dt_dprintf("]]]] calling dt_consume_cpu on %d...ended-on\n",dtp->dt_endedon);
 #endif
 	return (dt_consume_cpu(dtp, fp, dtp->dt_endedon, buf, pf, rf, arg));
@@ -2029,7 +2029,7 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
 #if defined(__APPLE__)
 #pragma mark vvv modified functions. separate collect/analyze phases vvv
 // These functions are not used by dtrace per se. 
-// They are to be used by other tools (...)
+// They are to be used by other tools like Shark and XRay -- epmiller 05/04/07
 // --> dtp->dt_buf is the BEGIN probe data buf
 // cpu_bufs lists the rest of the cpu buffers other than the one BEGIN happened on
 int

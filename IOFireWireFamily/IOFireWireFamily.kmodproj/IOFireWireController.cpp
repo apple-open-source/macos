@@ -93,6 +93,11 @@
 // needs to be at least long enough for the iPod to reboot into disk mode
 #define kWakeDevicePruneDelay		15000
 
+// 30000 mSec delay before pruning devices after wake if any ack busies are seen
+// needs to be at least long enough for the iPod to reboot into disk mode
+// allows some slow HDs to reappear after wake if the Mac's node went away
+#define kWakeDevicePruneDelayBusy	30000
+
 // the maximum amount of time we will allow a device to exist undiscovered
 #define kDeviceMaximuPruneTime		45000
 
@@ -2486,6 +2491,19 @@ void IOFireWireController::readDeviceROM(IOFWNodeScan *scan, IOReturn status)
 			return;
         }
         
+        if( scan->fCmd->getAckCode() == kFWAckBusyX || scan->fCmd->getAckCode() == kFWAckBusyA || scan->fCmd->getAckCode() == kFWAckBusyB )
+        {	
+        	// Newer Macs with only one FW port will turn off the PHY on sleep. Some hard disks go into a low-power sleep mode if they are the only
+        	// node on the bus. Some of these are larger devices which take a long time to spin up once the Mac wakes again. These drives seem to return
+        	// AckBusyX when spinning up. If we see this from any device on the bus and we've just woken up then we need to wait some additional time for
+        	// the drives to spin up or else the user will get an unplug notice.
+        	//
+        	// rdar://problem/6190408
+        	// rdar://problem/6237407
+        	
+			if( fDevicePruneDelay >= kWakeDevicePruneDelay && fDevicePruneDelay < kWakeDevicePruneDelayBusy )
+				fDevicePruneDelay = kWakeDevicePruneDelayBusy;
+        }
         
         if( scan->fIRMCheckingRead || scan->fIRMCheckingLock )
 		{

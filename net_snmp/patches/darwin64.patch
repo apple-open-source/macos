@@ -1,0 +1,37 @@
+diff -Naur net-snmp-5.4.1.orig/agent/mibgroup/hardware/memory/memory_darwin.c net-snmp-5.4.1.working/agent/mibgroup/hardware/memory/memory_darwin.c
+--- net-snmp-5.4.1.orig/agent/mibgroup/hardware/memory/memory_darwin.c  2008-04-04 16:43:29.000000000 -0700
++++ net-snmp-5.4.1.working/agent/mibgroup/hardware/memory/memory_darwin.c	2008-04-09 19:01:36.000000000 -0700
+@@ -75,7 +75,12 @@
+             for (address = 0;; address += size) {
+                 /* Get memory region. */
+                 count = VM_REGION_EXTENDED_INFO_COUNT; 
+-                if (vm_region(tasks[j], &address, &size, VM_REGION_EXTENDED_INFO, (vm_region_extended_info_t)&info, &count, &object_name) != KERN_SUCCESS) {
++                
++#if defined(__ppc64__) || defined(__x86_64__)
++                if (vm_region_64(tasks[j], &address, &size, VM_REGION_EXTENDED_INFO, (vm_region_extended_info_t)&info, &count, &object_name) != KERN_SUCCESS) {
++#else			
++				if (vm_region(tasks[j], &address, &size, VM_REGION_EXTENDED_INFO, (vm_region_extended_info_t)&info, &count, &object_name) != KERN_SUCCESS) {
++#endif                    
+                     /* No more memory regions. */
+                     break;
+                 }
+
+diff -Naur net-snmp-5.4.1.orig/include/net-snmp/types.h net-snmp-5.4.1.working/include/net-snmp/types.h
+--- net-snmp-5.4.1.orig/include/net-snmp/types.h	2008-04-04 16:43:29.000000000 -0700
++++ net-snmp-5.4.1.working/include/net-snmp/types.h	2008-04-04 16:57:08.000000000 -0700
+@@ -64,12 +64,14 @@
+ #endif
+ 
+ #ifndef HAVE_SSIZE_T
++#ifndef _SSIZE_T
+ #if defined(__INT_MAX__) && __INT_MAX__ == 2147483647
+ typedef int ssize_t;
+ #else
+ typedef long ssize_t;
+ #endif
+ #endif
++#endif
+ 
+     /*
+      * Try to ensure we have 32-bit (and hopefully 64-bit)
+

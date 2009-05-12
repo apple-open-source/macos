@@ -226,6 +226,7 @@ _SecPolicyCopy
 _SecPolicyCopyAll
 _SecTrustCopyAnchorCertificates
 _SecTrustCopyCustomAnchorCertificates
+_SecTrustCopyExtendedResult
 _SecTrustCopyPolicies
 _SecTrustCreateWithCertificates
 _SecTrustEvaluate

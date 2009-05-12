@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: ibase_events.c,v 1.8.2.1.2.2 2007/12/31 07:20:07 sebastian Exp $ */
+/* $Id: ibase_events.c,v 1.8.2.1.2.4 2008/10/07 18:23:05 felipe Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -260,7 +260,7 @@ PHP_FUNCTION(ibase_set_event_handler)
 	 * link resource id (int) as arguments. The value returned from the function is
 	 * used to determine if the event handler should remain set.
 	 */
-
+	char *cb_name;
 	zval **args[17], **cb_arg;
 	ibase_db_link *ib_link;
 	ibase_event *event;
@@ -268,8 +268,8 @@ PHP_FUNCTION(ibase_set_event_handler)
 	int link_res_id;
 
 	RESET_ERRMSG;
-
-	/* no more than 15 events */
+	
+	/* Minimum and maximum number of arguments allowed */
 	if (ZEND_NUM_ARGS() < 2 || ZEND_NUM_ARGS() > 17) {
 		WRONG_PARAM_COUNT;
 	}
@@ -280,6 +280,12 @@ PHP_FUNCTION(ibase_set_event_handler)
 
 	/* get a working link */
 	if (Z_TYPE_PP(args[0]) != IS_STRING) {
+		/* resource, callback, event_1 [, ... event_15]
+		 * No more than 15 events
+		 */
+		if (ZEND_NUM_ARGS() < 3 || ZEND_NUM_ARGS() > 17) {
+			WRONG_PARAM_COUNT;
+		}
 
 		cb_arg = args[1];
 		i = 2;
@@ -291,8 +297,10 @@ PHP_FUNCTION(ibase_set_event_handler)
 		link_res_id = Z_LVAL_PP(args[0]);
 
 	} else {
-
-		if (ZEND_NUM_ARGS() > 16) {
+		/* callback, event_1 [, ... event_15] 
+		 * No more than 15 events
+		 */
+		if (ZEND_NUM_ARGS() < 2 || ZEND_NUM_ARGS() > 16) {
 			WRONG_PARAM_COUNT;
 		}
 
@@ -304,11 +312,12 @@ PHP_FUNCTION(ibase_set_event_handler)
 	}
 
 	/* get the callback */
-	if (!zend_is_callable(*cb_arg, 0, NULL)) {
-		_php_ibase_module_error("Callback argument %s is not a callable function"
-			TSRMLS_CC, Z_STRVAL_PP(cb_arg));
+	if (!zend_is_callable(*cb_arg, 0, &cb_name)) {
+		_php_ibase_module_error("Callback argument %s is not a callable function" TSRMLS_CC, cb_name);
+		efree(cb_name);
 		RETURN_FALSE;
 	}
+	efree(cb_name);
 
 	/* allocate the event resource */
 	event = (ibase_event *) safe_emalloc(sizeof(ibase_event), 1, 0);

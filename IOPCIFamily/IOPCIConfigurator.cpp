@@ -22,9 +22,11 @@
 
 #include <IOKit/assert.h>
 #include <IOKit/IODeviceTreeSupport.h>
-#include <IOKit/pci/IOPCIConfigurator.h>
-#include <IOKit/acpi/IOACPIPlatformDevice.h>
 #include <IOKit/pci/IOPCIPrivate.h>
+#include <IOKit/pci/IOPCIConfigurator.h>
+#if ACPI_SUPPORT
+#include <IOKit/acpi/IOACPIPlatformDevice.h>
+#endif
 #include <libkern/sysctl.h>
 
 __BEGIN_DECLS
@@ -368,9 +370,9 @@ OSDictionary * CLASS::constructProperties( pci_dev_t device )
 {
     IOPCIAddressSpace   space = device->space;
     OSDictionary *	propTable;
-    UInt32		value;
-    UInt32		vendor, product, classCode, revID;
-    UInt32		subVendor = 0, subProduct = 0;
+    uint32_t		value;
+    uint32_t		vendor, product, classCode, revID;
+    uint32_t		subVendor = 0, subProduct = 0;
     OSData *		prop;
     const char *	name;
     const OSSymbol *	nameProp;
@@ -470,11 +472,13 @@ OSDictionary * CLASS::constructProperties( pci_dev_t device )
     out = compatBuf;
     if ((subVendor || subProduct)
 	    && ((subVendor != vendor) || (subProduct != product)))
-	out += sprintf(out, "pci%lx,%lx", subVendor, subProduct) + 1;
+	out += snprintf(out, sizeof("pcivvvv,pppp"), "pci%x,%x", subVendor, subProduct) + 1;
+
     if (0 == name)
 	name = out;
-    out += sprintf(out, "pci%lx,%lx", vendor, product) + 1;
-    out += sprintf(out, "pciclass,%06lx", classCode) + 1;
+
+    out += snprintf(out, sizeof("pcivvvv,pppp"), "pci%x,%x", vendor, product) + 1;
+    out += snprintf(out, sizeof("pciclass,cccccc"), "pciclass,%06x", classCode) + 1;
 
     prop = OSData::withBytes( compatBuf, out - compatBuf );
     if (prop)
@@ -501,6 +505,8 @@ OSDictionary * CLASS::constructProperties( pci_dev_t device )
 
 
 //---------------------------------------------------------------------------
+
+#if ACPI_SUPPORT
 
 static IOACPIPlatformDevice * IOPCICopyACPIDevice( IORegistryEntry * device )
 {
@@ -533,11 +539,16 @@ static IOACPIPlatformDevice * IOPCICopyACPIDevice( IORegistryEntry * device )
     return (acpiDevice);
 }
 
+#endif /* ACPI_SUPPORT */
+
 //---------------------------------------------------------------------------
 
 static UInt8 IOPCIIsHotplugPort(IORegistryEntry * bridgeDevice)
 {
     UInt8                  type = kPCIStatic;
+
+#if ACPI_SUPPORT
+
     IOACPIPlatformDevice * rp;
     IOACPIPlatformDevice * child;
     const IORegistryPlane * plane = IORegistryEntry::getPlane("IOACPIPlane");
@@ -569,6 +580,8 @@ static UInt8 IOPCIIsHotplugPort(IORegistryEntry * bridgeDevice)
     }
     if (rp)
 	rp->release();
+
+#endif /* ACPI_SUPPORT */
 
     return (type);
 }
@@ -630,6 +643,8 @@ void CLASS::matchDTEntry( IORegistryEntry * dtEntry, void * _context )
         location->release();
 }
 
+#if ACPI_SUPPORT
+
 void CLASS::matchACPIEntry( IORegistryEntry * dtEntry, void * _context )
 {
     MatchDTEntryContext * context = (MatchDTEntryContext *) _context;
@@ -674,6 +689,8 @@ void CLASS::matchACPIEntry( IORegistryEntry * dtEntry, void * _context )
     }
 }
 
+#endif /* ACPI_SUPPORT */
+
 //---------------------------------------------------------------------------
 
 void CLASS::pciBridgeConnectDeviceTree( pci_dev_t bridge )
@@ -687,6 +704,7 @@ void CLASS::pciBridgeConnectDeviceTree( pci_dev_t bridge )
 	context.bridge = bridge;
         dtBridge->applyToChildren(&matchDTEntry, &context, gIODTPlane);
 
+#if ACPI_SUPPORT
 	if (gIOPCIACPIPlane)
 	{
 	    IORegistryEntry *
@@ -697,6 +715,8 @@ void CLASS::pciBridgeConnectDeviceTree( pci_dev_t bridge )
 		acpiBridgeDevice->release();
 	    }
 	}
+#endif /* ACPI_SUPPORT */
+
     }
     FOREACH_CHILD(bridge, child)
     {
@@ -742,6 +762,7 @@ void CLASS::pciBridgeConstructDeviceTree( pci_dev_t bridge )
 	    {
 		IOService *    nub;
 
+#if ACPI_SUPPORT
 		if (child->acpiDevice)
 		{
 		    OSObject  *    obj;
@@ -754,6 +775,7 @@ void CLASS::pciBridgeConstructDeviceTree( pci_dev_t bridge )
 			obj->release();
 		    }
 		}
+#endif /* ACPI_SUPPORT */
 
 		nub = OSTypeAlloc(IOService);
 		if (nub && 
@@ -766,6 +788,7 @@ void CLASS::pciBridgeConstructDeviceTree( pci_dev_t bridge )
 		if ((sym = OSDynamicCast(OSSymbol, propTable->getObject(gIONameKey))))
 		    child->dtNub->setName(sym);
 
+#if ACPI_SUPPORT
 		if (child->acpiDevice)
 		{
 		    const OSSymbol * sym;
@@ -780,6 +803,7 @@ void CLASS::pciBridgeConstructDeviceTree( pci_dev_t bridge )
 			sym->release();
 		    }
 		}
+#endif /* ACPI_SUPPORT */
 	    }
 	    else
 	    {
@@ -2257,7 +2281,9 @@ bool CLASS::createRoot( IOService * provider )
     bridge->ranges[kIOPCIRangeBridgeBusNumber].flags     = 0;
 
     bridge->dtNub           = fRootBridge->getProvider();
+#if ACPI_SUPPORT
     bridge->acpiDevice      = IOPCICopyACPIDevice(bridge->dtNub);
+#endif
     bridge->isHostBridge    = (!OSDynamicCast(IOPCIDevice, bridge->dtNub));
     bridge->isBridge        = true;
     bridge->supportsHotPlug = IOPCIIsHotplugPort(bridge->dtNub);

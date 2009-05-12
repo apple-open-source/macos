@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: var.c,v 1.203.2.7.2.22 2007/12/31 07:20:13 sebastian Exp $ */
+/* $Id: var.c,v 1.203.2.7.2.23 2008/10/24 10:28:56 felipe Exp $ */
 
 
 
@@ -424,7 +424,7 @@ PHPAPI void php_var_export(zval **struc, int level TSRMLS_DC)
 			php_printf("\n%*c", level - 1, ' ');
 		}
 		PUTS ("array (\n");
-		zend_hash_apply_with_arguments(myht, (apply_func_args_t) php_array_element_export, 1, level, (Z_TYPE_PP(struc) == IS_ARRAY ? 0 : 1));
+		zend_hash_apply_with_arguments(myht, (apply_func_args_t) php_array_element_export, 1, level, 0);
 		if (level > 1) {
 			php_printf("%*c", level - 1, ' ');
 		}

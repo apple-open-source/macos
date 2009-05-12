@@ -1,0 +1,12 @@
+#!/bin/sh
+#
+# Input encodings
+#
+
+. $srcdir/defs || exit 1
+
+for i in ascii asciifise asciidkno ibmpc 88591 88592 88593 88594 88595 88597 mac vms hp8 koi8; do
+  $enscript -G2r --quiet --encoding=$i -p$output $srcdir/../../$i.txt
+done
+
+rm $output

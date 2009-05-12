@@ -19,6 +19,9 @@
 		<string>rdar://2620001 disable driftfile writes when saving energy</string>
 		<string>Update interfaces when network changes</string>
 		<string>Map getaddrinfo EAI_NONAME to EAI_AGAIN</string>
+		<string>Reduce logging of network errors to once per unique errno</string>
+		<string>Fix sprintf overflow in ntpq.c</string>
+		<string>fix for CVE-2009-0021</string>
 	</array>
 	<key>OpenSourceLicenseFile</key>
 	<string>ntp.txt</string>

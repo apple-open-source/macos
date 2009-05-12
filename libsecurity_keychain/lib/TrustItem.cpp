@@ -55,7 +55,7 @@ UserTrustItem::UserTrustItem(Certificate *cert, Policy *policy, const TrustData 
 //
 // Destroy it
 //
-UserTrustItem::~UserTrustItem() throw()
+UserTrustItem::~UserTrustItem()
 {
 	secdebug("usertrust", "%p destroyed", this);
 }

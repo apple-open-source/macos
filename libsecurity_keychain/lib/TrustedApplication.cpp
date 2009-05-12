@@ -94,7 +94,7 @@ TrustedApplication::TrustedApplication(const std::string &path, SecRequirementRe
 }
 
 
-TrustedApplication::~TrustedApplication() throw ()
+TrustedApplication::~TrustedApplication() 
 { /* virtual */ }
 
 

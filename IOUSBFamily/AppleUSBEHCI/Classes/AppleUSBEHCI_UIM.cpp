@@ -135,6 +135,8 @@ AppleUSBEHCI::MakeEmptyEndPoint(
     }
 	
     pED = AllocateQH();
+	if (pED == NULL)
+        return NULL;
     
     USBLog(7, "AppleUSBEHCI[%p]::MakeEmptyEndPoint - new endpoint %p", this, pED);
 	
@@ -1516,13 +1518,6 @@ AppleUSBEHCI::UIMCreateBulkEndpoint(UInt8				functionAddress,
 		speed = kUSBDeviceSpeedHigh;
     else
 		speed = kUSBDeviceSpeedFull;
-	
-    if ((speed == kUSBDeviceSpeedHigh) && (maxPacketSize != 512))
-    {	
-		// This shouldn't happen any more, this has been fixed.
-		USBError(1, "AppleUSBEHCI[%p]::UIMCreateBulkEndpoint: USB 2.0 Spec (5.8.3) converting MPS from %d to 512", this, maxPacketSize);
-        maxPacketSize = 512;
-    }
 	
     pEHCIEndpointDescriptor = AddEmptyCBEndPoint(functionAddress, endpointNumber, maxPacketSize, speed, highSpeedHub, highSpeedPort, direction);
     if (pEHCIEndpointDescriptor == NULL)

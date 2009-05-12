@@ -201,7 +201,7 @@ static const int state_transition_table[30][31] = {
 /*29*/ {29,29,-1,-1,-1,-1,-1,-1, 3,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1}
 };
 
-#define JSON_PARSER_MAX_DEPTH 128
+#define JSON_PARSER_MAX_DEPTH 512
 
 
 /*
@@ -285,7 +285,7 @@ static void json_create_zval(zval **z, smart_str *buf, int type)
     if (type == IS_LONG)
     {
 	double d = zend_strtod(buf->c, NULL);
-	if (d > LONG_MAX || d < -LONG_MAX) {
+	if (d > LONG_MAX || d < LONG_MIN) {
 		ZVAL_DOUBLE(*z, d);
 	} else {
 		ZVAL_LONG(*z, (long)d);

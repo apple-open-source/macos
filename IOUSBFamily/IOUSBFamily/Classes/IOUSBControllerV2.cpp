@@ -1112,7 +1112,7 @@ IOUSBControllerV2::ReturnIsochDoneQueue(IOUSBControllerIsochEndpoint* pEP)
 			{
 				USBLog(1, "IOUSBControllerV2[%p]::ReturnIsocDoneQueue - _activeIsochTransfers went negative (%d).  We lost one somewhere  Bus: %x, Address: %d, Endpoint: %d", this, (uint32_t)_activeIsochTransfers, (uint32_t)_busNumber, pEP->functionAddress,  pEP->endpointNumber);
 			}
-			else if (!_activeIsochTransfers)
+			else if (!_activeIsochTransfers && (_expansionData->_isochMaxBusStall != 0))
 				requireMaxBusStall(0);										// remove maximum stall restraint on the PCI bus
 			
 			// if the accumulated status is aborted, then we need to keep that status until we are done

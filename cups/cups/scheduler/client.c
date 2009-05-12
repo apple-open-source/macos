@@ -3,7 +3,7 @@
  *
  *   Client routines for the Common UNIX Printing System (CUPS) scheduler.
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   This file contains Kerberos support code, copyright 2006 by
@@ -17,28 +17,32 @@
  *
  * Contents:
  *
- *   cupsdAcceptClient()     - Accept a new client.
- *   cupsdCloseAllClients()  - Close all remote clients immediately.
- *   cupsdCloseClient()      - Close a remote client.
- *   cupsdFlushHeader()      - Flush the header fields to the client.
- *   cupsdReadClient()       - Read data from a client.
- *   cupsdSendCommand()      - Send output from a command via HTTP.
- *   cupsdSendError()        - Send an error message via HTTP.
- *   cupsdSendHeader()       - Send an HTTP request.
- *   cupsdUpdateCGI()        - Read status messages from CGI scripts and programs.
- *   cupsdWriteClient()      - Write data to a client as needed.
- *   check_if_modified()     - Decode an "If-Modified-Since" line.
- *   encrypt_client()        - Enable encryption for the client...
- *   get_cdsa_certificate()  - Convert a keychain name into the CFArrayRef
- *			       required by SSLSetCertificate.
- *   get_file()              - Get a filename and state info.
- *   install_conf_file()     - Install a configuration file.
- *   is_cgi()                - Is the resource a CGI script/program?
- *   is_path_absolute()      - Is a path absolute and free of relative elements.
- *   make_certificate()      - Make a self-signed SSL/TLS certificate.
- *   pipe_command()          - Pipe the output of a command to the remote client.
- *   write_file()            - Send a file via HTTP.
- *   write_pipe()            - Flag that data is available on the CGI pipe.
+ *   cupsdAcceptClient()    - Accept a new client.
+ *   cupsdCloseAllClients() - Close all remote clients immediately.
+ *   cupsdCloseClient()     - Close a remote client.
+ *   cupsdFlushHeader()     - Flush the header fields to the client.
+ *   cupsdReadClient()      - Read data from a client.
+ *   cupsdSendCommand()     - Send output from a command via HTTP.
+ *   cupsdSendError()       - Send an error message via HTTP.
+ *   cupsdSendHeader()      - Send an HTTP request.
+ *   cupsdUpdateCGI()       - Read status messages from CGI scripts and
+ *                            programs.
+ *   cupsdWriteClient()     - Write data to a client as needed.
+ *   check_if_modified()    - Decode an "If-Modified-Since" line.
+ *   data_ready()           - Check whether data is available from a client.
+ *   encrypt_client()       - Enable encryption for the client...
+ *   get_cdsa_certificate() - Get a SSL/TLS certificate from the System
+ *                            keychain.
+ *   get_file()             - Get a filename and state info.
+ *   install_conf_file()    - Install a configuration file.
+ *   is_cgi()               - Is the resource a CGI script/program?
+ *   is_path_absolute()     - Is a path absolute and free of relative elements
+ *                            (i.e. "..").
+ *   make_certificate()     - Make a self-signed SSL/TLS certificate.
+ *   pipe_command()         - Pipe the output of a command to the remote client.
+ *   valid_host()           - Is the Host: field valid?
+ *   write_file()           - Send a file via HTTP.
+ *   write_pipe()           - Flag that data is available on the CGI pipe.
  */
 
 /*
@@ -83,6 +87,7 @@ extern const char *cssmErrorString(int error);
 
 static int		check_if_modified(cupsd_client_t *con,
 			                  struct stat *filestats);
+static int		data_ready(cupsd_client_t *con);
 #ifdef HAVE_SSL
 static int		encrypt_client(cupsd_client_t *con);
 #endif /* HAVE_SSL */
@@ -100,6 +105,7 @@ static int		make_certificate(cupsd_client_t *con);
 #endif /* HAVE_SSL */
 static int		pipe_command(cupsd_client_t *con, int infile, int *outfile,
 			             char *command, char *options, int root);
+static int		valid_host(cupsd_client_t *con);
 static int		write_file(cupsd_client_t *con, http_status_t code,
 		        	   char *filename, char *type,
 				   struct stat *filestats);
@@ -259,16 +265,7 @@ cupsdAcceptClient(cupsd_listener_t *lis)/* I - Listener socket */
     * Map accesses from the same host to the server name.
     */
 
-    for (addr = ServerAddrs; addr; addr = addr->next)
-      if (httpAddrEqual(con->http.hostaddr, &(addr->addr)))
-        break;
-
-    if (addr)
-    {
-      strlcpy(con->http.hostname, ServerName, sizeof(con->http.hostname));
-      hostname = con->http.hostname;
-    }
-    else if (HostNameLookups)
+    if (HostNameLookups)
       hostname = httpAddrLookup(con->http.hostaddr, con->http.hostname,
                                 sizeof(con->http.hostname));
     else
@@ -384,14 +381,22 @@ cupsdAcceptClient(cupsd_listener_t *lis)/* I - Listener socket */
 #ifdef AF_INET6
     if (temp.addr.sa_family == AF_INET6)
     {
-      httpAddrLookup(&temp, con->servername, sizeof(con->servername));
+      if (HostNameLookups)
+        httpAddrLookup(&temp, con->servername, sizeof(con->servername));
+      else
+        httpAddrString(&temp, con->servername, sizeof(con->servername));
+
       con->serverport = ntohs(lis->address.ipv6.sin6_port);
     }
     else
 #endif /* AF_INET6 */
     if (temp.addr.sa_family == AF_INET)
     {
-      httpAddrLookup(&temp, con->servername, sizeof(con->servername));
+      if (HostNameLookups)
+        httpAddrLookup(&temp, con->servername, sizeof(con->servername));
+      else
+        httpAddrString(&temp, con->servername, sizeof(con->servername));
+
       con->serverport = ntohs(lis->address.ipv4.sin_port);
     }
     else
@@ -896,7 +901,7 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 
         if (strcmp(con->uri, "*"))
 	{
-	  char	method[HTTP_MAX_URI],	/* Method/scheme */
+	  char	scheme[HTTP_MAX_URI],	/* Method/scheme */
 		userpass[HTTP_MAX_URI],	/* Username:password */
 		hostname[HTTP_MAX_URI],	/* Hostname */
 		resource[HTTP_MAX_URI];	/* Resource path */
@@ -908,7 +913,7 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 	  */
 
           httpSeparateURI(HTTP_URI_CODING_MOST, con->uri,
-	                  method, sizeof(method),
+	                  scheme, sizeof(scheme),
 	                  userpass, sizeof(userpass),
 			  hostname, sizeof(hostname), &port,
 			  resource, sizeof(resource));
@@ -918,10 +923,10 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 	  * address...
 	  */
 
-	  if (strcmp(method, "file") &&
+	  if (strcmp(scheme, "file") &&
 	      strcasecmp(hostname, ServerName) &&
 	      strcasecmp(hostname, "localhost") &&
-	      !isdigit(hostname[0]))
+	      !isdigit(hostname[0]) && hostname[0] != '[')
 	  {
 	   /*
 	    * Nope, we don't do proxies...
@@ -989,8 +994,7 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 	*/
 
         while ((status = httpUpdate(HTTP(con))) == HTTP_CONTINUE)
-	  if (con->http.used == 0 ||
-	      !memchr(con->http.buffer, '\n', con->http.used))
+	  if (!data_ready(con))
 	    break;
 
 	if (status != HTTP_OK && status != HTTP_CONTINUE)
@@ -1002,6 +1006,15 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 	break;
 
     default :
+        if (!data_ready(con) && recv(con->http.fd, buf, 1, MSG_PEEK) < 1)
+	{
+	 /*
+	  * Connection closed...
+	  */
+
+          cupsdCloseClient(con);
+	  return;
+	}
         break; /* Anti-compiler-warning-code */
   }
 
@@ -1052,9 +1065,11 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 
     cupsdAuthorize(con);
 
-    if (!strncmp(con->http.fields[HTTP_FIELD_CONNECTION], "Keep-Alive", 10) &&
+    if (!strncasecmp(con->http.fields[HTTP_FIELD_CONNECTION], "Keep-Alive", 10) &&
         KeepAlive)
       con->http.keep_alive = HTTP_KEEPALIVE_ON;
+    else if (!strncasecmp(con->http.fields[HTTP_FIELD_CONNECTION], "close", 5))
+      con->http.keep_alive = HTTP_KEEPALIVE_OFF;
 
     if (!con->http.fields[HTTP_FIELD_HOST][0] &&
         con->http.version >= HTTP_1_1)
@@ -1062,6 +1077,23 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
      /*
       * HTTP/1.1 and higher require the "Host:" field...
       */
+
+      if (!cupsdSendError(con, HTTP_BAD_REQUEST, CUPSD_AUTH_NONE))
+      {
+	cupsdCloseClient(con);
+	return;
+      }
+    }
+    else if (!valid_host(con))
+    {
+     /*
+      * Access to localhost must use "localhost" or the corresponding IPv4
+      * or IPv6 values in the Host: field.
+      */
+
+      cupsdLogMessage(CUPSD_LOG_WARN,
+                      "Request from \"%s\" using invalid Host: field \"%s\"",
+		      con->http.hostname, con->http.fields[HTTP_FIELD_HOST]);
 
       if (!cupsdSendError(con, HTTP_BAD_REQUEST, CUPSD_AUTH_NONE))
       {
@@ -1144,6 +1176,9 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
      /*
       * Protect against malicious users!
       */
+
+      cupsdLogMessage(CUPSD_LOG_ERROR,
+                      "Request for non-absolute resource \"%s\"!", con->uri);
 
       if (!cupsdSendError(con, HTTP_FORBIDDEN, CUPSD_AUTH_NONE))
       {
@@ -1349,9 +1384,12 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 		       strlen(con->uri) == 11)))
 	    {
 	     /*
-	      * GET can only be done to configuration files under
+	      * GET can only be done to configuration files directly under
 	      * /admin/conf...
 	      */
+
+	      cupsdLogMessage(CUPSD_LOG_ERROR,
+			      "Request for subdirectory \"%s\"!", con->uri);
 
 	      if (!cupsdSendError(con, HTTP_FORBIDDEN, CUPSD_AUTH_NONE))
 	      {
@@ -1597,6 +1635,9 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 	      * /admin/conf...
 	      */
 
+	      cupsdLogMessage(CUPSD_LOG_ERROR,
+			      "Request for subdirectory \"%s\"!", con->uri);
+
 	      if (!cupsdSendError(con, HTTP_FORBIDDEN, CUPSD_AUTH_NONE))
 	      {
 		cupsdCloseClient(con);
@@ -1751,6 +1792,9 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 	      * /admin/conf...
 	      */
 
+	      cupsdLogMessage(CUPSD_LOG_ERROR,
+			      "Request for subdirectory \"%s\"!", con->uri);
+
 	      if (!cupsdSendError(con, HTTP_FORBIDDEN, CUPSD_AUTH_NONE))
 	      {
 		cupsdCloseClient(con);
@@ -1889,7 +1933,7 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 	    }
 	  }
         }
-	while (con->http.state == HTTP_PUT_RECV && con->http.used > 0);
+	while (con->http.state == HTTP_PUT_RECV && data_ready(con));
 
         if (con->http.state == HTTP_WAITING)
 	{
@@ -2064,7 +2108,7 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 	    }
 	  }
         }
-	while (con->http.state == HTTP_POST_RECV && con->http.used > 0);
+	while (con->http.state == HTTP_POST_RECV && data_ready(con));
 
 	if (con->http.state == HTTP_POST_SEND)
 	{
@@ -2416,7 +2460,7 @@ cupsdSendHeader(
       return (0);
   }
   if (code == HTTP_METHOD_NOT_ALLOWED)
-    if (httpPrintf(HTTP(con), "Allow: GET, HEAD, OPTIONS, POST\r\n") < 0)
+    if (httpPrintf(HTTP(con), "Allow: GET, HEAD, OPTIONS, POST, PUT\r\n") < 0)
       return (0);
 
   if (code == HTTP_UNAUTHORIZED)
@@ -2660,6 +2704,7 @@ cupsdWriteClient(cupsd_client_t *con)	/* I - Client connection */
       buf[bytes] = '\0';
 
       for (bufptr = buf; !con->got_fields && *bufptr; bufptr ++)
+      {
         if (*bufptr == '\n')
 	{
 	 /*
@@ -2670,7 +2715,7 @@ cupsdWriteClient(cupsd_client_t *con)	/* I - Client connection */
 	    bufptr[-1] = '\0';
 	  *bufptr++ = '\0';
 
-          cupsdLogMessage(CUPSD_LOG_DEBUG2, "Script header: %s", buf);
+          cupsdLogMessage(CUPSD_LOG_DEBUG, "Script header: %s", buf);
 
           if (!con->sent_header)
 	  {
@@ -2715,7 +2760,12 @@ cupsdWriteClient(cupsd_client_t *con)	/* I - Client connection */
 	  */
 
 	  bytes -= (bufptr - buf);
-	  memmove(buf, bufptr, bytes + 1);
+
+	  if (bytes > 0)
+	    memmove(buf, bufptr, bytes + 1);
+	  else
+	    buf[0] = '\0';
+
 	  bufptr = buf - 1;
 
          /*
@@ -2740,6 +2790,7 @@ cupsdWriteClient(cupsd_client_t *con)	/* I - Client connection */
 	}
 	else if (*bufptr != '\r')
 	  con->field_col ++;
+      }
 
       cupsdLogMessage(CUPSD_LOG_DEBUG2,
                       "cupsdWriteClient: %d bytes=%d, got_fields=%d",
@@ -2911,6 +2962,38 @@ check_if_modified(
   return ((size != filestats->st_size && size != 0) ||
           (date < filestats->st_mtime && date != 0) ||
 	  (size == 0 && date == 0));
+}
+
+
+/*
+ * 'data_ready()' - Check whether data is available from a client.
+ */
+
+static int				/* O - 1 if data is ready, 0 otherwise */
+data_ready(cupsd_client_t *con)		/* I - Client */
+{
+  if (con->http.used > 0)
+    return (1);
+#ifdef HAVE_SSL
+  else if (con->http.tls)
+  {
+#  ifdef HAVE_LIBSSL
+    if (SSL_pending((SSL *)(con->http.tls)))
+      return (1);
+#  elif defined(HAVE_GNUTLS)
+    if (gnutls_record_check_pending(((http_tls_t *)(con->http.tls))->session))
+      return (1);
+#  elif defined(HAVE_CDSASSL)
+    size_t bytes;			/* Bytes that are available */
+
+    if (!SSLGetBufferedReadSize(((http_tls_t *)(con->http.tls))->session,
+                                &bytes) && bytes > 0)
+      return (1);
+#  endif /* HAVE_LIBSSL */
+  }
+#endif /* HAVE_SSL */
+
+  return (0);
 }
 
 
@@ -4760,6 +4843,127 @@ pipe_command(cupsd_client_t *con,	/* I - Client connection */
   }
 
   return (pid);
+}
+
+
+/*
+ * 'valid_host()' - Is the Host: field valid?
+ */
+
+static int				/* O - 1 if valid, 0 if not */
+valid_host(cupsd_client_t *con)		/* I - Client connection */
+{
+  cupsd_alias_t	*a;			/* Current alias */
+  cupsd_netif_t	*netif;			/* Current network interface */
+  const char	*host,			/* Host field */
+		*end;			/* End character */
+
+
+  host = con->http.fields[HTTP_FIELD_HOST];
+
+  if (httpAddrLocalhost(con->http.hostaddr))
+  {
+   /*
+    * Only allow "localhost" or the equivalent IPv4 or IPv6 numerical
+    * addresses when accessing CUPS via the loopback interface...
+    */
+
+    return (!strcasecmp(host, "localhost") ||
+            !strncasecmp(host, "localhost:", 10) ||
+	    !strcasecmp(host, "localhost.") ||
+            !strncasecmp(host, "localhost.:", 11) ||
+            !strcmp(host, "127.0.0.1") ||
+	    !strncmp(host, "127.0.0.1:", 10) ||
+	    !strcmp(host, "[::1]") ||
+	    !strncmp(host, "[::1]:", 6));
+  }
+
+#ifdef HAVE_DNSSD
+ /*
+  * Check if the hostname is something.local (Bonjour); if so, allow it.
+  */
+
+  if ((end = strrchr(host, '.')) != NULL &&
+      (!strcasecmp(end, ".local") || !strncasecmp(end, ".local:", 7) ||
+       !strcasecmp(end, ".local.") || !strncasecmp(end, ".local.:", 8)))
+    return (1);
+#endif /* HAVE_DNSSD */
+
+ /*
+  * Check for (alias) name matches...
+  */
+
+  for (a = (cupsd_alias_t *)cupsArrayFirst(ServerAlias);
+       a;
+       a = (cupsd_alias_t *)cupsArrayNext(ServerAlias))
+  {
+    if (!strncasecmp(host, a->name, a->namelen))
+    {
+     /*
+      * Prefix matches; check the character at the end - it must be ":", ".",
+      * ".:", or nul...
+      */
+
+      end = host + a->namelen;
+
+      if (!*end || *end == ':' || (*end == '.' && (!end[1] || end[1] == ':')))
+        return (1);
+    }
+  }
+
+ /*
+  * Check for interface hostname matches...
+  */
+
+  for (netif = (cupsd_netif_t *)cupsArrayFirst(NetIFList);
+       netif;
+       netif = (cupsd_netif_t *)cupsArrayNext(NetIFList))
+  {
+    if (!strncasecmp(host, netif->hostname, netif->hostlen))
+    {
+     /*
+      * Prefix matches; check the character at the end - it must be ":", ".",
+      * ".:", or nul...
+      */
+
+      end = host + netif->hostlen;
+
+      if (!*end || *end == ':' || (*end == '.' && (!end[1] || end[1] == ':')))
+        return (1);
+    }
+  }
+
+ /*
+  * Check if the hostname is an IP address...
+  */
+
+  if (isdigit(*host & 255) || *host == '[')
+  {
+   /*
+    * Possible IPv4/IPv6 address...
+    */
+
+    char	temp[1024],		/* Temporary string */
+		*ptr;			/* Pointer into temporary string */
+    http_addrlist_t *addrlist;		/* List of addresses */
+
+
+    strlcpy(temp, host, sizeof(temp));
+    if ((ptr = strrchr(temp, ':')) != NULL && !strchr(ptr, ']'))
+      *ptr = '\0';			/* Strip :port from host value */
+
+    if ((addrlist = httpAddrGetList(temp, AF_UNSPEC, NULL)) != NULL)
+    {
+     /*
+      * Good IPv4/IPv6 address...
+      */
+
+      httpAddrFreeList(addrlist);
+      return (1);
+    }
+  }
+
+  return (0);
 }
 
 

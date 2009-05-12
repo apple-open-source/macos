@@ -18,5 +18,9 @@
 	<string>6.3.8</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://fetchmail.berlios.de</string>
+	<key>OpenSourceChanges</key>
+	<array>
+	  <string>Avoid GETADDRINFO_ASYNCSAFE</string>
+	</array>
 </dict>
 </plist>

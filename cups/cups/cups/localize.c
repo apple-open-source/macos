@@ -113,7 +113,8 @@ ppdLocalize(ppd_file_t *ppd)		/* I - PPD file */
            k > 0;
 	   k --, choice ++)
       {
-        if (strcmp(choice->choice, "Custom"))
+        if (strcmp(choice->choice, "Custom") ||
+	    !ppdFindCustomOption(ppd, option->keyword))
 	  locattr = ppd_localized_attr(ppd, option->keyword, choice->choice,
 	                               ll_CC, ll);
 	else

@@ -47,7 +47,7 @@ namespace CodeSigning {
 void SecCodeSigner::Signer::sign(SecCSFlags flags)
 {
 	// set up access to the subject Code
-	rep = code->diskRep();
+	rep = code->diskRep()->base();
 	
 	// get the Info.plist out of the rep for some creative defaulting
 	CFRef<CFDictionaryRef> infoDict;

@@ -173,6 +173,12 @@ private:
     static void iossstart(struct tty *tp);	// assign to tp->t_oproc
     static int  iossparam(struct tty *tp, struct termios *t);
     static void iossdcddelay(thread_call_param_t vSelf, thread_call_param_t vSp);
+    // debug support
+#ifdef DEBUG
+    static char *state2StringTermios(UInt32 state);
+    static char *state2StringPD(UInt32 state);
+    static char *state2StringTTY(UInt32 state);
+#endif
 };
 
 #endif /* ! _IOSERIALSERVER_H */

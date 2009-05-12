@@ -478,20 +478,20 @@ search(void)
 	/* see if it is empty */
 	if ((c = getc(refsfound)) == EOF) {
 		if (findresult != NULL) {
-			(void) sprintf(lastmsg, "Egrep %s in this pattern: %s", 
+			(void) snprintf(lastmsg, sizeof(lastmsg), "Egrep %s in this pattern: %s", 
 				       findresult, Pattern);
 		} else if (rc == NOTSYMBOL) {
-			(void) sprintf(lastmsg, "This is not a C symbol: %s", 
+			(void) snprintf(lastmsg, sizeof(lastmsg), "This is not a C symbol: %s", 
 				       Pattern);
 		} else if (rc == REGCMPERROR) {
-			(void) sprintf(lastmsg, "Error in this regcomp(3) regular expression: %s", 
+			(void) snprintf(lastmsg, sizeof(lastmsg), "Error in this regcomp(3) regular expression: %s", 
 				       Pattern);
 			
 		} else if (funcexist == NO) {
-			(void) sprintf(lastmsg, "Function definition does not exist: %s", 
+			(void) snprintf(lastmsg, sizeof(lastmsg), "Function definition does not exist: %s", 
 				       Pattern);
 		} else {
-			(void) sprintf(lastmsg, "Could not find the %s: %s", 
+			(void) snprintf(lastmsg, sizeof(lastmsg), "Could not find the %s: %s", 
 				       fields[field].text2, Pattern);
 		}
 		return(NO);
@@ -527,17 +527,17 @@ progress(char *what, long current, long max)
 			move(MSGLINE, 0);
 			clrtoeol();
 			addstr(what);
-			sprintf(msg, "%ld", current);
+			snprintf(msg, sizeof(msg), "%ld", current);
 			move(MSGLINE, (COLS / 2) - (strlen(msg) / 2));
 			addstr(msg);
-			sprintf(msg, "%ld", max);
+			snprintf(msg, sizeof(msg), "%ld", max);
 			move(MSGLINE, COLS - strlen(msg));
 			addstr(msg);
 			refresh();
 		}
 		else if (verbosemode == YES)
 		{
-			sprintf(msg, "> %s %ld of %ld", what, current, max);
+			snprintf(msg, sizeof(msg), "> %s %ld of %ld", what, current, max);
 		}
 
 		start = now;
@@ -575,7 +575,7 @@ myperror(char *text)
 		s = sys_errlist[errno];
 	}
 #endif
-	(void) sprintf(msg, "%s: %s", text, s);
+	(void) snprintf(msg, sizeof(msg), "%s: %s", text, s);
 	postmsg(msg);
 }
 
@@ -647,11 +647,7 @@ posterr(char *msg, ...)
         (void) vfprintf(stderr, msg, ap); 
 	(void) fputc('\n', stderr);
     } else {
-#if HAVE_VSNPRINTF
         vsnprintf(errbuf, sizeof(errbuf), msg, ap);
-#else
-        vsprintf(errbuf, msg, ap);
-#endif
         postmsg2(errbuf); 
     }
 }
@@ -664,11 +660,7 @@ postfatal(const char *msg, ...)
 	char errbuf[MSGLEN];
 
 	va_start(ap, msg);
-#if HAVE_VSNPRINTF
 	vsnprintf(errbuf, sizeof(errbuf), msg, ap);
-#else
-	vsprintf(errbuf, msg, ap);
-#endif
 	/* restore the terminal to its original mode */
 	if (incurses == YES) {
 		exitcurses();

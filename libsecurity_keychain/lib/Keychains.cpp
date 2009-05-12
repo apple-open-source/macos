@@ -303,7 +303,7 @@ KeychainImpl::KeychainImpl(const Db &db)
 	mEventBuffer = new EventBuffer;
 }
 
-KeychainImpl::~KeychainImpl() throw()
+KeychainImpl::~KeychainImpl() 
 {
 	try
 	{

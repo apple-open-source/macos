@@ -123,9 +123,9 @@ cupsDoIORequest(http_t     *http,	/* I - HTTP connection to server */
   http_status_t	expect;			/* Expect: header to use */
 
 
-  DEBUG_printf(("cupsDoFileRequest(%p, %p, \'%s\', \'%s\')\n",
-                http, request, resource ? resource : "(null)",
-		filename ? filename : "(null)"));
+  DEBUG_printf(("cupsDoFileRequest(%p, %p, \'%s\', %d, %d)\n",
+                http, request, resource ? resource : "(null)", infile,
+		outfile));
 
   if (http == NULL || request == NULL || resource == NULL)
   {
@@ -198,7 +198,7 @@ cupsDoIORequest(http_t     *http,	/* I - HTTP connection to server */
 
   while (response == NULL)
   {
-    DEBUG_puts("cupsDoFileRequest: setup...");
+    DEBUG_puts("cupsDoIORequest: setup...");
 
    /*
     * Setup the HTTP variables needed...
@@ -221,13 +221,13 @@ cupsDoIORequest(http_t     *http,	/* I - HTTP connection to server */
     httpSetField(http, HTTP_FIELD_AUTHORIZATION, http->authstring);
     httpSetExpect(http, expect);
 
-    DEBUG_printf(("cupsDoFileRequest: authstring=\"%s\"\n", http->authstring));
+    DEBUG_printf(("cupsDoIORequest: authstring=\"%s\"\n", http->authstring));
 
    /*
     * Try the request...
     */
 
-    DEBUG_puts("cupsDoFileRequest: post...");
+    DEBUG_puts("cupsDoIORequest: post...");
 
     if (httpPost(http, resource))
     {
@@ -244,7 +244,7 @@ cupsDoIORequest(http_t     *http,	/* I - HTTP connection to server */
     * Send the IPP data...
     */
 
-    DEBUG_puts("cupsDoFileRequest: ipp write...");
+    DEBUG_puts("cupsDoIORequest: ipp write...");
 
     request->state = IPP_IDLE;
     status         = HTTP_CONTINUE;
@@ -275,7 +275,7 @@ cupsDoIORequest(http_t     *http,	/* I - HTTP connection to server */
 
     if (status == HTTP_CONTINUE && state == IPP_DATA && infile >= 0)
     {
-      DEBUG_puts("cupsDoFileRequest: file write...");
+      DEBUG_puts("cupsDoIORequest: file write...");
 
      /*
       * Send the file...
@@ -303,16 +303,16 @@ cupsDoIORequest(http_t     *http,	/* I - HTTP connection to server */
     * Get the server's return status...
     */
 
-    DEBUG_puts("cupsDoFileRequest: update...");
+    DEBUG_puts("cupsDoIORequest: update...");
 
     while (status == HTTP_CONTINUE)
       status = httpUpdate(http);
 
-    DEBUG_printf(("cupsDoFileRequest: status = %d\n", status));
+    DEBUG_printf(("cupsDoIORequest: status = %d\n", status));
 
     if (status == HTTP_UNAUTHORIZED)
     {
-      DEBUG_puts("cupsDoFileRequest: unauthorized...");
+      DEBUG_puts("cupsDoIORequest: unauthorized...");
 
      /*
       * Flush any error message...
@@ -337,7 +337,7 @@ cupsDoIORequest(http_t     *http,	/* I - HTTP connection to server */
     }
     else if (status == HTTP_ERROR)
     {
-      DEBUG_printf(("cupsDoFileRequest: http->error=%d (%s)\n", http->error,
+      DEBUG_printf(("cupsDoIORequest: http->error=%d (%s)\n", http->error,
                     strerror(http->error)));
 
 #ifdef WIN32
@@ -381,7 +381,7 @@ cupsDoIORequest(http_t     *http,	/* I - HTTP connection to server */
     }
     else if (status != HTTP_OK)
     {
-      DEBUG_printf(("cupsDoFileRequest: error %d...\n", status));
+      DEBUG_printf(("cupsDoIORequest: error %d...\n", status));
 
      /*
       * Flush any error message...
@@ -396,7 +396,7 @@ cupsDoIORequest(http_t     *http,	/* I - HTTP connection to server */
       * Read the response...
       */
 
-      DEBUG_puts("cupsDoFileRequest: response...");
+      DEBUG_puts("cupsDoIORequest: response...");
 
       response = ippNew();
 
@@ -476,7 +476,7 @@ cupsDoRequest(http_t     *http,		/* I - HTTP connection to server */
               ipp_t      *request,	/* I - IPP request */
               const char *resource)	/* I - HTTP resource for POST */
 {
-  return (cupsDoFileRequest(http, request, resource, NULL));
+  return (cupsDoIORequest(http, request, resource, -1, -1));
 }
 
 

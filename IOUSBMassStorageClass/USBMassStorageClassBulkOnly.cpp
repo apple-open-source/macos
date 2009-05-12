@@ -380,12 +380,13 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion(
 		return;
 	}		
 	
-	if ( resultingStatus == kIOReturnNotResponding )
+	if ( ( resultingStatus == kIOReturnNotResponding ) || ( resultingStatus == kIOReturnAborted ) )
 	{
 	
 		STATUS_LOG(( 5, "%s[%p]: BulkOnlyExecuteCommandCompletion previous command returned %x", getName(), this, resultingStatus ));
 		
-		// The transfer failed mid-transfer. Attempt a device reset.
+		// The transfer failed mid-transfer or was aborted by the USB layer. Either way the device will
+        // be non-responsive until we reset it, or we discover it has been disconnected.
 		FinishDeviceRecovery ( resultingStatus );
 		commandInProgress = true; 
 		goto Exit;

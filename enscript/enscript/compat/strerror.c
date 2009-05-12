@@ -1,13 +1,13 @@
-/* 
+/*
  * Replacement for the strerror() function.
- * Copyright (c) 1995 Markku Rossi.
+ * Copyright (c) 1995-1998 Markku Rossi.
  *
  * Author: Markku Rossi <mtr@iki.fi>
  */
 
 /*
  * This file is part of GNU enscript.
- * 
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2, or (at your option)
@@ -24,12 +24,8 @@
  * Boston, MA 02111-1307, USA.
  */
 
-#include <stdio.h>
-
-#ifndef __APPLE__
 extern char *sys_errlist[];
 extern int sys_nerr;
-#endif
 
 char *
 strerror (errnum)
@@ -37,6 +33,6 @@ strerror (errnum)
 {
   if (errnum < 0 || errnum >= sys_nerr)
     return "unknown error";
-  
+
   return sys_errlist[errnum];
 }

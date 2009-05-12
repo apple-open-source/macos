@@ -19,12 +19,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * Copyright (c) 1998 Apple Computer, Inc.  All rights reserved. 
- *
- * HISTORY
- * 23 Nov 98 sdouglas created from objc version.
- */
 
 #if defined(__i386__) || defined(__x86_64__)
 

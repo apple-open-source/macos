@@ -31,6 +31,7 @@
 
 #include "AuthenticationCF.h"
 #include "AuthenticationChallenge.h"
+#include "CookieStorageWin.h"
 #include "CString.h"
 #include "DocLoader.h"
 #include "Frame.h"
@@ -258,8 +259,10 @@ static CFURLRequestRef makeFinalRequest(const ResourceRequest& request, bool sho
     if (sslProps)
         CFURLRequestSetSSLProperties(newRequest, sslProps.get());
 
-    if (CFHTTPCookieStorageRef defaultCookieStorage = wkGetDefaultHTTPCookieStorage())
-        CFURLRequestSetHTTPCookieStorageAcceptPolicy(newRequest, CFHTTPCookieStorageGetCookieAcceptPolicy(defaultCookieStorage));
+    if (CFHTTPCookieStorageRef cookieStorage = currentCookieStorage()) {
+        CFURLRequestSetHTTPCookieStorage(newRequest, cookieStorage);
+        CFURLRequestSetHTTPCookieStorageAcceptPolicy(newRequest, CFHTTPCookieStorageGetCookieAcceptPolicy(cookieStorage));
+    }
 
     return newRequest;
 }
@@ -408,6 +411,9 @@ void ResourceHandle::setClientCertificate(const String& host, CFDataRef cert)
 
 void ResourceHandle::setDefersLoading(bool defers)
 {
+    if (!d->m_connection)
+        return;
+
     if (defers)
         CFURLConnectionHalt(d->m_connection.get());
     else

@@ -6,7 +6,7 @@ Sybase-CT bug #29064 (Exact numeric/decimal/money datatypes lose precision)
 <?php
 /* This file is part of PHP test framework for ext/sybase_ct
  *
- * $Id: bug29064.phpt,v 1.1 2004/07/11 16:57:24 thekid Exp $
+ * $Id: bug29064.phpt,v 1.1.6.1 2008/11/08 14:24:55 thekid Exp $
  */
 
   require('test.inc');
@@ -112,9 +112,9 @@ array(2) {
     ["test_tinyint"]=>
     int(123)
     ["test_real"]=>
-    string(16) "123456789.123457"
+    string(18) "123456789.12345679"
     ["test_double"]=>
-    string(16) "123456789.123457"
+    string(18) "123456789.12345679"
   }
   [1]=>
   array(10) {
@@ -135,9 +135,9 @@ array(2) {
     ["test_tinyint"]=>
     int(255)
     ["test_real"]=>
-    string(17) "-123456789.123457"
+    string(19) "-123456789.12345679"
     ["test_double"]=>
-    string(17) "-123456789.123457"
+    string(19) "-123456789.12345679"
   }
 }
 bool(true)

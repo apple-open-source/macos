@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: pspell.c,v 1.45.2.4.2.8 2007/12/31 07:20:10 sebastian Exp $ */
+/* $Id: pspell.c,v 1.45.2.4.2.9 2008/08/13 08:09:55 tony2001 Exp $ */
 
 #define IS_EXT_MODULE
 
@@ -251,7 +251,7 @@ static PHP_FUNCTION(pspell_new)
 
 	if(pspell_error_number(ret) != 0){
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "PSPELL couldn't open the dictionary. reason: %s ", pspell_error_message(ret));
-		delete_pspell_manager(ret);
+		delete_pspell_can_have_error(ret);
 		RETURN_FALSE;
 	}
 	
@@ -374,7 +374,7 @@ static PHP_FUNCTION(pspell_new_personal)
 
 	if(pspell_error_number(ret) != 0){
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "PSPELL couldn't open the dictionary. reason: %s ", pspell_error_message(ret));
-		delete_pspell_manager(ret);
+		delete_pspell_can_have_error(ret);
 		RETURN_FALSE;
 	}
 	
@@ -408,7 +408,7 @@ static PHP_FUNCTION(pspell_new_config)
 
 	if(pspell_error_number(ret) != 0){
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "PSPELL couldn't open the dictionary. reason: %s ", pspell_error_message(ret));
-		delete_pspell_manager(ret);
+		delete_pspell_can_have_error(ret);
 		RETURN_FALSE;
 	}
 	

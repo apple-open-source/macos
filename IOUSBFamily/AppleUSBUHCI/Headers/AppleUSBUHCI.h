@@ -62,15 +62,16 @@ class AppleUSBUHCI;
 class AppleUSBUHCIDMACommand;
 
 // Convert USBLog to use kprintf debugging
-#define UHCI_USE_KPRINTF 0
+#ifndef UHCI_USE_KPRINTF
+	#define UHCI_USE_KPRINTF 0
+#endif
 
 #if UHCI_USE_KPRINTF
-#undef USBLog
-#undef USBError
-void kprintf(const char *format, ...)
-__attribute__((format(printf, 1, 2)));
-#define USBLog( LEVEL, FORMAT, ARGS... )  if ((LEVEL) <= UHCI_USE_KPRINTF) { kprintf( FORMAT "\n", ## ARGS ) ; }
-#define USBError( LEVEL, FORMAT, ARGS... )  { kprintf( FORMAT "\n", ## ARGS ) ; }
+	#undef USBLog
+	#undef USBError
+	void kprintf(const char *format, ...) __attribute__((format(printf, 1, 2)));
+	#define USBLog( LEVEL, FORMAT, ARGS... )  if ((LEVEL) <= UHCI_USE_KPRINTF) { kprintf( FORMAT "\n", ## ARGS ) ; }
+	#define USBError( LEVEL, FORMAT, ARGS... )  { kprintf( FORMAT "\n", ## ARGS ) ; }
 #endif
 
 #ifdef __ppc__

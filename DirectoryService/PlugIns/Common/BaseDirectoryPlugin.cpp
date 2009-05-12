@@ -1443,7 +1443,12 @@ tDirStatus BaseDirectoryPlugin::DoAttributeValueSearchWithData( sDoAttrValueSear
 		if( inData->fType == kDoAttributeValueSearchWithData || inData->fType == kDoAttributeValueSearch )
 		{
 			// if this is a Single Value search
-			CFStringRef cfValue = CFStringCreateWithCString( kCFAllocatorDefault, inData->fInPatt2Match->fBufferData, kCFStringEncodingUTF8 );
+			CFTypeRef cfValue = CFStringCreateWithBytes( kCFAllocatorDefault, (UInt8 *)inData->fInPatt2Match->fBufferData, inData->fInPatt2Match->fBufferLength,
+														 kCFStringEncodingUTF8, false );
+			if ( cfValue == NULL ) {
+				// TODO: plugins should handle binary data, but for now we will only use strings
+				goto failure;
+			}
 			
 			cfSearchValues = CFArrayCreate( kCFAllocatorDefault, (const void **) &cfValue, 1, &kCFTypeArrayCallBacks );
 			

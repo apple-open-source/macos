@@ -1,0 +1,53 @@
+#!/usr/bin/perl
+
+if ($< != 0) {
+   print "This must be run as root\n";
+   exit 1;
+}
+
+my $realm = "/var/db/realm.local";
+
+if (! -f $realm) {
+	system ("/usr/libexec/configureLocalKDC");
+}
+
+open (REALM, '<'. $realm) or die "No realm";
+
+my $realmString = join ('', <REALM>);
+
+chomp ($realmString);
+close REALM;
+
+my $kadmin = '/usr/sbin/kadmin.local';
+
+foreach $service ("afpserver/", "cifs/", "host/", "local") {
+   my $principal;
+   my @password = ();
+   my $ktadd = 0;
+
+   if ($service =~ m|/$|) {
+	$principal = sprintf "%s%s@%s", $service, $realmString, $realmString;
+	@password = ('-randkey');
+	$ktadd = 1;
+   } else {
+	$principal = sprintf "%s@%s", $service, $realmString;
+	@password = ('-pw', $service);
+   }
+
+   print "Running kadmin.local: ank\n\n";
+
+   my @args = ('ank', @password, $principal);
+
+   print "$kadmin -q ". join (' ', @args) ."\n";
+   system $kadmin, '-q', join (' ', @args);
+
+   if ($ktadd) {
+	print "\nRunning kadmin.local: ktadd\n\n";
+
+	my @args = ('ktadd', $principal);
+
+	print "$kadmin -q ". join (' ', @args) ."\n";
+	system $kadmin, '-q', join (' ', @args); 
+   }
+}
+

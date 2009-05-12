@@ -3,7 +3,7 @@
  *
  *   Directory services routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -2112,6 +2112,7 @@ dnssdBuildTxtRecord(
 		rp_str[1024],		/* Queue name string buffer */
 		air_str[1024],		/* auth-info-required string buffer */
 		*keyvalue[32][2];	/* Table of key/value pairs */
+  ipp_attribute_t *air_attr;		/* auth-info-required attribute */
 
 
  /*
@@ -2215,12 +2216,14 @@ dnssdBuildTxtRecord(
   keyvalue[i  ][0] = "pdl";
   keyvalue[i++][1] = p->pdl ? p->pdl : "application/postscript";
 
-  if (p->num_auth_info_required)
+  if ((air_attr = ippFindAttribute(p->attrs, "auth-info-required",
+                                   IPP_TAG_KEYWORD)) != NULL &&
+      strcmp(air_attr->values[0].string.text, "none"))
   {
     char	*air = air_str;		/* Pointer into string */
 
 
-    for (j = 0; j < p->num_auth_info_required; j ++)
+    for (j = 0; j < air_attr->num_values; j ++)
     {
       if (air >= (air_str + sizeof(air_str) - 2))
         break;
@@ -2228,7 +2231,8 @@ dnssdBuildTxtRecord(
       if (j)
         *air++ = ',';
 
-      strlcpy(air, p->auth_info_required[j], sizeof(air_str) - (air - air_str));
+      strlcpy(air, air_attr->values[j].string.text,
+              sizeof(air_str) - (air - air_str));
       air += strlen(air);
     }
 
@@ -2710,6 +2714,18 @@ process_implicit_classes(
 	len = hptr - p->name;
       else
 	len = strlen(p->name);
+
+      if (len >= sizeof(name))
+      {
+       /*
+	* If the printer name length somehow is greater than we normally allow,
+	* skip this printer...
+	*/
+
+	len = 0;
+	cupsArrayRestore(Printers);
+	continue;
+      }
 
       strncpy(name, p->name, len);
       name[len] = '\0';

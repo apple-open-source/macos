@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2009 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -368,14 +368,19 @@ enum {
 };
 
 enum {
-    kIOAudioControlChannelNumberInactive		= -1,
-    kIOAudioControlChannelIDAll					= 0,
-    kIOAudioControlChannelIDDefaultLeft			= 1,
-    kIOAudioControlChannelIDDefaultRight		= 2,
-    kIOAudioControlChannelIDDefaultCenter		= 3,
-    kIOAudioControlChannelIDDefaultLeftRear		= 4,
-    kIOAudioControlChannelIDDefaultRightRear	= 5,
-    kIOAudioControlChannelIDDefaultSub			= 6
+    kIOAudioControlChannelNumberInactive				= -1,
+    kIOAudioControlChannelIDAll							= 0,
+    kIOAudioControlChannelIDDefaultLeft					= 1,
+    kIOAudioControlChannelIDDefaultRight				= 2,
+    kIOAudioControlChannelIDDefaultCenter				= 3,
+    kIOAudioControlChannelIDDefaultLeftRear				= 4,
+    kIOAudioControlChannelIDDefaultRightRear			= 5,
+    kIOAudioControlChannelIDDefaultSub					= 6,
+    kIOAudioControlChannelIDDefaultFrontLeftCenter		= 7,
+    kIOAudioControlChannelIDDefaultFrontRightCenter		= 8,
+    kIOAudioControlChannelIDDefaultRearCenter			= 9,
+    kIOAudioControlChannelIDDefaultSurroundLeft			= 10,
+    kIOAudioControlChannelIDDefaultSurroundRight		= 11
 };
 
 enum {

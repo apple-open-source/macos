@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: rfc1867.c,v 1.173.2.1.2.11 2008/03/26 12:59:42 tony2001 Exp $ */
+/* $Id: rfc1867.c,v 1.173.2.1.2.14 2008/10/20 18:45:23 lbarnaud Exp $ */
 
 /*
  *  This product includes software developed by the Apache Group
@@ -788,7 +788,6 @@ SAPI_API SAPI_POST_HANDLER_FUNC(rfc1867_post_handler)
 	int str_len = 0, num_vars = 0, num_vars_max = 2*10, *len_list = NULL;
 	char **val_list = NULL;
 #endif
-	zend_bool magic_quotes_gpc;
 	multipart_buffer *mbuff;
 	zval *array_ptr = (zval *) arg;
 	int fd=-1;
@@ -925,7 +924,7 @@ SAPI_API SAPI_POST_HANDLER_FUNC(rfc1867_post_handler)
 				if (sapi_module.input_filter(PARSE_POST, param, &value, value_len, &new_val_len TSRMLS_CC)) {
 					if (php_rfc1867_callback != NULL) {
 						multipart_event_formdata event_formdata;
-						size_t newlength = 0;
+						size_t newlength = new_val_len;
 
 						event_formdata.post_bytes_processed = SG(read_post_bytes);
 						event_formdata.name = param;
@@ -1077,12 +1076,12 @@ SAPI_API SAPI_POST_HANDLER_FUNC(rfc1867_post_handler)
 				}
 				
 			
-				if (PG(upload_max_filesize) > 0 && total_bytes > PG(upload_max_filesize)) {
+				if (PG(upload_max_filesize) > 0 && (total_bytes+blen) > PG(upload_max_filesize)) {
 #if DEBUG_FILE_UPLOAD
 					sapi_module.sapi_error(E_NOTICE, "upload_max_filesize of %ld bytes exceeded - file [%s=%s] not saved", PG(upload_max_filesize), param, filename);
 #endif
 					cancel_upload = UPLOAD_ERROR_A;
-				} else if (max_file_size && (total_bytes > max_file_size)) {
+				} else if (max_file_size && ((total_bytes+blen) > max_file_size)) {
 #if DEBUG_FILE_UPLOAD
 					sapi_module.sapi_error(E_NOTICE, "MAX_FILE_SIZE of %ld bytes exceeded - file [%s=%s] not saved", max_file_size, param, filename);
 #endif
@@ -1279,26 +1278,30 @@ filedone:
 			}
 			s = "";
 
-			/* Initialize variables */
-			add_protected_variable(param TSRMLS_CC);
+			{
+				/* store temp_filename as-is (without magic_quotes_gpc-ing it, in case upload_tmp_dir
+				 * contains escapeable characters. escape only the variable name.) */
+				zval zfilename;
 
-			magic_quotes_gpc = PG(magic_quotes_gpc);
-			PG(magic_quotes_gpc) = 0;
-			/* if param is of form xxx[.*] this will cut it to xxx */
-			if (!is_anonymous) {
-				safe_php_register_variable(param, temp_filename, strlen(temp_filename), NULL, 1 TSRMLS_CC);
-			}
-	
-			/* Add $foo[tmp_name] */
-			if (is_arr_upload) {
-				snprintf(lbuf, llen, "%s[tmp_name][%s]", abuf, array_index);
-			} else {
-				snprintf(lbuf, llen, "%s[tmp_name]", param);
-			}
-			add_protected_variable(lbuf TSRMLS_CC);
-			register_http_post_files_variable(lbuf, temp_filename, http_post_files, 1 TSRMLS_CC);
+				/* Initialize variables */
+				add_protected_variable(param TSRMLS_CC);
 
-			PG(magic_quotes_gpc) = magic_quotes_gpc;
+				/* if param is of form xxx[.*] this will cut it to xxx */
+				if (!is_anonymous) {
+					ZVAL_STRING(&zfilename, temp_filename, 1);
+					safe_php_register_variable_ex(param, &zfilename, NULL, 1 TSRMLS_CC);
+				}
+		
+				/* Add $foo[tmp_name] */
+				if (is_arr_upload) {
+					snprintf(lbuf, llen, "%s[tmp_name][%s]", abuf, array_index);
+				} else {
+					snprintf(lbuf, llen, "%s[tmp_name]", param);
+				}
+				add_protected_variable(lbuf TSRMLS_CC);
+				ZVAL_STRING(&zfilename, temp_filename, 1);
+				register_http_post_files_variable_ex(lbuf, &zfilename, http_post_files, 1 TSRMLS_CC);
+			}
 
 			{
 				zval file_size, error_type;

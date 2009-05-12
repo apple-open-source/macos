@@ -90,6 +90,7 @@ extern "C" {
 #define _DEVICEPORTINTO					_expansionData->_devicePortInfo
 #define _DEVICEISINTERNAL				_expansionData->_deviceIsInternal
 #define _DEVICEISINTERNALISVALID		_expansionData->_deviceIsInternalIsValid
+#define _RESET_AND_REENUMERATE_LOCK						_expansionData->_resetAndReEnumerateLock
 
 #define kNotifyTimerDelay			30000	// in milliseconds = 30 seconds
 #define kUserLoginDelay				20000	// in milliseconds = 20 seconds
@@ -337,7 +338,7 @@ IOUSBDevice::start( IOService * provider )
             USBLog(6,"\tbDeviceSubClass %d", _descriptor.bDeviceSubClass);
             USBLog(6,"\tbDeviceProtocol %d", _descriptor.bDeviceProtocol);
             USBLog(6,"\tbMaxPacketSize0 %d", _descriptor.bMaxPacketSize0);
-            USBLog(6,"\tidVendor %d", USBToHostWord(_descriptor.idVendor));
+            USBLog(6,"\tidVendor %d (0x%x)", USBToHostWord(_descriptor.idVendor), USBToHostWord(_descriptor.idVendor));
             USBLog(6,"\tidProduct %d (0x%x)", USBToHostWord(_descriptor.idProduct),USBToHostWord(_descriptor.idProduct));
             USBLog(6,"\tbcdDevice %d (0x%x)", USBToHostWord(_descriptor.bcdDevice),USBToHostWord(_descriptor.bcdDevice));
             USBLog(6,"\tiManufacturer %d ", _descriptor.iManufacturer);
@@ -369,9 +370,9 @@ IOUSBDevice::start( IOService * provider )
         USBLog(3,"%s[%p]::start USB Device specified bNumConfigurations of 0, which is not legal", getName(), this);
     }
 	
-	if  ((_descriptor.idVendor == 0x13FE) && (_descriptor.idProduct == 0x1E00))
+	if  ((_descriptor.idVendor == 0x13FE) &&  ((_descriptor.idProduct == 0x1E00) ||(_descriptor.idProduct == 0x1F00)) )
 	{
-		//  Workaround for a faulty device that needs to be enumerated (rdar://5877895)
+		//  Workaround for a faulty device that needs to be enumerated (rdar://5877895&6282251)
 		setName("USB HD");
 		setProperty("USB Product Name", "USB HD");
 	}
@@ -740,7 +741,7 @@ IOUSBDevice::message( UInt32 type, IOService * provider,  void * argument )
 		_pipeZero = IOUSBPipe::ToEndpoint(&_endpointZero, this, _controller, NULL);
 		if (!_pipeZero)
 		{
-			USBLog(1,"%s[%p]::ProcessPortReset DANGER could not recreate pipe Zero after reset", getName(), this);
+			USBLog(1,"%s[%p]::message DANGER could not recreate pipe Zero after reset", getName(), this);
 			err = kIOReturnNoMemory;
 		}
 		
@@ -1245,11 +1246,12 @@ IOUSBDevice::ResetDevice()
 {
     UInt32		retries = 0;
 	IOReturn	kr = kIOReturnSuccess;
+	bool		gotLock;
 	
-    if ( _RESET_IN_PROGRESS )
+    if ( isInactive() )
     {
-        USBLog(5, "%s[%p] ResetDevice( port %d) while in progress", getName(), this, (uint32_t)_PORT_NUMBER );
-		return kIOReturnNotPermitted;
+        USBLog(1, "%s[%p]::ResetDevice - while terminating!", getName(), this);
+        return kIOReturnNoDevice;
     }
 	
     if ( _SUSPEND_IN_PROGRESS )
@@ -1258,61 +1260,79 @@ IOUSBDevice::ResetDevice()
         return kIOReturnNotPermitted;
     }
 
-    _RESET_IN_PROGRESS = true;
-	
-    if ( isInactive() )
-    {
-        USBLog(1, "%s[%p]::ResetDevice - while terminating!", getName(), this);
-        return kIOReturnNoDevice;
-    }
+	gotLock = OSCompareAndSwap(0, 1, &_RESET_AND_REENUMERATE_LOCK);
+	if ( !gotLock )
+	{
+        USBLog(5, "%s[%p]::ResetDevice( port %d) while ResetDevice or ReEnumerateDevice in progress. Returning kIOReturnNotPermitted.", getName(), this, (uint32_t)_PORT_NUMBER );
+		return kIOReturnNotPermitted;
+	}
 	
     retain();
 	_PORT_HAS_BEEN_RESET = false;
 	_RESET_ERROR = kIOReturnSuccess;
    
-    USBLog(5, "+%s[%p] ResetDevice for port %d", getName(), this, (uint32_t)_PORT_NUMBER );
-    thread_call_enter( _DO_PORT_RESET_THREAD );
-	
-	if ( _WORKLOOP->inGate() && _COMMAND_GATE)
+    USBLog(5, "+%s[%p]::ResetDevice for port %d", getName(), this, (uint32_t)_PORT_NUMBER );
+    if ( thread_call_enter( _DO_PORT_RESET_THREAD )  == TRUE )
 	{
-		USBLog(5,"%s[%p]::ResetDevice calling commandSleep", getName(), this);
-		
-		_RESET_COMMAND = true;
-		kr = _COMMAND_GATE->commandSleep(&_RESET_COMMAND, THREAD_UNINT);
-		_RESET_COMMAND = false;
-		USBLog(5,"%s[%p]::ResetDevice  woke up with error 0x%x", getName(), this, kr);
-		
+		USBLog(3, "%s[%p]::ResetDevice for port %d, _DO_PORT_RESET_THREAD already queued", getName(), this, (uint32_t)_PORT_NUMBER );
+		release();
+		kr = kIOReturnBusy;
 	}
-	else
+	else 
 	{
-		while ( !_PORT_HAS_BEEN_RESET && retries < (kMaxTimeToWaitForReset / 50) )
+		if ( _WORKLOOP->inGate() && _COMMAND_GATE)
 		{
-			IOSleep(50);
+			USBLog(5,"%s[%p]::ResetDevice calling commandSleep", getName(), this);
 			
-			if ( isInactive() )
+			_RESET_COMMAND = true;
+			kr = _COMMAND_GATE->commandSleep(&_RESET_COMMAND);
+			_RESET_COMMAND = false;
+			if (kr != THREAD_AWAKENED)
 			{
-				USBLog(3, "+%s[%p] isInactive() while waiting for reset to finish", getName(), this );
-				_RESET_ERROR = kIOReturnNoDevice;
-				break;
+				USBLog(5,"%s[%p]::ResetDevice  commandSleep returned %d", getName(), this, kr);
 			}
+			USBLog(5,"%s[%p]::ResetDevice  woke up with error 0x%x", getName(), this, kr);
 			
-			retries++;
 		}
-    }
+		else
+		{
+			while ( !_PORT_HAS_BEEN_RESET && retries < (kMaxTimeToWaitForReset / 50) )
+			{
+				IOSleep(50);
+				
+				if ( isInactive() )
+				{
+					USBLog(3, "+%s[%p]::ResetDevice isInactive() while waiting for reset to finish", getName(), this );
+					_RESET_ERROR = kIOReturnNoDevice;
+					break;
+				}
+				
+				retries++;
+			}
+		}
+		
+		// If we did all our retries, then the reset probably did not complete
+		//
+		if ( retries == (kMaxTimeToWaitForReset / 50) )
+		{
+			USBLog(5, "+%s[%p]::ResetDevice timed out while waiting for reset to finish", getName(), this );
+			_RESET_ERROR = kIOUSBTransactionTimeout;
+		}
+		
+		USBLog(5, "-%s[%p]::ResetDevice for port %d, error: 0x%x", getName(), this, (uint32_t)_PORT_NUMBER, _RESET_ERROR );
+		
+		kr = _RESET_ERROR;
+	}
 	
-	// If we did all our retries, then the reset probably did not complete
-	//
-	if ( retries == (kMaxTimeToWaitForReset / 50) )
-		_RESET_ERROR = kIOUSBTransactionTimeout;
+	gotLock = OSCompareAndSwap(1, 0, &_RESET_AND_REENUMERATE_LOCK);
+	if ( !gotLock )
+	{
+        USBLog(1, "%s[%p]::ResetDevice( port %d) our resetLock was not set.  Unexpected", getName(), this, (uint32_t)_PORT_NUMBER );
+	}
 	
-    USBLog(5, "-%s[%p] ResetDevice for port %d, error: 0x%x", getName(), this, (uint32_t)_PORT_NUMBER, _RESET_ERROR );
+	release();
 	
-    _RESET_IN_PROGRESS = false;
-    kr = _RESET_ERROR;
-	
-    release();
-	
-    return kr;
+	return kr;
 }
 
 /******************************************************
@@ -1853,7 +1873,12 @@ IOUSBDevice::SetConfiguration(IOService *forClient, UInt8 configNumber, bool sta
         USBLog(3,"%s[%p]::SetConfiguration  kNeedsExtraResetTime is true",getName(), this);
         _ADD_EXTRA_RESET_TIME = true;
     }
-
+	if (propertyObj)
+	{
+		propertyObj->release();
+		propertyObj = NULL;
+	}
+	
 	// See if there is kUSBDeviceResumeRecoveryTime property and if so
 	// Set our _hubResumeRecoveryTime, overriding with a property-based errata
 	propertyObj = copyProperty((kUSBDeviceResumeRecoveryTime));
@@ -1910,7 +1935,16 @@ IOUSBDevice::SetConfiguration(IOService *forClient, UInt8 configNumber, bool sta
         return kIOUSBNotEnoughPowerErr;
     }
 	
-	setProperty("Requested Power", confDesc->MaxPower, 32);
+	if (confDesc)
+	{
+		USBLog(6,"%s[%p]::SetConfiguration  setting RequestedPower property to %d",getName(), this, confDesc->MaxPower);
+		setProperty("Requested Power", confDesc->MaxPower, 32);
+	}
+	else
+	{
+		USBLog(6,"%s[%p]::SetConfiguration  cannot set RequestedPower property because confDesc is NULL for Configuration (%d)!",getName(), this, configNumber);
+	}
+	
 	setProperty("Low Power Displayed", lowPowerDisplayed);
 
     //  Go ahead and remove all the interfaces that are attached to this
@@ -3069,9 +3103,9 @@ IOUSBDevice::SuspendDevice( bool suspend )
         return kIOReturnNotPermitted;
     }
 	
-    if ( _RESET_IN_PROGRESS )
+    if ( _RESET_AND_REENUMERATE_LOCK )
     {
-        USBLog(5, "%s[%p]::SuspendDevice(port %d) while in ResetDevice() in progress", getName(), this, (uint32_t)_PORT_NUMBER );
+        USBLog(3, "%s[%p]::SuspendDevice(port %d) while in ResetDevice or ReEnumerateDevice in progress. Returning kIOReturnNotPermitted.", getName(), this, (uint32_t)_PORT_NUMBER );
         return kIOReturnNotPermitted;
     }
 	
@@ -3139,11 +3173,21 @@ OSMetaClassDefineReservedUsed(IOUSBDevice,  3);
 IOReturn
 IOUSBDevice::ReEnumerateDevice( UInt32 options )
 {
+	IOReturn	kr = kIOReturnSuccess;
+	bool		gotLock;
+	
     if (isInactive())
     {
         USBLog(1, "%s[%p]::ReEnumerateDevice - while terminating!", getName(), this);
-        return kIOReturnNotResponding;
+        return kIOReturnNoDevice;
     }
+	
+	gotLock = OSCompareAndSwap(0, 1, &_RESET_AND_REENUMERATE_LOCK);
+	if ( !gotLock )
+	{
+        USBLog(5, "%s[%p]::ReEnumerateDevice( port %d) while ResetDevice or ReEnumerateDevice in progress.  Returning kIOReturnNotPermitted.", getName(), this, (uint32_t)_PORT_NUMBER );
+		return kIOReturnNotPermitted;
+	}
 	
     // If we have the _ADD_EXTRA_RESET_TIME, set bit 31 of the options
     //
@@ -3152,22 +3196,23 @@ IOUSBDevice::ReEnumerateDevice( UInt32 options )
         USBLog(1, "%s[%p]::ReEnumerateDevice - setting extra reset time options!", getName(), this);
         options |= kUSBAddExtraResetTimeMask;
     }
-    
+
     // Since we are going to re-enumerate the device, all drivers and interfaces will be
     // terminated, so we don't need to make this device synchronous.  In fact, we want it
-    // async, because this device will go away.
+    // async, because this device will go away. We do clear our lock when we finish processing the re-enumeration in the callout thread.
     //
-    USBLog(3, "+%s[%p] ReEnumerateDevice for port %d, options 0x%x", getName(), this, (uint32_t)_PORT_NUMBER, (uint32_t)options );
+    USBLog(5, "%s[%p]::ReEnumerateDevice for port %d, options 0x%x", getName(), this, (uint32_t)_PORT_NUMBER, (uint32_t)options );
     retain();
     if ( thread_call_enter1( _DO_PORT_REENUMERATE_THREAD, (thread_call_param_t) options) == TRUE )
 	{
-		USBLog(3, "+%s[%p] ReEnumerateDevice for port %d, _DO_PORT_REENUMERATE_THREAD already queued", getName(), this, (uint32_t)_PORT_NUMBER );
+		USBLog(3, "%s[%p]::ReEnumerateDevice for port %d, _DO_PORT_REENUMERATE_THREAD already queued", getName(), this, (uint32_t)_PORT_NUMBER );
 		release();
+		kr = kIOReturnBusy;
 	}
+
+	USBLog(5, "%s[%p]::ReEnumerateDevice for port %d, returning 0x%x", getName(), this, (uint32_t)_PORT_NUMBER, (uint32_t)kr );
 	
-    USBLog(3, "-%s[%p] ReEnumerateDevice for port %d", getName(), this, (uint32_t)_PORT_NUMBER );
-    
-    return kIOReturnSuccess;
+	return kr;
 }
 
 OSMetaClassDefineReservedUsed(IOUSBDevice,  4);
@@ -3478,6 +3523,7 @@ IOUSBDevice::ProcessPortReEnumerate(UInt32 options)
 {
     IOReturn				err = kIOReturnSuccess;
     IOUSBHubPortReEnumerateParam	params;
+	bool					gotLock;
     
     USBLog(5,"+%s[%p]::ProcessPortReEnumerate",getName(),this); 
 	
@@ -3505,12 +3551,19 @@ IOUSBDevice::ProcessPortReEnumerate(UInt32 options)
     //
     if ( _expansionData && _USBPLANE_PARENT )
     {
-        USBLog(3, "%s[%p] calling messageClients (kIOUSBMessageHubReEnumeratePort)", getName(), this);
+        USBLog(3, "%s[%p]::ProcessPortReEnumerate calling messageClients (kIOUSBMessageHubReEnumeratePort)", getName(), this);
         _USBPLANE_PARENT->retain();
         err = _USBPLANE_PARENT->messageClients(kIOUSBMessageHubReEnumeratePort, &params, sizeof(IOUSBHubPortReEnumerateParam));
         _USBPLANE_PARENT->release();
     }
     
+	
+	gotLock = OSCompareAndSwap(1, 0, &_RESET_AND_REENUMERATE_LOCK);
+	if ( !gotLock )
+	{
+        USBLog(1, "%s[%p]::ProcessPortReEnumerate( port %d) our resetLock was not set.  Unexpected", getName(), this, (uint32_t)_PORT_NUMBER );
+	}
+	
     USBLog(5,"-%s[%p]::ProcessPortReEnumerate",getName(),this); 
 }
 

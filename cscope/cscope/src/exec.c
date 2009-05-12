@@ -123,7 +123,7 @@ myexecvp(char *a, char **args)
 
     /* execute the program or shell script */
     execvp(a, args);	/* returns only on failure */
-    sprintf(msg, "\nCannot exec %s", a);
+    snprintf(msg, sizeof(msg), "\nCannot exec %s", a);
     perror(msg);		/* display the reason */
     askforreturn();		/* wait until the user sees the message */
     myexit(1);		/* exit the child */

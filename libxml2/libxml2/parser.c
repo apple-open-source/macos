@@ -1898,6 +1898,7 @@ xmlParserHandlePEReference(xmlParserCtxtPtr ctxt) {
  */
 #define growBuffer(buffer) {						\
     xmlChar *tmp;							\
+    buffer##_size += XML_PARSER_BUFFER_SIZE ;				\
     buffer##_size *= 2;							\
     tmp = (xmlChar *)							\
     		xmlRealloc(buffer, buffer##_size * sizeof(xmlChar));	\
@@ -2918,7 +2919,7 @@ xmlParseAttValueComplex(xmlParserCtxtPtr ctxt, int *attlen, int normalize) {
 		     * Just output the reference
 		     */
 		    buf[len++] = '&';
-		    if (len > buf_size - i - 10) {
+		    while (len > buf_size - i - 10) {
 			growBuffer(buf);
 		    }
 		    for (;i > 0;i--)

@@ -758,13 +758,16 @@ void IOAudioDevice::setDeviceName(const char *deviceName)
 			stringLen += strlen (deviceName) + 1;
 			stringLen += strlen (getName ());
 			string = (char *)IOMalloc (stringLen);
-			strncpy (string, getName (), stringLen);
-			tempLength = strlen (string);
-			strncat (string, ":", tempLength);
-			tempLength = strlen (string);
-			strncat (string, deviceName, tempLength);
-			setDeviceModelName (string);
-			IOFree (string, stringLen);
+			if ( string )									// we should not panic for this
+			{	
+				strncpy (string, getName (), stringLen);
+				tempLength = strlen (".");					//	<rdar://problem/6216216>
+				strncat (string, ":", tempLength);
+				tempLength = strlen (deviceName);			//	<rdar://problem/6216216>
+				strncat (string, deviceName, tempLength);
+				setDeviceModelName (string);
+				IOFree (string, stringLen);
+			}
 		}
     }
 }

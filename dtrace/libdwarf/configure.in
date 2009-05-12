@@ -1,0 +1,70 @@
+dnl Process this file with autoconf to produce a configure script.
+AC_INIT(libdwarf.h)
+AC_CONFIG_HEADER(config.h)
+
+AC_PROG_CC
+AC_C_BIGENDIAN
+AC_GCC_TRADITIONAL
+AC_PROG_INSTALL
+AC_CHECK_TOOL(RANLIB, ranlib, :)
+AC_CHECK_TOOL(AR, ar)
+
+dnl AC_ARFLAGS
+
+AC_CHECK_HEADERS(alloca.h elf.h elfaccess.h libelf.h libelf/libelf.h  sys/types.h sys/ia64/elf.h)
+
+AC_CHECK_LIB(elf,elf64_getehdr,
+  AC_DEFINE(HAVE_ELF64_GETEHDR,1,
+	[Define to 1 if the elf64_getehdr function is in libelf.a.]))
+AC_CHECK_LIB(elf,elf64_getshdr,
+  AC_DEFINE(HAVE_ELF64_GETSHDR,1,
+	[Define to 1 if the elf64_getshdr function is in libelf.a.]))
+AC_TRY_COMPILE( ,  __uint32_t p; p = 3; ,AC_DEFINE(HAVE___UINT32_T,1,
+	[See if __uint32_t is predefined in the compiler.]))
+AC_TRY_COMPILE( ,  __uint64_t p; p = 3; ,AC_DEFINE(HAVE___UINT64_T,1,
+	[See if __uint64_t is predefined in the compiler.]))
+AC_TRY_COMPILE([#include <sys/types.h>],[  __uint32_t p; p = 3;] ,
+  AC_DEFINE(HAVE___UINT32_T_IN_SYS_TYPES_H,1,
+	[Define 1 if sys/types.h defines __uint32_t.]))
+AC_TRY_COMPILE([#include <sys/types.h>],[  __uint64_t p; p = 3;] ,
+  AC_DEFINE(HAVE___UINT64_T_IN_SYS_TYPES_H,1,
+	[Define 1 if sys/types.h defines __uint64_t.]))
+dnl checking for ia 64 types, which might be enums, using HAVE_R_IA_64_DIR32LSB
+dnl to stand in for a small set.
+AC_TRY_COMPILE([#include <elf.h>],[  int p; p = R_IA_64_DIR32LSB;] ,
+  AC_DEFINE(HAVE_R_IA_64_DIR32LSB,1,
+	[Define 1 if  R_IA_64_DIR32LSB is defined (might be enum value).]))
+
+dnl the existence of sgidefs.h does not prove it's truly SGI, nor
+dnl prove that __uint32_t or __uint64_t lis defined therein.
+AC_TRY_COMPILE([#include <sgidefs.h>],[  __uint32_t p; p = 27;] ,
+  AC_DEFINE(HAVE___UINT32_T_IN_SGIDEFS_H,1,
+        [Define 1 if __uint32_t is in sgidefs.h.])) 
+AC_TRY_COMPILE([#include <sgidefs.h>],[  __uint64_t p; p = 27;] ,
+  AC_DEFINE(HAVE___UINT64_T_IN_SGIDEFS_H,1,
+        [Define 1 if __uint64_t is in sgidefs.h.])) 
+
+AC_SUBST(build_shared,[])
+AC_SUBST(build_nonshared,[libdwarf.a])
+AC_ARG_ENABLE(shared,AC_HELP_STRING([--enable-shared],
+		[build shared library libdwarf.so (default is NO)]),
+		[ AC_SUBST(build_shared,[libdwarf.so]) ],
+		[  AC_SUBST(build_shared,[none]) ])
+AC_ARG_ENABLE(nonshared,AC_HELP_STRING([--enable-nonshared],
+		[build archive library libdwarf.a (default is YES)]),
+		[ AC_SUBST(build_nonshared,[libdwarf.a]) ]
+		[ AC_SUBST(build_nonshared,[none]) ])
+
+
+dnl Just assume, if old ia64 R_IA_64_DIR32LSB name present, 
+dnl compatibility with cygnus before
+dnl HAVE_DWARF2_99_EXTENSION defined.
+dnl Only applies to producer code, as consumer adapts itself.
+dnl This is not the right test, really.
+AC_TRY_COMPILE([#include <elf.h>],[  int p; p = R_IA_64_DIR32LSB;] ,
+  AC_DEFINE(HAVE_OLD_DWARF2_32BIT_OFFSET,1,
+	[Define 1 if want producer to build with only 32bit section offsets per strict dwarf2] ),
+  AC_DEFINE(HAVE_DWARF2_99_EXTENSION,1,
+	[Define 1 if want producer to build with 32/64bit section offsets per dwarf3] )) 
+
+AC_OUTPUT(Makefile)

@@ -750,7 +750,7 @@ tDirStatus CLDAPv3Plugin::GetAllRecords (
 										    inOCSearchList );
 		
     	// check to make sure the queryFilter is not nil
-		if ( queryFilter == NULL ) return eDSNullParameter;
+		if ( queryFilter == NULL ) return eDSNoStdMappingAvailable;
 	}
 
 	char **attrs = MapAttrListToLDAPTypeArray( inRecType, inAttrTypeList, inContext );
@@ -2983,7 +2983,7 @@ tDirStatus CLDAPv3Plugin::GetTheseRecords (
 			DSFreeStringList( aAutomountMaps );
 			DSFreeStringList( aValues );
 			DSFreeString( aAutomountBase );
-			return eDSNullParameter;
+			return eDSNoStdMappingAvailable;
 		}
 	}
 	    
@@ -4189,7 +4189,7 @@ tDirStatus CLDAPv3Plugin::OpenRecord ( sOpenRecord *inData )
 												pLDAPSearchBase,
 												bOCANDGroup,
 												OCSearchList );
-			if ( queryFilter == nil ) throw( eDSNullParameter );
+			if ( queryFilter == nil ) throw( eDSNoStdMappingAvailable );
 
 			searchResult = DSRetrieveSynchronous( pLDAPSearchBase, attrs, pContext, scope, queryFilter, &result, &ldapDN );
 			if ( searchResult == eDSNoErr )
@@ -8202,7 +8202,7 @@ tDirStatus CLDAPv3Plugin::LookupAttribute (	sLDAPContextData *inContext,
 												bOCANDGroup,
 												OCSearchList );
 				
-				if ( queryFilter == nil ) throw( eDSNullParameter );
+				if ( queryFilter == nil ) throw( eDSNoStdMappingAvailable );
 	
 				searchResult = DSRetrieveSynchronous( pLDAPSearchBase, attrs, inContext, scope, queryFilter, &result, NULL );
 				if ( searchResult == eDSNoErr || searchResult == eDSCannotAccessSession )
@@ -8928,7 +8928,7 @@ tDirStatus CLDAPv3Plugin::GetRecLDAPMessage ( sLDAPContextData *inRecContext, ch
 											OCSearchList );
 		if ( queryFilter == nil )
 		{
-			siResult = eDSNullParameter;
+			siResult = eDSNoStdMappingAvailable;
 			break;
 		}
 

@@ -64,7 +64,7 @@ public:
 	// create from "standard form" arguments (with empty application list)
 	ACL(Access &acc, string description, const CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR &promptSelector,
 		Allocator &alloc = Allocator::standard());
-    virtual ~ACL() throw();
+    virtual ~ACL();
 	
 	Allocator &allocator;
 	

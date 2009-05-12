@@ -4,7 +4,7 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2008-07-23</string>
+		<string>2009-02-20</string>
 		<key>OpenSourceLicense</key>
 		<string>GPL</string>
 		<key>OpenSourceLicenseFile</key>
@@ -13,17 +13,14 @@
 		<string></string>
 		<key>OpenSourceModifications</key>
 		<array>
-			<string>CUPS STR #2887: cupstestppd incorrectly looks for "en" base translation</string>
-			<string>rdar://problem/6160249: ZDI-CAN-367: Apple CUPS 1.3.7 (HP-GL/2 filter) Remote Code Execution Vulnerability</string>
-			<string>rdar://problem/6229328: 10.5.5 Regression: Cannot print to Brother HL-2170W using USB in 10.5.5</string>
-			<string>rdar://problem/6230904: Printing problems in Indesign CS3</string>
+			<string>None</string>
 		</array>
 		<key>OpenSourceProject</key>
 		<string>CUPS</string>
 		<key>OpenSourceURL</key>
 		<string>http://www.cups.org/software.php</string>
 		<key>OpenSourceVersion</key>
-		<string>1.3.8</string>
+		<string>1.3.10</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.cups.org/</string>
 	</dict>

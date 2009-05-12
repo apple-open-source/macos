@@ -1,0 +1,1398 @@
+.\"
+.\" GNU enscript manual page.
+.\" Copyright (c) 1995-1999 Markku Rossi.
+.\" Author: Markku Rossi <mtr@iki.fi>
+.\"
+.\"
+.\" This file is part of GNU enscript.
+.\"
+.\" This program is free software; you can redistribute it and/or modify
+.\" it under the terms of the GNU General Public License as published by
+.\" the Free Software Foundation; either version 2, or (at your option)
+.\" any later version.
+.\"
+.\" This program is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public License
+.\" along with this program; see the file COPYING.  If not, write to
+.\" the Free Software Foundation, 59 Temple Place - Suite 330,
+.\" Boston, MA 02111-1307, USA.
+.\"
+.TH ENSCRIPT 1 "Mar 12, 1999" "ENSCRIPT" "ENSCRIPT"
+
+.SH NAME
+enscript \- convert text files to PostScript, HTML, RTF, ANSI, and
+overstrikes
+
+.SH SYNOPSIS
+.B enscript
+[\f3\-123456789BcgGhjkKlmOqrRvVzZ\f1]
+[\f3\-# \f2copies\f1]
+[\f3\-a \f2pages\f1]
+[\f3\-A \f2align\f1]
+[\f3\-b \f2header\f1]
+[\f3\-C\f1[\f2start_line\f1]]
+[\f3\-d \f2printer\f1]
+[\f3\-D \f2key\f1[\f3:\f2value\f1]]
+[\f3\-e\f1[\f2char\f1]]
+[\f3\-E\f1[\f2lang\f1]]
+[\f3\-f \f2font\f1]
+[\f3\-F \f2header_font\f1]
+[\f3\-H\f1[\f2num\f1]]
+[\f3\-i \f2indent\f1]
+[\f3\-I \f2filter\f1]
+[\f3\-J \f2title\f1]
+[\f3\-L \f2lines_per_page\f1]
+[\f3\-M \f2media\f1]
+[\f3\-n \f2copies\f1]
+[\f3\-N \f2newline\f1]
+[\f3\-o \f2outputfile\f1]
+[\f3\-o \-\f1]
+[\f3\-p \f2outputfile\f1]
+[\f3\-p \-\f1]
+[\f3\-P \f2printer\f1]
+[\f3\-s \f2baselineskip\f1]
+[\f3\-S \f2key\f1[\f3:\f2value\f1]]
+[\f3\-t \f2title\f1]
+[\f3\-T \f2tabsize\f1]
+[\f3\-u\f1[\f2text\f1]]
+[\f3\-U \f2num\f1]
+[\f3\-W \f2language\f1]
+[\f3\-X \f2encoding\f1]
+[\f2filename\f1 ...]
+
+.SH DESCRIPTION
+
+\f3Enscript\f1 converts text files to PostScript or to other output
+languages.  \f3Enscript\f1 can spool the generated output directly to
+a specified printer or leave it to a file.  If no input files are
+given, \f3enscript\f1 processes the standard input \f3stdin\f1.
+\f3Enscript\f1 can be extended to handle different output media and it
+has many options which can be used to customize the printouts.
+
+.SH OPTIONS
+.TP 8
+.B \-# \f2num\f3
+Print \f2num\f1 copies of each page.
+.TP 8
+.B \-1, \-2, \-3, \-4, \-5, \-6, \-7, \-8, \-9, \-\-columns=\f2num\f3
+Specify how many columns each page have.  With the long option
+\f3\-\-columns=\f2num\f1 you can specify more than 9 columns per page.
+.TP 8
+.B \-a \f2pages\f3, \-\-pages=\f2pages\f3
+Specify which pages are printed.  The page specification \f2pages\f1
+can be given in the following formats:
+.RS 8
+.TP 8
+\f2begin\f1\-\f2end\f1
+print pages from \f2begin\f1 to \f2end\f1
+.TP 8
+\-\f2end\f1
+print pages from 0 to \f2end\f1
+.TP 8
+\f2begin\f1\-
+print pages from \f2begin\f1 to end
+.TP 8
+\f2page\f1
+print page \f2page\f1
+.TP 8
+odd
+print odd pages
+.TP 8
+even
+print even pages
+.RE
+.TP 8
+.B \-A \f2align\f3, \-\-file\-align=\f2align\f3
+Align separate input files to even \f2align\f1 page count.  This
+option is useful in two-side and 2-up printings (\-\-file\-align=2).
+.TP 8
+.B \-b \f2header\f3, \-\-header=\f2header\f3
+Use the text \f2header\f1 as a page header.  The default page header
+is constructed from the name of the file and from its last
+modification time.
+
+The header string \f2header\f1 can contain the same formatting escapes
+which can be specified for the \f3%Format\f1 directives in the user
+defined fancy headers.  For example, the following option prints the
+file name, current data and page numbers:
+
+\f3enscript \-\-header='$n %W Page $% of $=' *.c\f1
+
+The header string can also contain left, center and right justified
+fields.  The fields are separated by the \f3'|'\f1 character:
+
+\f3enscript \-\-header='$n|%W|Page $% of $=' *.c\f1
+
+now the file name is printed left justified, the date is centered to
+the header and the page numbers are printed right justified.
+.TP 8
+.B \-B, \-\-no\-header
+Do not print page headers.
+.TP 8
+.B \-c, \-\-truncate\-lines
+Cut lines that are too long for the page.  As a default,
+\f3enscript\f1 wraps long lines to the next line so no information is
+lost.
+
+You can also use the \f3\-\-slice\f1 option which slices long lines to
+separate pages.
+.TP 8
+.B \-C\f1[\f2start_line\f1]\f3, \-\-line\-numbers\f1[\f3=\f2start_line\f1]\f3
+Precede each line with its line number.  The optional argument
+\f2start_line\f1 specifies the number of the first line in the input.
+The number of the first line defaults to 1.
+.TP 8
+.B \-d \f2name\f3
+Spool output to the printer \f2name\f1.
+.TP 8
+.B \-D \f2key\f1[\f3:\f2value\f1]\f3, \-\-setpagedevice=\f2key\f1[\f3:\f2value\f1]\f3
+Pass a page device definition to the generated PostScript output.  If
+no value is given, the key \f2key\f1 is removed from the definitions.
+
+For example, the command
+
+.B enscript \-DDuplex:true foo.txt
+
+prints file foo.txt in duplex (two side) mode.
+
+Page device operators are implementation dependent but they are
+standardized.  See section \f3PAGE DEVICE OPTIONS\f1 for the details.
+.TP 8
+.B \-e\f1[\f2char\f1]\f3, \-\-escapes\f1[\f3=\f2char\f1]\f3
+Enable special escapes interpretation (see section \f3SPECIAL
+ESCAPES\f1).  If the argument \f2char\f1 is given, it changes the
+escape character to \f2char\f1.  The default escape character is 0.
+.TP 8
+.B \-E\f1[\f2lang\f1]\f3, \-\-highlight\f1[\f3=\f2lang\f1]\f3
+Highlight source code by creating a special input filter with the
+\f3states\f1 program.  The optional argument \f2lang\f1 specifies the
+language to highlight.  As a default the \f3states\f1 makes an
+educated guess.
+
+You can print a short description of the supported highlighting
+languages and file formats with the command:
+
+.B enscript \-\-help\-highlight
+
+The highlighting rules are defined in the
+`@DATADIR@/enscript/st/*.st' files which can be edited to create
+highlighting definitions for new languages.
+
+\f3Note!\f1 You can not use your own input filters with this option.
+.TP 8
+.B \-f \f2name\f3, \-\-font=\f2name\f3
+Select a font that is used for the body text.  The default body font is
+\f3Courier10\f1, unless multicolumn landscape printing mode is
+selected, in which case the default font is \f3Courier7\f1.
+
+The font specification \f2name\f1 contains two parts: the name of the
+font and its size in PostScript points.  For example,
+"\f3Times\-Roman12\f1" selects the "Times\-Roman" font with size
+12pt.
+
+The font specification \f2name\f1 can also be given in format
+`\f2name\f1@\f2ptsize\f1', where the name of the font and its point
+size are separated by a `@' character.  This allows \f3enscript\f1 to use
+fonts which contain digit characters in their names.
+
+The font point size can also be given in the format
+\f2width\f1/\f2height\f1 where the \f2width\f1 and the \f2height\f1
+specify the size of the font in x- and y-directions.  For example,
+"\f3Times\-Roman@10/12\f1" selects a 10 points wide and 12 points high
+"Times\-Roman" font.
+
+You can also give the font sizes as decimal numbers.  For example,
+"\f3Times\-Roman10.2\f1" selects a 10.2pt "Times\-Roman" font.
+.TP 8
+.B \-F \f2name\f3, \-\-header\-font=\f2name\f3
+Select a font for the header texts.
+.TP 8
+.B \-g, \-\-print\-anyway
+Print a file even if it contains binary data.  The option is
+implemented only for compatibility purposes.  \f3Enscript\f1 prints
+binary files anyway regardless of the option.
+.TP 8
+.B \-G, \-\-fancy\-header\f1[\f3=\f2name\f1]\f3
+Print a fancy page header \f2name\f1 to the top of each page.  The
+option \f3\-G\f1 specifies the default fancy header.  See section
+\f3CONFIGURATION FILES\f1 to see how the default fancy header can be
+changed.
+.TP 8
+.B \-h, \-\-no\-job\-header
+Suppress printing of the job header page.
+.TP 8
+.B \-H\f1[\f2num\f1]\f3, \-\-highlight\-bars\f1[\f3=\f2num\f1]\f3
+Specify how high the highlight bars are in lines.  If the \f2num\f1 is
+not given, the default value 2 is used.  As a default, no highlight bars
+are printed.
+.TP 8
+.B \-i \f2num\f3, \-\-indent=\f2num\f3
+Indent every line \f2num\f1 characters.  The indentation can also be
+specified in other units by appending an unit specifier after the
+number.  The possible unit specifiers and the corresponding units are:
+.RS 8
+.TP 8
+.B c
+centimeters
+.TP 8
+.B i
+inches
+.TP 8
+.B l
+characters (default)
+.TP 8
+.B p
+PostScript points
+.RE
+.TP 8
+.B \-I \f2filter\f3, \-\-filter=\f2filter\f1
+Read all input files through an input filter \f2filter\f1.  The input
+filter can be a single command or a command pipeline.  The filter can
+refer to the name of the input file with the escape `\f3%s\f1'.  The
+name of the standard input can be changed with the option
+`\f3\-\-filter\-stdin\f1'.
+
+For example, the following command prints the file `foo.c' by using
+only upper-case characters:
+
+.B enscript \-\-filter="cat %s | tr 'a-z' 'A-Z'" foo.c
+
+The following command highlights changes which are made to files since
+the last checkout:
+
+.B enscript \-\-filter="rcsdiff %s | diffpp %s" \-e *.c
+
+To include the string "%s" to the filter command, you must write it as
+"%%s".
+.TP 8
+.B \-j, \-\-borders
+Print borders around columns.
+.TP 8
+.B \-J \f2title\f3
+An alias for the option \f3\-t\f1, \f3\-\-title\f1.
+.TP 8
+.B \-k, \-\-page\-prefeed
+Enable page prefeed.
+.TP 8
+.B \-K, \-\-no\-page\-prefeed
+Disable page prefeed (default).
+.TP 8
+.B \-l, \-\-lineprinter
+Emulate lineprinter.  This option is a shortcut for the options
+\f3\-\-lines\-per\-page=66\f1, and \f3\-\-no\-header\f1.
+.TP 8
+.B \-L \f2num\f3, \-\-lines\-per\-page=\f2num\f3
+Print only \f2num\f1 lines for each page.  As a default, the number of
+lines per page is computed from the height of the page and from the
+size of the font.
+.TP 8
+.B \-m, \-\-mail
+Send a mail notification to user after the print job has been
+completed.
+.TP 8
+.B \-M \f2name\f3, \-\-media=\f2name\f3
+Select an output media \f2name\f1.  \f3Enscript\f1's default output
+media is \f3@media@\f1.
+.TP 8
+.B \-n \f2num\f3, \-\-copies=\f2num\f3
+Print \f2num\f1 copies of each page.
+.TP 8
+.B \-N \f2nl\f3, \-\-newline=\f2nl\f3
+Select the \f2newline\f1 character.  The possible values for \f2nl\f1
+are: \f3n\f1 (unix newline, 0xa hex) and \f3r\f1 (mac newline, 0xd hex).
+.TP 8
+.B \-o \f2file\f3
+An alias for the option \f3\-p\f1, \f3\-\-output\f1.
+.TP 8
+.B \-O, \-\-missing\-characters
+Print a listing of character codes which couldn't be printed.
+.TP 8
+.B \-p \f2file\f3, \-\-output=\f2file\f3
+Leave the output to file \f2file\f1.  If the \f2file\f1 is `\-',
+enscript sends the output to the standard output \f3stdout\f1.
+.TP 8
+.B \-P \f2name\f3, \-\-printer=\f2name\f3
+Spool the output to the printer \f2name\f1.
+.TP 8
+.B \-q, \-\-quiet, \-\-silent
+Make \f3enscript\f1 really quiet.  Only fatal error messages are
+printed to \f2stderr\f1.
+.TP 8
+.B \-r, \-\-landscape
+Print in the landscape mode; rotate page 90 degrees.
+.TP 8
+.B \-R, \-\-portrait
+Print in the portrait mode (default).
+.TP 8
+.B \-s \f2num\f3, \-\-baselineskip=\f2num\f3
+Specify the baseline skip in PostScript points.  The number \f2num\f1
+can be given as a decimal number.  When \f3enscript\f1 moves from line
+to line, the current point \f2y\f1 coordinate is moved (\f2font point
+size + baselineskip\f1) points down.  The default baseline skip is 1.
+.TP 8
+.B \-S \f2key\f1[\f3:\f2value\f1]\f3, \-\-statusdict=\f2key\f1[\f3:\f2value\f1]\f3
+Pass a statusdict definition to the generated PostScript output.  If
+no value is given, the key \f2key\f1 is removed from the definitions.
+
+The statusdict operators are implementation dependent; see the
+printer's documentation for the details.
+
+For example, the command
+
+.B enscript \-Ssetpapertray:1 foo.txt
+
+prints the file \f2foo.txt\f1 by using paper from the paper tray 1
+(assuming that the printer supports paper tray selection).
+.TP 8
+.B \-t \f2title\f3, \-\-title=\f2title\f3
+Set banner page's job title to \f2title\f1.  The option sets also the
+name of the input file \f3stdin\f1.
+.TP 8
+.B \-T \f2num\f3, \-\-tabsize=\f2num\f3
+Set the tabulator size to \f2num\f1 characters.  The default is 8.
+.TP 8
+.B \-u\f1[\f2text\f1]\f3, \-\-underlay\f1[\f3=\f2text\f1]\f3
+Print the string \f2text\f1 under every page.  The properties of the
+text can be changed with the options \f3\-\-ul\-angle\f1,
+\f3\-\-ul\-font\f1, \f3\-\-ul\-gray\f1, \f3\-\-ul\-position\f1, and
+\f3\-\-ul\-style\f1.
+
+If no \f2text\f1 is given, the underlay is not printed.  This can be used
+to remove an underlay text that was specified with the
+`\f3Underlay\f1' configuration file option.
+.TP 8
+.B \-U \f2num\f3, \-\-nup=\f2num\f3
+Print \f2num\f1 logical pages on each output page (N\-up printing).
+The values \f2num\f1 must be a power of 2.
+.TP 8
+.B \-v, \-\-verbose\f1[\f3=\f2level\f1]\f3
+Tell what \f3enscript\f1 is doing.
+.TP 8
+.B \-V, \-\-version
+Print \f3enscript\f1 version information and exit.
+.TP 8
+.B \-W \f1[\f2lang\f1]\f3, \-\-language\f1[\f3=\f2lang\f1]\f3
+Generate output for the language \f2lang\f1.  The possible values for
+\f2lang\f1 are:
+.RS 8
+.TP 8
+.B PostScript
+generate PostScript (default)
+.TP 8
+.B html
+generate HTML
+.TP 8
+.B overstrike
+generate overstrikes (line printers, less)
+.TP 8
+.B rtf
+generate RTF (Rich Text Format)
+.TP 8
+.B ansi
+generate ANSI terminal control codes
+.RE
+.TP 8
+.B \-X \f2name\f3, \-\-encoding=\f2name\f3
+Use the input encoding \f2name\f1.  Currently \f3enscript\f1 supports
+the following encodings:
+.RS 8
+.TP 8
+.B 88591, latin1
+ISO\-8859\-1 (ISO Latin1) (\f3enscript\f1's default encoding).
+.TP 8
+.B 88592, latin2
+ISO\-8859\-2 (ISO Latin2)
+.TP 8
+.B 88593, latin3
+ISO\-8859\-3 (ISO Latin3)
+.TP 8
+.B 88594, latin4
+ISO\-8859\-4 (ISO Latin4)
+.TP 8
+.B 88595, cyrillic
+ISO\-8859\-5 (ISO Cyrillic)
+.TP 8
+.B 88597, greek
+ISO\-8859\-7 (ISO Greek)
+.TP 8
+.B 88599, latin5
+ISO\-8859\-9 (ISO Latin5)
+.TP 8
+.B 885910, latin6
+ISO\-8859\-10 (ISO Latin6)
+.TP 8
+.B ascii
+7\-bit ascii
+.TP 8
+.B asciifise, asciifi, asciise
+7\-bit ascii with some scandinavian (Finland, Sweden) extensions
+.TP 8
+.B asciidkno, asciidk, asciino
+7\-bit ascii with some scandinavian (Denmark, Norway) extensions
+.TP 8
+.B ibmpc, pc, dos
+IBM PC charset
+.TP 8
+.B mac
+Mac charset
+.TP 8
+.B vms
+VMS multinational charset
+.TP 8
+.B hp8
+HP Roman-8 charset
+.TP 8
+.B koi8
+Adobe Standard Cyrillic Font KOI8 charset
+.TP 8
+.B ps, PS
+PostScript font's default encoding
+.TP 8
+.B pslatin1, ISOLatin1Encoding
+PostScript interpreter's `ISOLatin1Encoding'
+.RE
+.TP 8
+.B \-z, \-\-no\-formfeed
+Turn off the form feed character interpretation.
+.TP 8
+.B \-Z, \-\-pass\-through
+Pass through all PostScript and PCL files without any modifications.
+This allows that \f3enscript\f1 can be used as a lp filter.
+
+The PostScript files are recognized by looking up the `%!' magic
+cookie from the beginning of the file. \f3Note!\f1 \f3Enscript\f1
+recognized also the Windoze damaged `^D%!' cookie.
+
+The PCL files are recognized by looking up the `^[E' or `^[%' magic
+cookies from the beginning of the file.
+.TP 8
+.B \-\-color\f1[\f3=\f2bool\f1]\f3
+Use colors in the highlighting outputs.
+.TP 8
+.B \-\-download\-font=\f2fontname\f3
+Include the font description file (\f2.pfa\f1 or \f2.pfb\f1 file) of
+the font \f2fontname\f1 to the generated output.
+.TP 8
+.B \-\-extended\-return\-values
+Enable extended return values.  As a default, \f3enscript\f1 returns 1
+on error and 0 otherwise.  The extended return values give more
+details about the printing operation.  See the section \f3RETURN
+VALUE\f1 for the details.
+.TP 8
+.B \-\-filter\-stdin=\f2name\f1
+Specify how the \f3stdin\f1 is shown to the input filter.  The default
+value is an empty string ("") but some programs require that the
+\f3stdin\f1 is called something else, usually "-".
+.TP 8
+.B \-\-footer=\f2footer\f3
+Use the text \f2footer\f1 as a page footer.  Otherwise the option
+works like the \f3\-\-header\f1 option
+.TP 8
+.B \-\-h\-column\-height=\f2height\f3
+Set the horizontal column height to be \f2height\f1 PostScript
+points.  The option sets the formfeed type to
+\f3horizontal\-columns\f1.
+.TP 8
+.B \-\-help
+Print a short help message and exit.
+.TP 8
+.B \-\-help\-highlight
+Describe all supported \f3\-\-highlight\f1 languages and file
+formats.
+.TP 8
+.B \-\-highlight\-bar\-gray=\f2gray\f3
+Specify the gray level which is used in printing the highlight bars.
+.TP 8
+.B \-\-list\-media
+List the names of all known output media and exit successfully.
+.TP 8
+.B \-\-margins=\f2left\f3:\f2right\f3:\f2top\f3:\f2bottom\f3
+Adjust the page marginals to be exactly \f2left\f1, \f2right\f1, \f2top\f1
+and \f2bottom\f1 PostScript points.  Any of the arguments can be left
+empty in which case the default value is used.
+.TP 8
+.B \-\-mark\-wrapped\-lines\f1[\f3=\f2style\f1]\f3
+Mark wrapped lines in the output with the style \f2style\f1.  The
+possible values for the \f2style\f1 are:
+.RS 8
+.TP 8
+.B none
+do not mark them (default)
+.TP 8
+.B plus
+print a plus (+) character to the end of each wrapped line
+.TP 8
+.B box
+print a black box to the end of each wrapped line
+.TP 8
+.B arrow
+print a small arrow to the end of each wrapped line
+.RE
+.TP 8
+.B \-\-non\-printable\-format=\f2format\f3
+Specify how the non-printable characters are printed.  The possible
+values for the \f2format\f1 are:
+.RS 8
+.TP 8
+.B caret
+caret notation: `^@', `^A', `^B', ...
+.TP 8
+.B octal
+octal notation: `\\000', `\\001', `\\002', ... (default)
+.TP 8
+.B questionmark
+replace non-printable characters with a question mark `?'
+.TP 8
+.B space
+replace non-printable characters with a space ` '
+.RE
+.TP 8
+.B \-\-nup\-columnwise
+Change the layout of the sub-pages in the N\-up printing from row-wise
+to columnwise.
+.TP 8
+.B \-\-nup\-xpad=\f2num\f3
+Set the page x-padding of the \f2n\f1-up printing to \f2num\f1
+PostScript points.  The default is 10 points.
+.TP 8
+.B \-\-nup\-ypad=\f2num\f3
+Set the page y-padding of the \f2n\f1-up printing to \f2num\f1
+PostScript points.  The default is 10 points.
+.TP 8
+.B \-\-page\-label\-format=\f2format\f3
+Set the page label format to \f2format\f1.  The page label format
+specifies how the labels for the `%%Page:' PostScript comments are
+formatted.  The possible values are:
+.RS 8
+.TP 8
+.B short
+Print the current pagenumber: `%%Page: (1) 1' (default)
+.TP 8
+.B long
+Print the current filename and pagenumber: `%%Page: (main.c:  1) 1'
+.RE
+.TP 8
+.B \-\-ps\-level=\f2level\f3
+Set the PostScript language level that \f3enscript\f1 uses for its
+output to \f2level\f1.  The possible values are \f31\f1, and
+\f32\f1.
+.TP 8
+.B \-\-printer\-options=\f2options\f3
+Pass extra options to the printer command.
+.TP 8
+.B \-\-rotate\-even\-pages
+Rotate each even\-numbered page 180 degrees.
+.TP 8
+.B \-\-slice=\f2num\f3
+Print the vertical slice \f2num\f1.  The slices are vertical regions
+of input files.  A new slice starts from the point where the line
+would otherwise be wrapped to the next line.  The slice numbers start
+from 1.
+.TP 8
+.B \-\-style=\f2style\f3
+Set the highlighting style to \f2style\f1.  The possible values are:
+\f3a2ps\f1, \f3emacs\f1, \f3emacs-verbose\f1, \f3ifh\f1, and
+\f3msvc\f1.
+.TP 8
+.B \-\-swap\-even\-page\-margins
+Swap left and right page margins for even\-numbered pages.
+.TP 8
+.B \-\-toc
+Print a table of contents to the end of the output.
+.TP 8
+.B \-\-word\-wrap
+Wrap long lines from word boundaries.
+.TP 8
+.B \-\-ul\-angle=\f2angle\f3
+Set the angle of the underlay text to \f2angle\f1.  As a default,
+the angle is \f3atan(\-d_page_h, d_page_w)\f1.
+.TP 8
+.B \-\-ul\-font=\f2name\f3
+Select a font for the underlay text.  The default underlay font is
+\f3Times-Roman200\f1.
+.TP 8
+.B \-\-ul\-gray=\f2num\f3
+Print the underlay text with the gray value \f2num\f1 (0 ... 1), the
+default gray value is .8.
+.TP 8
+.B \-\-ul\-position=\f2position_spec\f3
+Set the underlay text's starting position according to the
+\f2position_spec\f1.  The position specification must be given in
+format: `\f2sign\f1 \f2xpos\f1 \f2sign\f1 \f2ypos\f1', where the
+\f2sign\f1 must be `+' or `-'.  The positive dimensions are measured
+from the lower left corner and the negative dimensions from the upper
+right corner.  For example, the specification `+0-0' specifies the
+upper left corner and `-0+0' specifies the lower right corner.
+.TP 8
+.B \-\-ul\-style=\f2style\f3
+Set the underlay text's style to \f2style\f1.  The possible values for
+\f2style\f1 are:
+.RS 8
+.TP 8
+.B outline
+print outline underlay texts (default)
+.TP 8
+.B filled
+print filled underlay texts
+.RE
+
+.SH CONFIGURATION FILES
+
+.B Enscript
+reads configuration information from the following sources (in this
+order): command line options, environment variable \f3ENSCRIPT\f1,
+user's personal configuration file (\f3$HOME/.enscriptrc\f1), site
+configuration file (\f3@SYSCONFDIR@/enscriptsite.cfg\f1) and system's
+global configuration file (\f3@SYSCONFDIR@/enscript.cfg\f1).
+
+The configuration files have the following format:
+
+Empty lines and lines starting with `#' are comments.
+
+All other lines are option lines and have format:
+
+\f2option\f1 [\f2arguments ...\f1].
+
+The following options can be specified:
+.TP 8
+.B AcceptCompositeCharacters: \f2bool\f1
+Specify whether PostScript font's composite characters are accepted
+as printable or if they should be considered as non-existent.  The
+default value is false (0).
+.TP 8
+.B AFMPath: \f2path\f3
+Specifies the search path for the \f2AFM\f1 files.
+.TP 8
+.B AppendCtrlD: \f2bool\f3
+Specify if the Control-D (^D) character should be appended to the end
+of the output.  The default value is false (0).
+.TP 8
+.B Clean7Bit: \f2bool\f3
+Specify how characters greater than 127 are printed.  The valuee true
+(1) generates 7-bit clean code by escaping all characters greater than
+127 to the backslash-octal notation (default).  The value false (0)
+generates 8-bit PostScript code leaving all characters untouched.
+.TP 8
+.B DefaultEncoding: \f2name\f3
+Select the default input encoding.  The encoding name \f2name\f1 can
+be one of the values of the option \f3\-X\f1, \f3\-\-encoding\f1.
+.TP 8
+.B DefaultFancyHeader: \f2name\f3
+Select the default fancy header.  The default header is used when the
+option \f3\-G\f1 is specified or the option \f3\-\-fancy\-header\f1 is
+given without an argument.  The system\-wide default is `\f3enscript\f1'.
+.TP 8
+.B DefaultMedia: \f2name\f3
+Select the default output media.
+.TP 8
+.B DefaultOutputMethod: \f2method\f3
+Select the default target to which the generated output is sent.
+The possible values for the \f2method\f1 are:
+.RS 8
+.TP 8
+.B printer
+send output to printer (default)
+.TP 8
+.B stdout
+send output to \f3stdout\f1
+.RE
+.TP 8
+.B DownloadFont: \f2fontname\f3
+Include the font description file of the font \f2fontname\f1 to the
+generated output.
+.TP 8
+.B EscapeChar: \f2num\f3
+Specify the escape character for the special escapes.  The default
+value is 0.
+.TP 8
+.B FormFeedType: \f2type\f3
+Specify what to do when a formfeed character is encountered from the
+input.  The possible values for \f2type\f1 are:
+.RS 8
+.TP 8
+.B column
+move to the beginning of the next column (default)
+.TP 8
+.B page
+move to the beginning of the next page
+.RE
+.TP 8
+.B GeneratePageSize: \f2bool\f3
+Specify whether the \f3PageSize\f1 page device setting is generated to
+the PostScript output.  The default value is true (1).
+.TP 8
+.B HighlightBarGray: \f2gray\f3
+Specify the gray level which is used to print the highlight bars.
+.TP 8
+.B HighlightBars: \f2num\f3
+Specify how high the highlight bars are in lines.  The default value
+is 0 which means that no highlight bars are printed.
+.TP 8
+.B LibraryPath: \f2path\f3
+Specifies the \f3enscript\f1's library path that is used to lookup
+various resources.  The default path is:
+`@DATADIR@/enscript:\f2home\f1/.enscript'.  Where the \f2home\f1 is
+the user's home directory.
+.TP 8
+.B MarkWrappedLines: \f2style\f3
+Mark wrapped lines in the output with the style \f2style\f1.  The
+possible values for the \f2format\f1 are the same which can be given
+for the \f3\-\-mark\-wrapped\-lines\f1 option.
+.TP 8
+\f3Media: \f2name\f3 \f2width\f3 \f2height\f3 \f2llx\f3 \f2lly\f3 \f2urx\f3 \f2ury\f3
+Add a new output media with the name \f2name\f1.  The physical
+dimensions of the media are \f2width\f1 and \f2height\f1.  The
+bounding box of the Media is specified by the points (\f2llx\f1,
+\f2lly\f1) and (\f2urx\f1, \f2ury\f1).  \f3Enscript\f1 prints all
+graphics inside the bounding box of the media.
+
+User can select this media with option \f3\-M \f2name\f1.
+.TP 8
+.B NoJobHeaderSwitch: \f2switch\f1
+Specify the spooler option to suppress the print job header page.
+This option is passed to the printer spooler when the \f3enscript\f1's
+option \f3\-h\f1, \f3\-\-no\-job\-header\f1 is selected.
+.TP 8
+.B NonPrintableFormat: \f2format\f1
+Specify how the non-printable characters are printed.  The possible
+values for \f2format\f1 are the same which can be given for the
+\f3\-\-non\-printable\-format\f1 option.
+.TP 8
+.B OutputFirstLine: \f2line\f1
+Set the PostScript output's first line to \f2line\f1.  The default
+value is \f3PS-Adobe-3.0\f1.  Since some printers do not like DSC
+levels greater than 2.0, this option can be used to change the output
+first line to something more suitable like \f3%!PS-Adobe-2.0\f1 or
+\f3%!\f1.
+.TP 8
+.B PageLabelFormat: \f2format\f1
+Set the page label format to \f2format\f1.  The possible values for
+\f2format\f1 are the same which can be given for the
+\f3\-\-page\-label\-format\f1 option.
+.TP 8
+.B PagePrefeed: \f2bool\f3
+Enable / disable page prefeed.  The default value is false (0).
+.TP 8
+.B PostScriptLevel: \f2level\f3
+Set the PostScript language level, that \f3enscript\f1 uses for its
+output, to \f2level\f1.  The possible values for \f2level\f1 are the
+same which can be given for the \f3\-\-ps\-level\f1 option.
+.TP 8
+.B Printer: \f2name\f3
+Names the printer to which the output is spooled.
+.TP 8
+.B QueueParam: \f2name\f3
+The spooler command switch to select the printer queue, e.g. \f3\-P\f1
+in \f3lpr \-Pps\f1.  This option can also be used to pass other flags
+to the spooler command.  These options must be given before the queue
+switch.
+.TP 8
+.B SetPageDevice: \f2key\f1[\f3:\f2value\f1]\f3
+Pass a page device definition to the generated PostScript output.
+.TP 8
+.B Spooler: \f2name\f3
+Names the printer spooler command.  \f3Enscript\f1 pipes generated
+PostScript to the command \f2name\f1.
+.TP 8
+.B StatesBinary: \f2path\f3
+Define an absolute path to the \f3states\f1 program.
+.TP 8
+.B StatesColor: \f2bool\f3
+Should the \f3states\f1 program generate color outputs.
+.TP 8
+.B StatesConfigFile: \f2file\f3
+Read highlighting states configuration from the file \f2file\f1.  The
+default config file is `@DATADIR@/enscript/hl/enscript.st'.
+.TP 8
+.B StatesHighlightStyle: \f2style\f3
+Set the highlight style to \f2style\f1.
+.TP 8
+.B StatesPath: \f2path\f3
+Define the path for the \f3states\f1 program.  The \f3states\f1
+program will lookup its state definition files from this path.  The
+default value is `$HOME/.enscript:@DATADIR@/enscript/hl'.
+.TP 8
+.B StatusDict: \f2key\f1[\f3:\f2value\f1]\f3
+Pass a statusdict definition to the generated PostScript output.
+.TP 8
+.B TOCFormat: \f2format\f3
+Format table of contents entries with the format string \f2format\f1.
+The format string \f2format\f1 can contain the same escapes which are
+used to format header strings with the `%Format' special comment.
+.TP 8
+.B Underlay: \f2text\f3
+Print string \f2text\f1 under every page.
+.TP 8
+.B UnderlayAngle: \f2num\f3
+Set the angle of the underlay text to \f2num\f1.
+.TP 8
+.B UnderlayFont: \f2fontspec\f3
+Select a font for the underlay text.
+.TP 8
+.B UnderlayGray: \f2num\f3
+Print the underlay text with the gray value \f2num\f1.
+.TP 8
+.B UnderlayPosition: \f2position_spec\f3
+Set the underlay text's starting position according to the
+\f2position_spec\f1.
+.TP 8
+.B UnderlayStyle: \f2style\f3
+Set the underlay text's style to \f2style\f1.
+
+.SH FANCY HEADERS
+
+Users can create their own fancy headers by creating a header
+description file and placing it in a directory which is in
+\f3enscript\f1's library path.  The name of the header file must be in
+format: `\f2headername\f1.hdr'.  Header can be selected by giving
+option: \f3\-\-fancy\-header=\f2headername\f1.
+
+Header description file contains PostScript code that paints the
+header.  Description file must provide procedure \f3do_header\f1 which
+is called by \f3enscript\f1 at the beginning of every page.
+
+Header description file contains two parts: comments and code.  Parts
+are separated by a line containing text:
+
+% \-\- code follows this line \-\-
+
+.B Enscript
+copies only the code part of description file to the generated
+PostScript output.  The comments part can contain any data, it is not
+copied.  If separator line is missing, no data is copied to output.
+
+.B Enscript
+defines following constants which can be used in header description
+files:
+.TP 16
+.B  d_page_w
+page width
+.TP 16
+.B  d_page_h
+page height
+.TP 16
+.B  d_header_x
+header lower left \f2x\f1 coordinate
+.TP 16
+.B  d_header_y
+header lower left \f2y\f1 coordinate
+.TP 16
+.B  d_header_w
+header width
+.TP 16
+.B  d_header_h
+header height
+.TP 16
+.B d_footer_x
+footer lower left \f2x\f1 coordinate
+.TP 16
+.B d_footer_y
+footer lower left \f2y\f1 coordinate
+.TP 16
+.B d_footer_w
+footer width
+.TP 16
+.B d_footer_h
+footer height
+.TP 16
+.B  d_output_w
+width of the text output area
+.TP 16
+.B  d_output_h
+height of the text output area
+.TP 16
+.B  user_header_p
+predicate which tells if user has defined his/her own header string:
+\f3true\f1/\f3false\f1
+.TP 16
+.B  user_header_left_str
+if \f3user_header_p\f1 is \f3true\f1, this is the left field of the
+user supplied header string.
+.TP 16
+.B user_header_center_str
+if \f3user_header_p\f1 is \f3true\f1, this is the center field of the
+user supplied header string
+.TP 16
+.B user_header_right_str
+if \f3user_header_p\f1 is \f3true\f1, this is the right field of the
+user supplied header string
+.TP 16
+.B  user_footer_p
+predicate which tells if user has defined his/her own footer string:
+\f3true\f1/\f3false\f1
+.TP 16
+.B  user_footer_left_str
+if \f3user_footer_p\f1 is \f3true\f1, this is the left field of the
+user supplied footer string.
+.TP 16
+.B user_footer_center_str
+if \f3user_footer_p\f1 is \f3true\f1, this is the center field of the
+user supplied footer string
+.TP 16
+.B user_footer_right_str
+if \f3user_footer_p\f1 is \f3true\f1, this is the right field of the
+user supplied footer string
+.TP 16
+.B  HF
+standard header font (from \f3\-F\f1, \f3\-\-header\-font\f1 option).
+This can be selected simply by invoking command: `\f3HF setfont\f1'.
+.TP 16
+.B pagenum
+the number of the current page
+.TP 16
+.B fname
+the full name of the printed file (/foo/bar.c)
+.TP 16
+.B fdir
+the directory part of the file name (/foo)
+.TP 16
+.B ftail
+file name without the directory part (bar.c)
+.TP 16
+.B gs_languagelevel
+PostScript interpreter's language level (currently 1 or 2)
+.P
+
+You can also use the following special comments to customize your
+headers and to specify some extra options.  Special comments are like
+DSC comments but they start with a single `%' character; special
+comments start from the beginning of the line and they have the
+following syntax:
+
+%\f2commentname\f1: \f2options\f1
+
+Currently \f3enscript\f1 support the following special comments:
+.TP 8
+.B %Format: \f2name\f3 \f2format\f3
+Define a new string constant \f2name\f1 according to the format string
+\f2format\f1.  Format string start from the first non-space character
+and it ends to the end of the line.  Format string can contain general
+`%' escapes and input file related `$' escapes.  Currently following
+escapes are supported:
+.RS 8
+.TP 8
+.B %%
+character `%'
+.TP 8
+.B $$
+character `$'
+.TP 8
+.B $%
+current page number
+.TP 8
+.B $=
+number of pages in the current file
+.TP 8
+.B $p
+number of pages processed so far
+.TP 8
+.B $(\f2VAR\f3)
+value of the environment variable \f2VAR\f1.
+.TP 8
+.B %c
+trailing component of the current working directory
+.TP 8
+.B %C \f1(\f3$C\f1)\f3
+current time (file modification time) in `hh:mm:ss' format
+.TP 8
+.B %d
+current working directory
+.TP 8
+.B %D \f1(\f3$D\f1)\f3
+current date (file modification date) in `yy-mm-dd' format
+.TP 8
+.B %D{\f2string\f3} \f1(\f3$D{\f2string\f3}\f1)\f3
+format string \f2string\f1 with the strftime(3) function.
+`\f3%D{}\f1' refers to the current date and `\f3$D{}\f1' to the input
+file's last modification date.
+.TP 8
+.B %E \f1(\f3$E\f1)\f3
+current date (file modification date) in `yy/mm/dd' format
+.TP 8
+.B %F \f1(\f3$F\f1)\f3
+current date (file modification date) in `dd.mm.yyyy' format
+.TP 8
+.B %H
+document title
+.TP 8
+.B $L
+number of lines in the current input file.  This is valid only for the
+toc entries, it can't be used in header strings.
+.TP 8
+.B %m
+the hostname up to the first `.' character
+.TP 8
+.B %M
+the full hostname
+.TP 8
+.B %n
+the user login name
+.TP 8
+.B $n
+input file name without the directory part
+.TP 8
+.B %N
+the user's pw_gecos field up to the first `,' character
+.TP 8
+.B $N
+the full input file name
+.TP 8
+.B %t \f1(\f3$t\f1)\f3
+current time (file modification time) in 12-hour am/pm format
+.TP 8
+.B %T \f1(\f3$T\f1)\f3
+current time (file modification time) in 24-hour format `hh:mm'
+.TP 8
+.B %* \f1(\f3$*\f1)\f3
+current time (file modification time) in 24-hour format with seconds
+`hh:mm:ss'
+.TP 8
+.B $v
+the sequence number of the current input file
+.TP 8
+.B $V
+the sequence number of the current input file in the `Table of
+Contents' format: if the \f3\-\-toc\f1 option is given, escape expands
+to `\f2num\f1\-'; if the \f3\-\-toc\f1 is not given, escape expands to
+an empty string.
+.TP 8
+.B %W \f1(\f3$W\f1)\f3
+current date (file modification date) in `mm/dd/yy' format
+.RE
+
+.RS 8
+All format directives except `$=' can also be given in format
+
+\f2escape\f1 \f2width\f1 \f2directive\f1
+
+where \f2width\f1 specifies the width of the column to which the
+escape is printed.  For example, escape "$5%" will expand to something
+like " 12".  If the width is negative, the value will be printed
+left-justified.
+
+For example, the `emacs.hdr' defines its date string with the
+following format comment:
+
+.B %Format: eurdatestr %E
+
+which expands to:
+
+.B /eurdatestr (96/01/08) def
+.RE
+.P
+.TP 8
+.B %HeaderHeight: \f2height\f1
+Allocate \f2height\f1 points space for the page header.  The default
+header height is 36 points.
+.TP 8
+.B %FooterHeight: \f2height\f1
+Allocate \f2height\f1 points space for the page footer.  The default
+footer height is 0 points.
+.P
+
+According to Adobe's Document Structuring Conventions (DSC), all
+resources needed by a document must be listed in document's prolog.
+Since user's can create their own headers, \f3enscript\f1 don't know
+what resources those headers use.  That's why all headers must contain
+a standard DSC comment that lists all needed resources.  For example,
+used fonts can be listed with following comment:
+
+%%DocumentNeededResources: font \f2fontname1\f1 \f2fontname2\f1
+
+Comment can be continued to the next line with the standard
+continuation comment:
+
+%%+ font \f2fontname3\f1
+
+.SH SPECIAL ESCAPES
+
+\f3Enscript\f1 supports special escape sequences which can be used to
+add some page formatting commands to ASCII documents.  As a default,
+special escapes interpretation is off, so all ASCII files print out as
+everyone expects.  Special escapes interpretation is activated by
+giving option \f3\-e\f1, \f3\-\-escapes\f1 to \f3enscript\f1.
+
+All special escapes start with the escape character.  The default
+escape character is ^@ (octal 000); escape character can be changed
+with option \f3\-e\f1, \f3\-\-escapes\f1.  Escape character is
+followed by escape's name and optional options and arguments.
+
+Currently \f3enscript\f1 supports following escapes:
+.TP 8
+.B bgcolor
+change the text background color.  The syntax of the escape is:
+
+^@bgcolor{\f2red\f1 \f2green\f1 \f2blue\f1}
+
+where the color components \f2red\f1, \f2green\f1, and \f1blue\f1 are
+given as decimal numbers between values 0 and 1.
+
+.TP 8
+.B bggray
+change the text background color.  The syntax of the escape is:
+
+^@bggray{\f2gray\f1}
+
+where \f2gray\f1 is the new text background gray value.  The default
+value is 1.0 (white).
+.TP 8
+.B color
+change the text color.  The syntax of the escape is:
+
+^@color{\f2red\f1 \f2green\f1 \f2blue\f1}
+
+where color components \f2red\f1, \f2green\f1 and \f2blue\f1 are given
+as decimal numbers between values 0 and 1.
+.TP 8
+.B comment
+comment the rest of the line including the newline character.
+Escape's syntax is:
+
+^@comment \f2text\f1 \f2newline_character\f1
+.TP 8
+.B escape
+change the escape character.  The syntax of the escape is:
+
+^@escape{\f2code\f1}
+
+where \f2code\f1 is the decimal code of the new escape character.
+.TP 8
+.B epsf
+inline EPS file to the document.  The syntax of the escape is:
+
+^@epsf[\f2options\f1]{\f2filename\f1}
+
+where \f2options\f1 is an optional sequence of option characters and
+values enclosed with brackets and \f2filename\f1 is the name of the
+EPS file.
+
+If \f2filename\f1 ends to the `|' character, then \f2filename\f1 is
+assumed to name a command that prints EPS data to its standard output.
+In this case, \f3enscript\f1 opens a pipe to the specified command
+and reads EPS data from pipe.
+
+Following options can be given for the \f3epsf\f1 escape:
+.RS 8
+.TP 8
+.B c
+print image centered
+.TP 8
+.B r
+print image right justified
+.TP 8
+.B n
+do not update current point.  Following output is printed to that
+position where the current point was just before the \f3epsf\f1 escape
+.TP 8
+.B nx
+do not update current point \f2x\f1 coordinate
+.TP 8
+.B ny
+do not update current point \f2y\f1 coordinate
+.TP 8
+.B x\f2num\f3
+move image's top left \f2x\f1 coordinate \f2num\f1 characters from
+current point \f2x\f1 coordinate (relative position)
+.TP 8
+.B x\f2num\f3a
+set image's top left \f2x\f1 coordinate to column \f2num\f1 (absolute
+position)
+.TP 8
+.B y\f2num\f3
+move image's top left \f2y\f1 coordinate \f2num\f1 lines from current
+line (relative position)
+.TP 8
+.B y\f2num\f3a
+set image's top left \f2y\f1 coordinate to line \f2num\f1 (absolute
+position)
+.TP 8
+.B h\f2num\f3
+set image's height to \f2num\f1 lines
+.TP 8
+.B s\f2num\f3
+scale image with factor \f2num\f1
+.TP 8
+.B sx\f2num\f3
+scale image in \f2x\f1 direction with factor \f2num\f1
+.TP 8
+.B sy\f2num\f3
+scale image in \f2y\f1 direction with factor \f2num\f1
+.P
+As a default, all dimensions are given in lines (vertical) and
+characters (horizontal).  You can also specify other units by
+appending an unit specifier after number.  Possible unit specifiers
+and the corresponding units are:
+.TP 8
+.B c
+centimeters
+.TP 8
+.B i
+inches
+.TP 8
+.B l
+lines or characters (default)
+.TP 8
+.B p
+PostScript points
+.P
+For example to print an image one inch high, you can specify height by
+following options: \f3h1i\f1 (1 inch), \f3h2.54c\f1 (2.54 cm),
+\f3h72p\f1 (72 points).
+.RE
+.TP 8
+.B font
+select current font.  The syntax of the escape is:
+
+^@font{\f2fontname\f1[:\f2encoding\f1]}
+
+where \f2fontname\f1 is a standard font specification.  Special font
+specification \f3default\f1 can be used to select the default body
+font (\f3enscript\f1's default or the one specified by the command
+line option \f3\-f\f1, \f3\-\-font\f1).
+
+The optional argument \f2encoding\f1 specifies the encoding that
+should be used for the new font.  Currently the encoding can only be
+the \f3enscript\f1's global input encoding or \f3ps\f1.
+.TP 8
+.B ps
+include raw PostScript code to the output.  The syntax of the escape
+is:
+
+^@ps{\f2code\f1}
+.TP 8
+.B shade
+highlight regions of text by changing the text background color.
+Escape's syntax is:
+
+^@shade{\f2gray\f1}
+
+where \f2gray\f1 is the new text background gray value.  The default
+value is 1.0 (white) which disables highlighting.
+
+.SH PAGE DEVICE OPTIONS
+
+Page device is a PostScript level 2 feature that offers an uniform
+interface to control printer's output device.  \f3Enscript\f1
+protects all page device options inside an if block so they have no
+effect in level 1 interpreters.  Although all level 2 interpreters
+support page device, they do not have to support all page device
+options.  For example some printers can print in duplex mode and some
+can not.  Refer to the documentation of your printer for supported
+options.
+
+Here are some usable page device options which can be selected with
+the \f3\-D\f1, \f3\-\-setpagedevice\f1 option.  For a complete listing,
+see \f2PostScript Language Reference Manual\f1: section 4.11 Device
+Setup.
+.TP 8
+.B Collate \f2boolean\f1
+how output is organized when printing multiple copies
+.TP 8
+.B Duplex \f2boolean\f1
+duplex (two side) printing
+.TP 8
+.B ManualFeed \f2boolean\f1
+manual feed paper tray
+.TP 8
+.B OutputFaceUp \f2boolean\f1
+print output `face up' or `face down'
+.TP 8
+.B Tumble \f2boolean\f1
+how opposite sides are positioned in duplex printing
+
+.SH PRINTING EXAMPLES
+
+Following printing examples assume that \f3enscript\f1 uses the
+default configuration.  If default actions have been changed from the
+configuration files, some examples will behave differently.
+.TP 8
+.B enscript foo.txt
+Print file \f3foo.txt\f1 to the default printer.
+.TP 8
+.B enscript \-Possu foo.txt
+Print file \f3foo.txt\f1 to printer \f3ossu\f1.
+.TP 8
+.B enscript \-pfoo.ps foo.txt
+Print file \f3foo.txt\f1, but leave PostScript output to file
+\f3foo.ps\f1.
+.TP 8
+.B enscript \-2 foo.txt
+Print file \f3foo.txt\f1 to two columns.
+.TP 8
+.B enscript \-2r foo.txt
+Print file to two columns and rotate output 90 degrees (landscape).
+.TP 8
+.B enscript \-DDuplex:true foo.txt
+Print file in duplex (two side) mode (printer dependent).
+.TP 8
+.B enscript \-G2rE \-U2 foo.c
+My default code printing command: gaudy header, two columns,
+landscape, code highlighting, 2-up printing.
+.TP 8
+\f3enscript \-E \-\-color \-Whtml \-\-toc -pfoo.html *.h *.c\f1
+A nice HTML report of your project's C source files.
+
+.SH ENVIRONMENT VARIABLES
+
+The environment variable \f3ENSCRIPT\f1 can be used to pass default
+options for \f3enscript\f1.  For example, to select the default body
+font to be Times\-Roman 7pt, set the following value to the
+\f3ENSCRIPT\f1 environment variable:
+.TP 8
+.B \-fTimes\-Roman7
+.P
+
+The value of the \f3ENSCRIPT\f1 variable is processed before the
+command line options, so command line options can be used to overwrite
+these defaults.
+
+Variable \f3ENSCRIPT_LIBRARY\f1 specifies the \f3enscript\f1's
+library directory.  It can be used to overwrite the build-in default
+`@DATADIR@/enscript'.
+
+.SH RETURN VALUE
+
+\f3Enscript\f1 returns value 1 to the shell if any errors were
+encountered or 0 otherwise.  If the option
+\f3\-\-extended\-return\-values\f1 was specified, the return value is
+constructed from the following flags:
+.TP 8
+.B 0
+no errors or warnings
+.TP 8
+.B 2
+some lines were truncated or wrapped
+.TP 8
+.B 4
+some characters were missing from the used fonts
+.TP 8
+.B 8
+some characters were unprintable
+
+.SH FILES
+
+.nf
+.ta 4i
+@DATADIR@/enscript/*.hdr		header files
+@DATADIR@/enscript/*.enc		input encoding vectors
+@DATADIR@/enscript/enscript.pro	PostScript prolog
+@DATADIR@/enscript/afm/*.afm		AFM files for PostScript fonts
+@DATADIR@/enscript/font.map	index for the AFM files
+@DATADIR@/enscript/hl/*.st	states definition files
+@SYSCONFDIR@/enscript.cfg		system\-wide configuration file
+@SYSCONFDIR@/enscriptsite.cfg		site configuration file
+~/.enscriptrc				personal configuration file
+~/.enscript/				personal resource directory
+.fi
+
+.SH SEE ALSO
+diffpp(1), ghostview(1), gs(1), lpq(1), lpr(1), lprm(1), states(1)
+
+.SH AUTHOR
+Markku Rossi <mtr@iki.fi> <http://www.iki.fi/~mtr/>
+
+GNU Enscript WWW home page: <http://www.iki.fi/~mtr/genscript/>

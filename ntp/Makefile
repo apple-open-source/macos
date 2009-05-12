@@ -43,7 +43,8 @@ AEP_ExtractDir = $(AEP_ProjVers)
 #----------------------------------------------------#
 #>>> Update ntp.plist when you change AEP_Patches <<<#
 #----------------------------------------------------#
-AEP_Patches    = NLS_EAP.patch NLS_PR-4237140.patch libmd.patch iokit.patch PR-4108417.diff
+AEP_Patches    = NLS_EAP.patch NLS_PR-4237140.patch libmd.patch iokit.patch \
+	PR-4108417.diff ntp_io.c.patch ntpq.c.patch openssl.patch
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j
@@ -116,3 +117,5 @@ install-launchd-items:
 	$(INSTALL) -m 755 ntpd-wrapper $(DSTROOT)/usr/libexec
 	$(INSTALL) -d $(DSTROOT)/usr/share/man/man8
 	$(INSTALL) -m 644 ntpd-wrapper.8 $(DSTROOT)/usr/share/man/man8
+	$(INSTALL) -d $(DSTROOT)/private/etc
+	$(INSTALL) -m 644 ntp-restrict.conf $(DSTROOT)/private/etc

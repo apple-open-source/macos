@@ -1,8 +1,8 @@
 /*
- * Copyright (C) 2004, 2005  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2008  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2001  Internet Software Consortium.
  *
- * Permission to use, copy, modify, and distribute this software for any
+ * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: platform.h,v 1.9.18.3 2005/02/24 00:32:23 marka Exp $ */
+/* $Id: platform.h,v 1.9.18.5 2008/04/02 23:45:58 tbox Exp $ */
 
 #ifndef ISC_PLATFORM_H
 #define ISC_PLATFORM_H 1
@@ -34,6 +34,7 @@
 #if _MSC_VER > 1200
 #define ISC_PLATFORM_HAVEIN6PKTINFO
 #endif
+#define ISC_PLATFORM_HAVESCOPEID
 #define ISC_PLATFORM_NEEDPORTT
 #undef MSG_TRUNC
 #define ISC_PLATFORM_NEEDNTOP
@@ -43,6 +44,8 @@
 #define ISC_PLATFORM_QUADFORMAT "I64"
 
 #define ISC_PLATFORM_NEEDSTRSEP
+#define ISC_PLATFORM_NEEDSTRLCPY
+#define ISC_PLATFORM_NEEDSTRLCAT
 #define ISC_PLATFORM_NEEDSTRLCPY
 
 /*
@@ -68,19 +71,19 @@
 #ifdef LIBISC_EXPORTS
 #define LIBISC_EXTERNAL_DATA __declspec(dllexport)
 #else
-#define LIBISC_EXTERNAL_DATA __declspec(dllimport) 
+#define LIBISC_EXTERNAL_DATA __declspec(dllimport)
 #endif
 
 #ifdef LIBISCCFG_EXPORTS
 #define LIBISCCFG_EXTERNAL_DATA __declspec(dllexport)
 #else
-#define LIBISCCFG_EXTERNAL_DATA __declspec(dllimport) 
+#define LIBISCCFG_EXTERNAL_DATA __declspec(dllimport)
 #endif
 
 #ifdef LIBISCCC_EXPORTS
 #define LIBISCCC_EXTERNAL_DATA __declspec(dllexport)
 #else
-#define LIBISCCC_EXTERNAL_DATA __declspec(dllimport) 
+#define LIBISCCC_EXTERNAL_DATA __declspec(dllimport)
 #endif
 
 #ifdef LIBDNS_EXPORTS

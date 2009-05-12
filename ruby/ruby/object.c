@@ -2,8 +2,8 @@
 
   object.c -
 
-  $Author: knu $
-  $Date: 2007-03-03 16:09:24 +0900 (Sat, 03 Mar 2007) $
+  $Author: shyouhei $
+  $Date: 2008-06-18 15:21:30 +0900 (Wed, 18 Jun 2008) $
   created at: Thu Jul 15 12:01:24 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -844,28 +844,6 @@ nil_inspect(obj)
 {
     return rb_str_new2("nil");
 }
-
-#ifdef NIL_PLUS
-static VALUE
-nil_plus(x, y)
-    VALUE x, y;
-{
-    switch (TYPE(y)) {
-      case T_NIL:
-      case T_FIXNUM:
-      case T_FLOAT:
-      case T_BIGNUM:
-      case T_STRING:
-      case T_ARRAY:
-	return y;
-      default:
-	rb_raise(rb_eTypeError, "tried to add %s(%s) to nil",
-		 RSTRING(rb_inspect(y))->ptr,
-		 rb_obj_classname(y));
-    }
-    /* not reached */
-}
-#endif
 
 static VALUE
 main_to_s(obj)
@@ -2327,6 +2305,7 @@ rb_cstr_to_dbl(p, badcheck)
     else {
 	while (ISSPACE(*p) || *p == '_') p++;
     }
+    errno = 0;
     d = strtod(p, &end);
     if (errno == ERANGE) {
 	OutOfRange();

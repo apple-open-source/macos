@@ -156,6 +156,7 @@ addgroup(const char *grpname)
 	struct group *grp;
 	char *ep, *pass;
 	char **p;
+	char *grp_passwd;
 
 	egid = getegid();
 
@@ -179,10 +180,13 @@ addgroup(const char *grpname)
 			dbmember = 1;
 			break;
 		}
-	if (!dbmember && *grp->gr_passwd != '\0' && getuid() != 0) {
+	grp_passwd = grp->gr_passwd;
+	if ((grp_passwd == NULL) || (grp_passwd[0] == '\0'))
+		grp_passwd = "*";
+	if (!dbmember && getuid() != 0) {
 		pass = getpass("Password:");
 		if (pass == NULL ||
-		    strcmp(grp->gr_passwd, crypt(pass, grp->gr_passwd)) != 0) {
+		    strcmp(grp_passwd, crypt(pass, grp_passwd)) != 0) {
 			fprintf(stderr, "Sorry\n");
 			return;
 		}

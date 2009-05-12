@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: filter.c,v 1.17.2.3.2.11 2007/12/31 07:20:15 sebastian Exp $ */
+/* $Id: filter.c,v 1.17.2.3.2.12 2008/09/22 01:25:44 cellog Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
@@ -381,15 +381,12 @@ PHPAPI void _php_stream_filter_append(php_stream_filter_chain *chain, php_stream
 				stream->writepos = 0;
 				break;
 			case PSFS_PASS_ON:
-				/* Put any filtered data onto the readbuffer stack.
-				   Previously read data has been at least partially consumed. */
-				stream->readpos += consumed;
-
-				if (stream->writepos == stream->readpos) {
-					/* Entirely consumed */
-					stream->writepos = 0;
-					stream->readpos = 0;
-				}
+				/* If any data is consumed, we cannot rely upon the existing read buffer,
+				   as the filtered data must replace the existing data, so invalidate the cache */
+				/* note that changes here should be reflected in
+				   main/streams/streams.c::php_stream_fill_read_buffer */
+				stream->writepos = 0;
+				stream->readpos = 0;
 
 				while (brig_outp->head) {
 					bucket = brig_outp->head;

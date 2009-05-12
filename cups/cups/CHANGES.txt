@@ -1,5 +1,147 @@
-CHANGES.txt - 2008-07-21
+CHANGES.txt - 2009-02-20
 ------------------------
+
+CHANGES IN CUPS V1.3.10
+
+	- Documentation fixes (STR #2994, STR #2995, STR #3008, STR #3056,
+	  STR #3057)
+	- Fixed a localization problem for option choices (incorrectly) named
+	  "Custom" (STR #3106)
+	- The fallback OpenSSL random number seeding would not work (STR #3079)
+	- The scheduler might miss a child signal, causing high CPU usage.
+	- The scheduler did not enforce quotas after the job history was
+	  unloaded (STR #3078)
+	- The job-k-limit, job-page-limit, and job-quota-period attributes
+	  could not be set using the lpadmin command (STR #3077)
+	- httpSeparateURI() did not error out on URIs with a missing port
+	  number after a colon.
+	- Fixed a Valgrind-detected initialization error when creating a
+	  missing directory on startup.
+	- The scheduler did not always read all of the HTTP headers from a
+	  CGI script/program.
+        - The scheduler did not always set the "air" property in Bonjour/DNS-SD
+          registrations.
+	- The scheduler incorrectly compared Mac OS X UUIDs for access
+	  control, preventing access in certain configurations.
+        - The IPP backend incorrectly reset the required authentication
+	  to Kerberos when authentication failed.
+	- The scheduler no longer looks up the local hostname by default;
+	  turn on hostname lookups to restore the previous behavior.
+	- The scheduler did not always load MIME type rules correctly
+	  (STR #3059)
+	- The test page did not format correctly on A4 paper (STR #3060)
+	- The web interface sometimes incorrectly redirected users to
+	  127.0.0.1 (STR #3022)
+	- cupsPrintFile*() did not send the document filename for single
+	  file submissions (STR #3055)
+	- The scheduler did not update the member-names attribute when
+	  removing the last printer from a class.
+	- The scheduler did not report PPD Products with parenthesis
+	  in them properly (STR #3046)
+	- The Mac OS X USB backend did not handle timeout errors
+	  properly.
+	- The wrong italic fonts were listed in the UTF-8 charset file
+	  for the text filter.
+	- The backends did not return an OK status for the
+	  CUPS_SC_CMD_GET_BIDI side-channel command (STR #3029)
+	- The scheduler did not purge jobs that were missing a
+	  time-at-creation attribute, indicating a bad job control file
+	  (STR #3030)
+	- The "-o job-hold-until=week-end" option did not work properly
+	  (STR #3025)
+	- The Solaris USB printer device does not support select or poll
+	  (STR #3028)
+	- The scheduler would crash if you exceeded the MaxSubscriptions
+	  limit.
+	- The lp "-H immediate" option did not specify that the job
+	  should not be held (STR #3013)
+	- The scheduler did not support the "Connection: close"
+	  HTTP header (STR #3010)
+	- The mailto notifier didn't terminate messages properly
+	  (STR #3011)
+	- Backends could spin trying to read back-channel data
+	  (STR #3001)
+	- The HP-GL/2 filter was using the wrong default colors
+	  (STR #2966)
+	- The scheduler incorrectly allowed Get-Jobs operations without a
+	  printer-uri (STR #2996)
+	- The compression option was not being encoded properly
+	  (STR #2997)
+	- Added a missing character map for JIS-X0213/ShiftJIS.
+	- The scheduler now rejects ATTR: messages with empty values.
+	- The scheduler could consume all CPU handling closed connections
+	  (STR #2988)
+	- The scheduler now protects against DNS rebinding attacks on
+	  localhost.
+	- SECURITY: The PNG image reading code did not validate the
+	  image size properly, leading to a potential buffer overflow
+	  (STR #2974)
+	- Fixed some configure script bugs with rc/xinetd directories
+	  (STR #2970)
+	- The Epson sample driver PPDs contained errors (STR #2979)
+
+
+CHANGES IN CUPS V1.3.9
+
+	- SECURITY: The HP-GL/2 filter did not range check pen numbers
+	  (STR #2911)
+	- SECURITY: The SGI image file reader did not range check
+	  16-bit run lengths (STR #2918)
+	- SECURITY: The text filter did not range check cpi, lpi, or
+	  column values (STR #2919)
+	- Documentation updates (STR #2904, STR #2944)
+	- The French web admin page was never updated (STR #2963)
+	- The IPP backend did not retry print jobs when the printer
+	  reported itself as busy or unavailable (STR #2951)
+	- The "Set Allowed Users" web interface did not handle trailing
+	  whitespace correctly (STR #2956)
+	- The PostScript filter did not work with Adobe applications
+	  using custom page sizes (STR #2968)
+	- The Mac OS X USB backend did not work with some printers
+	  that reported a bad 1284 device ID.
+	- The scheduler incorrectly resolved the client connection
+	  address when HostNameLookups was set to Off (STR #2946)
+	- The IPP backend incorrectly stopped the local queue if
+	  the remote server reported the "paused" state.
+	- The cupsGetDests() function did not catch all types of
+	  request errors.
+	- The scheduler did not always log "job queued" messages
+	  (STR #2943)
+	- The scheduler did not support destination filtering using
+	  the printer-location attribute properly (STR #2945)
+	- The scheduler did not send the server-started,
+	  server-restarted, or server-stopped events (STR #2927)
+	- The scheduler no longer enforces configuration file
+	  permissions on symlinked files (STR #2937)
+	- CUPS now reinitializes the DNS resolver on failures
+	  (STR #2920)
+	- The CUPS desktop menu item was broken (STR #2924)
+	- The PPD parser was too strict about missing keyword
+	  values in "relaxed" mode.
+	- The PostScript filter incorrectly mirrored landscape
+	  documents.
+	- The scheduler did not correctly update the
+	  auth-info-required value(s) if the AuthType was Default.
+	- The scheduler required Kerberos authentication for
+	  all operations on remote Kerberized printers instead
+	  of just for the operations that needed it.
+	- The socket backend could wait indefinitely for back-
+	  channel data with some devices.
+	- PJL panel messages were not reset correctly on older
+	  printers (STR #2909)
+	- cupsfilter used the wrong default path (STR #2908)
+	- Fixed address matching for "BrowseAddress @IF(name)"
+	  (STR #2910)
+	- Fixed compiles on AIX.
+	- Firefox 3 did not work with the CUPS web interface in SSL
+	  mode (STR #2892)
+	- Custom options with multiple parameters were not emitted
+	  correctly.
+	- Refined the cupstestppd utility.
+	- ppdEmit*() did not support custom JCL options (STR #2889)
+	- The cupstestppd utility incorrectly reported missing
+	  "en" base translations (STR #2887)
+
 
 CHANGES IN CUPS V1.3.8
 

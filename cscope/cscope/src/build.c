@@ -223,7 +223,7 @@ build(void)
     if (strcmp(currentdir, home) == 0) {
 	strcpy(newdir, "$HOME");
     } else if (strncmp(currentdir, home, strlen(home)) == 0) {
-	sprintf(newdir, "$HOME%s", currentdir + strlen(home));
+	snprintf(newdir, sizeof(newdir), "$HOME%s", currentdir + strlen(home));
     }
     /* sort the source file names (needed for rebuilding) */
     qsort(srcfiles, nsrcfiles, sizeof(char *), compare);
@@ -454,7 +454,7 @@ cscope: converting to new symbol database file format\n");
 	}
 	fstat(fileno(postings), &statstruct);
 	fclose(postings);
-	sprintf(sortcommand, "env LC_ALL=C sort -T %s %s", tmpdir, temp1);
+	snprintf(sortcommand, sizeof(sortcommand), "env LC_ALL=C sort -T %s %s", tmpdir, temp1);
 	if ((postings = mypopen(sortcommand, "r")) == NULL) {
 	    fprintf(stderr, "cscope: cannot open pipe to sort command\n");
 	    cannotindex();

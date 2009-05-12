@@ -1,6 +1,6 @@
 #
 # Makefile for states.
-# Copyright (c) 1997-1998 Markku Rossi
+# Copyright (c) 1997-2003 Markku Rossi
 #
 # Author: Markku Rossi <mtr@iki.fi>
 #
@@ -24,38 +24,39 @@
 # Boston, MA 02111-1307, USA.
 #
 
-SUBDIRS = tests
+SUBDIRS = hl tests
 
 AUTOMAKE_OPTIONS =
 
-man_MANS = states.1
-
 bin_PROGRAMS = states
-states_SOURCES = main.c utils.c prims.c process.c gram.y lex.l
 
-LDADD = ../afmlib/libafm.a @INTLLIBS@ ../compat/libcompat.a @LEXLIB@
-states_DEPENDENCIES = @INTLLIBS@ ../compat/libcompat.a
+states_SOURCES = main.c utils.c prims.c process.c gram.y lex.l
+states_SOURCES_windelta = \
+	-gram.y	\
+	+gram.c	\
+	-lex.l	\
+	+lex.c
+
+LDADD = ../afmlib/libafm.a @LIBINTL@ ../compat/libcompat.a @LEXLIB@
+states_DEPENDENCIES = ../compat/libcompat.a
 
 noinst_HEADERS = defs.h gram.h
 
-EXTRA_DIST = states.1.in TODO enscript.st over.in enscript.el
+EXTRA_DIST = TODO over.in enscript.el
 
-localedir = $(prefix)/@DATADIRNAME@/locale
+localedir = $(prefix)/share/locale
 
 bin_SCRIPTS = over
 
 over: $(srcdir)/over.in
-	sed 's%@LIBRARYDIR@%$(prefix)/@DATADIRNAME@/enscript%g' \
+	sed 's%@LIBRARYDIR@%$(prefix)/share/enscript%g' \
 	$(srcdir)/over.in > over
 
-YFLAGS = -d
+AM_YFLAGS = -d
 
-DEFS = @DEFS@ -DLOCALEDIR=\"$(localedir)\" -I. -I$(srcdir) -I..
-INCLUDES = -I$(srcdir)/../compat -I$(srcdir)/../afmlib -I$(srcdir)/../intl -I../intl
+INCLUDES = -I$(srcdir)/../compat -I$(srcdir)/../afmlib	\
+-I$(srcdir)/../intl -I../intl -DLOCALEDIR=\"$(localedir)\"
 
-install-data-local: enscript.st
-	$(top_srcdir)/mkinstalldirs $(datadir)/enscript
-	$(INSTALL_DATA) $(srcdir)/enscript.st $(datadir)/enscript/enscript.st
-
-uninstall-local:
-	rm -f $(datadir)/enscript/enscript.st
+INCLUDES_windelta = 	\
+	+-I../w32	\
+	--DLOCALEDIR=\"$(localedir)\"

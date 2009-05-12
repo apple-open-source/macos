@@ -1,44 +1,11 @@
-Tue Jan 21 18:16:57 1997  Markku Rossi  <mtr@ngs.fi>
+2003-02-28  gettextize  <bug-gnu-gettext@gnu.org>
 
-	* POTFILES.in: Added states sources.
-
-Mon Jan 13 17:08:26 1997  Markku Rossi  <mtr@ngs.fi>
-
-	* POTFILES.in: Internationalized mkafmmap program.
-
-Thu Nov 14 17:15:22 1996  Markku Rossi  <mtr@ngs.ngs.fi>
-
-	* POTFILES.in: Moved xalloc.c to compat subdirectory.
-
-Fri Aug 23 21:47:04 1996  Markku Rossi  <mtr@ngs.ngs.fi>
-
-	* sl.po: Fixed some gettext-0.10.23 errors about missing '\n'
-	characters. 
-
-Sun Aug 18 22:23:23 1996  Markku Rossi  <mtr@ngs.ngs.fi>
-
-	* Added Dutch message file `nl.po'.
-
-Wed Jul 17 10:49:41 1996  Markku Rossi  <mtr@ngs.ngs.fi>
-
-	* New fr.po file.
-
-Wed Jun  5 09:29:06 1996  Markku Rossi  <mtr@ngs.ngs.fi>
-
-	* POTFILES.in: Removed all trailing empty lines so POTFILES will
-	be generated correctly.
-
-Thu May 30 10:06:50 1996  Markku Rossi  <mtr@ngs.fi>
-
-	* Added Slovenian message file `sl.po'.
-
-Fri May 24 09:11:23 1996  Markku Rossi  <mtr@ngs.fi>
-
-	* fi.po: Translated some new messages.
-
-	* Upgraded to gettext-1.10.12.
-
-Mon May  6 08:34:08 1996  Markku Rossi  <mtr@ngs.fi>
-
-	* Internationalization stuffs for enscript.
+	* Makefile.in.in: New file, from gettext-0.11.5.
+	* Rules-quot: New file, from gettext-0.11.5.
+	* boldquot.sed: New file, from gettext-0.11.5.
+	* en@boldquot.header: New file, from gettext-0.11.5.
+	* en@quot.header: New file, from gettext-0.11.5.
+	* insert-header.sin: New file, from gettext-0.11.5.
+	* quot.sed: New file, from gettext-0.11.5.
+	* remove-potcdate.sin: New file, from gettext-0.11.5.
 

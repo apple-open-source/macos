@@ -24,7 +24,7 @@
 #
 
 ENCODINGS = e_88591.c e_88592.c e_88593.c e_88594.c e_88595.c \
-	e_88597.c e_pc.c e_mac.c e_vms.c e_hp8.c e_koi8.c
+e_88597.c e_88599.c e_885910.c e_pc.c e_mac.c e_vms.c e_hp8.c e_koi8.c
 
 all: $(ENCODINGS)
 
@@ -48,6 +48,12 @@ e_88595.c: make-encoding.pl ../88595.txt
 
 e_88597.c: make-encoding.pl ../88597.txt
 	./make-encoding.pl ../88597.txt >e_88597.c
+
+e_88599.c: make-encoding.pl ../88599.txt
+	./make-encoding.pl ../88599.txt >e_88599.c
+
+e_885910.c: make-encoding.pl ../885910.txt
+	./make-encoding.pl ../885910.txt >e_885910.c
 
 e_pc.c: make-encoding.pl ../ibmpc.txt
 	./make-encoding.pl ../ibmpc.txt >e_pc.c

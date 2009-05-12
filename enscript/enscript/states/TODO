@@ -3,9 +3,9 @@
 
 * manual needs massive updating
 
-* enscript.st
+* Add document for the system() primitive.
 
-  - support for special symbols: -> \Rightarrow, <= \le, etc.
+* Fix / to be a divide operand.  We can do it with a little extra
+  syntactical knowledge - we have in in gram.y.
 
-* the colors in the highlighting modes should be changeable from the
-  command line (without editing the enscript.st file)
+* Add test for state heritance.

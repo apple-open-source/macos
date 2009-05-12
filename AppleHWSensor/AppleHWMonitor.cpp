@@ -24,9 +24,6 @@
  *
  */
 //		$Log: AppleHWMonitor.cpp,v $
-//		Revision 1.10  2008/11/19 02:13:34  raddog
-//		<rdar://problem/6349927> 10.5.6 Regression: Display never sleeps
-//		
 //		Revision 1.9  2008/04/18 23:25:31  raddog
 //		<rdar://problem/5828356> AppleHWSensor - control code needs to deal with endian issues
 //		

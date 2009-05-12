@@ -380,6 +380,8 @@ AppleUSBUHCI::UIMInitialize(IOService * provider)
         }
 
         _isocBandwidth = kUSBMaxFSIsocEndpointReqCount;
+		_expansionData->_isochMaxBusStall = 10000;						// we need a requireMaxBusStall of 10 microseconds for UHCI
+		
 		
         clock_get_uptime(&_lastTime);
         

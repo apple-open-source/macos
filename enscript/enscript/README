@@ -2,6 +2,16 @@
 			     GNU Enscript
 			     ============
 
+    SPECIAL NOTE TO ALL AMERICAN (USA) USERS.
+
+    Enscript's default output media (paper size) is A4.  It is *not*
+    Letter.  To change the default, give the configure script the
+    option `--with-media=Letter'.  It goes like this:
+
+      $ ./configure --with-media=Letter
+
+    You have been warned.... ;-)	// mtr@iki.fi
+
 GNU enscript is a drop-in replacement for the enscript program.
 Enscript converts ASCII files to PostScript and stores generated
 output to a file or sends it directly to the printer.
@@ -20,7 +30,6 @@ You should have received a copy of the GNU General Public License
 along with enscript; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.
-
 
 * Supported Character Sets
 

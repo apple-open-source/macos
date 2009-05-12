@@ -58,27 +58,41 @@ static OSArray *gKeyboardReservedArray = OSArray::withCapacity(4);
 static KeyboardReserved * GetKeyboardReservedStructEventForService(IOHIKeyboard *service, UInt32 * index = 0)
 {
     KeyboardReserved 	* retVal    = 0;
-    OSData              * data      = 0;
-    UInt32              count       = 0;
-    UInt32              i           = 0;
     
-    if (gKeyboardReservedArray)
-    {
-        count = gKeyboardReservedArray->getCount();
+    if (gKeyboardReservedArray) {
+        OSCollectionIterator    * iterator  = 0;
+        iterator = OSCollectionIterator::withCollection(gKeyboardReservedArray);
+        if (iterator) {
+            bool done = false;
+            while (!done) {
+                OSObject * obj = 0;
+                while (!done && (NULL != (obj = iterator->getNextObject()))) {
+                    OSData * data = OSDynamicCast(OSData, obj);
+                    if (data) {
+                        retVal = (KeyboardReserved *)data->getBytesNoCopy();
+                        if (retVal && (retVal->service == service)) {
+                            if (index)
+                                *index = gKeyboardReservedArray->getNextIndexOfObject(obj, 0);
+                            done = true;
+                        }
+                        else {
+                            retVal = 0;
+                        }
+                    }
+                }
+                if (iterator->isValid()) {
+                    done = true;
+                }
+                else {
+                    iterator->reset();
+                }
         
-        for(i=0; i<count; i++)
-        {
-            if ( (data = (OSData *)gKeyboardReservedArray->getObject(i)) &&
-                 (retVal = (KeyboardReserved *)data->getBytesNoCopy()) &&
-                 (retVal->service == service) )
-            {
-                if ( index ) *index = i; 
-                return retVal;
             }        
+            iterator->release();
         }
     }
     
-    return NULL;
+    return retVal;
 }
 
 static void AppendNewKeyboardReservedStructForService(IOHIKeyboard *service)

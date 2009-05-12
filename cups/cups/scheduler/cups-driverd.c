@@ -7,7 +7,7 @@
  *   in CUPS_DATADIR/model and dynamically generated PPD files using
  *   the driver helper programs in CUPS_SERVERBIN/driver.
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -1236,8 +1236,26 @@ load_ppds(const char *d,		/* I - Actual directory */
 	sscanf(line, "%*[^\"]\"%255[^\"]", device_id);
       else if (!strncmp(line, "*Product:", 9))
       {
-	sscanf(line, "%*[^\"]\"(%255[^)]", product);
-	cupsArrayAdd(products, strdup(product));
+	if (sscanf(line, "%*[^\"]\"(%255[^\"]", product) == 1)
+	{
+	 /*
+	  * Make sure the value ends with a right parenthesis - can't stop at
+	  * the first right paren since the product name may contain escaped
+	  * parenthesis...
+	  */
+
+	  ptr = product + strlen(product) - 1;
+	  if (ptr > product && *ptr == ')')
+	  {
+	   /*
+	    * Yes, ends with a parenthesis, so remove it from the end and
+	    * add the product to the list...
+	    */
+
+	    *ptr = '\0';
+	    cupsArrayAdd(products, strdup(product));
+	  }
+	}
       }
       else if (!strncmp(line, "*PSVersion:", 11))
       {

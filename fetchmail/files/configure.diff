@@ -1,0 +1,10 @@
+--- /SourceCache/fetchmail/fetchmail-29/fetchmail/configure	2008-07-07 14:02:19.000000000 -0700
++++ configure	2008-12-08 15:38:25.000000000 -0800
+@@ -13191,7 +13191,6 @@ if test "$ac_cv_search_getaddrinfo" = "n
+ echo $ECHO_N "checking if your getaddrinfo is async-signal-safe... $ECHO_C" >&6; }
+     gai_ts=no
+         case $target_os in
+-	darwin9*)				gai_ts=yes ;;
+ 	linux*)					gai_ts=yes ;;
+ 	freebsd5.5|freebsd6*|freebsd7*)		gai_ts=yes ;;
+ 	solaris2.8|solaris2.9|solaris2.10)	gai_ts=yes ;;

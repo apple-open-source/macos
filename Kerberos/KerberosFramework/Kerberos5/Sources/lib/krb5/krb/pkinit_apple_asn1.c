@@ -90,9 +90,6 @@ static const SecAsn1Template KRB5_PKAuthenticatorTemplate[] = {
 
 typedef struct {
     KRB5_PKAuthenticator		pkAuth;
-    CSSM_X509_SUBJECT_PUBLIC_KEY_INFO   *pubKeyInfo;	    /* OPTIONAL */
-    CSSM_X509_ALGORITHM_IDENTIFIER	**supportedCMSTypes;/* OPTIONAL */
-    CSSM_DATA				*clientDHNonce;	    /* OPTIONAL */
 } KRB5_AuthPack;
 
 /* 
@@ -135,18 +132,9 @@ static const SecAsn1Template KRB5_AuthPackTemplate[] = {
     { SEC_ASN1_CONTEXT_SPECIFIC | SEC_ASN1_CONSTRUCTED | SEC_ASN1_EXPLICIT | 0,
       offsetof(KRB5_AuthPack,pkAuth), 
       KRB5_PKAuthenticatorTemplate },
-    { SEC_ASN1_CONTEXT_SPECIFIC | SEC_ASN1_CONSTRUCTED | SEC_ASN1_OPTIONAL |
-	SEC_ASN1_EXPLICIT | SEC_ASN1_POINTER | 1,
-      offsetof(KRB5_AuthPack,pubKeyInfo), 
-      SubjectPublicKeyInfoTemplate },
-    { SEC_ASN1_CONTEXT_SPECIFIC | SEC_ASN1_CONSTRUCTED | SEC_ASN1_OPTIONAL |
-	SEC_ASN1_EXPLICIT | SEC_ASN1_POINTER | 2,
-      offsetof(KRB5_AuthPack,supportedCMSTypes), 
-      kSecAsn1SequenceOfAlgIdTemplate },
-    { SEC_ASN1_CONTEXT_SPECIFIC | SEC_ASN1_CONSTRUCTED | SEC_ASN1_OPTIONAL |
-	SEC_ASN1_EXPLICIT | SEC_ASN1_POINTER | 3,
-      offsetof(KRB5_AuthPack,clientDHNonce), 
-      kSecAsn1OctetStringTemplate },
+    { SEC_ASN1_SKIP | SEC_ASN1_OPTIONAL },
+    { SEC_ASN1_SKIP | SEC_ASN1_OPTIONAL },
+    { SEC_ASN1_SKIP | SEC_ASN1_OPTIONAL },
     { 0 }
 };
 
@@ -191,31 +179,6 @@ krb5_error_code krb5int_pkinit_auth_pack_encode(
     cksum->Data = (uint8 *)pa_checksum->contents;
     cksum->Length = pa_checksum->length;
     
-    if((cms_types != NULL) && (num_cms_types != 0)) {
-	unsigned dex;
-	CSSM_X509_ALGORITHM_IDENTIFIER **algIds;
-	
-	/* build a NULL_terminated array of CSSM_X509_ALGORITHM_IDENTIFIERs */
-	localAuthPack.supportedCMSTypes = (CSSM_X509_ALGORITHM_IDENTIFIER **)
-	    SecAsn1Malloc(coder,
-		(num_cms_types + 1) * sizeof(CSSM_X509_ALGORITHM_IDENTIFIER *));
-	algIds = localAuthPack.supportedCMSTypes;
-	for(dex=0; dex<num_cms_types; dex++) {
-	    algIds[dex] = (CSSM_X509_ALGORITHM_IDENTIFIER *)
-		SecAsn1Malloc(coder, sizeof(CSSM_X509_ALGORITHM_IDENTIFIER));
-	    pkiKrb5DataToCssm(&cms_types[dex].algorithm, 
-		&algIds[dex]->algorithm, coder);
-	    if(cms_types[dex].parameters.data != NULL) {
-		pkiKrb5DataToCssm(&cms_types[dex].parameters, 
-		    &algIds[dex]->parameters, coder);
-	    }
-	    else {
-		algIds[dex]->parameters.Data = NULL;
-		algIds[dex]->parameters.Length = 0;
-	    }
-	}
-	algIds[num_cms_types] = NULL;
-    }
     ortn = SecAsn1EncodeItem(coder, &localAuthPack, KRB5_AuthPackTemplate, &ber);
     if(ortn) {
 	ourRtn = ENOMEM;
@@ -300,41 +263,8 @@ krb5_error_code krb5int_pkinit_auth_pack_decode(
 	}
     }
     if(cms_types) {
-	if(localAuthPack.supportedCMSTypes == NULL) {
-	    *cms_types = NULL;
-	    *num_cms_types = 0;
-	}
-	else {
-	    /*
-	     * Convert NULL-terminated array of CSSM-style algIds to
-	     * krb5int_algorithm_ids.
-	     */
-	    unsigned dex;
-	    unsigned num_types = 0;
-	    CSSM_X509_ALGORITHM_IDENTIFIER **alg_ids;
-	    krb5int_algorithm_id *kalg_ids;
-	     
-	    for(alg_ids=localAuthPack.supportedCMSTypes;
-	        *alg_ids;
-		alg_ids++) {
-		num_types++;
-	    }
-	    *cms_types = kalg_ids = (krb5int_algorithm_id *)malloc(
-		sizeof(krb5int_algorithm_id) * num_types);
-	    *num_cms_types = num_types;
-	    memset(kalg_ids, 0, sizeof(krb5int_algorithm_id) * num_types);
-	    alg_ids = localAuthPack.supportedCMSTypes;
-	    for(dex=0; dex<num_types; dex++) {
-		if(alg_ids[dex]->algorithm.Data) {
-		    pkiCssmDataToKrb5Data(&alg_ids[dex]->algorithm, 
-			&kalg_ids[dex].algorithm);
-		}
-		if(alg_ids[dex]->parameters.Data) {
-		    pkiCssmDataToKrb5Data(&alg_ids[dex]->parameters, 
-			&kalg_ids[dex].parameters);
-		}
-	    }
-	}
+	*cms_types = NULL;
+	*num_cms_types = 0;
     }
     ourRtn = 0;
 errOut:

@@ -995,6 +995,7 @@ enum {
 #define kUSBControllerNeedsContiguousMemoryForIsoch	"Need contiguous memory for isoch"
 #define kUSBHubDontAllowLowPower				"kUSBHubDontAllowLowPower"
 #define kUSBDeviceResumeRecoveryTime			"kUSBDeviceResumeRecoveryTime"
+#define kUSBOutOfSpecMPSOK						"Out of spec MPS OK"
 
 /*!
 @enum USBReEnumerateOptions

@@ -579,7 +579,7 @@ int radius_authenticate_user(char *user, char *passwd, int type,
 	struct rad_handle *h = 0;
     int err, ret = 0, attr_type, i;
 	void *attr_value;
-	size_t attr_len;
+	size_t attr_len, len;
 	u_int32_t attr_vendor;
     char buf[256]; //MS_CHAP_RESPONSE_LEN + 1];
     char auth[MD4_SIGNATURE_SIZE + 1];
@@ -718,15 +718,26 @@ int radius_authenticate_user(char *user, char *passwd, int type,
 								attr_type = rad_get_vendor_attr(&attr_vendor, (const void **)&attr_value,  &attr_len);
 								switch (attr_type) {
 									case RAD_MICROSOFT_MS_MPPE_SEND_KEY:
-										rad_request_authenticator(h, auth, sizeof(auth));
-										radius_decryptmppekey(mppe_send_key, attr_value, attr_len, (u_char*)rad_server_secret(h), auth);
-										mppe_keys_set = 1;
-
+										len = rad_request_authenticator(h, auth, sizeof(auth));
+										
+										if(len != -1)
+										{
+											radius_decryptmppekey(mppe_send_key, attr_value, attr_len, (u_char*)rad_server_secret(h), auth, len);
+											mppe_keys_set = 1;
+										}
+										else
+											error("Radius: rad-mschapv2-mppe-send-key:  could not get authenticator!\n");										
 										break;
 									case RAD_MICROSOFT_MS_MPPE_RECV_KEY:
-										rad_request_authenticator(h, auth, sizeof(auth));
-										radius_decryptmppekey(mppe_recv_key, attr_value, attr_len, (u_char*)rad_server_secret(h), auth);
-										mppe_keys_set = 1;
+										len = rad_request_authenticator(h, auth, sizeof(auth));
+										
+										if(len != -1)
+										{
+											radius_decryptmppekey(mppe_recv_key, attr_value, attr_len, (u_char*)rad_server_secret(h), auth, len);
+											mppe_keys_set = 1;
+										}
+										else
+											error("Radius: rad-mschapv2-mppe-recv-key:  could not get authenticator!\n");
 										break;
 
 									case RAD_MICROSOFT_MS_CHAP2_SUCCESS:
@@ -932,7 +943,7 @@ void radius_ip_down(void *arg, int p)
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 int
-radius_decryptmppekey(char *key, u_int8_t *attr_value, size_t attr_len, char *secret, char *authenticator)
+radius_decryptmppekey(char *key, u_int8_t *attr_value, size_t attr_len, char *secret, char *authenticator, size_t auth_len)
 {
     int i;
     u_char  plain[32];
@@ -943,7 +954,7 @@ radius_decryptmppekey(char *key, u_int8_t *attr_value, size_t attr_len, char *se
 
     MD5_Init(&ctx);
     MD5_Update(&ctx, secret, strlen(secret));
-	MD5_Update(&ctx, authenticator, strlen(authenticator));
+	MD5_Update(&ctx, authenticator, auth_len);
     MD5_Update(&ctx, attr_value, 2); /* salt */
     MD5_Final(buf, &ctx);
 

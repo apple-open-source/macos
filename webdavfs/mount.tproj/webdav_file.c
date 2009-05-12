@@ -1327,9 +1327,7 @@ int filesystem_write_seq(struct webdav_request_writeseq *request_sq_wr)
 		
 out1:
 	
-	if (error) {
-		cleanup_seq_write(ctx);
-	} else {
+	if (!error) {
 		// write succeeded, so turn off retry state
 		ctx->is_retry = 0;
 	}

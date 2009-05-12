@@ -226,6 +226,9 @@ struct IOPCIPhysicalAddress {
 #define kIOPCIDeviceASPMSupportedKey	"pci-aspm-supported"
 #endif
 
+#define kIOPCIPMEOptionsKey		"IOPCIPMEOptions"
+
+
 enum {
     kIOPCIDevicePowerStateCount = 3,
     kIOPCIDeviceOffState	= 0,
@@ -335,6 +338,9 @@ public:
     virtual void free();
     virtual bool attach( IOService * provider );
     virtual void detach( IOService * provider );
+    virtual IOReturn powerStateWillChangeTo (IOPMPowerFlags  capabilities, 
+					     unsigned long   stateNumber, 
+					     IOService*      whatDevice);
     virtual IOReturn setPowerState( unsigned long, IOService * );
 
     virtual bool compareName( OSString * name, OSString ** matched = 0 ) const;

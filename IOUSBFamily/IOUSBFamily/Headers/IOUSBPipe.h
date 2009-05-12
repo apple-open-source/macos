@@ -44,24 +44,22 @@ class IOUSBPipe : public OSObject
     OSDeclareDefaultStructors(IOUSBPipe)
 		
 protected:
-		
-		const IOUSBEndpointDescriptor *	_descriptor;
+	
+	const IOUSBEndpointDescriptor *	_descriptor;
     IOUSBController::Endpoint		_endpoint;	// tidied up version of descriptor
-    IOUSBController *			_controller;
-    USBDeviceAddress			_address;
-    UInt8 				_status;	// no longer used
+    IOUSBController *				_controller;
+    USBDeviceAddress				_address;
+    UInt8							_status;	// was previously used for status.  Now used to detect whether a property exists or not
 	
     struct ExpansionData
     {
-        IOReturn	_correctStatus;		
-		IOUSBDevice *	_device;	// Remember containing device for clearing TTs
-		UInt8			_speed;
-		IOUSBInterface	* _interface;
-		bool			_crossEndianCompatible;
+        IOReturn					_correctStatus;		
+		IOUSBDevice *				_device;	// Remember containing device for clearing TTs
+		UInt8						_speed;
+		IOUSBInterface	*			_interface;
+		bool						_crossEndianCompatible;
     };
     ExpansionData * _expansionData;
-    
-#define	_correctStatus	_expansionData->_correctStatus
     
     virtual void free();
     

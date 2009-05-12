@@ -17,7 +17,7 @@ GEM_INSTALL = $(GEM) install --install-dir $(DSTGEMSDIR) --local --include-depen
 
 GEMS = libxml-ruby
 
-GEM_FILES_TO_CLEAN = CHANGELOG LICENSE README Rakefile TODO tests ext
+GEM_FILES_TO_CLEAN = CHANGELOG LICENSE README Rakefile TODO test tests ext
 
 build::
 	$(MKDIR) $(DSTGEMSDIR)

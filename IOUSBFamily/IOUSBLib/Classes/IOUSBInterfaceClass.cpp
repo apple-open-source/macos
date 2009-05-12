@@ -1978,8 +1978,10 @@ IOUSBInterfaceClass::LowLatencyCreateBuffer( void ** buffer, IOByteCount bufferS
     
     bzero(bufferInfo, sizeof(LowLatencyUserBufferInfoV2));
     
-	// If the request if for a Read or Write buffer AND the fNeedContiguousMemoryForLowLatencyIsoch is set, then we will use a buffer allocated by the kernel
-	if ( fNeedContiguousMemoryForLowLatencyIsoch and ((bufferType == kUSBLowLatencyWriteBuffer) or (bufferType == kUSBLowLatencyReadBuffer)) )
+	// If the request if for a Read or Write buffer we will use a buffer allocated by the kernel.  Previously this was done only for UHCI controllers, but with the support 
+	// of more than 2GB of memory, our DMA buffers might need to be in low address space, so we need to allocate those DMA buffers in the kernel.  Those buffers will be allocated
+	// with the restrictions specified by the different controllers (using the GetLowLatencyOptionsAndPhysicalMask API).
+	if ( (bufferType == kUSBLowLatencyWriteBuffer) or (bufferType == kUSBLowLatencyReadBuffer) )
 	{
         DEBUGPRINT("IOUSBLib::LowLatencyCreateBuffer:  Using an allocation from the kernel for buffer %ld\n", fNextCookie);
 		useKernelBuffer = true;

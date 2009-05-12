@@ -89,7 +89,7 @@
  *	directly -- and assumed always to succeed.
  */
 
-/* $Id: zend_strtod.c,v 1.17.2.2.2.13 2007/09/04 18:46:21 tony2001 Exp $ */
+/* $Id: zend_strtod.c,v 1.17.2.2.2.15 2008/09/15 11:47:03 dmitry Exp $ */
 
 #include <zend_operators.h>
 #include <zend_strtod.h>
@@ -984,9 +984,9 @@ static Bigint * diff(Bigint *a, Bigint *b)
 
 static double ulp (double _x)
 {
-	_double x;
+	volatile _double x;
 	register Long L;
-	_double a;
+	volatile _double a;
 
 	value(x) = _x;
 	L = (word0(x) & Exp_mask) - (P-1)*Exp_msk1;
@@ -1026,7 +1026,7 @@ b2d
 {
 	ULong *xa, *xa0, w, y, z;
 	int k;
-	_double d;
+	volatile _double d;
 #ifdef VAX
 	ULong d0, d1;
 #else
@@ -1092,7 +1092,7 @@ static Bigint * d2b(double _d, int *e, int *bits)
 	Bigint *b;
 	int de, i, k;
 	ULong *x, y, z;
-	_double d;
+	volatile _double d;
 #ifdef VAX
 	ULong d0, d1;
 #endif
@@ -1213,7 +1213,7 @@ static Bigint * d2b(double _d, int *e, int *bits)
 
 static double ratio (Bigint *a, Bigint *b)
 {
-	_double da, db;
+	volatile _double da, db;
 	int k, ka, kb;
 
 	value(da) = b2d(a, &ka);
@@ -1480,7 +1480,7 @@ ZEND_API char * zend_dtoa(double _d, int mode, int ndigits, int *decpt, int *sig
 	Bigint *b, *b1, *delta, *mlo, *mhi, *S, *tmp;
 	double ds;
 	char *s, *s0;
-	_double d, d2, eps;
+	volatile _double d, d2, eps;
 
 	value(d) = _d;
 
@@ -1720,14 +1720,7 @@ ZEND_API char * zend_dtoa(double _d, int mode, int ndigits, int *decpt, int *sig
 					if (value(d) > 0.5 + value(eps))
 						goto bump_up;
 					else if (value(d) < 0.5 - value(eps)) {
-						/* cut ALL traling zeros only if the number of chars is greater than precision 
-						 * otherwise cut only extra zeros
-						 */
-						if (k < ndigits) {
-							while(*--s == '0' && (s - s0) > k);
-						} else {
-							while(*--s == '0');
-						}
+						while(*--s == '0');
 						s++;
 						goto ret1;
 					}
@@ -2043,7 +2036,7 @@ ZEND_API double zend_strtod (CONST char *s00, char **se)
 		e, e1, esign, i, j, k, nd, nd0, nf, nz, nz0, sign;
 	CONST char *s, *s0, *s1;
 	double aadj, aadj1, adj;
-	_double rv, rv0;
+	volatile _double rv, rv0;
 	Long L;
 	ULong y, z;
 	Bigint *bb, *bb1, *bd, *bd0, *bs, *delta, *tmp;

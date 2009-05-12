@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.9.2.2.2.1 2007/07/03 17:25:34 sniper Exp $
+dnl $Id: config.m4,v 1.9.2.2.2.2 2008/10/04 13:19:22 felipe Exp $
 dnl
 
 PHP_ARG_WITH(mssql,for MSSQL support via FreeTDS,
@@ -10,11 +10,11 @@ if test "$PHP_MSSQL" != "no"; then
 
   if test "$PHP_MSSQL" = "yes"; then
     for i in /usr/local /usr; do
-      if test -f $i/include/tds.h; then
+      if test -f $i/include/sybdb.h; then
         FREETDS_INSTALLATION_DIR=$i
         FREETDS_INCLUDE_DIR=$i/include
         break
-      elif test -f $i/include/freetds/tds.h; then
+      elif test -f $i/include/freetds/sybdb.h; then
         FREETDS_INSTALLATION_DIR=$i
         FREETDS_INCLUDE_DIR=$i/include/freetds
         break
@@ -27,10 +27,10 @@ if test "$PHP_MSSQL" != "no"; then
 
   elif test "$PHP_MSSQL" != "no"; then
 
-    if test -f $PHP_MSSQL/include/tds.h; then
+    if test -f $PHP_MSSQL/include/sybdb.h; then
       FREETDS_INSTALLATION_DIR=$PHP_MSSQL
       FREETDS_INCLUDE_DIR=$PHP_MSSQL/include
-    elif test -f $PHP_MSSQL/include/freetds/tds.h; then
+    elif test -f $PHP_MSSQL/include/freetds/sybdb.h; then
       FREETDS_INSTALLATION_DIR=$PHP_MSSQL
       FREETDS_INCLUDE_DIR=$PHP_MSSQL/include/freetds
     else
@@ -38,8 +38,8 @@ if test "$PHP_MSSQL" != "no"; then
     fi
   fi  
 
-  if test ! -r "$FREETDS_INSTALLATION_DIR/$PHP_LIBDIR/libtds.a" && test ! -r "$FREETDS_INSTALLATION_DIR/$PHP_LIBDIR/libtds.so"; then
-     AC_MSG_ERROR(Could not find $FREETDS_INSTALLATION_DIR/$PHP_LIBDIR/libtds.[a|so])
+  if test ! -r "$FREETDS_INSTALLATION_DIR/$PHP_LIBDIR/libsybdb.a" && test ! -r "$FREETDS_INSTALLATION_DIR/$PHP_LIBDIR/libsybdb.so"; then
+     AC_MSG_ERROR(Could not find $FREETDS_INSTALLATION_DIR/$PHP_LIBDIR/libsybdb.[a|so])
   fi
 
   PHP_ADD_INCLUDE($FREETDS_INCLUDE_DIR)

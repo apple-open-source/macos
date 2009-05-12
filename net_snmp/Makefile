@@ -7,7 +7,7 @@ Project		= net-snmp
 ProjectName	= net_snmp
 UserType	= Administration
 ToolType	= Commands
-Submission	= 112.1
+Submission	= 121
 
 #
 # Settings for the net-snmp project.
@@ -27,6 +27,13 @@ INCLUDES		= -F/System/Library/PrivateFrameworks/ -F/System/Library/Frameworks/
 # must be properly defined.
 Extra_CC_Flags		= $(DEFINES) $(INCLUDES)
 Extra_Cxx_Flags		= $(Extra_CC_Flags)
+# also need ARCHFLAGS
+Default_AARCHFLAGS = -arch ppc -arch i386  -arch x86_64
+ifneq "$(RC_CFLAGS)" ""
+	ARCHFLAGS=$(RC_CLFLAGS)
+else
+	ARCHFLAGS=$(Default_AARCHFLAGS)
+endif
 
 Extra_Configure_Flags	= --sysconfdir=/etc \
 			--with-install-prefix=$(DSTROOT) \
@@ -37,7 +44,9 @@ Extra_Configure_Flags	= --sysconfdir=/etc \
 			--with-sys-contact="postmaster@example.com" \
 			--with-mib-modules="host ucd-snmp/diskio ucd-snmp/loadave ucd-snmp/lmSensorsTables" \
 			--disable-static \
-			--disable-embedded-perl \
+			--enable-ipv6 \
+			--with-perl-modules \
+			--disable-embedded-perl  \
 			--without-kmem-usage
 
 # Old / unused configure flags
@@ -47,6 +56,8 @@ Extra_Configure_Flags	= --sysconfdir=/etc \
 #			--enable-ipv6 \
 #			--enable-developer
 #			--with-libwrap=/usr/lib/libwrap.dylib
+#			--disable-embedded-perl  \
+
 
 # The following are sometimes necessary if DESTDIR or --with-install-prefix
 # are not respected.
@@ -88,12 +99,12 @@ MIBDIR		= $(SHAREDIR)/snmp/mibs
 
 # Automatic Extract & Patch
 AEP		= YES
-AEP_Version	= 5.4.1
+AEP_Version	= 5.4.2.1
 AEP_Patches    = diskio.patch IPv6.patch universal_builds.patch \
 			cache.patch container.patch darwin-header.patch \
 			dir_utils.patch disk.patch host.patch \
 			lmsensors.patch darwin-sensors.patch swinst.patch swrun.patch \
-			system.patch table.patch 5956376.patch
+			system.patch table.patch darwin64.patch perl-cc.patch
 AEP_LaunchdConfigs	= org.net-snmp.snmpd.plist
 AEP_ConfigDir	= $(ETCDIR)/snmp
 AEP_ConfigFiles	= snmpd.conf
@@ -197,7 +208,7 @@ install-macosx:
 		$(CP) $(DSTROOT)$(USRLIBDIR)/$${file}*.dylib $(SYMROOT); \
 		$(STRIP) -x $(DSTROOT)$(USRLIBDIR)/$${file}.dylib; \
 	done
-	$(_v) $(FIND) $(DSTROOT)$(NSLIBRARYSUBDIR)/Perl -type f -name '*.bundle' -print -exec strip -S {} \;
+	$(_v)- $(FIND) $(DSTROOT)$(NSLIBRARYSUBDIR)/Perl -type f -name '*.bundle' -print -exec strip -S {} \;
 	@echo "Copying sensor data"
 	$(_v) $(INSTALL_FILE) $(SRCROOT)/SensorDat.xml $(DSTROOT)$(SHAREDIR)/snmp
 	@echo "Fixing permissions..."

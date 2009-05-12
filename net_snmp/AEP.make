@@ -1,26 +1,25 @@
 ##
 # Makefile for Apple Release Control (Archive Extraction & Patch)
 #
-# Copyright (c) 2005-2006 Apple Computer, Inc.
+# Copyright (c) 2005-2008 Apple Inc.
 #
 # @APPLE_LICENSE_HEADER_START@
 # 
-# Portions Copyright (c) 2005-2006 Apple Computer, Inc.  All Rights
-# Reserved.  This file contains Original Code and/or Modifications of
-# Original Code as defined in and that are subject to the Apple Public
-# Source License Version 1.1 (the "License").  You may not use this file
-# except in compliance with the License.  Please obtain a copy of the
-# License at http://www.apple.com/publicsource and read it before using
-# this file.
-# 
+# Portions Copyright (c) 2005-2008 Apple Inc.  All Rights Reserved.
+# This file contains Original Code and/or Modifications of Original Code
+# as defined in and that are subject to the Apple Public Source License
+# Version 2.0 (the 'License'). You may not use this file except in
+# compliance with the License. Please obtain a copy of the License at
+# http://www.opensource.apple.com/apsl/ and read it before using this
+# file.
+#
 # The Original Code and all software distributed under the License are
-# distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+# distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
 # EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
 # INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
-# License for the specific language governing rights and limitations
-# under the License.
-# 
+# FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+# Please see the License for the specific language governing rights and
+# limitations under the License.
 # @APPLE_LICENSE_HEADER_END@
 ##
 # This header must be included after GNUsource.make or Common.make
@@ -31,14 +30,17 @@
 #  AEP_Patches - list of file names (from patches subdirectory) to
 #                run thru patch and apply to extracted sources
 #  AEP_LicenseFile - full path to license file
-#  AEP_BuildInSources - build in Sources directory instead of BuildDirectory
+#  AEP_BuildInSources - override default BuildDirectory and set to Sources;
+#                       this would be necessary if the project should be built
+#                       in the extracted source directory because the real
+#                       sources (with configure) are located there.
 #
 # The following variables will be defined if empty:
 #  AEP_Project           [ $(Project)                                ]
 #  AEP_Version           [ <no default>                              ]
 #  AEP_ProjVers          [ $(AEP_Project)-$(AEP_Version)             ]
 #  AEP_Filename          [ $(AEP_ProjVers).tar.[bg]z*                ]
-#  AEP_ExtractDir        [ $(AEP_ProVers)                            ]
+#  AEP_ExtractDir        [ $(AEP_ProjVers)                           ]
 #  AEP_Patches           [ <list of patch file to apply>             ]
 #  AEP_LicenseFile       [ $(SRCROOT)/$(ProjectName).txt             ]
 #  AEP_ConfigDir         [ $(ETCDIR)                                 ]
@@ -117,8 +119,8 @@ endif
 
 
 # Open Source configuration directories
-OSVDIR	= /usr/local/OpenSourceVersions
-OSLDIR	= /usr/local/OpenSourceLicenses
+OSVDIR	= $(USRDIR)/local/OpenSourceVersions
+OSLDIR	= $(USRDIR)/local/OpenSourceLicenses
 
 # Launchd / startup item paths
 LAUNCHDDIR		= $(NSSYSTEMDIR)$(NSLIBRARYSUBDIR)/LaunchDaemons
@@ -191,7 +193,7 @@ endif
 #
 install-configuration-files::
 ifdef AEP_ConfigFiles
-	@echo "Installing snmpd configuration files..."
+	@echo "Installing configuration files..."
 	$(INSTALL_DIRECTORY) $(DSTROOT)$(AEP_ConfigDir)
 	for file in $(AEP_ConfigFiles); \
 	do \

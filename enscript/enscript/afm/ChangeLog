@@ -1,3 +1,13 @@
+1999-04-12  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* matrix.pfa: Added the `Matrix' font to support matrix printers
+	;-)  Thanks to Tero Kivinen.
+
+1998-10-23  Markku Rossi  <mtr@ngs.fi>
+
+	* Makefile.am: Changed to install the afm files to
+	`PREFIX/share/enscript/afm/' directory.
+
 1998-06-11  Markku Rossi  <mtr@ngs.fi>
 
 	* Back to the basics.  We distribute only the AFM files for the

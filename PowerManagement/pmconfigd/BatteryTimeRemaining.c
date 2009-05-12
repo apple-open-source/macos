@@ -501,13 +501,10 @@ void _setBatteryHealthConfidence(
 {
     CFMutableArrayRef       permanentFailures = NULL;
 
-    if(!outDict || !b) return;
-
-    // no battery present? no health & confidence then!
     // If we return without setting the health and confidence values in
     // outDict, that is OK, it just means they were indeterminate.
-    if( !b->isPresent ) return;
-
+    if (!outDict || !b || !b->isPresent) 
+        return;
 
     /** Report any failure status from the PFStatus register                          **/
     /***********************************************************************************/
@@ -517,153 +514,104 @@ void _setBatteryHealthConfidence(
                                                 &kCFTypeArrayCallBacks);
         if (!permanentFailures)
             return;
-
         if (kSmartBattPFExternalInput & b->pfStatus) {
             CFArrayAppendValue( permanentFailures, CFSTR(kIOPSFailureExternalInput) );
         }
-
         if (kSmartBattPFSafetyOverVoltage & b->pfStatus) {
             CFArrayAppendValue( permanentFailures, CFSTR(kIOPSFailureSafetyOverVoltage) );
         }
-
         if (kSmartBattPFChargeSafeOverTemp & b->pfStatus) {
             CFArrayAppendValue( permanentFailures, CFSTR(kIOPSFailureChargeOverTemp) );
         }
-
         if (kSmartBattPFDischargeSafeOverTemp & b->pfStatus) {
             CFArrayAppendValue( permanentFailures, CFSTR(kIOPSFailureDischargeOverTemp) );
         }
-
         if (kSmartBattPFCellImbalance & b->pfStatus) {
             CFArrayAppendValue( permanentFailures, CFSTR(kIOPSFailureCellImbalance) );
         }
-
         if (kSmartBattPFChargeFETFailure & b->pfStatus) {
             CFArrayAppendValue( permanentFailures, CFSTR(kIOPSFailureChargeFET) );
         }
-
         if (kSmartBattPFDischargeFETFailure & b->pfStatus) {
             CFArrayAppendValue( permanentFailures, CFSTR(kIOPSFailureDischargeFET) );
         }
-
         if (kSmartBattPFDataFlushFault & b->pfStatus) {
             CFArrayAppendValue( permanentFailures, CFSTR(kIOPSFailureDataFlushFault) );
         }
-
         if (kSmartBattPFPermanentAFECommFailure & b->pfStatus) {
             CFArrayAppendValue( permanentFailures, CFSTR(kIOPSFailurePermanentAFEComms) );
         }
-
         if (kSmartBattPFPeriodicAFECommFailure & b->pfStatus) {
             CFArrayAppendValue( permanentFailures, CFSTR(kIOPSFailurePeriodicAFEComms) );
         }
-
         if (kSmartBattPFChargeSafetyOverCurrent & b->pfStatus) {
             CFArrayAppendValue( permanentFailures, CFSTR(kIOPSFailureChargeOverCurrent) );
         }
-
         if (kSmartBattPFDischargeSafetyOverCurrent & b->pfStatus) {
             CFArrayAppendValue( permanentFailures, CFSTR(kIOPSFailureDischargeOverCurrent) );
         }
-
         if (kSmartBattPFOpenThermistor & b->pfStatus) {
             CFArrayAppendValue( permanentFailures, CFSTR(kIOPSFailureOpenThermistor) );
         }
-
         if (kSmartBattPFFuseBlown & b->pfStatus) {
             CFArrayAppendValue( permanentFailures, CFSTR(kIOPSFailureFuseBlown) );
         }
 
         CFDictionarySetValue( outDict, 
-                CFSTR(kIOPSBatteryFailureModesKey), permanentFailures);
+                    CFSTR(kIOPSBatteryFailureModesKey), permanentFailures);
         CFRelease(permanentFailures);
     }
 
 
-
-    // Permanent failure -> Poor health
-    if (_batteryHas(b, CFSTR(kIOPMPSErrorConditionKey)))
+    /*
+     * Permanent failure -> Poor health
+     */
+    if (_batteryHas(b, CFSTR(kIOPMPSErrorConditionKey))
+        && CFEqual(b->failureDetected, CFSTR(kBatteryPermFailureString)))
     {
-        if (CFEqual(b->failureDetected, CFSTR(kBatteryPermFailureString))) 
-        {
-            CFDictionarySetValue(outDict, 
-                    CFSTR(kIOPSBatteryHealthKey), CFSTR(kIOPSPoorValue));
-            CFDictionarySetValue(outDict, 
-                    CFSTR(kIOPSHealthConfidenceKey), CFSTR(kIOPSGoodValue));
-            
-            // Specifically log that the battery condition is permanent failure
-            CFDictionarySetValue(outDict,
-                    CFSTR(kIOPSBatteryHealthConditionKey), CFSTR(kIOPSPermanentFailureValue));
-            
-            return;
-        }
-    }
-
-
-    /* We must construct a poor/fair/good estimate of battery health.
-
-       Our formula says:
-            ratio = MaxCap / DesignCap 
-                    (ratio >= 80%) - Good Health
-                    (ratio < 80%) && (CycleCount < 300) - Fair Health
-
-            A battery suffering permant battery failure will be labeled as 'Poor'
-
-        Always set Confidence to High Confidence.
-    */
-    if( _batteryHas(b, CFSTR(kIOPMPSMaxCapacityKey))
-     && _batteryHas(b, CFSTR(kIOPMPSDesignCapacityKey)) )
-    {
-        // Ratio of Full Charge Capacity (plus the battery's backup reserve), 
-        // to the original design capacity determines health.
-        double ratio =  ((double)b->maxCap + kSmartBattReserve_mAh)
-                        /  (double)b->designCap;
-
-        // Hysteresis: a battery that has previously been marked as needing
-        // replacement will continue 
-        if (b->markedNeedsReplacement)
-        {
-            if ((ratio <= 0.83) && (b->cycleCount < 300)) 
-            {
-                CFDictionarySetValue(outDict, 
-                        CFSTR(kIOPSBatteryHealthKey), CFSTR(kIOPSFairValue));
-                CFDictionarySetValue(outDict,
-                        CFSTR(kIOPSBatteryHealthConditionKey), CFSTR(kIOPSCheckBatteryValue));
-            } else {
-                b->markedNeedsReplacement = false;
-
-                CFDictionarySetValue(outDict, 
-                        CFSTR(kIOPSBatteryHealthKey), CFSTR(kIOPSGoodValue));            
-            }
-        } else {
-
-            if ((ratio <= 0.80) && (b->cycleCount < 300))
-            {
-                b->markedNeedsReplacement = true;
-                CFDictionarySetValue(outDict, 
-                        CFSTR(kIOPSBatteryHealthKey), CFSTR(kIOPSFairValue));
-                CFDictionarySetValue(outDict,
-                        CFSTR(kIOPSBatteryHealthConditionKey), CFSTR(kIOPSCheckBatteryValue));
-                        
-            } else {
-                CFDictionarySetValue(outDict, 
-                        CFSTR(kIOPSBatteryHealthKey), CFSTR(kIOPSGoodValue));
-            }
-
-        }
-    
-        /* CONFIDENCE */
         CFDictionarySetValue(outDict, 
-                CFSTR(kIOPSHealthConfidenceKey), CFSTR(kIOPSGoodValue));
-        
+                CFSTR(kIOPSBatteryHealthKey), CFSTR(kIOPSCheckBatteryValue));
+
+        // Specifically log that the battery condition is permanent failure
+        CFDictionarySetValue(outDict,
+                CFSTR(kIOPSBatteryHealthConditionKey), CFSTR(kIOPSPermanentFailureValue));
+
         return;
-        
-    } else {
-            // No design cap (as on PPC). We can't figure
-            // out a thing about this battery's health!!!
-            // So we leave the health properties unspecified.            
-            return;
     }
+
+    double compareRatioTo = 0.80;
+    double capRatio =  ((double)b->maxCap + kSmartBattReserve_mAh)
+                        /  (double)b->designCap;
+    bool cyclesExceedStandard = false;
+
+    if (b->markedDeclining) {
+        // The battery status should not fluctuate as battery re-learns and adjusts
+        // its FullChargeCapacity. This number may fluctuate in normal operation.
+        // Hysteresis: a battery that has previously been marked as 'declining'
+        // will continue to be marked as declining until capacity ratio exceeds 83%. 
+        compareRatioTo = 0.83;
+    } else {
+        compareRatioTo = 0.80;
+    }
+
+    if (capRatio >= compareRatioTo) {
+        b->markedDeclining = 0;
+        // Good
+        CFDictionarySetValue(outDict, 
+                CFSTR(kIOPSBatteryHealthKey), CFSTR(kIOPSGoodValue));
+    } else {
+        b->markedDeclining = 1;
+        if (cyclesExceedStandard) {
+            // Fair
+            CFDictionarySetValue(outDict, 
+                    CFSTR(kIOPSBatteryHealthKey), CFSTR(kIOPSFairValue));
+        } else {
+            // Check battery
+            CFDictionarySetValue(outDict, 
+                    CFSTR(kIOPSBatteryHealthKey), CFSTR(kIOPSCheckBatteryValue));
+        }    
+    }
+
 
     return;
 }

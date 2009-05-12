@@ -53,9 +53,9 @@ static const char *sStaticPluginList[ kNumStaticPlugins ][ 2 ] =
 	{ "Cache",		"1.0" },
 	{ "Configure",	"3.0" },
 	{ "NetInfo",	"3.0" },
-	{ "Local",		"1.0" },
-	{ "LDAPv3",		"3.0" },
-	{ "Search",		"3.0" },
+	{ "Local",		"1.1" },
+	{ "LDAPv3",		"3.1" },
+	{ "Search",		"3.1" },
 	{ "BSD",		"2.0" }
 };
 

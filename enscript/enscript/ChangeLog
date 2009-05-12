@@ -1,3 +1,77 @@
+2003-02-28  gettextize  <bug-gnu-gettext@gnu.org>
+
+	* Makefile.am (SUBDIRS): Add intl.
+	* configure.in (AC_OUTPUT): Add intl/Makefile,
+
+2003-02-28  gettextize  <bug-gnu-gettext@gnu.org>
+
+	* Makefile.am (SUBDIRS): Add m4.
+	(ACLOCAL_AMFLAGS): New variable.
+	(EXTRA_DIST): Add config.rpath.
+	* configure.in (AC_OUTPUT): Add po/Makefile.in,
+	(AM_GNU_GETTEXT_VERSION): Bump to 0.11.5.
+
+1999-07-21  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* README: Added a special note for all US users about the
+	enscript's default output media (which is A4 instead of Letter).
+
+1999-01-19  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* Updated automake to version 1.4.
+
+1999-01-14  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* configure.in: Changed autoconf prereq to 2.13.
+
+1999-01-07  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* Updated development tools: autoconf-2.13, automake-1.3d.
+
+1998-12-31  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* configure.in: Removed a historical call of the AC_LINK_FILES.
+	It is handled in the AM_GNU_GETTEXT.
+
+1998-12-29  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* configure.in: Beta version 1.6.2 released.
+
+1998-12-08  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* Updated gettext to version 0.10.35.
+
+	* configure.in (ALL_LINGUAS): Added `ru'.
+
+1998-11-11  Markku Rossi  <mtr@amme.ssh.fi>
+
+	* configure.in: Added checks for sys/types.h and sys/stat.h
+	headers.
+
+1998-10-23  Markku Rossi  <mtr@ngs.fi>
+
+	* Moved all documentation stuffs to the `docs' subdirectory.
+
+	* enscript.1.in: Documented the new highlighting options.
+
+1998-10-16  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.1.in: Updated the ^@font{} escape's syntax.
+
+1998-10-02  Markku Rossi  <mtr@ngs.fi>
+
+	* configure.in: Added more rules to lookup the gethostname()
+	function.  It is located in `libsocket.a' in the SCO OpenServer 5.
+
+1998-09-22  Markku Rossi  <mtr@ngs.fi>
+
+	* enscript.1.in: Replaced `@prefix@/share' and `@prefix@/etc' with
+	`@datadir@' and `@sysconfdir@'.
+
+1998-07-06  Markku Rossi  <mtr@ngs.fi>
+
+	* configure.in: Updated version number to 1.6.2.
+
 1998-07-01  Markku Rossi  <mtr@ngs.fi>
 
 	* 88591.txt: Changed 0xb9 to be `/onesuperior' instead of

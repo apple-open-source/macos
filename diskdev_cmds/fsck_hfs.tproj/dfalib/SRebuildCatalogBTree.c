@@ -80,13 +80,18 @@ void SETOFFSET ( void *buffer, UInt16 btNodeSize, SInt16 recOffset, SInt16 vecOf
 //				exist and the old one will be deleted.  The MDB an alternate MDB
 //				will be updated to point to the new file.  
 //				
-//				The current implementation requires leaf node records to be in 
-//				good shape.  We will rebuild if index nodes are damaged or leaf 
-//				nodes have key order problems but not much else.  The rebuild
-//				relies on the btree scanner code to locate leaf nodes then it
-//				extracts leaf node records and adds them to the new catalog file.
-//				Any kind of insert error will abort the rebuild (leaving the 
-//				existing catalog file as it was found).
+//				The tree is rebuilt by walking through every record.  We use
+//				BTScanNextRecord(), which iterates sequentially through the
+//				nodes in the tree (starting at the first node), and extracts
+//				each record from each leaf node.  It does not use the node
+//				forward or backward links; this allows it to rebuild the tree
+//				when the index nodes are non-reliable, or the leaf node links
+//				are damaged.
+//
+//				The rebuild will be aborted (leaving the existing catalog
+//				as it was found) if there are errors retreiving the nodes or
+//				records, or if there are errors inserting the records into
+//				the new tree.
 //
 //	Inputs:
 //		SGlobPtr->calculatedCatalogBTCB

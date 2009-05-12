@@ -958,10 +958,11 @@ static int smbfs_unix_whoami(struct smb_share *ssp, struct smb_cred *scrp)
 	struct mbchain *mbp;
 	struct mdchain *mdp;
 	int error;
-	int ii;
+	u_int32_t ii;
 	u_int64_t other_gid;
 	u_int32_t reserved;
-	
+	u_int32_t ntwrk_cnt_sid;
+	size_t total_bytes;
 
 	
 	error = smb_t2_alloc(SSTOCP(ssp), SMB_TRANS2_QUERY_FS_INFORMATION, scrp, &t2p);
@@ -984,30 +985,64 @@ static int smbfs_unix_whoami(struct smb_share *ssp, struct smb_cred *scrp)
 	md_get_uint64le(mdp,  &smp->ntwrk_uid);	/* Primary user ID */
 	md_get_uint64le(mdp,  &smp->ntwrk_gid);	/* Primary group ID */
 	md_get_uint32le(mdp,  &smp->ntwrk_cnt_gid); /* number of supplementary GIDs */
-	md_get_uint32le(mdp,  NULL); /* number of SIDs */
+	md_get_uint32le(mdp,  &ntwrk_cnt_sid); /* number of SIDs */
 	md_get_uint32le(mdp,  NULL); /* SID list byte count */
 	error = md_get_uint32le(mdp,  &reserved); /* Reserved (should be zero) */
-	/* If we can't get the reserved field then the buffer is not big enough */
-	if (error || (reserved != 0)) {
+	/* 
+	 * If we can't get the reserved field then the buffer is not big enough. Both the
+	 * group count and sid count must set to zero if no groups or sids are return.
+	 * Added a little safty net here, we do not allow these fields to be negative.
+	 */
+	if (error || (reserved != 0) || (smp->ntwrk_cnt_gid < 0) || (ntwrk_cnt_sid < 0)) {
 		if (! error)
-			error = EBADRPC;			
+			error = EBADRPC;
 		goto done;
 	}
-	SMBDEBUG("uid = %llx gid = %llx cnt  = %d\n", smp->ntwrk_uid, smp->ntwrk_gid, smp->ntwrk_cnt_gid);
-	MALLOC(smp->ntwrk_gids, u_int64_t *, sizeof(u_int64_t) * smp->ntwrk_cnt_gid, M_TEMP, M_WAITOK);
+	
+	/* No group list see if there is a sid list */
+	if (smp->ntwrk_cnt_gid == 0)
+		goto sid_groups;
 
+	/* Now check to make sure we don't have an integer overflow */
+	total_bytes = smp->ntwrk_cnt_gid * sizeof(u_int64_t);
+	if ((total_bytes / sizeof(u_int64_t)) != smp->ntwrk_cnt_gid)
+		error = EBADRPC;
+	
+	/* Make sure we are not allocating more than we said we could handle */
+	if (total_bytes > SSTOVC(ssp)->vc_txmax)
+		error = EBADRPC;
+	
+	if (error)
+		goto done;
+
+	SMBDEBUG("uid = %lld gid = %lld cnt  = %d\n", smp->ntwrk_uid, smp->ntwrk_gid, smp->ntwrk_cnt_gid);
+	MALLOC(smp->ntwrk_gids, u_int64_t *, total_bytes, M_TEMP, M_WAITOK);
+	/* Should never happen, but just to be safe */
+	if (smp->ntwrk_gids == NULL) {
+		error = ENOMEM;
+		goto done;
+	}
 	for (ii = 0; ii < smp->ntwrk_cnt_gid; ii++) {
 		error = md_get_uint64le(mdp,  &other_gid);
 		if (error)
 			goto done;			
 		smp->ntwrk_gids[ii] = other_gid;
-		SMBDEBUG("other_gid[%d] = %llx\n", ii, smp->ntwrk_gids[ii]);
+		SMBDEBUG("other_gid[%d] = %lld\n", ii, smp->ntwrk_gids[ii]);
 	}
-	
+		
+sid_groups:
+	/* Currently not supported */
+	SMBDEBUG("uid = %lld gid = %lld sid cnt  = %d\n", smp->ntwrk_uid, smp->ntwrk_gid, ntwrk_cnt_sid);
+		
 done:	
 	smb_t2_done(t2p);
 	if (error == EBADRPC)
-		SMBERROR("Parsing error reading the message\n");		
+		SMBERROR("Parsing error reading the message\n");
+	if (error && smp->ntwrk_gids) {
+		free(smp->ntwrk_gids, M_TEMP);
+		smp->ntwrk_gids = NULL;
+		smp->ntwrk_cnt_gid = 0;
+	}
 	return error;
 }
 
@@ -1105,7 +1140,7 @@ smbfs_smb_qfsattr(struct smb_share *ssp, struct smb_cred *scrp)
 	md_get_uint32le(mdp,  &ssp->ss_attributes);
 	md_get_uint32le(mdp, &ssp->ss_maxfilenamelen);
 	md_get_uint32le(mdp, &nlen);	/* fs name length */
-	if (ssp->ss_fsname == NULL && nlen) {
+	if (ssp->ss_fsname == NULL && (nlen > 0) && (nlen < PATH_MAX)) {
 		ctx.f_ssp = ssp;
 		ctx.f_name = malloc(nlen, M_SMBFSDATA, M_WAITOK);
 		md_get_mem(mdp, ctx.f_name, nlen, MB_MSYSTEM);

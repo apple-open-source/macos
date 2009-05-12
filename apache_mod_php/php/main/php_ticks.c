@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_ticks.c,v 1.20.2.1.2.2 2007/12/31 07:20:15 sebastian Exp $ */
+/* $Id: php_ticks.c,v 1.20.2.1.2.3 2008/06/25 12:18:22 dmitry Exp $ */
 
 #include "php.h"
 #include "php_ticks.h"
@@ -25,6 +25,11 @@ int php_startup_ticks(TSRMLS_D)
 {
 	zend_llist_init(&PG(tick_functions), sizeof(void(*)(int)), NULL, 1);
 	return SUCCESS;
+}
+
+void php_deactivate_ticks(TSRMLS_D)
+{
+	zend_llist_clean(&PG(tick_functions));
 }
 
 void php_shutdown_ticks(TSRMLS_D)

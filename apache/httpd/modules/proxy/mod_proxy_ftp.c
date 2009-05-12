@@ -318,6 +318,13 @@ static apr_status_t proxy_send_dir_filter(ap_filter_t *f,
 
         /* Save "scheme://site" prefix without password */
         site = apr_uri_unparse(p, &f->r->parsed_uri, APR_URI_UNP_OMITPASSWORD | APR_URI_UNP_OMITPATHINFO);
+        /*
+         * In the reverse proxy case we usually have no site. So contruct
+         * one.
+         */
+        if ((*site == '\0') && (r->proxyreq == PROXYREQ_REVERSE)) {
+            site = ap_construct_url(p, "", r);
+        }
         /* ... and path without query args */
         path = apr_uri_unparse(p, &f->r->parsed_uri, APR_URI_UNP_OMITSITEPART | APR_URI_UNP_OMITQUERY);
 
@@ -383,6 +390,7 @@ static apr_status_t proxy_send_dir_filter(ap_filter_t *f,
                                                            c->bucket_alloc));
         }
         if (wildcard != NULL) {
+            wildcard = ap_escape_html(p, wildcard);
             APR_BRIGADE_INSERT_TAIL(out, apr_bucket_pool_create(wildcard,
                                                            strlen(wildcard), p,
                                                            c->bucket_alloc));
@@ -961,7 +969,6 @@ static int proxy_ftp_handler(request_rec *r, proxy_worker *worker,
         }
         /* TODO: see if ftp could use determine_connection */
         backend->addr = connect_addr;
-        backend->r = r;
         ap_set_module_config(c->conn_config, &proxy_ftp_module, backend);
     }
 
@@ -1777,6 +1784,11 @@ static int proxy_ftp_handler(request_rec *r, proxy_worker *worker,
         return HTTP_INTERNAL_SERVER_ERROR;
     }
 
+    /*
+     * We do not do SSL over the data connection, even if the virtual host we
+     * are in might have SSL enabled
+     */
+    ap_proxy_ssl_disable(data);
     /* set up the connection filters */
     rc = ap_run_pre_connection(data, data_sock);
     if (rc != OK && rc != DONE) {

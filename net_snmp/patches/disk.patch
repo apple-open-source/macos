@@ -1,15 +1,19 @@
 diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfiles/diff-ignore SVN/agent/mibgroup/host/hr_disk.c APPLE/agent/mibgroup/host/hr_disk.c
 --- SVN/agent/mibgroup/host/hr_disk.c
 +++ APPLE/agent/mibgroup/host/hr_disk.c
-@@ -65,6 +65,15 @@
+@@ -65,6 +65,19 @@
  #include <limits.h>
  #endif
  
 +#ifdef darwin
++#include <paths.h>
 +#include <CoreFoundation/CoreFoundation.h>
 +#include <IOKit/IOKitLib.h>
 +#include <IOKit/storage/IOBlockStorageDriver.h>
 +#include <IOKit/storage/IOMedia.h>
++#include <IOKit/storage/IOBDMedia.h>
++#include <IOKit/storage/IOStorageProtocolCharacteristics.h>
++#include <IOKit/storage/IOStorageDeviceCharacteristics.h>
 +#include <IOKit/IOBSD.h>
 +#include <DiskArbitration/DADisk.h>
 +#endif
@@ -17,7 +21,7 @@ diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfi
  #ifdef linux
  /*
   * define BLKGETSIZE from <linux/fs.h>:
-@@ -79,6 +88,27 @@
+@@ -79,6 +92,27 @@
  
  #define HRD_MONOTONICALLY_INCREASING
  
@@ -45,7 +49,7 @@ diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfi
          /*********************
  	 *
  	 *  Kernel & interface information,
-@@ -132,6 +162,19 @@ static struct hd_driveid HRD_info;
+@@ -132,6 +166,19 @@
  static struct disklabel HRD_info;
  #endif
  
@@ -53,11 +57,11 @@ diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfi
 +static int64_t  HRD_cap;
 +static int      HRD_access;
 +static int      HRD_type;
-+static int      HRD_removeble;
++static int      HRD_removable;
 +static char     HRD_model[40];
 +static int      HRD_saved_access;
 +static int      HRD_saved_type;
-+static int      HRD_saved_removeble;
++static int      HRD_saved_removable;
 +static int _get_type_from_protocol( const char *prot );
 +static int _get_type_value( const char *str_type );
 +#endif
@@ -65,7 +69,7 @@ diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfi
  static void     parse_disk_config(const char *, char *);
  static void     free_disk_config(void);
  
-@@ -185,6 +228,8 @@ init_hr_disk(void)
+@@ -185,6 +232,8 @@
                        "/dev/rdsk/c%dt%dd0s0", 0, 7);
      Add_HR_Disk_entry("/dev/rdsk/c%dd%ds%d", 0, 7, 0, 15,
                        "/dev/rdsk/c%dd%ds0", 0, 7);
@@ -74,7 +78,7 @@ diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfi
  #elif defined(freebsd4) || defined(freebsd5)
      Add_HR_Disk_entry("/dev/ad%ds%d%c", 0, 1, 1, 4, "/dev/ad%ds%d", 'a', 'h');
      Add_HR_Disk_entry("/dev/da%ds%d%c", 0, 1, 1, 4, "/dev/da%ds%d", 'a', 'h');
-@@ -484,6 +529,7 @@ header_hrdisk(struct variable *vp,
+@@ -484,6 +533,7 @@
      Init_HR_Disk();
      for (;;) {
          disk_idx = Get_Next_HR_Disk();
@@ -82,7 +86,7 @@ diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfi
          if (disk_idx == -1)
              break;
          newname[HRDISK_ENTRY_NAME_LENGTH] = disk_idx;
-@@ -749,6 +795,12 @@ Get_Next_HR_Disk(void)
+@@ -749,6 +799,12 @@
                      HRD_history[iindex] = 0;
                      return ((HRDEV_DISK << HRDEV_TYPE_SHIFT) + iindex);
                  }
@@ -95,7 +99,7 @@ diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfi
              }
              HRD_history[iindex] = now;
              HRD_index++;
-@@ -801,6 +853,66 @@ Get_Next_HR_Disk_Partition(char *string,
+@@ -801,6 +857,55 @@
      return 0;
  }
  
@@ -103,57 +107,46 @@ diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfi
 +int
 +Get_HR_Disk_Label(char *string, size_t str_len, const char *devfull)
 +{
-+    DASessionRef        sess_ref;
-+    DADiskRef           disk;
-+    CFDictionaryRef     desc;
-+    CFStringRef         str_ref;
-+    CFStringEncoding    sys_encoding = CFStringGetSystemEncoding();
++    io_service_t    disk;
++    const char     *name;
++    CFDictionaryRef desc;
 +
 +    DEBUGMSGTL(("host/hr_disk", "Disk Label type %s\n", devfull));
 +
-+    sess_ref = DASessionCreate( NULL );
-+    if (NULL == sess_ref) {
-+        strncpy(string, devfull, str_len);
-+        string[str_len-1] = 0;
-+        return -1;
-+    }
-+
-+    disk = DADiskCreateFromBSDName( NULL, sess_ref, devfull );
-+    if (NULL == disk) {
-+        CFRelease(sess_ref);
-+        strncpy(string, devfull, str_len);
-+        string[str_len-1] = 0;
-+        return -1;
-+    }
-+
-+    desc = DADiskCopyDescription( disk );
-+    if (NULL == desc) {
++    if (strncmp(devfull, _PATH_DEV, strlen(_PATH_DEV))) {
 +        snmp_log(LOG_ERR,
-+                 "diskmgr: couldn't get disk description for %s, skipping\n",
++                 "diskmgr: devfull matches _PATH_DEV for %s, skipping\n",
 +                 devfull);
-+        CFRelease(disk);
-+        CFRelease(sess_ref);
-+        strncpy(string, devfull, str_len);
++        return -1;
++    }
++
++    disk = IOServiceGetMatchingService(kIOMasterPortDefault, IOBSDNameMatching(kIOMasterPortDefault, 0, devfull + strlen(_PATH_DEV)));
++    if (MACH_PORT_NULL == disk) {
++        strlcpy(string, devfull, str_len);
 +        return -1;
 +    }
 +
 +    /** model */
-+    str_ref = (CFStringRef)
-+        CFDictionaryGetValue(desc, kDADiskDescriptionMediaNameKey);
-+    if (str_ref) {
-+        strncpy(string, CFStringGetCStringPtr(str_ref, sys_encoding),
-+                str_len);
-+        string[str_len-1] = 0;
-+        DEBUGMSGTL(("verbose:diskmgr:darwin", " name %s\n", string));
-+    }
++    desc = (CFDictionaryRef)
++        IORegistryEntrySearchCFProperty(disk, kIOServicePlane, CFSTR(kIOPropertyDeviceCharacteristicsKey), kCFAllocatorDefault, kIORegistryIterateParents | kIORegistryIterateRecursively);
++    if (desc) {
++        CFStringRef         str_ref;
++        CFStringEncoding    sys_encoding = CFStringGetSystemEncoding();
++        str_ref = (CFStringRef)
++            CFDictionaryGetValue(desc, CFSTR(kIOPropertyProductNameKey));
++        if (str_ref) {
++            name =
++               CFStringGetCStringPtr(str_ref, sys_encoding);
++            strlcpy(HRD_model, name, sizeof(HRD_model));
++            DEBUGMSGTL(("verbose:diskmgr:darwin", " model %s\n", HRD_model));
++        }
++        CFRelease(desc);
++    } 
 +    else {
-+        strncpy(string, devfull, str_len);
-+        string[str_len-1] = 0;
++        strlcpy(string, devfull, str_len);
 +    }
-+    
-+    CFRelease(disk);
-+    CFRelease(desc);
-+    CFRelease(sess_ref);
++
++    IOObjectRelease(disk);
 +    
 +    return 0;
 +}
@@ -162,7 +155,7 @@ diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfi
  static void
  Save_HR_Disk_Specific(void)
  {
-@@ -822,6 +934,13 @@ Save_HR_Disk_Specific(void)
+@@ -822,6 +927,13 @@
  #ifdef DIOCGDINFO
      HRD_savedCapacity = HRD_info.d_secperunit / 2;
  #endif
@@ -170,13 +163,13 @@ diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfi
 +    HRD_savedCapacity = HRD_cap / 1024;
 +    HRD_saved_access = HRD_access;
 +    HRD_saved_type = HRD_type;
-+    HRD_saved_removeble = HRD_removeble;
++    HRD_saved_removable = HRD_removable;
 +#endif
 +
  }
  
  static void
-@@ -845,6 +964,11 @@ Save_HR_Disk_General(void)
+@@ -845,6 +957,11 @@
                      sizeof(HRD_savedModel)-1);
      HRD_savedModel[ sizeof(HRD_savedModel)-1 ] = 0;
  #endif
@@ -188,49 +181,50 @@ diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfi
  }
  
  static const char *
-@@ -900,6 +1024,104 @@ Query_Disk(int fd, const char *devfull)
+@@ -900,6 +1017,121 @@
      result = ioctl(fd, DIOCGDINFO, &HRD_info);
  #endif
  
 +#ifdef darwin
-+    DASessionRef        sess_ref;
-+    DADiskRef           disk;
++    io_service_t        disk;
++    const char         *name;
 +    CFDictionaryRef     desc;
 +    CFStringRef         str_ref;
 +    CFNumberRef         number_ref;
 +    CFBooleanRef        bool_ref;
 +    CFStringEncoding    sys_encoding = CFStringGetSystemEncoding();
 +
-+    sess_ref = DASessionCreate( NULL );
-+    if (NULL == sess_ref)
-+        return -1;
-+
-+    disk = DADiskCreateFromBSDName( NULL, sess_ref, devfull );
-+    if (NULL == disk) {
-+        CFRelease(sess_ref);
++    if (strncmp(devfull, _PATH_DEV, strlen(_PATH_DEV))) {
++        snmp_log(LOG_ERR,
++                 "diskmgr: devfull matches _PATH_DEV for %s, skipping\n",
++                 devfull);
 +        return -1;
 +    }
 +
-+    desc = DADiskCopyDescription( disk );
-+    if (NULL == desc) {
-+        CFRelease(disk);
-+        CFRelease(sess_ref);
++    disk = IOServiceGetMatchingService(kIOMasterPortDefault, IOBSDNameMatching(kIOMasterPortDefault, 0, devfull + strlen(_PATH_DEV)));
++    if (MACH_PORT_NULL == disk) {
++        snmp_log(LOG_ERR,
++                 "diskmgr: couldn't get matching service for %s, skipping\n",
++                 devfull);
 +        return -1;
 +    }
 +
 +    number_ref = (CFNumberRef)
-+        CFDictionaryGetValue(desc, kDADiskDescriptionMediaSizeKey);
-+    if (number_ref)
++        IORegistryEntryCreateCFProperty(disk, CFSTR(kIOMediaSizeKey), kCFAllocatorDefault, 0);
++    if (number_ref) {
 +        CFNumberGetValue(number_ref, kCFNumberSInt64Type, &HRD_cap);
++        CFRelease(number_ref);
++    }
 +    else
 +        HRD_cap = 0;
 +    DEBUGMSGTL(("verbose:diskmgr:darwin", " size %lld\n", HRD_cap));
 +
 +    /** writable?  */
 +    bool_ref = (CFBooleanRef)
-+        CFDictionaryGetValue(desc, kDADiskDescriptionMediaWritableKey);
++        IORegistryEntryCreateCFProperty(disk, CFSTR(kIOMediaWritableKey), kCFAllocatorDefault, 0);
 +    if (bool_ref) {
 +        HRD_access = CFBooleanGetValue(bool_ref);
++        CFRelease(bool_ref);
 +    }
 +    else
 +        HRD_access = 0;
@@ -239,61 +233,77 @@ diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfi
 +
 +    /** removable?  */
 +    bool_ref = (CFBooleanRef)
-+        CFDictionaryGetValue(desc, kDADiskDescriptionMediaRemovableKey);
++        IORegistryEntryCreateCFProperty(disk, CFSTR(kIOMediaRemovableKey), kCFAllocatorDefault, 0);
 +    if (bool_ref) {
-+        HRD_removeble = CFBooleanGetValue(bool_ref);
++        HRD_removable = CFBooleanGetValue(bool_ref);
++        CFRelease(bool_ref);
 +    }
 +    else
-+        HRD_removeble = 0;
++        HRD_removable = 0;
 +    DEBUGMSGTL(("verbose:diskmgr:darwin", " removable %d\n",
-+                HRD_removeble));
++                HRD_removable));
 +
 +    /** get type */
 +    str_ref = (CFStringRef)
-+        CFDictionaryGetValue(desc, kDADiskDescriptionMediaTypeKey);
++        IORegistryEntryCreateCFProperty(disk, CFSTR(kIOBDMediaTypeKey), kCFAllocatorDefault, 0);
 +    if (str_ref) {
 +        HRD_type = _get_type_value(CFStringGetCStringPtr(str_ref,
 +                                                         sys_encoding));
 +        DEBUGMSGTL(("verbose:diskmgr:darwin", " type %s / %d\n",
 +                    CFStringGetCStringPtr(str_ref, sys_encoding),
 +                    HRD_type));
-+    }
-+    else {
-+        str_ref = (CFStringRef)
-+            CFDictionaryGetValue(desc, kDADiskDescriptionDeviceProtocolKey);
-+        if (str_ref) {
-+            HRD_type = 
-+                _get_type_from_protocol(CFStringGetCStringPtr(str_ref,
-+                                                              sys_encoding));
-+            DEBUGMSGTL(("verbose:diskmgr:darwin", " type %s / %d\n",
-+                        CFStringGetCStringPtr(str_ref, sys_encoding),
-+                        HRD_type));
++        CFRelease(str_ref);
++    }    else {
++        desc = (CFDictionaryRef)
++            IORegistryEntrySearchCFProperty(disk, kIOServicePlane, CFSTR(kIOPropertyProtocolCharacteristicsKey), kCFAllocatorDefault, kIORegistryIterateParents | kIORegistryIterateRecursively);
++        if (desc) {
++            str_ref = (CFStringRef)
++                CFDictionaryGetValue(desc, CFSTR(kIOPropertyPhysicalInterconnectTypeKey));
++            if (str_ref) {
++                HRD_type =
++                   _get_type_from_protocol(CFStringGetCStringPtr(str_ref,
++                                                                  sys_encoding));
++                DEBUGMSGTL(("verbose:diskmgr:darwin", " type %s / %d\n",
++                            CFStringGetCStringPtr(str_ref, sys_encoding),
++                            HRD_type));
++            }
++            else {
++                DEBUGMSGTL(("verbose:diskmgr:darwin", " could not get type from description '%s'\n",
++                            desc));
++                HRD_type = HRDISKSTORAGEMEDIA_UNKNOWN;
++            }
++            CFRelease(desc);
 +        }
-+        else
++        else {
++            DEBUGMSGTL(("verbose:diskmgr:darwin", " could not get description to look up type\n"));
 +            HRD_type = HRDISKSTORAGEMEDIA_UNKNOWN;
++        }
 +    }
 +
 +    /** model */
-+    str_ref = (CFStringRef)
-+        CFDictionaryGetValue(desc, kDADiskDescriptionDeviceModelKey);
-+    if (str_ref) {
-+        strncpy(HRD_model, CFStringGetCStringPtr(str_ref, sys_encoding),
-+                sizeof(HRD_model));
-+        HRD_savedModel[ sizeof(HRD_savedModel)-1 ] = 0;
-+        DEBUGMSGTL(("verbose:diskmgr:darwin", " model %s\n", HRD_model));
-+    }
++    desc = (CFDictionaryRef)
++        IORegistryEntrySearchCFProperty(disk, kIOServicePlane, CFSTR(kIOPropertyDeviceCharacteristicsKey), kCFAllocatorDefault, kIORegistryIterateParents | kIORegistryIterateRecursively);
++    if (desc) {
++        str_ref = (CFStringRef)
++            CFDictionaryGetValue(desc, CFSTR(kIOPropertyProductNameKey));
++        if (str_ref) {
++            name =
++               CFStringGetCStringPtr(str_ref, sys_encoding);
++            strlcpy(HRD_model, name, sizeof(HRD_model));
++            DEBUGMSGTL(("verbose:diskmgr:darwin", " model %s\n", HRD_model));
++        }
++        CFRelease(desc);
++    } 
 +    else
 +        HRD_model[0] = 0;
-+    CFRelease(disk);
-+    CFRelease(desc);
-+    CFRelease(sess_ref);
++    IOObjectRelease(disk);
 +    result = 0;
 +#endif
 +
      return (result);
  }
  
-@@ -918,6 +1140,11 @@ Is_It_Writeable(void)
+@@ -918,6 +1150,11 @@
          return (2);             /* read only */
  #endif
  
@@ -305,7 +315,7 @@ diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfi
      return (1);                 /* read-write */
  }
  
-@@ -990,6 +1217,9 @@ What_Type_Disk(void)
+@@ -990,6 +1227,9 @@
      }
  #endif
  
@@ -315,12 +325,12 @@ diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfi
  
      return (2);                 /* Unknown */
  }
-@@ -1020,5 +1250,63 @@ Is_It_Removeable(void)
+@@ -1020,5 +1260,63 @@
          return (1);             /* true */
  #endif
  
 +#ifdef darwin
-+    if (HRD_removeble)
++    if (HRD_removable)
 +        return (1);
 +#endif
 +

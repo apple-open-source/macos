@@ -1,6 +1,6 @@
 /*
  * Help utilities.
- * Copyright (c) 1995-1998 Markku Rossi.
+ * Copyright (c) 1995-1999 Markku Rossi.
  *
  * Author: Markku Rossi <mtr@iki.fi>
  */
@@ -98,13 +98,20 @@ int
 read_config (char *path, char *file)
 {
   FILE *fp;
-  char fname[512];
+  Buffer fname;
   char buf[4096];
   char *token, *token2;
   int line = 0;
 
-  sprintf (fname, "%s/%s", path, file);
-  fp = fopen (fname, "r");
+  buffer_init (&fname);
+  buffer_append (&fname, path);
+  buffer_append (&fname, "/");
+  buffer_append (&fname, file);
+
+  fp = fopen (buffer_ptr (&fname), "r");
+
+  buffer_uninit (&fname);
+
   if (fp == NULL)
     return 0;
 
@@ -130,8 +137,8 @@ read_config (char *path, char *file)
 	{
 	  token2 = GET_TOKEN (NULL);
 	  CHECK_TOKEN ();
-	  strcpy (afm_path_buffer, token2);
-	  afm_path = afm_path_buffer;
+	  xfree (afm_path);
+	  afm_path = xstrdup (token2);
 	}
       else if (MATCH (token, "AppendCtrlD:"))
 	{
@@ -149,21 +156,22 @@ read_config (char *path, char *file)
 	{
 	  token2 = GET_TOKEN (NULL);
 	  CHECK_TOKEN ();
-	  strcpy (encoding_name_buffer, token2);
-	  encoding_name = encoding_name_buffer;
+	  xfree (encoding_name);
+	  encoding_name = xstrdup (token2);
 	}
       else if (MATCH (token, "DefaultFancyHeader:"))
 	{
 	  token2 = GET_TOKEN (NULL);
 	  CHECK_TOKEN ();
-	  strcpy (fancy_header_default, token2);
+	  xfree (fancy_header_default);
+	  fancy_header_default = xstrdup (token2);
 	}
       else if (MATCH (token, "DefaultMedia:"))
 	{
 	  token2 = GET_TOKEN (NULL);
 	  CHECK_TOKEN ();
-	  strcpy (media_name_buffer, token2);
-	  media_name = media_name_buffer;
+	  xfree (media_name);
+	  media_name = xstrdup (token2);
 	}
       else if (MATCH (token, "DefaultOutputMethod:"))
 	{
@@ -227,13 +235,15 @@ read_config (char *path, char *file)
 	{
 	  token2 = GET_TOKEN (NULL);
 	  CHECK_TOKEN ();
-	  strcpy (libpath, token2);
+	  xfree (libpath);
+	  libpath = xstrdup (token2);
 	}
       else if (MATCH (token, "MarkWrappedLines:"))
 	{
 	  token2 = GET_TOKEN (NULL);
 	  CHECK_TOKEN ();
-	  strcpy (mark_wrapped_lines_style_name, token2);
+	  xfree (mark_wrapped_lines_style_name);
+	  mark_wrapped_lines_style_name = xstrdup (token2);
 	}
       else if (MATCH (token, "Media:"))
 	{
@@ -274,27 +284,29 @@ read_config (char *path, char *file)
 	{
 	  token2 = GET_LINE_TOKEN (NULL);
 	  CHECK_TOKEN ();
-	  strcpy (no_job_header_switch, token2);
+	  xfree (no_job_header_switch);
+	  no_job_header_switch = xstrdup (token2);
 	}
       else if (MATCH (token, "NonPrintableFormat:"))
 	{
 	  token2 = GET_TOKEN (NULL);
 	  CHECK_TOKEN ();
-	  strcpy (npf_name_buf, token2);
-	  npf_name = npf_name_buf;
+	  xfree (npf_name);
+	  npf_name = xstrdup (token2);
 	}
       else if (MATCH (token, "OutputFirstLine:"))
 	{
 	  token2 = GET_LINE_TOKEN (NULL);
 	  CHECK_TOKEN ();
-	  strcpy (output_first_line, token2);
+	  xfree (output_first_line);
+	  output_first_line = xstrdup (token2);
 	}
       else if (MATCH (token, "PageLabelFormat:"))
 	{
 	  token2 = GET_TOKEN (NULL);
 	  CHECK_TOKEN ();
-	  strcpy (page_label_format_buf, token2);
-	  page_label_format = page_label_format_buf;
+	  xfree (page_label_format);
+	  page_label_format = xstrdup (token2);
 	}
       else if (MATCH (token, "PagePrefeed:"))
 	{
@@ -312,14 +324,15 @@ read_config (char *path, char *file)
 	{
 	  token2 = GET_TOKEN (NULL);
 	  CHECK_TOKEN ();
-	  strcpy (printer_buf, token2);
-	  printer = printer_buf;
+	  xfree (printer);
+	  printer = xstrdup (token2);
 	}
       else if (MATCH (token, "QueueParam:"))
 	{
 	  token2 = GET_LINE_TOKEN (NULL);
 	  CHECK_TOKEN ();
-	  strcpy (queue_param, token2);
+	  xfree (queue_param);
+	  queue_param = xstrdup (token2);
 	}
       else if (MATCH (token, "SetPageDevice:"))
 	{
@@ -331,31 +344,42 @@ read_config (char *path, char *file)
 	{
 	  token2 = GET_TOKEN (NULL);
 	  CHECK_TOKEN ();
-	  strcpy (spooler_command, token2);
+	  xfree (spooler_command);
+	  spooler_command = xstrdup (token2);
 	}
-      else if (MATCH (token, "StatesColorModel:"))
+      else if (MATCH (token, "StatesBinary:"))
 	{
 	  token2 = GET_TOKEN (NULL);
 	  CHECK_TOKEN ();
-	  strcpy (states_color_model, token2);
+	  xfree (states_binary);
+	  states_binary = xstrdup (token2);
+	}
+      else if (MATCH (token, "StatesColor:"))
+	{
+	  token2 = GET_TOKEN (NULL);
+	  CHECK_TOKEN ();
+	  states_color = atoi (token2);
 	}
       else if (MATCH (token, "StatesConfigFile:"))
 	{
 	  token2 = GET_LINE_TOKEN (NULL);
 	  CHECK_TOKEN ();
-	  strcpy (states_config_file, token2);
+	  xfree (states_config_file);
+	  states_config_file = xstrdup (token2);
 	}
-      else if (MATCH (token, "StatesHighlightLevel:"))
+      else if (MATCH (token, "StatesHighlightStyle:"))
 	{
 	  token2 = GET_TOKEN (NULL);
 	  CHECK_TOKEN ();
-	  strcpy (states_highlight_level, token2);
+	  xfree (states_highlight_style);
+	  states_highlight_style = xstrdup (token2);
 	}
       else if (MATCH (token, "StatesPath:"))
 	{
 	  token2 = GET_LINE_TOKEN (NULL);
 	  CHECK_TOKEN ();
-	  strcpy (states_path, token2);
+	  xfree (states_path);
+	  states_path = xstrdup (token2);
 	}
       else if (MATCH (token, "StatusDict:"))
 	{
@@ -387,7 +411,7 @@ read_config (char *path, char *file)
 	{
 	  token2 = GET_TOKEN (NULL);
 	  CHECK_TOKEN ();
-	  if (!parse_font_spec (token2, &ul_font, &ul_ptsize))
+	  if (!parse_font_spec (token2, &ul_font, &ul_ptsize, NULL))
 	    CFG_FATAL ((stderr, _("malformed font spec: %s"), token2));
 	}
       else if (MATCH (token, "UnderlayGray:"))
@@ -400,16 +424,16 @@ read_config (char *path, char *file)
 	{
 	  token2 = GET_TOKEN (NULL);
 	  CHECK_TOKEN ();
-	  strcpy (ul_position_buf, token2);
-	  ul_position = ul_position_buf;
+	  xfree (ul_position);
+	  ul_position = xstrdup (token2);
 	  ul_position_p = 1;
 	}
       else if (MATCH (token, "UnderlayStyle:"))
 	{
 	  token2 = GET_TOKEN (NULL);
 	  CHECK_TOKEN ();
-	  strcpy (ul_style_str_buf, token2);
-	  ul_style_str = ul_style_str_buf;
+	  xfree (ul_style_str);
+	  ul_style_str = xstrdup (token2);
 	}
       else
 	CFG_FATAL ((stderr, _("illegal option: %s"), token));
@@ -468,11 +492,17 @@ int
 file_existsp (char *name, char *suffix)
 {
   FileLookupCtx ctx;
+  int result;
 
-  strcpy (ctx.name, name);
-  strcpy (ctx.suffix, suffix ? suffix : "");
+  ctx.name = name;
+  ctx.suffix =  suffix ? suffix : "";
+  ctx.fullname = buffer_alloc ();
 
-  return pathwalk (libpath, file_lookup, &ctx);
+  result = pathwalk (libpath, file_lookup, &ctx);
+
+  buffer_free (ctx.fullname);
+
+  return result;
 }
 
 
@@ -486,14 +516,21 @@ paste_file (char *name, char *suffix)
   int pending_comment = 0;
   int line = 0;
 
-  strcpy (ctx.name, name);
-  strcpy (ctx.suffix, suffix ? suffix : "");
+  ctx.name = name;
+  ctx.suffix = suffix ? suffix : "";
+  ctx.fullname = buffer_alloc ();
 
   if (!pathwalk (libpath, file_lookup, &ctx))
-    return 0;
-  fp = fopen (ctx.fullname, "r");
+    {
+      buffer_free (ctx.fullname);
+      return 0;
+    }
+  fp = fopen (buffer_ptr (ctx.fullname), "r");
   if (fp == NULL)
-    return 0;
+    {
+      buffer_free (ctx.fullname);
+      return 0;
+    }
 
   /* Find the end of the header. */
 #define HDR_TAG "% -- code follows this line --"
@@ -576,8 +613,8 @@ paste_file (char *name, char *suffix)
 	  for (i = strlen (DIRECTIVE_FORMAT); buf[i] && isspace (buf[i]); i++)
 	    ;
 	  if (!buf[i])
-	    FATAL ((stderr, _("%s:%d: %%Format: no name"), ctx.fullname,
-		    line));
+	    FATAL ((stderr, _("%s:%d: %%Format: no name"),
+		    buffer_ptr (ctx.fullname), line));
 
 	  /* Copy name. */
 	  for (j = 0;
@@ -588,7 +625,7 @@ paste_file (char *name, char *suffix)
 
 	  if (j >= sizeof (name) - 1)
 	    FATAL ((stderr, _("%s:%d: %%Format: too long name, maxlen=%d"),
-		    ctx.fullname, line, sizeof (name) - 1));
+		    buffer_ptr (ctx.fullname), line, sizeof (name) - 1));
 
 	  /* Find the start of the format string. */
 	  for (; buf[i] && isspace (buf[i]); i++)
@@ -611,7 +648,7 @@ paste_file (char *name, char *suffix)
 	  if (cp2)
 	    FATAL ((stderr,
 		    _("%s:%d: %%Format: name \"%s\" is already defined"),
-		    ctx.fullname, line, name));
+		    buffer_ptr (ctx.fullname), line, name));
 
 	  /* All done with the `%Format' directive. */
 	  continue;
@@ -632,7 +669,7 @@ paste_file (char *name, char *suffix)
 	      ;
 	    if (!buf[i])
 	      FATAL ((stderr, _("%s:%d: %%HeaderHeight: no argument"),
-		      ctx.fullname, line));
+		      buffer_ptr (ctx.fullname), line));
 
 	    d_header_h = atoi (buf + i);
 	    MESSAGE (2, (stderr, "%%HeaderHeight: %d\n", d_header_h));
@@ -654,7 +691,7 @@ paste_file (char *name, char *suffix)
 	    ;
 	  if (!buf[i])
 	    FATAL ((stderr, _("%s:%d: %%FooterHeight: no argument"),
-		    ctx.fullname, line));
+		    buffer_ptr (ctx.fullname), line));
 
 	  d_footer_h = atoi (buf + i);
 	  MESSAGE (2, (stderr, "%%FooterHeight: %d\n", d_footer_h));
@@ -666,16 +703,30 @@ paste_file (char *name, char *suffix)
     }
 
   fclose (fp);
+  buffer_free (ctx.fullname);
 
   return 1;
 }
 
 
 int
-parse_font_spec (char *spec, char **name_return, FontPoint *size_return)
+parse_font_spec (char *spec_a, char **name_return, FontPoint *size_return,
+		 InputEncoding *encoding_return)
 {
-  int i;
+  int i, j;
   char *cp, *cp2;
+  char *spec;
+  char *encp;
+
+  spec = xstrdup (spec_a);
+
+  /* Check for the `namesize:encoding' format. */
+  encp = strrchr (spec, ':');
+  if (encp)
+    {
+      *encp = '\0';
+      encp++;
+    }
 
   /* The `name@ptsize' format? */
   cp = strchr (spec, '@');
@@ -683,57 +734,107 @@ parse_font_spec (char *spec, char **name_return, FontPoint *size_return)
     {
       i = cp - spec;
       if (cp[1] == '\0')
-	/* No ptsize after '@'. */
-	return 0;
-      cp++;
-
-      /* Check pt/pt format. */
-      cp2 = strchr (cp, '/');
-      if (cp2)
 	{
-	  *cp2++ = '\0';
-	  size_return->w = atof (cp);
-	  size_return->h = atof (cp2);
+	  /* No ptsize after '@'. */
+	  xfree (spec);
+	  return 0;
 	}
-      else
-	size_return->w = size_return->h = atof (cp);
+      cp++;
     }
   else
     {
-      /* Old `nameptsize' format. */
+      /* The old `nameptsize' format. */
       i = strlen (spec) - 1;
       if (i <= 0 || !ISNUMBERDIGIT (spec[i]))
-	return 0;
+	{
+	  xfree (spec);
+	  return 0;
+	}
 
       for (i--; i >= 0 && ISNUMBERDIGIT (spec[i]); i--)
 	;
       if (i < 0)
-	return 0;
-
-      /* Check pt/pt format. */
+	{
+	  xfree (spec);
+	  return 0;
+	}
       if (spec[i] == '/')
 	{
-	  size_return->h = atof (spec + i + 1);
-
+	  /* We accept one slash for the `pt/pt' format. */
 	  for (i--; i >= 0 && ISNUMBERDIGIT (spec[i]); i--)
 	    ;
 	  if (i < 0)
-	    return 0;
-	  i++;
-	  size_return->w = atof (spec + i);
+	    {
+	      xfree (spec);
+	      return 0;
+	    }
 	}
-      else
-	{
-	  i++;
-	  size_return->w = size_return->h = atof (spec + i);
-	}
+      i++;
+
+      /* Now, <i> points to the end of the name.  Let's set the <cp>
+         to the beginning of the point size and share a little code
+         with the other format. */
+      cp = spec + i;
     }
 
+  /* Check the font point size. */
+  cp2 = strchr (cp, '/');
+  if (cp2)
+    {
+      *cp2++ = '\0';
+      size_return->w = atof (cp);
+      size_return->h = atof (cp2);
+    }
+  else
+    size_return->w = size_return->h = atof (cp);
+
+  /* Extract the font name. */
   *name_return = (char *) xcalloc (1, i + 1);
   strncpy (*name_return, spec, i);
 
-  MESSAGE (2, (stderr, "parse_font_spec(): name=%.*s, size=%g/%g\n", i,
-	       *name_return, size_return->w, size_return->h));
+  /* Check the input encoding. */
+  if (encp)
+    {
+      int found = 0;
+
+      if (encoding_return == NULL)
+	{
+	  /* We don't allow it here. */
+	  xfree (spec);
+	  return 0;
+	}
+
+      for (i = 0; !found && encodings[i].names[0]; i++)
+	for (j = 0; j < 3; j++)
+	  if (encodings[i].names[j] != NULL && MATCH (encodings[i].names[j],
+						      encp))
+	    {
+	      /* Found a match. */
+	      *encoding_return = encodings[i].encoding;
+	      encp = encodings[i].names[0];
+	      found = 1;
+	      break;
+	    }
+
+      if (!found)
+	{
+	  xfree (spec);
+	  return 0;
+	}
+    }
+  else
+    {
+      /* The spec didn't contain the encoding part.  Use our global default. */
+      encp = encoding_name;
+      if (encoding_return)
+	*encoding_return = encoding;
+    }
+  xfree (spec);
+
+  MESSAGE (2, (stderr,
+	       "parse_font_spec(): name=%.*s, size=%g/%g, encoding=%s\n", i,
+	       *name_return, size_return->w, size_return->h,
+	       encp));
 
   if (size_return->w < 0.0 && size_return->h < 0.0)
     MESSAGE (0, (stderr, _("%s: warning: font size is negative\n"), program));
@@ -756,7 +857,8 @@ read_font_info (void)
   int font_cached = 1;
   int i;
   unsigned int enc_flags = 0;
-  char fkey[256];
+  char buf[256];
+  Buffer fkey;
 
   MESSAGE (2, (stderr, _("reading AFM info for font \"%s\"\n"), Fname));
 
@@ -764,11 +866,17 @@ read_font_info (void)
     enc_flags = AFM_ENCODE_ACCEPT_COMPOSITES;
 
   /* Open font */
-  sprintf (fkey, "%s@%f", Fname, Fpt.w);
-  if (!strhash_get (afm_info_cache, fkey, strlen (fkey), (void **) &font_info))
+
+  buffer_init (&fkey);
+
+  buffer_append (&fkey, Fname);
+  sprintf (buf, "@%f:%d", Fpt.w, encoding);
+  buffer_append (&fkey, buf);
+
+  if (!strhash_get (afm_info_cache, buffer_ptr (&fkey),
+		    strlen (buffer_ptr (&fkey)), (void **) &font_info))
     {
       AFMError error;
-      char buf[256];
 
       /* Couldn't find it from our cache, open open AFM file. */
       if (!strhash_get (afm_cache, Fname, strlen (Fname), (void **) &font))
@@ -827,6 +935,16 @@ read_font_info (void)
 
 	    case ENC_ISO_8859_7:
 	      (void) afm_font_encoding (font, AFM_ENCODING_ISO_8859_7,
+					enc_flags);
+	      break;
+
+	    case ENC_ISO_8859_9:
+	      (void) afm_font_encoding (font, AFM_ENCODING_ISO_8859_9,
+					enc_flags);
+	      break;
+
+	    case ENC_ISO_8859_10:
+	      (void) afm_font_encoding (font, AFM_ENCODING_ISO_8859_10,
 					enc_flags);
 	      break;
 
@@ -911,7 +1029,8 @@ read_font_info (void)
 	(void) afm_close_font (font);
 
       /* Store font information to the AFM information cache. */
-      if (!strhash_put (afm_info_cache, fkey, strlen (fkey), font_info, NULL))
+      if (!strhash_put (afm_info_cache, buffer_ptr (&fkey),
+			strlen (buffer_ptr (&fkey)), font_info, NULL))
 	font_info_cached = 0;
     }
 
@@ -924,6 +1043,8 @@ read_font_info (void)
 
   if (!font_info_cached)
     xfree (font_info);
+
+  buffer_uninit (&fkey);
 }
 
 
@@ -933,7 +1054,7 @@ download_font (char *name)
   AFMError error;
   const char *prefix;
   struct stat stat_st;
-  char fname[512];
+  Buffer fname;
   unsigned char buf[4096];
   FILE *fp;
   int i;
@@ -947,28 +1068,38 @@ download_font (char *name)
 
   /* Check if we have a font description file. */
 
+  buffer_init (&fname);
+
   /* .pfa */
-  sprintf (fname, "%s.pfa", prefix);
-  if (stat (fname, &stat_st) != 0)
+  buffer_append (&fname, prefix);
+  buffer_append (&fname, ".pfa");
+  if (stat (buffer_ptr (&fname), &stat_st) != 0)
     {
       /* .pfb */
-      sprintf (fname, "%s.pfb", prefix);
-      if (stat (fname, &stat_st) != 0)
-	/* Couldn't find font description file, nothing to download. */
-	return;
+      buffer_clear (&fname);
+      buffer_append (&fname, prefix);
+      buffer_append (&fname, ".pfb");
+      if (stat (buffer_ptr (&fname), &stat_st) != 0)
+	{
+	  /* Couldn't find font description file, nothing to download. */
+	  buffer_uninit (&fname);
+	  return;
+	}
     }
 
   /* Ok, fine.  Font was found. */
 
   MESSAGE (1, (stderr, _("downloading font \"%s\"\n"), name));
-  fp = fopen (fname, "rb");
+  fp = fopen (buffer_ptr (&fname), "rb");
   if (fp == NULL)
     {
       MESSAGE (0, (stderr,
 		   _("couldn't open font description file \"%s\": %s\n"),
-		   fname, strerror (errno)));
+		   buffer_ptr (&fname), strerror (errno)));
+      buffer_uninit (&fname);
       return;
     }
+  buffer_uninit (&fname);
 
   /* Dump file. */
   fprintf (ofp, "%%%%BeginResource: font %s\n", name);
@@ -1108,6 +1239,8 @@ escape_string (char *string)
 
   /* Create result. */
   cp = xmalloc (len + 1);
+  if (cp == NULL)
+      return NULL;
   for (i = 0, j = 0; string[i]; i++)
     switch (string[i])
       {
@@ -1364,6 +1497,11 @@ format_user_string (char *context_name, char *str)
 		  APPEND_CH ('\001');
 		  break;
 
+		case 'p':	/* `$p' number of pages processed so far */
+		  sprintf (buf, "%d", total_pages);
+		  APPEND_STR (buf);
+		  break;
+
 		case '(':	/* $(ENVVAR)  */
 		  for (j = 0, i++;
 		       str[i] && str[i] != ')' && j < sizeof (buf) - 1;
@@ -1515,7 +1653,7 @@ void
 parse_key_value_pair (StringHashPtr set, char *kv)
 {
   char *cp;
-  char key[256];
+  Buffer key;
 
   cp = strchr (kv, ':');
   if (cp == NULL)
@@ -1525,11 +1663,15 @@ parse_key_value_pair (StringHashPtr set, char *kv)
     }
   else
     {
-      sprintf (key, "%.*s", cp - kv, kv);
-      strhash_put (set, key, strlen (key) + 1, xstrdup (cp + 1),
-		   (void **) &cp);
+      buffer_init (&key);
+      buffer_append_len (&key, kv, cp - kv);
+
+      strhash_put (set, buffer_ptr (&key), strlen (buffer_ptr (&key)) + 1,
+		   xstrdup (cp + 1), (void **) &cp);
       if (cp)
 	xfree (cp);
+
+      buffer_uninit (&key);
     }
 }
 
@@ -1595,55 +1737,75 @@ file_lookup (char *path, void *context)
   if (len && path[len - 1] == '/')
     len--;
 
-  sprintf (ctx->fullname, "%.*s/%s%s", len, path, ctx->name, ctx->suffix);
+  buffer_clear (ctx->fullname);
+  buffer_append_len (ctx->fullname, path, len);
+  buffer_append (ctx->fullname, "/");
+  buffer_append (ctx->fullname, ctx->name);
+  buffer_append (ctx->fullname, ctx->suffix);
 
-  i = stat (ctx->fullname, &stat_st) == 0;
+  i = stat (buffer_ptr (ctx->fullname), &stat_st) == 0;
 
   MESSAGE (2, (stderr, "#%c\n", i ? 't' : 'f'));
+
   return i;
 }
 
 
-void
-tilde_subst (char *from, char *to)
+char *
+tilde_subst (char *fname)
 {
   char *cp;
-  char user[256];
-  int i, j;
+  int i;
   struct passwd *pswd;
+  Buffer buffer;
+  char *result;
 
-  if (from[0] != '~')
-    {
-    copy_out:
-      strcpy (to, from);
-      return;
-    }
+  if (fname[0] != '~')
+    return xstrdup (fname);
 
-  if (from[1] == '/' || from[1] == '\0')
+  if (fname[1] == '/' || fname[1] == '\0')
     {
+      /* The the user's home directory from the `HOME' environment
+         variable. */
       cp = getenv ("HOME");
       if (cp == NULL)
-	goto copy_out;
+	return xstrdup (fname);
 
-      sprintf (to, "%s%s", cp, from + 1);
-      return;
+      buffer_init (&buffer);
+      buffer_append (&buffer, cp);
+      buffer_append (&buffer, fname + 1);
+
+      result = buffer_copy (&buffer);
+      buffer_uninit (&buffer);
+
+      return result;
     }
 
   /* Get user's login name. */
-  for (i = 1, j = 0; from[i] && from[i] != '/'; i++)
-    user[j++] = from[i];
-  user[j++] = '\0';
+  for (i = 1; fname[i] && fname[i] != '/'; i++)
+    ;
 
-  pswd = getpwnam (user);
+  buffer_init (&buffer);
+  buffer_append_len (&buffer, fname + 1, i - 1);
+
+  pswd = getpwnam (buffer_ptr (&buffer));
+  buffer_uninit (&buffer);
+
   if (pswd)
     {
       /* Found passwd entry. */
-      sprintf (to, "%s%s", pswd->pw_dir, from + i);
-      return;
+      buffer_init (&buffer);
+      buffer_append (&buffer, pswd->pw_dir);
+      buffer_append (&buffer, fname + i);
+
+      result = buffer_copy (&buffer);
+      buffer_uninit (&buffer);
+
+      return result;
     }
 
   /* No match found. */
-  goto copy_out;
+  return xstrdup (fname);
 }
 
 
@@ -1719,6 +1881,7 @@ is_open (InputStream *is, FILE *fp, char *fname, char *input_filter)
       char *cmd = NULL;
       int cmdlen;
       int i, pos;
+      char *cp;
 
       is->is_pipe = 1;
 
@@ -1742,12 +1905,16 @@ is_open (InputStream *is, FILE *fp, char *fname, char *input_filter)
 		{
 		case 's':
 		  /* Expand cmd-buffer. */
-		  cmdlen += strlen (fname);
-		  cmd = xrealloc (cmd, cmdlen);
+		  if ((cp = shell_escape (fname)) != NULL)
+		    {
+		      cmdlen += strlen (cp);
+		      cmd = xrealloc (cmd, cmdlen);
 
-		  /* Paste filename. */
-		  strcpy (cmd + pos, fname);
-		  pos += strlen (fname);
+		      /* Paste filename. */
+		      strcpy (cmd + pos, cp);
+		      pos += strlen (cp);
+		      free (cp);
+		    }
 
 		  i++;
 		  break;
@@ -1831,12 +1998,13 @@ is_getc (InputStream *is)
   if (is->bufpos >= is->data_in_buf)
     {
       /* At the EOF? */
-      if (is->nreads > 0 && is->data_in_buf < sizeof (is->buf))
+      if (is->nreads > 0 && is->data_in_buf <= 0)
 	/* Yes. */
 	return EOF;
 
       /* Read more data. */
-      is->data_in_buf = fread (is->buf, 1, sizeof (is->buf), is->fp);
+      memset (is->buf, 0, sizeof (is->buf));
+      is->data_in_buf = fread (is->buf, 1, sizeof (is->buf)-1, is->fp);
       is->bufpos = 0;
       is->nreads++;
 
@@ -1859,4 +2027,133 @@ is_ungetc (int ch, InputStream *is)
   is->unget_ch[is->unget_pos++] = ch;
 
   return 1;
+}
+
+
+/*
+ * Buffer Functions.
+ */
+
+void
+buffer_init (Buffer *buffer)
+{
+  buffer->allocated = 128;
+  buffer->data = xmalloc (buffer->allocated);
+  buffer->data[0] = '\0';
+  buffer->len = 0;
+}
+
+
+void
+buffer_uninit (Buffer *buffer)
+{
+  xfree (buffer->data);
+}
+
+
+Buffer *
+buffer_alloc ()
+{
+  Buffer *buffer = (Buffer *) xcalloc (1, sizeof (Buffer));
+
+  buffer_init (buffer);
+
+  return buffer;
+}
+
+
+void
+buffer_free (Buffer *buffer)
+{
+  buffer_uninit (buffer);
+  xfree (buffer);
+}
+
+
+void
+buffer_append (Buffer *buffer, const char *data)
+{
+  buffer_append_len (buffer, data, strlen (data));
+}
+
+
+void
+buffer_append_len (Buffer *buffer, const char *data, size_t len)
+{
+  if (buffer->len + len + 1 >= buffer->allocated)
+    {
+      buffer->allocated = buffer->len + len + 1024;
+      buffer->data = xrealloc (buffer->data, buffer->allocated);
+    }
+
+  memcpy (buffer->data + buffer->len, data, len);
+  buffer->len += len;
+
+  buffer->data[buffer->len] = '\0';
+}
+
+
+char *
+buffer_copy (Buffer *buffer)
+{
+  char *copy = xmalloc (buffer->len + 1);
+
+  memcpy (copy, buffer->data, buffer->len + 1);
+
+  return copy;
+}
+
+
+void
+buffer_clear (Buffer *buffer)
+{
+  buffer->len = 0;
+  buffer->data[0] = '\0';
+}
+
+
+char *
+buffer_ptr (Buffer *buffer)
+{
+  return buffer->data;
+}
+
+
+size_t
+buffer_len (Buffer *buffer)
+{
+  return buffer->len;
+}
+
+/*
+ * Escapes the name of a file so that the shell groks it in 'single'
+ * quotation marks.  The resulting pointer has to be free()ed when not
+ * longer used.
+*/
+char *
+shell_escape(const char *fn)
+{
+  size_t len = 0;
+  const char *inp;
+  char *retval, *outp;
+
+  for(inp = fn; *inp; ++inp)
+    switch(*inp)
+    {
+      case '\'': len += 4; break;
+      default:   len += 1; break;
+    }
+
+  outp = retval = malloc(len + 1);
+  if(!outp)
+    return NULL; /* perhaps one should do better error handling here */
+  for(inp = fn; *inp; ++inp)
+    switch(*inp)
+    {
+      case '\'': *outp++ = '\''; *outp++ = '\\'; *outp++ = '\'', *outp++ = '\''; break;
+      default:   *outp++ = *inp; break;
+    }
+  *outp = 0;
+
+  return retval;
 }

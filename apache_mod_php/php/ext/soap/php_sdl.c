@@ -17,7 +17,7 @@
   |          Dmitry Stogov <dmitry@zend.com>                             |
   +----------------------------------------------------------------------+
 */
-/* $Id: php_sdl.c,v 1.88.2.12.2.10 2007/12/31 07:20:11 sebastian Exp $ */
+/* $Id: php_sdl.c,v 1.88.2.12.2.12 2008/06/18 07:23:42 dmitry Exp $ */
 
 #include "php_soap.h"
 #include "ext/libxml/php_libxml.h"
@@ -240,7 +240,12 @@ static void load_wsdl_ex(zval *this_ptr, char *struri, sdlCtx *ctx, int include 
 	wsdl = soap_xmlParseFile(struri TSRMLS_CC);
 	
 	if (!wsdl) {
-		soap_error1(E_ERROR, "Parsing WSDL: Couldn't load from '%s'", struri);
+		xmlErrorPtr xmlErrorPtr = xmlGetLastError();
+		if (xmlErrorPtr) {
+			soap_error2(E_ERROR, "Parsing WSDL: Couldn't load from '%s' : %s", struri, xmlErrorPtr->message);
+		} else {
+			soap_error1(E_ERROR, "Parsing WSDL: Couldn't load from '%s'", struri);
+		}
 	}
 
 	zend_hash_add(&ctx->docs, struri, strlen(struri)+1, (void**)&wsdl, sizeof(xmlDocPtr), NULL);
@@ -716,12 +721,12 @@ static sdlPtr load_wsdl(zval *this_ptr, char *struri TSRMLS_DC)
 					}
 				  trav2 = trav2->next;
 				}
-				if (!address) {
+				if (!address || tmpbinding->bindingType == BINDING_HTTP) {
 					if (has_soap_port || trav->next || i < n-1) {
 						efree(tmpbinding);
 						trav = trav->next;
 						continue;
-					} else {
+					} else if (!address) {
 						soap_error0(E_ERROR, "Parsing WSDL: No address associated with <port>");
 					}
 				}

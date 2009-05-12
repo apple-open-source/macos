@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>USB Prober</string>
 	<key>CFBundleGetInfoString</key>
-	<string>USBPROBER_VERSION, Copyright © 2002-2008 Apple Inc.  All Rights Reserved.</string>
+	<string>USBPROBER_VERSION, Copyright © 2002-2007 Apple Inc.  All Rights Reserved.</string>
 	<key>CFBundleIconFile</key>
 	<string>USBProberIcon.icns</string>
 	<key>CFBundleIdentifier</key>

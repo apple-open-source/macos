@@ -149,6 +149,7 @@
 
 #define kIOHIDUseKeyswitchKey                "HIDUseKeyswitch"
 
+#define kIOHIDDisallowRemappingOfPrimaryClickKey	"HIDDisallowRemappingOfPrimaryClick"
 
 #ifdef __ppc__
     // the following are misspelled keys present in the system

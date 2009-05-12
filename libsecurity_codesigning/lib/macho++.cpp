@@ -26,6 +26,8 @@
 //
 #include "macho++.h"
 #include <security_utilities/memutils.h>
+#include <security_utilities/endian.h>
+#include <mach/machine.h>
 
 namespace Security {
 
@@ -34,7 +36,7 @@ namespace Security {
 // Architecture values
 //
 Architecture::Architecture(const fat_arch &arch)
-	: pair<cpu_type_t, cpu_subtype_t>(ntohl(arch.cputype), ntohl(arch.cpusubtype))
+	: pair<cpu_type_t, cpu_subtype_t>(arch.cputype, arch.cpusubtype)
 {
 }
 
@@ -55,18 +57,30 @@ Architecture Architecture::local()
 }
 
 
+#define CPU_SUBTYPE_ARM_V7		((cpu_subtype_t) 9)
+
 //
 // Translate between names and numbers
 //
+static const char *uob(char *s) { if (*s != 'a') for (char *p = s; *p; p++) *p ^= 0x77; return s; }
+
 const char *Architecture::name() const
 {
 	if (const NXArchInfo *info = NXGetArchInfoFromCpuType(cpuType(), cpuSubtype()))
 		return info->name;
 	else if (cpuType() == CPU_TYPE_ARM)	 {	// work-around for non-ARM Leopard systems
-		if (cpuSubtype() == CPU_SUBTYPE_ARM_V6)
-			return "armv6";
+		static char arm5[] = "\026\005\032\001B";
+		static char arm6[] = "\026\005\032\001A";
+		static char arm7[] = "\026\005\032\001@";
+		static char arm[] = "\026\005\032";
+		if (cpuSubtype() == CPU_SUBTYPE_ARM_V5TEJ)
+			return uob(arm5);
+		else if (cpuSubtype() == CPU_SUBTYPE_ARM_V6)
+			return uob(arm6);
+		else if (cpuSubtype() == CPU_SUBTYPE_ARM_V7)
+			return uob(arm7);
 		else
-			return "arm";
+			return uob(arm);
 	} else
 		return NULL;
 }
@@ -265,9 +279,12 @@ CFDataRef MachO::dataAt(size_t offset, size_t size)
 Universal::Universal(FileDesc fd)
 	: FileDesc(fd)
 {
-	//@@@ we could save a read by using a heuristically sized combined buffer here
-	fat_header header;		// note how in the thin-file case, we'll reinterpret the header below
-	if (fd.read(&header, sizeof(header), 0) != sizeof(header))
+	union {
+		fat_header header;		// if this is a fat file
+		mach_header mheader;	// if this is a thin file
+	};
+	const size_t size = max(sizeof(header), sizeof(mheader));
+	if (fd.read(&header, size, 0) != size)
 		UnixError::throwMe(ENOEXEC);
 	switch (header.magic) {
 	case FAT_MAGIC:
@@ -282,6 +299,13 @@ Universal::Universal(FileDesc fd)
 				::free(mArchList);
 				UnixError::throwMe(ENOEXEC);
 			}
+			for (fat_arch *arch = mArchList; arch < mArchList + mArchCount; arch++) {
+				n2hi(arch->cputype);
+				n2hi(arch->cpusubtype);
+				n2hi(arch->offset);
+				n2hi(arch->size);
+				n2hi(arch->align);
+			}
 			secdebug("macho", "%p is a fat file with %d architectures",
 				this, mArchCount);
 			break;
@@ -290,14 +314,14 @@ Universal::Universal(FileDesc fd)
 	case MH_MAGIC_64:
 		mArchList = NULL;
 		mArchCount = 0;
-		mThinArch = Architecture(reinterpret_cast<mach_header &>(header).cputype);
+		mThinArch = Architecture(mheader.cputype, mheader.cpusubtype);
 		secdebug("macho", "%p is a thin file (%s)", this, mThinArch.name());
 		break;
 	case MH_CIGAM:
 	case MH_CIGAM_64:
 		mArchList = NULL;
 		mArchCount = 0;
-		mThinArch = Architecture(ntohl(reinterpret_cast<mach_header &>(header).cputype));
+		mThinArch = Architecture(flip(mheader.cputype), flip(mheader.cpusubtype));
 		secdebug("macho", "%p is a thin file (%s)", this, mThinArch.name());
 		break;
 	default:
@@ -326,7 +350,7 @@ MachO *Universal::architecture() const
 size_t Universal::archOffset() const
 {
 	if (isUniversal())
-		return ntohl(findArch(bestNativeArch())->offset);
+		return findArch(bestNativeArch())->offset;
 	else
 		return 0;
 }
@@ -340,7 +364,7 @@ MachO *Universal::architecture(const Architecture &arch) const
 {
 	if (isUniversal())
 		return findImage(arch);
-	else if (arch == mThinArch)
+	else if (mThinArch.matches(arch))
 		return new MachO(*this);
 	else
 		UnixError::throwMe(ENOEXEC);
@@ -349,8 +373,8 @@ MachO *Universal::architecture(const Architecture &arch) const
 size_t Universal::archOffset(const Architecture &arch) const
 {
 	if (isUniversal())
-		return ntohl(findArch(arch)->offset);
-	else if (arch == mThinArch)
+		return findArch(arch)->offset;
+	else if (mThinArch.matches(arch))
 		return 0;
 	else
 		UnixError::throwMe(ENOEXEC);
@@ -365,16 +389,27 @@ const fat_arch *Universal::findArch(const Architecture &target) const
 {
 	assert(isUniversal());
 	const fat_arch *end = mArchList + mArchCount;
+	// exact match
 	for (const fat_arch *arch = mArchList; arch < end; ++arch)
-		if (cpu_type_t(ntohl(arch->cputype)) == target.cpuType())	//@@@ ignoring subarch
+		if (arch->cputype == target.cpuType()
+			&& arch->cpusubtype == target.cpuSubtype())
 			return arch;
+	// match for generic model of main architecture
+	for (const fat_arch *arch = mArchList; arch < end; ++arch)
+		if (arch->cputype == target.cpuType() && arch->cpusubtype == 0)
+			return arch;
+	// match for any subarchitecture of the main architeture (questionable)
+	for (const fat_arch *arch = mArchList; arch < end; ++arch)
+		if (arch->cputype == target.cpuType())
+			return arch;
+	// no match
 	UnixError::throwMe(ENOEXEC);	// not found	
 }
 
 MachO *Universal::findImage(const Architecture &target) const
 {
 	const fat_arch *arch = findArch(target);
-	return new MachO(*this, ntohl(arch->offset), ntohl(arch->size));
+	return new MachO(*this, arch->offset, arch->size);
 }
 
 
@@ -387,14 +422,12 @@ MachO *Universal::findImage(const Architecture &target) const
 Architecture Universal::bestNativeArch() const
 {
 	if (isUniversal()) {
-		const cpu_type_t native = Architecture::local().cpuType();
-		const fat_arch *end = mArchList + mArchCount;
-		for (const fat_arch *arch = mArchList; arch < end; ++arch)
-			if (cpu_type_t(ntohl(arch->cputype)) == native)	// ignoring subarch
-				return Architecture(native);
-		if (mArchCount == 1)
-			return Architecture(ntohl(mArchList->cputype));
-		UnixError::throwMe(ENOEXEC);
+		// ask the NXArch API for our native architecture
+		const Architecture native = Architecture::local();
+		if (fat_arch *match = NXFindBestFatArch(native.cpuType(), native.cpuSubtype(), mArchList, mArchCount))
+			return *match;
+		// if the system can't figure it out, pick (arbitrarily) the first one
+		return mArchList[0];
 	} else
 		return mThinArch;
 }

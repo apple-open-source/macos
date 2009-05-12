@@ -265,7 +265,7 @@ AppleUSBHubPort::stop(void)
 	USBLog(3, "AppleUSBHubPort[%p]::stop - calling RemoveDevice", this);
 	RemoveDevice();
 	
-	if (v3Bus && (v3Bus->IsControllerAvailable()) && !_hub->isInactive())
+	if (v3Bus && (v3Bus->IsControllerAvailable()) && !_hub->isInactive() && !_hub->_portSuspended)
 	{
 		// new: Try power off and disabling the port
 		//
@@ -326,16 +326,16 @@ AppleUSBHubPort::PortInit()
         goto errorExit;
     }
 	
+    // wait for the power on good time
+    USBLog(5, "***** AppleUSBHubPort[%p]::PortInit - port %d on hub %p waiting %d ms for power on", this, _portNum, _hub, _hubDesc->powerOnToGood * 2);
+    IOSleep(_hubDesc->powerOnToGood * 2);
+	
     // non captive devices will come in through the status change handler
     if (!_captive)
     {
         USBLog(5, "***** AppleUSBHubPort[%p]::PortInit - port %d on hub %p non-captive device - leaving PortInit", this, _portNum, _hub);
         goto errorExit;
     }
-	
-    // wait for the power on good time
-    USBLog(5, "***** AppleUSBHubPort[%p]::PortInit - port %d on hub %p waiting %d ms for power on", this, _portNum, _hub, _hubDesc->powerOnToGood * 2);
-    IOSleep(_hubDesc->powerOnToGood * 2);
 	
     USBLog(5, "***** AppleUSBHubPort[%p]::PortInit - port %d on hub %p about to get port status #1", this, _portNum, _hub);
     if ((err = _hub->GetPortStatus(&status, _portNum)))
@@ -1027,17 +1027,17 @@ AppleUSBHubPort::FatalError(IOReturn err, const char *str)
     {
 		if (err != kIOUSBDeviceNotHighSpeed)
 		{
-			USBLog(1, "AppleUSBHubPort[%p]: Port %d of Hub at 0x%x: error 0x%x: %s",this, (uint32_t)_portNum, (uint32_t)_hub->_locationID, err, str);
+			USBLog(1, "AppleUSBHubPort[%p]:FatalError - Port %d of Hub at 0x%x: error 0x%x: %s", this, (uint32_t)_portNum, (uint32_t)_hub->_locationID, err, str);
 		}
     }
     else
     {
-		USBError(1, "AppleUSBHubPort: Port %d of Hub at 0x%x reported error 0x%x while doing %s", (uint32_t)_portNum, (uint32_t)_hub->_locationID, err, str);
+		USBError(1, "AppleUSBHubPort[%p]::FatalError - Port %d of Hub at 0x%x reported error 0x%x while doing %s", this, (uint32_t)_portNum, (uint32_t)_hub->_locationID, err, str);
     }
     
     if (_portDevice)
     {
-        USBLog(1,"AppleUSBHubPort: Removing %s from port %d of Hub at 0x%x", _portDevice->getName(), _portNum, (uint32_t)_hub->_locationID);
+        USBLog(1,"AppleUSBHubPort[%p]::FatalError - Removing %s from port %d of Hub at 0x%x", this, _portDevice->getName(), _portNum, (uint32_t)_hub->_locationID);
         RemoveDevice();	
     }
 }
@@ -1113,9 +1113,9 @@ AppleUSBHubPort::AddDeviceResetChangeHandler(UInt16 changeFlags, UInt16 statusFl
         {
              if (changeFlags & kHubPortEnabled) 
             {
-                // The PortEnabled bit is telling us this port is disabled.
+                // We don't have a connection on this port anymore.
                 //
-                USBLog(1, "AppleUSBHubPort[%p]::AddDeviceResetChangeHandler - port %d - enabled bit is set in the change flags. A serious error has occurred (Section 11.24.2.7.2)", this, _portNum);
+                USBLog(1, "AppleUSBHubPort[%p]::AddDeviceResetChangeHandler - port %d - enabled bit is set in the change flags", this, _portNum);
             }
 
            // Before doing anything, check to see if the device is really there
@@ -1134,7 +1134,10 @@ AppleUSBHubPort::AddDeviceResetChangeHandler(UInt16 changeFlags, UInt16 statusFl
             {
                 // We don't have a connection on this port anymore.
                 //
-                USBLog(1, "AppleUSBHubPort[%p]::AddDeviceResetChangeHandler - port %d - device appears to have gone away and then come back", this, _portNum);
+                USBLog(5, "AppleUSBHubPort[%p]::AddDeviceResetChangeHandler - port %d - device appears to have gone away and then come back", this, _portNum);
+                _state = hpsDeadDeviceZero;
+                err = kIOReturnNoDevice;
+                break;
             }
 
             // in the Mac OS 9 state machine (called resetChangeHandler) we skip states 1-3

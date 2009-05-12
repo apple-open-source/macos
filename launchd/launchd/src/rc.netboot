@@ -27,6 +27,8 @@ NETBOOT_SHADOW=${NETBOOT_SHADOW:-NETWORK-}
 Failed()
 {
 	echo rc.netboot: $1
+	echo rc.netboot: $1 > /dev/console
+	sleep 5
 	exit 1
 }
 
@@ -74,11 +76,24 @@ common_start()
 
 local_mount()
 {
-    volinfo=`autodiskmount -F 2>/dev/null`
-    if [ $? -ne 0 ]; then
-	echo "autodiskmount -F found no local drives"
-	return 1
-    fi
+    tries=0
+    limit=11
+    while [ $tries -lt $limit ]; do
+	tries=$(( tries + 1 ))
+	volinfo=`autodiskmount -F 2>/dev/null`
+	if [ $? -ne 0 ]; then
+	    if [ $tries -lt $limit ]; then
+		echo "Waiting for local drives..."
+		echo "Waiting for local drives (retry ${tries}/$(( limit - 1 )))..." > /dev/console
+		sleep 5
+	    else
+		echo "autodiskmount -F found no local drives"
+		return 1
+	    fi
+	else
+	    tries=$limit
+	fi
+    done
     set ${volinfo}
     devname=$1
     fstype=$2

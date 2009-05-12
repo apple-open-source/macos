@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: main.c,v 1.640.2.23.2.62 2008/03/05 20:58:08 pajoye Exp $ */
+/* $Id: main.c,v 1.640.2.23.2.67 2008/11/02 14:12:15 jani Exp $ */
 
 /* {{{ includes
  */
@@ -352,12 +352,15 @@ static PHP_INI_MH(OnChangeMailForceExtra)
 #	define PHP_SAFE_MODE_EXEC_DIR ""
 #endif
 
-/* Windows and Netware use the internal mail */
+ /* Windows and Netware use the internal mail */
 #if defined(PHP_WIN32) || defined(NETWARE)
-#	define DEFAULT_SENDMAIL_PATH NULL
+# define DEFAULT_SENDMAIL_PATH NULL
+#elif defined(PHP_PROG_SENDMAIL)
+# define DEFAULT_SENDMAIL_PATH PHP_PROG_SENDMAIL " -t -i "
 #else
-#	define DEFAULT_SENDMAIL_PATH "/usr/sbin/sendmail -t -i" 
+# define DEFAULT_SENDMAIL_PATH "/usr/sbin/sendmail -t -i"
 #endif
+
 /* {{{ PHP_INI
  */
 PHP_INI_BEGIN()
@@ -565,8 +568,8 @@ PHPAPI void php_verror(const char *docref, const char *params, int type, const c
 	char *docref_target = "", *docref_root = "";
 	char *p;
 	int buffer_len = 0;
-	char *space;
-	char *class_name = get_active_class_name(&space TSRMLS_CC);
+	char *space = "";
+	char *class_name = "";
 	char *function;
 	int origin_len;
 	char *origin;
@@ -622,6 +625,7 @@ PHPAPI void php_verror(const char *docref, const char *params, int type, const c
 			function = "Unknown";
 		} else {
 			is_function = 1;
+			class_name = get_active_class_name(&space TSRMLS_CC);
 		}
 	}
 
@@ -1435,6 +1439,8 @@ void php_request_shutdown(void *dummy)
 	EG(opline_ptr) = NULL;
 	EG(active_op_array) = NULL;
 
+	php_deactivate_ticks(TSRMLS_C);
+
 	/* 1. Call all possible shutdown functions registered with register_shutdown_function() */
 	if (PG(modules_activated)) zend_try {
 		php_call_shutdown_functions(TSRMLS_C);
@@ -1775,7 +1781,19 @@ int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_mod
 	zend_set_utility_values(&zuv);
 	php_startup_sapi_content_types(TSRMLS_C);
 
+	/* Register constants */
 	REGISTER_MAIN_STRINGL_CONSTANT("PHP_VERSION", PHP_VERSION, sizeof(PHP_VERSION)-1, CONST_PERSISTENT | CONST_CS);
+	REGISTER_MAIN_LONG_CONSTANT("PHP_MAJOR_VERSION", PHP_MAJOR_VERSION, CONST_PERSISTENT | CONST_CS);
+	REGISTER_MAIN_LONG_CONSTANT("PHP_MINOR_VERSION", PHP_MINOR_VERSION, CONST_PERSISTENT | CONST_CS);
+	REGISTER_MAIN_LONG_CONSTANT("PHP_RELEASE_VERSION", PHP_RELEASE_VERSION, CONST_PERSISTENT | CONST_CS);
+	REGISTER_MAIN_STRINGL_CONSTANT("PHP_EXTRA_VERSION", PHP_EXTRA_VERSION, sizeof(PHP_EXTRA_VERSION) - 1, CONST_PERSISTENT | CONST_CS);
+	REGISTER_MAIN_LONG_CONSTANT("PHP_VERSION_ID", PHP_VERSION_ID, CONST_PERSISTENT | CONST_CS);
+#ifdef ZTS
+	REGISTER_MAIN_LONG_CONSTANT("PHP_ZTS", 1, CONST_PERSISTENT | CONST_CS);
+#else
+	REGISTER_MAIN_LONG_CONSTANT("PHP_ZTS", 0, CONST_PERSISTENT | CONST_CS);
+#endif
+	REGISTER_MAIN_LONG_CONSTANT("PHP_DEBUG", PHP_DEBUG, CONST_PERSISTENT | CONST_CS);
 	REGISTER_MAIN_STRINGL_CONSTANT("PHP_OS", php_os, strlen(php_os), CONST_PERSISTENT | CONST_CS);
 	REGISTER_MAIN_STRINGL_CONSTANT("PHP_SAPI", sapi_module.name, strlen(sapi_module.name), CONST_PERSISTENT | CONST_CS);
 	REGISTER_MAIN_STRINGL_CONSTANT("DEFAULT_INCLUDE_PATH", PHP_INCLUDE_PATH, sizeof(PHP_INCLUDE_PATH)-1, CONST_PERSISTENT | CONST_CS);

@@ -161,10 +161,13 @@ IOReturn IOUSBDeviceControllerCreate(
 
 IOReturn IOUSBDeviceControllerGoOffAndOnBus(IOUSBDeviceControllerRef device, uint32_t msecdelay)
 {
+	IOReturn rval;
 	CFNumberRef delay = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &msecdelay);
 	if(!delay)
 		return kIOReturnNoMemory;
-	return IOUSBDeviceControllerSendCommand(device, CFSTR("GoOffAndOnBus"), delay);
+	rval = IOUSBDeviceControllerSendCommand(device, CFSTR("GoOffAndOnBus"), delay);
+	CFRelease(delay);
+	return rval;
 }
 
 IOReturn IOUSBDeviceControllerForceOffBus(IOUSBDeviceControllerRef device, int enable)
@@ -239,6 +242,11 @@ IOReturn IOUSBDeviceControllerSendCommand(IOUSBDeviceControllerRef device, CFStr
 	kr = IORegistryEntrySetCFProperties(device->deviceIOService, dict);
 	CFRelease(dict);
 	return kr;
+}
+
+io_service_t IOUSBDeviceControllerGetService(IOUSBDeviceControllerRef controller)
+{	
+	return controller->deviceIOService;
 }
 
 IOReturn IOUSBDeviceControllerSetDescription(IOUSBDeviceControllerRef device, IOUSBDeviceDescriptionRef	description)

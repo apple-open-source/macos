@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_variables.c,v 1.104.2.10.2.12 2007/12/31 07:20:15 sebastian Exp $ */
+/* $Id: php_variables.c,v 1.104.2.10.2.14 2008/08/30 18:28:01 rasmus Exp $ */
 
 #include <stdio.h>
 #include "php.h"
@@ -57,17 +57,18 @@ PHPAPI void php_register_variable_safe(char *var, char *strval, int str_len, zva
 	php_register_variable_ex(var, &new_entry, track_vars_array TSRMLS_CC);
 }
 
-PHPAPI void php_register_variable_ex(char *var, zval *val, zval *track_vars_array TSRMLS_DC)
+PHPAPI void php_register_variable_ex(char *var_name, zval *val, zval *track_vars_array TSRMLS_DC)
 {
 	char *p = NULL;
 	char *ip;		/* index pointer */
 	char *index, *escaped_index = NULL;
+	char *var, *var_orig;
 	int var_len, index_len;
 	zval *gpc_element, **gpc_element_p;
 	zend_bool is_array = 0;
 	HashTable *symtable1 = NULL;
 
-	assert(var != NULL);
+	assert(var_name != NULL);
 	
 	if (track_vars_array) {
 		symtable1 = Z_ARRVAL_P(track_vars_array);
@@ -84,6 +85,8 @@ PHPAPI void php_register_variable_ex(char *var, zval *val, zval *track_vars_arra
 	 * Prepare variable name
 	 */
 
+	var_orig = estrdup(var_name);
+	var = var_orig;
 	/* ignore leading spaces in the variable name */
 	while (*var && *var==' ') {
 		var++;
@@ -104,6 +107,7 @@ PHPAPI void php_register_variable_ex(char *var, zval *val, zval *track_vars_arra
 
 	if (var_len==0) { /* empty variable name, or variable name with a space in it */
 		zval_dtor(val);
+		efree(var_orig);
 		return;
 	}
 
@@ -112,6 +116,7 @@ PHPAPI void php_register_variable_ex(char *var, zval *val, zval *track_vars_arra
 		var_len == sizeof("GLOBALS")-1 &&
 		!memcmp(var, "GLOBALS", sizeof("GLOBALS")-1)) {
 		zval_dtor(val);
+		efree(var_orig);
 		return;
 	}
 
@@ -142,6 +147,7 @@ PHPAPI void php_register_variable_ex(char *var, zval *val, zval *track_vars_arra
 				if (!PG(display_errors)) {
 					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Input variable nesting level exceeded %ld. To increase the limit change max_input_nesting_level in php.ini.", PG(max_input_nesting_level));
 				}
+				efree(var_orig);
 				return;
 			}
 
@@ -233,6 +239,7 @@ plain_var:
 			}
 		}
 	}
+	efree(var_orig);
 }
 
 SAPI_API SAPI_POST_HANDLER_FUNC(php_std_post_handler)

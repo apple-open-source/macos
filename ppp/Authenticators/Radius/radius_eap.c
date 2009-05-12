@@ -276,15 +276,26 @@ radius_eap_process (void *context, struct EAP_Input *eap_in, struct EAP_Output *
 								attr_type = rad_get_vendor_attr(&attr_vendor, (const void **)&attr_value,  &attr_len);
 								switch (attr_type) {
 									case RAD_MICROSOFT_MS_MPPE_SEND_KEY:
-										rad_request_authenticator(rad_handle, auth, sizeof(auth));
-										radius_decryptmppekey(eap_mppe_send_key, attr_value, attr_len, (u_char*)rad_server_secret(rad_handle), auth);
-										eap_mppe_keys_set = 1;
-
+										len = rad_request_authenticator(rad_handle, auth, sizeof(auth));
+										
+										if(len != -1)
+										{
+											radius_decryptmppekey(eap_mppe_send_key, attr_value, attr_len, (u_char*)rad_server_secret(rad_handle), auth, len);
+											eap_mppe_keys_set = 1;
+										}
+										else
+											error("Radius: rad-eap-mppe-send-key:  could not get authenticator!\n");
 										break;
 									case RAD_MICROSOFT_MS_MPPE_RECV_KEY:
-										rad_request_authenticator(rad_handle, auth, sizeof(auth));
-										radius_decryptmppekey(eap_mppe_recv_key, attr_value, attr_len, (u_char*)rad_server_secret(rad_handle), auth);
-										eap_mppe_keys_set = 1;
+										len = rad_request_authenticator(rad_handle, auth, sizeof(auth));
+										
+										if(len != -1)
+										{										
+											radius_decryptmppekey(eap_mppe_recv_key, attr_value, attr_len, (u_char*)rad_server_secret(rad_handle), auth, len);
+											eap_mppe_keys_set = 1;
+										}
+										else
+											error("Radius: rad-eap-mppe-recv-key:  could not get authenticator!\n");											
 										break;
 								}
 								break;

@@ -56,7 +56,7 @@ public:
 	TrustedApplication();							// for current application
 	TrustedApplication(const std::string &path, SecRequirementRef requirement); // with requirement and aux. path
 	TrustedApplication(CFDataRef external);			// from external representation
-	~TrustedApplication() throw ();
+	~TrustedApplication();
 
 	const char *path() const { return mForm->path().c_str(); }
 	CssmData legacyHash() const	{ return CssmData::wrap(mForm->legacyHash(), SHA1::digestLength); }

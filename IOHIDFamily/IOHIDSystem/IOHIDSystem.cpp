@@ -2342,37 +2342,34 @@ IOReturn IOHIDSystem::doRelativePointerEvent(IOHIDSystem *self, void * args)
 }
 
 void IOHIDSystem::relativePointerEventGated(int buttons, int dx, int dy, AbsoluteTime ts, OSObject * sender)
-{ 
+{
     UnsignedWide nextVBL, vblDeltaTime, eventDeltaTime, moveDeltaTime;
     bool haveVBL;
+    
+    if ( eventsOpen == false )
+        return;
         
-    if( eventsOpen == false )
+    if (ShouldConsumeHIDEvent(ts, stateChangeDeadline))
         return;
-
-    if(ShouldConsumeHIDEvent(ts, stateChangeDeadline))
-        return;
-
-    if ( !(displayState & IOPMDeviceUsable) ) {	// display is off, consume the button event
+        
+    if ( !(displayState & IOPMDeviceUsable) ) { // display is off, consume the button event
         if ( buttons ) {
             return;
         }
-
+        
         TICKLE_DISPLAY;
         return;
     }
-
+    
     CachedMouseEventStruct *cachedMouseEvent;
-    if (cachedMouseEvent = GetCachedMouseEventForService(cachedButtonStates, sender))
-    {
+    if (cachedMouseEvent = GetCachedMouseEventForService(cachedButtonStates, sender)) {
         do {
-            // RY: If the display is dim and there is no change in buttonStates, 
-            // compare relative mouse movements against thresholds to determine 
+            // RY: If the display is dim and there is no change in buttonStates,
+            // compare relative mouse movements against thresholds to determine
             // whether or not to wake the display.  This will prevent premature
             // display wake upon chatty mice.
-            if ((cachedMouseEvent->lastButtons == buttons) && (displayState == 0))
-            {
-                if (CMP_ABSOLUTETIME(&ts, &(cachedMouseEvent->eventDeadline)) > 0)
-                {
+            if ((cachedMouseEvent->lastButtons == buttons) && (displayState == 0)) {
+                if (CMP_ABSOLUTETIME(&ts, &(cachedMouseEvent->eventDeadline)) > 0) {
                     cachedMouseEvent->eventDeadline = ts;
                     ADD_ABSOLUTETIME(&(cachedMouseEvent->eventDeadline), &gIOHIDRelativeTickleThresholdAbsoluteTime);
                     cachedMouseEvent->accumX = 0;
@@ -2381,110 +2378,123 @@ void IOHIDSystem::relativePointerEventGated(int buttons, int dx, int dy, Absolut
                 
                 cachedMouseEvent->accumX += dx;
                 cachedMouseEvent->accumY += dy;
-
+                
                 if ((abs(cachedMouseEvent->accumX) < kIOHIDRelativeTickleThresholdPixel) &&
-                    (abs(cachedMouseEvent->accumY) < kIOHIDRelativeTickleThresholdPixel))
-                {
+                        (abs(cachedMouseEvent->accumY) < kIOHIDRelativeTickleThresholdPixel)) {
                     break;
-                }                
+                }
             }
             
             TICKLE_DISPLAY;
             cachedMouseEvent->lastButtons = buttons;
             cachedMouseEvent->eventDeadline = ts;
-
+            
             // Fake up pressure changes from button state changes
-            if( (buttons & EV_LB) != (evg->buttons & EV_LB) )
-            {
+            if ( (buttons & EV_LB) != (evg->buttons & EV_LB) ) {
                 cachedMouseEvent->lastPressure = ( buttons & EV_LB ) ? MAXPRESSURE : MINPRESSURE;
             }
             
-        } while (false);
+        }
+        while (false);
     }
     
     _setButtonState(buttons, /* atTime */ ts, sender);
-
+    
     int oldDx = dx;
     int oldDy = dy;
-
+    
     // figure cursor movement
-    if( dx || dy )
-    {
+    if ( dx || dy ) {
         eventDeltaTime = *((UnsignedWide *)(&ts));
         SUB_ABSOLUTETIME( &eventDeltaTime, &lastRelativeEventTime );
         lastRelativeEventTime = ts;
-
+        
         IOGraphicsDevice * instance = ((EvScreen*)evScreen)[cursorPinScreen].instance;
-        if( instance) {
+        if ( instance) {
             instance->getVBLTime( (AbsoluteTime *)&nextVBL, (AbsoluteTime *)&vblDeltaTime );
-        } else
+        }
+        else
             nextVBL.hi = nextVBL.lo = vblDeltaTime.hi = vblDeltaTime.lo = 0;
-
-        if( dx && ((dx ^ accumDX) < 0))
+            
+        if ( dx && ((dx ^ accumDX) < 0))
             accumDX = 0;
-        if( dy && ((dy ^ accumDY) < 0))
+        if ( dy && ((dy ^ accumDY) < 0))
             accumDY = 0;
-
+            
         KERNEL_DEBUG(0x0c000060 | DBG_FUNC_NONE,
-            nextVBL.hi, nextVBL.lo, lastRelativeEventTime.hi, lastRelativeEventTime.lo, 0);
-
-	haveVBL = (nextVBL.lo || nextVBL.hi);
-
-	if (haveVBL && (postDeltaX || postDeltaY))  {
-	    accumDX += dx;
-	    accumDY += dy;
-	    
-	} else {
-	    SInt32 num = 0, div = 0;
-
-	    dx += accumDX;
-	    dy += accumDY;
-
-	    moveDeltaTime = *((UnsignedWide *)(&ts));
-	    SUB_ABSOLUTETIME( &moveDeltaTime, &lastRelativeMoveTime );
-	    lastRelativeMoveTime = ts;
+                     nextVBL.hi, nextVBL.lo, lastRelativeEventTime.hi, lastRelativeEventTime.lo, 0);
+                     
+        haveVBL = (nextVBL.lo || nextVBL.hi);
         
-	    if( (eventDeltaTime.lo < vblDeltaTime.lo) && (0 == eventDeltaTime.hi)
-	     && vblDeltaTime.lo && moveDeltaTime.lo) {
-            num = vblDeltaTime.lo;
-            div = moveDeltaTime.lo;
-            dx = ((SInt64)num * dx) / div;
-            dy = ((SInt64)num * dy) / div;
-	    }
-
-	    KERNEL_DEBUG(0x0c000000 | DBG_FUNC_NONE, dx, dy, num, div, 0);
-
-	    accumDX = accumDY = 0;
-
-	    if( dx || dy ) {
-        
-        if (((oldDx < 0) && (dx > 0)) || ((oldDx > 0) && (dx < 0))) {
-            IOLog("IOHIDSystem::relativePointerEventGated: Unwanted Direction Change X: oldDx=%d dx=%d\n", oldDy, dy);
+        if (haveVBL && (postDeltaX || postDeltaY))  {
+            accumDX += dx;
+            accumDY += dy;
+            
         }
-        
-        
-        if (((oldDy < 0) && (dy > 0)) || ((oldDy > 0) && (dy < 0))) {
-            IOLog("IOHIDSystem::relativePointerEventGated: Unwanted Direction Change Y: oldDy=%d dy=%d\n", oldDy, dy);
+        else {
+            SInt32 num = 0, div = 0;
+            
+            dx += accumDX;
+            dy += accumDY;
+            
+            moveDeltaTime = *((UnsignedWide *)(&ts));
+            SUB_ABSOLUTETIME( &moveDeltaTime, &lastRelativeMoveTime );
+            lastRelativeMoveTime = ts;
+            
+            if ( (eventDeltaTime.lo < vblDeltaTime.lo) && (0 == eventDeltaTime.hi)
+                    && vblDeltaTime.lo && moveDeltaTime.lo) {
+                num = vblDeltaTime.lo;
+                div = moveDeltaTime.lo;
+                dx = ((SInt64)num * dx) / div;
+                dy = ((SInt64)num * dy) / div;
+            }
+            
+            KERNEL_DEBUG(0x0c000000 | DBG_FUNC_NONE, dx, dy, num, div, 0);
+            
+            accumDX = accumDY = 0;
+            
+            if ( dx || dy ) {
+            
+                if (((oldDx < 0) && (dx > 0)) || ((oldDx > 0) && (dx < 0))) {
+                    IOLog("IOHIDSystem::relativePointerEventGated: Unwanted Direction Change X: oldDx=%d dx=%d\n", oldDx, dx);
+                }
+                
+                
+                if (((oldDy < 0) && (dy > 0)) || ((oldDy > 0) && (dy < 0))) {
+                    IOLog("IOHIDSystem::relativePointerEventGated: Unwanted Direction Change Y: oldDy=%d dy=%d\n", oldDy, dy);
+                }
+                
+                if ( haveVBL ) {
+                    // rdar://5565815 Capping VBL interval
+                    static UInt64 resonableVBL = 0;
+                    static UInt32 logLimit = 0;
+                    
+                    if (!resonableVBL)
+                        nanoseconds_to_absolutetime(20000000, (AbsoluteTime*)(&resonableVBL));
+                        
+                    if (AbsoluteTime_to_scalar(&vblDeltaTime) > resonableVBL) {
+                        if (0 == logLimit++ % 100)
+                            IOLog("IOHIDSystem::relativePointerEventGated: Capping VBL time to %lld (was %lld)\n",
+                                  resonableVBL,  AbsoluteTime_to_scalar(&vblDeltaTime));
+                        AbsoluteTime_to_scalar(&vblDeltaTime) = resonableVBL;
+                    }
+                    
+                    postDeltaX = dx;
+                    postDeltaY = dy;
+                    vblDeltaTime.lo += (vblDeltaTime.lo >> 4);
+                    ADD_ABSOLUTETIME(&nextVBL, &vblDeltaTime);
+                    vblES->wakeAtTime(nextVBL);
+                    lastSender = sender;
+                }
+                else {
+                    pointerLoc.x += dx;
+                    pointerLoc.y += dy;
+                    pointerDelta.x += dx;
+                    pointerDelta.y += dy;
+                    _setCursorPosition(&pointerLoc, false, false, sender);
+                }
+            }
         }
-
-		if( haveVBL ) {
-		    postDeltaX = dx;
-		    postDeltaY = dy;
-		    vblDeltaTime.lo += (vblDeltaTime.lo >> 4);
-		    ADD_ABSOLUTETIME(&nextVBL, &vblDeltaTime);
-		    vblES->wakeAtTime(nextVBL);
-            lastSender = sender;
-		}
-		else
-		{
-		    pointerLoc.x += dx;
-		    pointerLoc.y += dy;
-		    pointerDelta.x += dx;
-		    pointerDelta.y += dy;
-		    _setCursorPosition(&pointerLoc, false, false, sender);
-		}
-	    }
-	}
     }
 }
 

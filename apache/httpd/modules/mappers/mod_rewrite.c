@@ -2339,6 +2339,8 @@ static void add_cookie(request_rec *r, char *s)
     char *domain;
     char *expires;
     char *path;
+    char *secure;
+    char *httponly;
 
     char *tok_cntx;
     char *cookie;
@@ -2363,6 +2365,8 @@ static void add_cookie(request_rec *r, char *s)
 
             expires = apr_strtok(NULL, ":", &tok_cntx);
             path = expires ? apr_strtok(NULL, ":", &tok_cntx) : NULL;
+            secure = path ? apr_strtok(NULL, ":", &tok_cntx) : NULL;
+            httponly = secure ? apr_strtok(NULL, ":", &tok_cntx) : NULL;
 
             if (expires) {
                 apr_time_exp_t tms;
@@ -2383,6 +2387,16 @@ static void add_cookie(request_rec *r, char *s)
                                  "; domain=", domain,
                                  expires ? "; expires=" : NULL,
                                  expires ? exp_time : NULL,
+                                 (secure && (!strcasecmp(secure, "true")
+                                             || !strcmp(secure, "1")
+                                             || !strcasecmp(secure,
+                                                            "secure"))) ?
+                                  "; secure" : NULL,
+                                 (httponly && (!strcasecmp(httponly, "true")
+                                               || !strcmp(httponly, "1")
+                                               || !strcasecmp(httponly,
+                                                              "HttpOnly"))) ?
+                                  "; HttpOnly" : NULL,
                                  NULL);
 
             apr_table_addn(rmain->err_headers_out, "Set-Cookie", cookie);
@@ -4318,8 +4332,9 @@ static int hook_uri2file(request_rec *r)
                 r->filename = apr_pstrcat(r->pool, r->filename,
                                           r->path_info, NULL);
             }
-            if (r->args != NULL &&
-                r->uri == r->unparsed_uri) {
+            if ((r->args != NULL)
+            	&& ((r->proxyreq == PROXYREQ_PROXY) 
+                    || (rulestatus == ACTION_NOESCAPE))) {
                 /* see proxy_http:proxy_http_canon() */
                 r->filename = apr_pstrcat(r->pool, r->filename,
                                           "?", r->args, NULL);

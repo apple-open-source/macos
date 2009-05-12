@@ -438,7 +438,7 @@ BC_stop(struct BC_history_entry **phe, int *pnentries)
 	}
 	error = sysctlbyname(BC_SYSCTL, NULL, NULL, &bc, sizeof(bc));
 	if (error != 0) {
-		warn("could not fetch history");
+		warn("could not fetch %zu bytes of history", bc.bc_length);
 		if (he != NULL)
 			free(he);
 		return(errno);

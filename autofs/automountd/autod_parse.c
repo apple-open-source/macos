@@ -27,9 +27,7 @@
  */
 
 /*
- * Portions Copyright 2007 Apple Inc.
- *
- * $Id$
+ * Portions Copyright 2007-2009 Apple Inc.
  */
 
 #pragma ident	"@(#)autod_parse.c	1.31	05/06/08 SMI"
@@ -2739,10 +2737,12 @@ do_mapent_static(key, isdirect, err)
 
 	me->map_next = NULL;
 
+	release_staticmap_entry(static_ent);
 	*err = 0;
 	return (me);
 
 alloc_failed:
+	release_staticmap_entry(static_ent);
 	syslog(LOG_ERR, "do_mapent_static: Memory allocation failed");
 	free_mapent(me);
 	*err = ENOMEM;

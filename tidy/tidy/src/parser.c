@@ -5,9 +5,9 @@
   
   CVS Info :
 
-    $Author: iccir $ 
-    $Date: 2007/03/05 23:47:44 $ 
-    $Revision: 1.6 $ 
+    $Author: mrowe $ 
+    $Date: 2009/01/29 05:45:41 $ 
+    $Revision: 1.9 $ 
 
 */
 
@@ -4017,27 +4017,48 @@ static void SanitizeNodesAgainstXSS(TidyDocImpl* doc, Node* node)
 {
     Node *next;
 
+    Bool isXml = cfgBool( doc, TidyXmlTags );
+    Bool shouldRemoveElement;
+
     while (node)
     {
         next = node->next;
 
-        if (TY_(nodeIsFRAMESET) (node) ||
-            TY_(nodeIsSCRIPT)   (node) ||
-            TY_(nodeIsIFRAME)   (node) ||
-            TY_(nodeIsOBJECT)   (node) ||
-            TY_(nodeIsFRAME)    (node) ||
-            TY_(nodeIsEMBED)    (node) ||
-            TY_(nodeIsSTYLE)    (node) ||
-            TY_(nodeIsLINK)     (node) ||
-            TY_(nodeIsMETA)     (node))
+        if (!isXml)
+        {
+            shouldRemoveElement = TY_(nodeIsFRAMESET) (node) ||
+                                  TY_(nodeIsSCRIPT)   (node) ||
+                                  TY_(nodeIsIFRAME)   (node) ||
+                                  TY_(nodeIsOBJECT)   (node) ||
+                                  TY_(nodeIsFRAME)    (node) ||
+                                  TY_(nodeIsEMBED)    (node) ||
+                                  TY_(nodeIsSTYLE)    (node) ||
+                                  TY_(nodeIsLINK)     (node) ||
+                                  TY_(nodeIsMETA)     (node) ;
+        }
+        else
+        {
+            /* When the content was parsed as XML, the tag identifiers all point at a generic XML tag identifier
+               with an unknown tag name, so we need to manually compare the tag names with the bad set of tags. */
+            shouldRemoveElement = node->element && (!TY_(tmbstrcasecmp)(node->element, "frameset") ||
+                                                    !TY_(tmbstrcasecmp)(node->element, "script")   ||
+                                                    !TY_(tmbstrcasecmp)(node->element, "iframe")   ||
+                                                    !TY_(tmbstrcasecmp)(node->element, "object")   ||
+                                                    !TY_(tmbstrcasecmp)(node->element, "frame")    ||
+                                                    !TY_(tmbstrcasecmp)(node->element, "embed")    ||
+                                                    !TY_(tmbstrcasecmp)(node->element, "style")    ||
+                                                    !TY_(tmbstrcasecmp)(node->element, "link")     ||
+                                                    !TY_(tmbstrcasecmp)(node->element, "meta")     );
+        }
+
+        if (shouldRemoveElement)
         {
             RemoveNode(node);
             FreeNode(doc, node);
         }
-        else
+        else if (node->content)
         {
-            if (node->content)
-                SanitizeNodesAgainstXSS(doc, node->content);
+            SanitizeNodesAgainstXSS(doc, node->content);
         }
 
         node = next;
@@ -4353,6 +4374,13 @@ void TY_(ParseXMLDocument)(TidyDocImpl* doc)
     /* ensure presence of initial <?xml version="1.0"?> */
     if ( cfgBool(doc, TidyXmlDecl) )
         TY_(FixXmlDecl)( doc );
+
+#ifdef TIDY_APPLE_CHANGES
+    if (cfgBool(doc, TidySanitizeAgainstXSS)) {
+        SanitizeNodesAgainstXSS(doc, &doc->root);
+        AttributeChecks(doc, &doc->root);
+    }
+#endif
 }
 
 /*

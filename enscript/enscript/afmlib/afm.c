@@ -1,6 +1,6 @@
 /*
  * AFM library public interface.
- * Copyright (c) 1995-1998 Markku Rossi.
+ * Copyright (c) 1995-1999 Markku Rossi.
  *
  * Author: Markku Rossi <mtr@iki.fi>
  */
@@ -641,6 +641,14 @@ afm_font_encoding (AFMFont font, AFMEncoding enc, unsigned int flags)
       apply_encoding (font, afm_88597_encoding, flags);
       break;
 
+    case AFM_ENCODING_ISO_8859_9:
+      apply_encoding (font, afm_88599_encoding, flags);
+      break;
+
+    case AFM_ENCODING_ISO_8859_10:
+      apply_encoding (font, afm_885910_encoding, flags);
+      break;
+
     case AFM_ENCODING_IBMPC:
       apply_encoding (font, afm_ibmpc_encoding, flags);
       break;
@@ -682,7 +690,7 @@ afm_font_encoding (AFMFont font, AFMEncoding enc, unsigned int flags)
 
 
 void
-afm_message (AFMHandle handle, int level, char *message)
+afm_message (AFMHandle handle, unsigned int level, char *message)
 {
   if (handle->verbose < level)
     return;

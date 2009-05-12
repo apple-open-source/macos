@@ -19,9 +19,9 @@
  */
 
 #include "config.h"
-#include "liblaunch_public.h"
-#include "liblaunch_private.h"
-#include "liblaunch_internal.h"
+#include "launch.h"
+#include "launch_priv.h"
+#include "launch_internal.h"
 
 #include <mach/mach.h>
 #include <libkern/OSByteOrder.h>
@@ -40,10 +40,10 @@
 #include <pwd.h>
 #include <assert.h>
 
-#include "libbootstrap_public.h"
-#include "libvproc_public.h"
-#include "libvproc_private.h"
-#include "libvproc_internal.h"
+#include "bootstrap.h"
+#include "vproc.h"
+#include "vproc_priv.h"
+#include "vproc_internal.h"
 
 /* __OSBogusByteSwap__() must not really exist in the symbol namespace
  * in order for the following to generate an error at build time.

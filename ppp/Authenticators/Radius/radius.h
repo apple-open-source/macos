@@ -55,7 +55,7 @@ extern char		*nas_ip_address;		// NAS IP address to include in Radius packets
 extern int		nas_port_type;			// default is virtual
 extern int		tunnel_type;			// not specified
 
-int radius_decryptmppekey(char *key, u_int8_t *attr_value, size_t attr_len, char *secret, char *authenticator);
+int radius_decryptmppekey(char *key, u_int8_t *attr_value, size_t attr_len, char *secret, char *authenticator, size_t auth_len);
 
 int radius_eap_install();
 

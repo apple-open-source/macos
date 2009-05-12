@@ -87,7 +87,7 @@ public:
 	// make from CSSM layer information (presumably retrieved by caller)
 	Access(const CSSM_ACL_OWNER_PROTOTYPE &owner,
 		uint32 aclCount, const CSSM_ACL_ENTRY_INFO *acls);
-    virtual ~Access() throw();
+    virtual ~Access();
 
 public:
 	CFArrayRef copySecACLs() const;

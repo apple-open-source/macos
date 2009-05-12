@@ -105,9 +105,9 @@ edit(char *file, char *linenum)
 	char	*s;
 
 	file = filepath(file);
-	(void) sprintf(msg, "%s +%s %s", mybasename(editor), linenum, file);
+	(void) snprintf(msg, sizeof(msg), "%s +%s %s", mybasename(editor), linenum, file);
 	postmsg(msg);
-	(void) sprintf(plusnum, lineflag, linenum);
+	(void) snprintf(plusnum, sizeof(plusnum), lineflag, linenum);
 	/* if this is the more or page commands */
 	if (strcmp(s = mybasename(editor), "more") == 0 || strcmp(s, "page") == 0) {
 		
@@ -132,7 +132,7 @@ filepath(char *file)
 	static	char	path[PATHLEN + 1];
 	
 	if (prependpath != NULL && *file != '/') {
-		(void) sprintf(path, "%s/%s", prependpath, file);
+		(void) snprintf(path, sizeof(path), "%s/%s", prependpath, file);
 		file = path;
 	}
 	return(file);

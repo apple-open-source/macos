@@ -86,8 +86,8 @@ static int dbd_sqlite3_select_internal(apr_pool_t *pool,
                                        apr_dbd_results_t **results,
                                        sqlite3_stmt *stmt, int seek)
 {
-    int i, ret, retry_count = 0, column_count;
-    size_t num_tuples = 0;
+    int ret, retry_count = 0, column_count;
+    size_t i, num_tuples = 0;
     int increment = 0;
     apr_dbd_row_t *row = NULL;
     apr_dbd_row_t *lastrow = NULL;
@@ -207,7 +207,7 @@ static int dbd_sqlite3_select(apr_pool_t *pool, apr_dbd_t *sql,
 
 static const char *dbd_sqlite3_get_name(const apr_dbd_results_t *res, int n)
 {
-    if ((n < 0) || (n >= res->sz)) {
+    if ((n < 0) || ((size_t)n >= res->sz)) {
         return NULL;
     }
 
@@ -256,7 +256,7 @@ static const char *dbd_sqlite3_get_entry(const apr_dbd_row_t *row, int n)
 static apr_status_t dbd_sqlite3_datum_get(const apr_dbd_row_t *row, int n,
                                           apr_dbd_type_e type, void *data)
 {
-    if ((n < 0) || (n >= row->res->sz)) {
+    if ((n < 0) || ((size_t)n >= row->res->sz)) {
       return APR_EGENERAL;
     }
 
@@ -296,7 +296,7 @@ static apr_status_t dbd_sqlite3_datum_get(const apr_dbd_row_t *row, int n,
         *(apr_uint64_t*)data = apr_atoi64(row->columns[n]->value);
         break;
     case APR_DBD_TYPE_FLOAT:
-        *(float*)data = atof(row->columns[n]->value);
+        *(float*)data = (float)atof(row->columns[n]->value);
         break;
     case APR_DBD_TYPE_DOUBLE:
         *(double*)data = atof(row->columns[n]->value);

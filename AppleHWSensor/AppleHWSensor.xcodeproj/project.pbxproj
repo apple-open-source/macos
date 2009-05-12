@@ -1,0 +1,3206 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		65BA7FAE0DDE251C0001BF1A /* AppleHWSensor.h in Headers */ = {isa = PBXBuildFile; fileRef = 1A224C3EFF42367911CA2CB7 /* AppleHWSensor.h */; };
+		65BA7FAF0DDE251C0001BF1A /* AppleHWControl.h in Headers */ = {isa = PBXBuildFile; fileRef = E8B8FCB2054707D500D27581 /* AppleHWControl.h */; };
+		65BA7FB00DDE251C0001BF1A /* AppleHWMonitor.h in Headers */ = {isa = PBXBuildFile; fileRef = E890D3F3054851030089C46E /* AppleHWMonitor.h */; };
+		65BA7FB10DDE251C0001BF1A /* AppleHWSensorDebug.h in Headers */ = {isa = PBXBuildFile; fileRef = 7EE139E30794A37800338C8F /* AppleHWSensorDebug.h */; };
+		65BA7FB40DDE251C0001BF1A /* AppleHWSensor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1A224C3FFF42367911CA2CB7 /* AppleHWSensor.cpp */; settings = {ATTRIBUTES = (); }; };
+		65BA7FB50DDE251C0001BF1A /* AppleHWControl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E8B8FCB1054707D500D27581 /* AppleHWControl.cpp */; };
+		65BA7FB60DDE251C0001BF1A /* AppleHWMonitor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E890D3F2054851030089C46E /* AppleHWMonitor.cpp */; };
+		65BA7FC30DDE251C0001BF1A /* AppleSMUMonitor.h in Headers */ = {isa = PBXBuildFile; fileRef = E83102CC05E16AEC0088427C /* AppleSMUMonitor.h */; };
+		65BA7FC50DDE251C0001BF1A /* AppleSMUMonitor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E83102CD05E16AEC0088427C /* AppleSMUMonitor.cpp */; };
+		65BA7FD20DDE251C0001BF1A /* AppleMaxim6690.h in Headers */ = {isa = PBXBuildFile; fileRef = B45D876904214DB600CE0E5B /* AppleMaxim6690.h */; };
+		65BA7FD30DDE251C0001BF1A /* IOPlatformFunction.h in Headers */ = {isa = PBXBuildFile; fileRef = B45D877404215FFF00CE0E5B /* IOPlatformFunction.h */; };
+		65BA7FD50DDE251C0001BF1A /* AppleMaxim6690.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B45D876804214DB600CE0E5B /* AppleMaxim6690.cpp */; };
+		65BA7FE20DDE251C0001BF1A /* AppleAD741x.h in Headers */ = {isa = PBXBuildFile; fileRef = B4228CF304605CEF00CE0E5B /* AppleAD741x.h */; };
+		65BA7FE40DDE251C0001BF1A /* AppleAD741x.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B4228CF404605CEF00CE0E5B /* AppleAD741x.cpp */; };
+		65BA7FF10DDE251C0001BF1A /* AppleLM7x.h in Headers */ = {isa = PBXBuildFile; fileRef = E9AD398B0556273900499D7C /* AppleLM7x.h */; };
+		65BA7FF30DDE251C0001BF1A /* AppleLM7x.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E9AD398A0556273800499D7C /* AppleLM7x.cpp */; };
+		65BA80000DDE251C0001BF1A /* AppleLM8x.h in Headers */ = {isa = PBXBuildFile; fileRef = 2E8DE295056438A400E76A8F /* AppleLM8x.h */; };
+		65BA80020DDE251C0001BF1A /* AppleLM8x.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2E8DE294056438A400E76A8F /* AppleLM8x.cpp */; };
+		65BA800F0DDE251C0001BF1A /* AppleMaxim1989.h in Headers */ = {isa = PBXBuildFile; fileRef = 636413EA05DC575B0FCE15D6 /* AppleMaxim1989.h */; };
+		65BA80100DDE251C0001BF1A /* IOPlatformFunction.h in Headers */ = {isa = PBXBuildFile; fileRef = B45D877404215FFF00CE0E5B /* IOPlatformFunction.h */; };
+		65BA80120DDE251C0001BF1A /* AppleMaxim1989.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 636413E805DC574A0FCE15D6 /* AppleMaxim1989.cpp */; };
+		65BA801F0DDE251C0001BF1A /* IOPlatformFunction.h in Headers */ = {isa = PBXBuildFile; fileRef = B45D877404215FFF00CE0E5B /* IOPlatformFunction.h */; };
+		65BA80200DDE251C0001BF1A /* IOI2CMaxim1631.h in Headers */ = {isa = PBXBuildFile; fileRef = 179851510801FE65004D007B /* IOI2CMaxim1631.h */; };
+		65BA80220DDE251C0001BF1A /* IOI2CMaxim1631.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 179851500801FE65004D007B /* IOI2CMaxim1631.cpp */; };
+		65BA802F0DDE251C0001BF1A /* IOPlatformFunction.h in Headers */ = {isa = PBXBuildFile; fileRef = B45D877404215FFF00CE0E5B /* IOPlatformFunction.h */; };
+		65BA80300DDE251C0001BF1A /* IOI2CMaxim1989.h in Headers */ = {isa = PBXBuildFile; fileRef = A6B771C906532EFF0021A338 /* IOI2CMaxim1989.h */; };
+		65BA80320DDE251C0001BF1A /* IOI2CMaxim1989.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A6B771C806532EFF0021A338 /* IOI2CMaxim1989.cpp */; };
+		65BA803F0DDE251C0001BF1A /* IOI2CMaxim6690.h in Headers */ = {isa = PBXBuildFile; fileRef = A6B9A1C906511B010076D98D /* IOI2CMaxim6690.h */; };
+		65BA80410DDE251C0001BF1A /* IOI2CMaxim6690.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A6B9A1C806511B010076D98D /* IOI2CMaxim6690.cpp */; };
+		65BA804E0DDE251C0001BF1A /* IOI2CAD741x.h in Headers */ = {isa = PBXBuildFile; fileRef = A6B771BA0653268E0021A338 /* IOI2CAD741x.h */; };
+		65BA80500DDE251C0001BF1A /* IOI2CAD741x.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A6B771B90653268E0021A338 /* IOI2CAD741x.cpp */; };
+		65BA805D0DDE251D0001BF1A /* IOI2CLM6x.h in Headers */ = {isa = PBXBuildFile; fileRef = 7EAEDEE6077A6457004BF8DF /* IOI2CLM6x.h */; };
+		65BA805F0DDE251D0001BF1A /* IOI2CLM6x.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7EAEDEE7077A6457004BF8DF /* IOI2CLM6x.cpp */; };
+		65BA806C0DDE251D0001BF1A /* IOI2CLM7x.h in Headers */ = {isa = PBXBuildFile; fileRef = A6C778790646E4DA00A31951 /* IOI2CLM7x.h */; };
+		65BA806E0DDE251D0001BF1A /* IOI2CLM7x.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A6C778780646E4DA00A31951 /* IOI2CLM7x.cpp */; };
+		65BA807B0DDE251D0001BF1A /* IOI2CLM8x.h in Headers */ = {isa = PBXBuildFile; fileRef = A68F21CA070376360083E4E1 /* IOI2CLM8x.h */; };
+		65BA807D0DDE251D0001BF1A /* IOI2CLM8x.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A68F21C9070376360083E4E1 /* IOI2CLM8x.cpp */; };
+		65BA808A0DDE251D0001BF1A /* IOI2CSMUSat.h in Headers */ = {isa = PBXBuildFile; fileRef = CA0B2337076921BD00369DDF /* IOI2CSMUSat.h */; };
+		65BA808C0DDE251D0001BF1A /* IOI2CSMUSat.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CA0B2338076921BD00369DDF /* IOI2CSMUSat.cpp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		65BA80960DDE251D0001BF1A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 65BA7FCF0DDE251C0001BF1A;
+			remoteInfo = "AppleMaxim6690 (Upgraded)";
+		};
+		65BA80980DDE251D0001BF1A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 65BA800C0DDE251C0001BF1A;
+			remoteInfo = "AppleMaxim1989 (Upgraded)";
+		};
+		65BA809A0DDE251D0001BF1A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 65BA7FDF0DDE251C0001BF1A;
+			remoteInfo = "AppleAD741x (Upgraded)";
+		};
+		65BA809C0DDE251D0001BF1A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 65BA7FEE0DDE251C0001BF1A;
+			remoteInfo = "AppleLM7x (Upgraded)";
+		};
+		65BA809E0DDE251D0001BF1A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 65BA7FFD0DDE251C0001BF1A;
+			remoteInfo = "AppleLM8x (Upgraded)";
+		};
+		65BA80A00DDE251D0001BF1A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 65BA7FC00DDE251C0001BF1A;
+			remoteInfo = "AppleSMUMonitor (Upgraded)";
+		};
+		65BA80A20DDE251D0001BF1A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 65BA802C0DDE251C0001BF1A;
+			remoteInfo = "IOI2CMaxim1989 (Upgraded)";
+		};
+		65BA80A40DDE251D0001BF1A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 65BA803C0DDE251C0001BF1A;
+			remoteInfo = "IOI2CMaxim6690 (Upgraded)";
+		};
+		65BA80A60DDE251D0001BF1A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 65BA804B0DDE251C0001BF1A;
+			remoteInfo = "IOI2CAD741x (Upgraded)";
+		};
+		65BA80A80DDE251D0001BF1A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 65BA805A0DDE251D0001BF1A;
+			remoteInfo = "IOI2CLM6x (Upgraded)";
+		};
+		65BA80AA0DDE251D0001BF1A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 65BA80690DDE251D0001BF1A;
+			remoteInfo = "IOI2CLM7x (Upgraded)";
+		};
+		65BA80AC0DDE251D0001BF1A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 65BA80780DDE251D0001BF1A;
+			remoteInfo = "IOI2CLM8x (Upgraded)";
+		};
+		65BA80AE0DDE251D0001BF1A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 65BA80870DDE251D0001BF1A;
+			remoteInfo = "IOI2CSMUSat (Upgraded)";
+		};
+		65BA80B00DDE251D0001BF1A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 65BA801C0DDE251C0001BF1A;
+			remoteInfo = "IOI2CMaxim1631 (Upgraded)";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		179851500801FE65004D007B /* IOI2CMaxim1631.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOI2CMaxim1631.cpp; sourceTree = "<group>"; };
+		179851510801FE65004D007B /* IOI2CMaxim1631.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOI2CMaxim1631.h; sourceTree = "<group>"; };
+		1A224C3EFF42367911CA2CB7 /* AppleHWSensor.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleHWSensor.h; sourceTree = "<group>"; };
+		1A224C3FFF42367911CA2CB7 /* AppleHWSensor.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleHWSensor.cpp; sourceTree = "<group>"; };
+		2E8DE294056438A400E76A8F /* AppleLM8x.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleLM8x.cpp; sourceTree = "<group>"; };
+		2E8DE295056438A400E76A8F /* AppleLM8x.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleLM8x.h; sourceTree = "<group>"; };
+		636413E805DC574A0FCE15D6 /* AppleMaxim1989.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleMaxim1989.cpp; sourceTree = "<group>"; };
+		636413EA05DC575B0FCE15D6 /* AppleMaxim1989.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleMaxim1989.h; sourceTree = "<group>"; };
+		65BA7FBE0DDE251C0001BF1A /* Info-AppleHWSensor.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-AppleHWSensor.plist"; sourceTree = "<group>"; };
+		65BA7FBF0DDE251C0001BF1A /* AppleHWSensor.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleHWSensor.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		65BA7FCD0DDE251C0001BF1A /* Info-AppleSMUMonitor.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-AppleSMUMonitor.plist"; sourceTree = "<group>"; };
+		65BA7FCE0DDE251C0001BF1A /* AppleSMUMonitor.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleSMUMonitor.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		65BA7FDD0DDE251C0001BF1A /* Info-AppleMaxim6690.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-AppleMaxim6690.plist"; sourceTree = "<group>"; };
+		65BA7FDE0DDE251C0001BF1A /* AppleMaxim6690.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleMaxim6690.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		65BA7FEC0DDE251C0001BF1A /* Info-AppleAD741x.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-AppleAD741x.plist"; sourceTree = "<group>"; };
+		65BA7FED0DDE251C0001BF1A /* AppleAD741x.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleAD741x.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		65BA7FFB0DDE251C0001BF1A /* Info-AppleLM7x.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-AppleLM7x.plist"; sourceTree = "<group>"; };
+		65BA7FFC0DDE251C0001BF1A /* AppleLM7x.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleLM7x.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		65BA800A0DDE251C0001BF1A /* Info-AppleLM8x.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-AppleLM8x.plist"; sourceTree = "<group>"; };
+		65BA800B0DDE251C0001BF1A /* AppleLM8x.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleLM8x.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		65BA801A0DDE251C0001BF1A /* Info-AppleMaxim1989.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-AppleMaxim1989.plist"; sourceTree = "<group>"; };
+		65BA801B0DDE251C0001BF1A /* AppleMaxim1989.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleMaxim1989.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		65BA802A0DDE251C0001BF1A /* Info-IOI2CMaxim1631.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOI2CMaxim1631.plist"; sourceTree = "<group>"; };
+		65BA802B0DDE251C0001BF1A /* IOI2CMaxim1631.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOI2CMaxim1631.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		65BA803A0DDE251C0001BF1A /* Info-IOI2CMaxim1989.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOI2CMaxim1989.plist"; sourceTree = "<group>"; };
+		65BA803B0DDE251C0001BF1A /* IOI2CMaxim1989.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOI2CMaxim1989.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		65BA80490DDE251C0001BF1A /* Info-IOI2CMaxim6690.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOI2CMaxim6690.plist"; sourceTree = "<group>"; };
+		65BA804A0DDE251C0001BF1A /* IOI2CMaxim6690.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOI2CMaxim6690.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		65BA80580DDE251C0001BF1A /* Info-IOI2CAD741x.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOI2CAD741x.plist"; sourceTree = "<group>"; };
+		65BA80590DDE251D0001BF1A /* IOI2CAD741x.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOI2CAD741x.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		65BA80670DDE251D0001BF1A /* Info-IOI2CLM6x.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOI2CLM6x.plist"; sourceTree = "<group>"; };
+		65BA80680DDE251D0001BF1A /* IOI2CLM6x.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOI2CLM6x.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		65BA80760DDE251D0001BF1A /* Info-IOI2CLM7x.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOI2CLM7x.plist"; sourceTree = "<group>"; };
+		65BA80770DDE251D0001BF1A /* IOI2CLM7x.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOI2CLM7x.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		65BA80850DDE251D0001BF1A /* Info-IOI2CLM8x.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOI2CLM8x.plist"; sourceTree = "<group>"; };
+		65BA80860DDE251D0001BF1A /* IOI2CLM8x.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOI2CLM8x.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		65BA80940DDE251D0001BF1A /* Info-IOI2CSMUSat.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOI2CSMUSat.plist"; sourceTree = "<group>"; };
+		65BA80950DDE251D0001BF1A /* IOI2CSMUSat.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOI2CSMUSat.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		7EAEDEE6077A6457004BF8DF /* IOI2CLM6x.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOI2CLM6x.h; sourceTree = "<group>"; };
+		7EAEDEE7077A6457004BF8DF /* IOI2CLM6x.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOI2CLM6x.cpp; sourceTree = "<group>"; };
+		7EE139E30794A37800338C8F /* AppleHWSensorDebug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppleHWSensorDebug.h; sourceTree = "<group>"; };
+		A68F21C9070376360083E4E1 /* IOI2CLM8x.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOI2CLM8x.cpp; sourceTree = SOURCE_ROOT; };
+		A68F21CA070376360083E4E1 /* IOI2CLM8x.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOI2CLM8x.h; sourceTree = SOURCE_ROOT; };
+		A6B771B90653268E0021A338 /* IOI2CAD741x.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOI2CAD741x.cpp; sourceTree = SOURCE_ROOT; };
+		A6B771BA0653268E0021A338 /* IOI2CAD741x.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOI2CAD741x.h; sourceTree = SOURCE_ROOT; };
+		A6B771C806532EFF0021A338 /* IOI2CMaxim1989.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOI2CMaxim1989.cpp; sourceTree = SOURCE_ROOT; };
+		A6B771C906532EFF0021A338 /* IOI2CMaxim1989.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOI2CMaxim1989.h; sourceTree = SOURCE_ROOT; };
+		A6B9A1C806511B010076D98D /* IOI2CMaxim6690.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOI2CMaxim6690.cpp; sourceTree = SOURCE_ROOT; };
+		A6B9A1C906511B010076D98D /* IOI2CMaxim6690.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOI2CMaxim6690.h; sourceTree = SOURCE_ROOT; };
+		A6C778780646E4DA00A31951 /* IOI2CLM7x.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOI2CLM7x.cpp; sourceTree = SOURCE_ROOT; };
+		A6C778790646E4DA00A31951 /* IOI2CLM7x.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOI2CLM7x.h; sourceTree = SOURCE_ROOT; };
+		B4228CF304605CEF00CE0E5B /* AppleAD741x.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppleAD741x.h; sourceTree = "<group>"; };
+		B4228CF404605CEF00CE0E5B /* AppleAD741x.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AppleAD741x.cpp; sourceTree = "<group>"; };
+		B45D876804214DB600CE0E5B /* AppleMaxim6690.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleMaxim6690.cpp; sourceTree = "<group>"; };
+		B45D876904214DB600CE0E5B /* AppleMaxim6690.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleMaxim6690.h; sourceTree = "<group>"; };
+		B45D877404215FFF00CE0E5B /* IOPlatformFunction.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOPlatformFunction.h; sourceTree = "<group>"; };
+		CA0B2337076921BD00369DDF /* IOI2CSMUSat.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOI2CSMUSat.h; sourceTree = "<group>"; };
+		CA0B2338076921BD00369DDF /* IOI2CSMUSat.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOI2CSMUSat.cpp; sourceTree = "<group>"; };
+		E83102CC05E16AEC0088427C /* AppleSMUMonitor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppleSMUMonitor.h; sourceTree = "<group>"; };
+		E83102CD05E16AEC0088427C /* AppleSMUMonitor.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AppleSMUMonitor.cpp; sourceTree = "<group>"; };
+		E890D3F2054851030089C46E /* AppleHWMonitor.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleHWMonitor.cpp; sourceTree = "<group>"; };
+		E890D3F3054851030089C46E /* AppleHWMonitor.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleHWMonitor.h; sourceTree = "<group>"; };
+		E8B8FCB1054707D500D27581 /* AppleHWControl.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleHWControl.cpp; sourceTree = "<group>"; };
+		E8B8FCB2054707D500D27581 /* AppleHWControl.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleHWControl.h; sourceTree = "<group>"; };
+		E9AD398A0556273800499D7C /* AppleLM7x.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleLM7x.cpp; sourceTree = "<group>"; };
+		E9AD398B0556273900499D7C /* AppleLM7x.h */ = {isa = PBXFileReference; fileEncoding = 30; indentWidth = 4; lastKnownFileType = sourcecode.c.h; path = AppleLM7x.h; sourceTree = "<group>"; tabWidth = 4; usesTabs = 1; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		65BA7FB70DDE251C0001BF1A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA7FC70DDE251C0001BF1A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA7FD70DDE251C0001BF1A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA7FE60DDE251C0001BF1A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA7FF50DDE251C0001BF1A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA80040DDE251C0001BF1A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA80140DDE251C0001BF1A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA80240DDE251C0001BF1A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA80340DDE251C0001BF1A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA80430DDE251C0001BF1A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA80520DDE251C0001BF1A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA80610DDE251D0001BF1A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA80700DDE251D0001BF1A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA807F0DDE251D0001BF1A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA808E0DDE251D0001BF1A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		089C166AFE841209C02AAC07 /* AppleHWSensor */ = {
+			isa = PBXGroup;
+			children = (
+				E83102CF05E16CFE0088427C /* AppleHWSensor */,
+				E83102CB05E16AAF0088427C /* AppleSMUMonitor */,
+				247142CAFF3F8F9811CA285C /* Source */,
+				19C28FB6FE9D52B211CA2CBB /* Products */,
+				65BA7FBE0DDE251C0001BF1A /* Info-AppleHWSensor.plist */,
+				65BA7FCD0DDE251C0001BF1A /* Info-AppleSMUMonitor.plist */,
+				65BA7FDD0DDE251C0001BF1A /* Info-AppleMaxim6690.plist */,
+				65BA7FEC0DDE251C0001BF1A /* Info-AppleAD741x.plist */,
+				65BA7FFB0DDE251C0001BF1A /* Info-AppleLM7x.plist */,
+				65BA800A0DDE251C0001BF1A /* Info-AppleLM8x.plist */,
+				65BA801A0DDE251C0001BF1A /* Info-AppleMaxim1989.plist */,
+				65BA802A0DDE251C0001BF1A /* Info-IOI2CMaxim1631.plist */,
+				65BA803A0DDE251C0001BF1A /* Info-IOI2CMaxim1989.plist */,
+				65BA80490DDE251C0001BF1A /* Info-IOI2CMaxim6690.plist */,
+				65BA80580DDE251C0001BF1A /* Info-IOI2CAD741x.plist */,
+				65BA80670DDE251D0001BF1A /* Info-IOI2CLM6x.plist */,
+				65BA80760DDE251D0001BF1A /* Info-IOI2CLM7x.plist */,
+				65BA80850DDE251D0001BF1A /* Info-IOI2CLM8x.plist */,
+				65BA80940DDE251D0001BF1A /* Info-IOI2CSMUSat.plist */,
+			);
+			name = AppleHWSensor;
+			sourceTree = "<group>";
+		};
+		19C28FB6FE9D52B211CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				65BA7FBF0DDE251C0001BF1A /* AppleHWSensor.kext */,
+				65BA7FCE0DDE251C0001BF1A /* AppleSMUMonitor.kext */,
+				65BA7FDE0DDE251C0001BF1A /* AppleMaxim6690.kext */,
+				65BA7FED0DDE251C0001BF1A /* AppleAD741x.kext */,
+				65BA7FFC0DDE251C0001BF1A /* AppleLM7x.kext */,
+				65BA800B0DDE251C0001BF1A /* AppleLM8x.kext */,
+				65BA801B0DDE251C0001BF1A /* AppleMaxim1989.kext */,
+				65BA802B0DDE251C0001BF1A /* IOI2CMaxim1631.kext */,
+				65BA803B0DDE251C0001BF1A /* IOI2CMaxim1989.kext */,
+				65BA804A0DDE251C0001BF1A /* IOI2CMaxim6690.kext */,
+				65BA80590DDE251D0001BF1A /* IOI2CAD741x.kext */,
+				65BA80680DDE251D0001BF1A /* IOI2CLM6x.kext */,
+				65BA80770DDE251D0001BF1A /* IOI2CLM7x.kext */,
+				65BA80860DDE251D0001BF1A /* IOI2CLM8x.kext */,
+				65BA80950DDE251D0001BF1A /* IOI2CSMUSat.kext */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		247142CAFF3F8F9811CA285C /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				B45D877404215FFF00CE0E5B /* IOPlatformFunction.h */,
+				B45D876904214DB600CE0E5B /* AppleMaxim6690.h */,
+				B45D876804214DB600CE0E5B /* AppleMaxim6690.cpp */,
+				B4228CF304605CEF00CE0E5B /* AppleAD741x.h */,
+				B4228CF404605CEF00CE0E5B /* AppleAD741x.cpp */,
+				E9AD398B0556273900499D7C /* AppleLM7x.h */,
+				E9AD398A0556273800499D7C /* AppleLM7x.cpp */,
+				2E8DE295056438A400E76A8F /* AppleLM8x.h */,
+				2E8DE294056438A400E76A8F /* AppleLM8x.cpp */,
+				636413EA05DC575B0FCE15D6 /* AppleMaxim1989.h */,
+				636413E805DC574A0FCE15D6 /* AppleMaxim1989.cpp */,
+				7EAEDEE6077A6457004BF8DF /* IOI2CLM6x.h */,
+				7EAEDEE7077A6457004BF8DF /* IOI2CLM6x.cpp */,
+				A6C778790646E4DA00A31951 /* IOI2CLM7x.h */,
+				A6C778780646E4DA00A31951 /* IOI2CLM7x.cpp */,
+				A68F21CA070376360083E4E1 /* IOI2CLM8x.h */,
+				A68F21C9070376360083E4E1 /* IOI2CLM8x.cpp */,
+				A6B9A1C906511B010076D98D /* IOI2CMaxim6690.h */,
+				A6B9A1C806511B010076D98D /* IOI2CMaxim6690.cpp */,
+				A6B771BA0653268E0021A338 /* IOI2CAD741x.h */,
+				A6B771B90653268E0021A338 /* IOI2CAD741x.cpp */,
+				A6B771C906532EFF0021A338 /* IOI2CMaxim1989.h */,
+				A6B771C806532EFF0021A338 /* IOI2CMaxim1989.cpp */,
+				CA0B2337076921BD00369DDF /* IOI2CSMUSat.h */,
+				CA0B2338076921BD00369DDF /* IOI2CSMUSat.cpp */,
+				179851500801FE65004D007B /* IOI2CMaxim1631.cpp */,
+				179851510801FE65004D007B /* IOI2CMaxim1631.h */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+		E83102CB05E16AAF0088427C /* AppleSMUMonitor */ = {
+			isa = PBXGroup;
+			children = (
+				E83102CC05E16AEC0088427C /* AppleSMUMonitor.h */,
+				E83102CD05E16AEC0088427C /* AppleSMUMonitor.cpp */,
+			);
+			name = AppleSMUMonitor;
+			sourceTree = "<group>";
+		};
+		E83102CF05E16CFE0088427C /* AppleHWSensor */ = {
+			isa = PBXGroup;
+			children = (
+				7EE139E30794A37800338C8F /* AppleHWSensorDebug.h */,
+				1A224C3EFF42367911CA2CB7 /* AppleHWSensor.h */,
+				1A224C3FFF42367911CA2CB7 /* AppleHWSensor.cpp */,
+				E890D3F3054851030089C46E /* AppleHWMonitor.h */,
+				E890D3F2054851030089C46E /* AppleHWMonitor.cpp */,
+				E8B8FCB2054707D500D27581 /* AppleHWControl.h */,
+				E8B8FCB1054707D500D27581 /* AppleHWControl.cpp */,
+			);
+			name = AppleHWSensor;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		65BA7FAD0DDE251C0001BF1A /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65BA7FAE0DDE251C0001BF1A /* AppleHWSensor.h in Headers */,
+				65BA7FAF0DDE251C0001BF1A /* AppleHWControl.h in Headers */,
+				65BA7FB00DDE251C0001BF1A /* AppleHWMonitor.h in Headers */,
+				65BA7FB10DDE251C0001BF1A /* AppleHWSensorDebug.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA7FC20DDE251C0001BF1A /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65BA7FC30DDE251C0001BF1A /* AppleSMUMonitor.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA7FD10DDE251C0001BF1A /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65BA7FD20DDE251C0001BF1A /* AppleMaxim6690.h in Headers */,
+				65BA7FD30DDE251C0001BF1A /* IOPlatformFunction.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA7FE10DDE251C0001BF1A /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65BA7FE20DDE251C0001BF1A /* AppleAD741x.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA7FF00DDE251C0001BF1A /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65BA7FF10DDE251C0001BF1A /* AppleLM7x.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA7FFF0DDE251C0001BF1A /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65BA80000DDE251C0001BF1A /* AppleLM8x.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA800E0DDE251C0001BF1A /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65BA800F0DDE251C0001BF1A /* AppleMaxim1989.h in Headers */,
+				65BA80100DDE251C0001BF1A /* IOPlatformFunction.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA801E0DDE251C0001BF1A /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65BA801F0DDE251C0001BF1A /* IOPlatformFunction.h in Headers */,
+				65BA80200DDE251C0001BF1A /* IOI2CMaxim1631.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA802E0DDE251C0001BF1A /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65BA802F0DDE251C0001BF1A /* IOPlatformFunction.h in Headers */,
+				65BA80300DDE251C0001BF1A /* IOI2CMaxim1989.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA803E0DDE251C0001BF1A /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65BA803F0DDE251C0001BF1A /* IOI2CMaxim6690.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA804D0DDE251C0001BF1A /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65BA804E0DDE251C0001BF1A /* IOI2CAD741x.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA805C0DDE251D0001BF1A /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65BA805D0DDE251D0001BF1A /* IOI2CLM6x.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA806B0DDE251D0001BF1A /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65BA806C0DDE251D0001BF1A /* IOI2CLM7x.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA807A0DDE251D0001BF1A /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65BA807B0DDE251D0001BF1A /* IOI2CLM8x.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA80890DDE251D0001BF1A /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65BA808A0DDE251D0001BF1A /* IOI2CSMUSat.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		65BA7F8F0DDE251C0001BF1A /* AppleHWSensor */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 65BA7FBA0DDE251C0001BF1A /* Build configuration list for PBXNativeTarget "AppleHWSensor" */;
+			buildPhases = (
+				65BA7FAC0DDE251C0001BF1A /* ShellScript */,
+				65BA7FAD0DDE251C0001BF1A /* Headers */,
+				65BA7FB20DDE251C0001BF1A /* Resources */,
+				65BA7FB30DDE251C0001BF1A /* Sources */,
+				65BA7FB70DDE251C0001BF1A /* Frameworks */,
+				65BA7FB80DDE251C0001BF1A /* Rez */,
+				65BA7FB90DDE251C0001BF1A /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				65BA80970DDE251D0001BF1A /* PBXTargetDependency */,
+				65BA80990DDE251D0001BF1A /* PBXTargetDependency */,
+				65BA809B0DDE251D0001BF1A /* PBXTargetDependency */,
+				65BA809D0DDE251D0001BF1A /* PBXTargetDependency */,
+				65BA809F0DDE251D0001BF1A /* PBXTargetDependency */,
+				65BA80A10DDE251D0001BF1A /* PBXTargetDependency */,
+				65BA80A30DDE251D0001BF1A /* PBXTargetDependency */,
+				65BA80A50DDE251D0001BF1A /* PBXTargetDependency */,
+				65BA80A70DDE251D0001BF1A /* PBXTargetDependency */,
+				65BA80A90DDE251D0001BF1A /* PBXTargetDependency */,
+				65BA80AB0DDE251D0001BF1A /* PBXTargetDependency */,
+				65BA80AD0DDE251D0001BF1A /* PBXTargetDependency */,
+				65BA80AF0DDE251D0001BF1A /* PBXTargetDependency */,
+				65BA80B10DDE251D0001BF1A /* PBXTargetDependency */,
+			);
+			name = AppleHWSensor;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = AppleHWSensor;
+			productReference = 65BA7FBF0DDE251C0001BF1A /* AppleHWSensor.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		65BA7FC00DDE251C0001BF1A /* AppleSMUMonitor */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 65BA7FC90DDE251C0001BF1A /* Build configuration list for PBXNativeTarget "AppleSMUMonitor" */;
+			buildPhases = (
+				65BA7FC10DDE251C0001BF1A /* ShellScript */,
+				65BA7FC20DDE251C0001BF1A /* Headers */,
+				65BA7FC40DDE251C0001BF1A /* Sources */,
+				65BA7FC60DDE251C0001BF1A /* Resources */,
+				65BA7FC70DDE251C0001BF1A /* Frameworks */,
+				65BA7FC80DDE251C0001BF1A /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AppleSMUMonitor;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = AppleSMUMonitor;
+			productReference = 65BA7FCE0DDE251C0001BF1A /* AppleSMUMonitor.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		65BA7FCF0DDE251C0001BF1A /* AppleMaxim6690 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 65BA7FD90DDE251C0001BF1A /* Build configuration list for PBXNativeTarget "AppleMaxim6690" */;
+			buildPhases = (
+				65BA7FD00DDE251C0001BF1A /* ShellScript */,
+				65BA7FD10DDE251C0001BF1A /* Headers */,
+				65BA7FD40DDE251C0001BF1A /* Sources */,
+				65BA7FD60DDE251C0001BF1A /* Resources */,
+				65BA7FD70DDE251C0001BF1A /* Frameworks */,
+				65BA7FD80DDE251C0001BF1A /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AppleMaxim6690;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = AppleMaxim6690;
+			productReference = 65BA7FDE0DDE251C0001BF1A /* AppleMaxim6690.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		65BA7FDF0DDE251C0001BF1A /* AppleAD741x */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 65BA7FE80DDE251C0001BF1A /* Build configuration list for PBXNativeTarget "AppleAD741x" */;
+			buildPhases = (
+				65BA7FE00DDE251C0001BF1A /* ShellScript */,
+				65BA7FE10DDE251C0001BF1A /* Headers */,
+				65BA7FE30DDE251C0001BF1A /* Sources */,
+				65BA7FE50DDE251C0001BF1A /* Resources */,
+				65BA7FE60DDE251C0001BF1A /* Frameworks */,
+				65BA7FE70DDE251C0001BF1A /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AppleAD741x;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = AppleAD741x;
+			productReference = 65BA7FED0DDE251C0001BF1A /* AppleAD741x.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		65BA7FEE0DDE251C0001BF1A /* AppleLM7x */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 65BA7FF70DDE251C0001BF1A /* Build configuration list for PBXNativeTarget "AppleLM7x" */;
+			buildPhases = (
+				65BA7FEF0DDE251C0001BF1A /* ShellScript */,
+				65BA7FF00DDE251C0001BF1A /* Headers */,
+				65BA7FF20DDE251C0001BF1A /* Sources */,
+				65BA7FF40DDE251C0001BF1A /* Resources */,
+				65BA7FF50DDE251C0001BF1A /* Frameworks */,
+				65BA7FF60DDE251C0001BF1A /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AppleLM7x;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = AppleLM7x;
+			productReference = 65BA7FFC0DDE251C0001BF1A /* AppleLM7x.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		65BA7FFD0DDE251C0001BF1A /* AppleLM8x */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 65BA80060DDE251C0001BF1A /* Build configuration list for PBXNativeTarget "AppleLM8x" */;
+			buildPhases = (
+				65BA7FFE0DDE251C0001BF1A /* ShellScript */,
+				65BA7FFF0DDE251C0001BF1A /* Headers */,
+				65BA80010DDE251C0001BF1A /* Sources */,
+				65BA80030DDE251C0001BF1A /* Resources */,
+				65BA80040DDE251C0001BF1A /* Frameworks */,
+				65BA80050DDE251C0001BF1A /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AppleLM8x;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = AppleLM8x;
+			productReference = 65BA800B0DDE251C0001BF1A /* AppleLM8x.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		65BA800C0DDE251C0001BF1A /* AppleMaxim1989 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 65BA80160DDE251C0001BF1A /* Build configuration list for PBXNativeTarget "AppleMaxim1989" */;
+			buildPhases = (
+				65BA800D0DDE251C0001BF1A /* ShellScript */,
+				65BA800E0DDE251C0001BF1A /* Headers */,
+				65BA80110DDE251C0001BF1A /* Sources */,
+				65BA80130DDE251C0001BF1A /* Resources */,
+				65BA80140DDE251C0001BF1A /* Frameworks */,
+				65BA80150DDE251C0001BF1A /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AppleMaxim1989;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = AppleMaxim1989;
+			productReference = 65BA801B0DDE251C0001BF1A /* AppleMaxim1989.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		65BA801C0DDE251C0001BF1A /* IOI2CMaxim1631 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 65BA80260DDE251C0001BF1A /* Build configuration list for PBXNativeTarget "IOI2CMaxim1631" */;
+			buildPhases = (
+				65BA801D0DDE251C0001BF1A /* ShellScript */,
+				65BA801E0DDE251C0001BF1A /* Headers */,
+				65BA80210DDE251C0001BF1A /* Sources */,
+				65BA80230DDE251C0001BF1A /* Resources */,
+				65BA80240DDE251C0001BF1A /* Frameworks */,
+				65BA80250DDE251C0001BF1A /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = IOI2CMaxim1631;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = AppleMaxim1989;
+			productReference = 65BA802B0DDE251C0001BF1A /* IOI2CMaxim1631.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		65BA802C0DDE251C0001BF1A /* IOI2CMaxim1989 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 65BA80360DDE251C0001BF1A /* Build configuration list for PBXNativeTarget "IOI2CMaxim1989" */;
+			buildPhases = (
+				65BA802D0DDE251C0001BF1A /* ShellScript */,
+				65BA802E0DDE251C0001BF1A /* Headers */,
+				65BA80310DDE251C0001BF1A /* Sources */,
+				65BA80330DDE251C0001BF1A /* Resources */,
+				65BA80340DDE251C0001BF1A /* Frameworks */,
+				65BA80350DDE251C0001BF1A /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = IOI2CMaxim1989;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = AppleMaxim1989;
+			productReference = 65BA803B0DDE251C0001BF1A /* IOI2CMaxim1989.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		65BA803C0DDE251C0001BF1A /* IOI2CMaxim6690 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 65BA80450DDE251C0001BF1A /* Build configuration list for PBXNativeTarget "IOI2CMaxim6690" */;
+			buildPhases = (
+				65BA803D0DDE251C0001BF1A /* ShellScript */,
+				65BA803E0DDE251C0001BF1A /* Headers */,
+				65BA80400DDE251C0001BF1A /* Sources */,
+				65BA80420DDE251C0001BF1A /* Resources */,
+				65BA80430DDE251C0001BF1A /* Frameworks */,
+				65BA80440DDE251C0001BF1A /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = IOI2CMaxim6690;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = IOI2CDeviceLM7x;
+			productReference = 65BA804A0DDE251C0001BF1A /* IOI2CMaxim6690.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		65BA804B0DDE251C0001BF1A /* IOI2CAD741x */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 65BA80540DDE251C0001BF1A /* Build configuration list for PBXNativeTarget "IOI2CAD741x" */;
+			buildPhases = (
+				65BA804C0DDE251C0001BF1A /* ShellScript */,
+				65BA804D0DDE251C0001BF1A /* Headers */,
+				65BA804F0DDE251C0001BF1A /* Sources */,
+				65BA80510DDE251C0001BF1A /* Resources */,
+				65BA80520DDE251C0001BF1A /* Frameworks */,
+				65BA80530DDE251C0001BF1A /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = IOI2CAD741x;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = AppleAD741x;
+			productReference = 65BA80590DDE251D0001BF1A /* IOI2CAD741x.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		65BA805A0DDE251D0001BF1A /* IOI2CLM6x */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 65BA80630DDE251D0001BF1A /* Build configuration list for PBXNativeTarget "IOI2CLM6x" */;
+			buildPhases = (
+				65BA805B0DDE251D0001BF1A /* ShellScript */,
+				65BA805C0DDE251D0001BF1A /* Headers */,
+				65BA805E0DDE251D0001BF1A /* Sources */,
+				65BA80600DDE251D0001BF1A /* Resources */,
+				65BA80610DDE251D0001BF1A /* Frameworks */,
+				65BA80620DDE251D0001BF1A /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = IOI2CLM6x;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = IOI2CLM6x;
+			productReference = 65BA80680DDE251D0001BF1A /* IOI2CLM6x.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		65BA80690DDE251D0001BF1A /* IOI2CLM7x */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 65BA80720DDE251D0001BF1A /* Build configuration list for PBXNativeTarget "IOI2CLM7x" */;
+			buildPhases = (
+				65BA806A0DDE251D0001BF1A /* ShellScript */,
+				65BA806B0DDE251D0001BF1A /* Headers */,
+				65BA806D0DDE251D0001BF1A /* Sources */,
+				65BA806F0DDE251D0001BF1A /* Resources */,
+				65BA80700DDE251D0001BF1A /* Frameworks */,
+				65BA80710DDE251D0001BF1A /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = IOI2CLM7x;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = IOI2CDeviceLM7x;
+			productReference = 65BA80770DDE251D0001BF1A /* IOI2CLM7x.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		65BA80780DDE251D0001BF1A /* IOI2CLM8x */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 65BA80810DDE251D0001BF1A /* Build configuration list for PBXNativeTarget "IOI2CLM8x" */;
+			buildPhases = (
+				65BA80790DDE251D0001BF1A /* ShellScript */,
+				65BA807A0DDE251D0001BF1A /* Headers */,
+				65BA807C0DDE251D0001BF1A /* Sources */,
+				65BA807E0DDE251D0001BF1A /* Resources */,
+				65BA807F0DDE251D0001BF1A /* Frameworks */,
+				65BA80800DDE251D0001BF1A /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = IOI2CLM8x;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = IOI2CDeviceLM7x;
+			productReference = 65BA80860DDE251D0001BF1A /* IOI2CLM8x.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		65BA80870DDE251D0001BF1A /* IOI2CSMUSat */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 65BA80900DDE251D0001BF1A /* Build configuration list for PBXNativeTarget "IOI2CSMUSat" */;
+			buildPhases = (
+				65BA80880DDE251D0001BF1A /* ShellScript */,
+				65BA80890DDE251D0001BF1A /* Headers */,
+				65BA808B0DDE251D0001BF1A /* Sources */,
+				65BA808D0DDE251D0001BF1A /* Resources */,
+				65BA808E0DDE251D0001BF1A /* Frameworks */,
+				65BA808F0DDE251D0001BF1A /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = IOI2CSMUSat;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = IOI2CSMUSat;
+			productReference = 65BA80950DDE251D0001BF1A /* IOI2CSMUSat.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		089C1669FE841209C02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 658CB0A70DDE227F007E3E6F /* Build configuration list for PBXProject "AppleHWSensor" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = 089C166AFE841209C02AAC07 /* AppleHWSensor */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				65BA7F8F0DDE251C0001BF1A /* AppleHWSensor */,
+				65BA7FC00DDE251C0001BF1A /* AppleSMUMonitor */,
+				65BA7FCF0DDE251C0001BF1A /* AppleMaxim6690 */,
+				65BA7FDF0DDE251C0001BF1A /* AppleAD741x */,
+				65BA7FEE0DDE251C0001BF1A /* AppleLM7x */,
+				65BA7FFD0DDE251C0001BF1A /* AppleLM8x */,
+				65BA800C0DDE251C0001BF1A /* AppleMaxim1989 */,
+				65BA801C0DDE251C0001BF1A /* IOI2CMaxim1631 */,
+				65BA802C0DDE251C0001BF1A /* IOI2CMaxim1989 */,
+				65BA803C0DDE251C0001BF1A /* IOI2CMaxim6690 */,
+				65BA804B0DDE251C0001BF1A /* IOI2CAD741x */,
+				65BA805A0DDE251D0001BF1A /* IOI2CLM6x */,
+				65BA80690DDE251D0001BF1A /* IOI2CLM7x */,
+				65BA80780DDE251D0001BF1A /* IOI2CLM8x */,
+				65BA80870DDE251D0001BF1A /* IOI2CSMUSat */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		65BA7FB20DDE251C0001BF1A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA7FC60DDE251C0001BF1A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA7FD60DDE251C0001BF1A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA7FE50DDE251C0001BF1A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA7FF40DDE251C0001BF1A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA80030DDE251C0001BF1A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA80130DDE251C0001BF1A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA80230DDE251C0001BF1A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA80330DDE251C0001BF1A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA80420DDE251C0001BF1A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA80510DDE251C0001BF1A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA80600DDE251D0001BF1A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA806F0DDE251D0001BF1A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA807E0DDE251D0001BF1A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA808D0DDE251D0001BF1A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXRezBuildPhase section */
+		65BA7FB80DDE251C0001BF1A /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXRezBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		65BA7FAC0DDE251C0001BF1A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		65BA7FB90DDE251C0001BF1A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		65BA7FC10DDE251C0001BF1A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		65BA7FC80DDE251C0001BF1A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		65BA7FD00DDE251C0001BF1A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		65BA7FD80DDE251C0001BF1A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		65BA7FE00DDE251C0001BF1A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		65BA7FE70DDE251C0001BF1A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		65BA7FEF0DDE251C0001BF1A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		65BA7FF60DDE251C0001BF1A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		65BA7FFE0DDE251C0001BF1A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		65BA80050DDE251C0001BF1A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		65BA800D0DDE251C0001BF1A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		65BA80150DDE251C0001BF1A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		65BA801D0DDE251C0001BF1A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		65BA80250DDE251C0001BF1A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		65BA802D0DDE251C0001BF1A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		65BA80350DDE251C0001BF1A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		65BA803D0DDE251C0001BF1A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		65BA80440DDE251C0001BF1A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		65BA804C0DDE251C0001BF1A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		65BA80530DDE251C0001BF1A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		65BA805B0DDE251D0001BF1A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		65BA80620DDE251D0001BF1A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		65BA806A0DDE251D0001BF1A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		65BA80710DDE251D0001BF1A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		65BA80790DDE251D0001BF1A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		65BA80800DDE251D0001BF1A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		65BA80880DDE251D0001BF1A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		65BA808F0DDE251D0001BF1A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		65BA7FB30DDE251C0001BF1A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65BA7FB40DDE251C0001BF1A /* AppleHWSensor.cpp in Sources */,
+				65BA7FB50DDE251C0001BF1A /* AppleHWControl.cpp in Sources */,
+				65BA7FB60DDE251C0001BF1A /* AppleHWMonitor.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA7FC40DDE251C0001BF1A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65BA7FC50DDE251C0001BF1A /* AppleSMUMonitor.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA7FD40DDE251C0001BF1A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65BA7FD50DDE251C0001BF1A /* AppleMaxim6690.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA7FE30DDE251C0001BF1A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65BA7FE40DDE251C0001BF1A /* AppleAD741x.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA7FF20DDE251C0001BF1A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65BA7FF30DDE251C0001BF1A /* AppleLM7x.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA80010DDE251C0001BF1A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65BA80020DDE251C0001BF1A /* AppleLM8x.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA80110DDE251C0001BF1A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65BA80120DDE251C0001BF1A /* AppleMaxim1989.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA80210DDE251C0001BF1A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65BA80220DDE251C0001BF1A /* IOI2CMaxim1631.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA80310DDE251C0001BF1A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65BA80320DDE251C0001BF1A /* IOI2CMaxim1989.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA80400DDE251C0001BF1A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65BA80410DDE251C0001BF1A /* IOI2CMaxim6690.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA804F0DDE251C0001BF1A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65BA80500DDE251C0001BF1A /* IOI2CAD741x.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA805E0DDE251D0001BF1A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65BA805F0DDE251D0001BF1A /* IOI2CLM6x.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA806D0DDE251D0001BF1A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65BA806E0DDE251D0001BF1A /* IOI2CLM7x.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA807C0DDE251D0001BF1A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65BA807D0DDE251D0001BF1A /* IOI2CLM8x.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65BA808B0DDE251D0001BF1A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				65BA808C0DDE251D0001BF1A /* IOI2CSMUSat.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		65BA80970DDE251D0001BF1A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 65BA7FCF0DDE251C0001BF1A /* AppleMaxim6690 */;
+			targetProxy = 65BA80960DDE251D0001BF1A /* PBXContainerItemProxy */;
+		};
+		65BA80990DDE251D0001BF1A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 65BA800C0DDE251C0001BF1A /* AppleMaxim1989 */;
+			targetProxy = 65BA80980DDE251D0001BF1A /* PBXContainerItemProxy */;
+		};
+		65BA809B0DDE251D0001BF1A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 65BA7FDF0DDE251C0001BF1A /* AppleAD741x */;
+			targetProxy = 65BA809A0DDE251D0001BF1A /* PBXContainerItemProxy */;
+		};
+		65BA809D0DDE251D0001BF1A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 65BA7FEE0DDE251C0001BF1A /* AppleLM7x */;
+			targetProxy = 65BA809C0DDE251D0001BF1A /* PBXContainerItemProxy */;
+		};
+		65BA809F0DDE251D0001BF1A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 65BA7FFD0DDE251C0001BF1A /* AppleLM8x */;
+			targetProxy = 65BA809E0DDE251D0001BF1A /* PBXContainerItemProxy */;
+		};
+		65BA80A10DDE251D0001BF1A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 65BA7FC00DDE251C0001BF1A /* AppleSMUMonitor */;
+			targetProxy = 65BA80A00DDE251D0001BF1A /* PBXContainerItemProxy */;
+		};
+		65BA80A30DDE251D0001BF1A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 65BA802C0DDE251C0001BF1A /* IOI2CMaxim1989 */;
+			targetProxy = 65BA80A20DDE251D0001BF1A /* PBXContainerItemProxy */;
+		};
+		65BA80A50DDE251D0001BF1A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 65BA803C0DDE251C0001BF1A /* IOI2CMaxim6690 */;
+			targetProxy = 65BA80A40DDE251D0001BF1A /* PBXContainerItemProxy */;
+		};
+		65BA80A70DDE251D0001BF1A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 65BA804B0DDE251C0001BF1A /* IOI2CAD741x */;
+			targetProxy = 65BA80A60DDE251D0001BF1A /* PBXContainerItemProxy */;
+		};
+		65BA80A90DDE251D0001BF1A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 65BA805A0DDE251D0001BF1A /* IOI2CLM6x */;
+			targetProxy = 65BA80A80DDE251D0001BF1A /* PBXContainerItemProxy */;
+		};
+		65BA80AB0DDE251D0001BF1A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 65BA80690DDE251D0001BF1A /* IOI2CLM7x */;
+			targetProxy = 65BA80AA0DDE251D0001BF1A /* PBXContainerItemProxy */;
+		};
+		65BA80AD0DDE251D0001BF1A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 65BA80780DDE251D0001BF1A /* IOI2CLM8x */;
+			targetProxy = 65BA80AC0DDE251D0001BF1A /* PBXContainerItemProxy */;
+		};
+		65BA80AF0DDE251D0001BF1A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 65BA80870DDE251D0001BF1A /* IOI2CSMUSat */;
+			targetProxy = 65BA80AE0DDE251D0001BF1A /* PBXContainerItemProxy */;
+		};
+		65BA80B10DDE251D0001BF1A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 65BA801C0DDE251C0001BF1A /* IOI2CMaxim1631 */;
+			targetProxy = 65BA80B00DDE251D0001BF1A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		658CB0770DDE227F007E3E6F /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+			};
+			name = Development;
+		};
+		658CB0780DDE227F007E3E6F /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+			};
+			name = Deployment;
+		};
+		658CB0790DDE227F007E3E6F /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+			};
+			name = Default;
+		};
+		65BA7FBB0DDE251C0001BF1A /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					i386,
+					ppc,
+				);
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleHWSensor.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleHWSensor;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = AppleHWSensor;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		65BA7FBC0DDE251C0001BF1A /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					i386,
+					ppc,
+				);
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleHWSensor.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleHWSensor;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = AppleHWSensor;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		65BA7FBD0DDE251C0001BF1A /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					i386,
+					ppc,
+				);
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleHWSensor.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleHWSensor;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = AppleHWSensor;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		65BA7FCA0DDE251C0001BF1A /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleSMUMonitor.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleSMUMonitor;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = AppleSMUMonitor;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		65BA7FCB0DDE251C0001BF1A /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleSMUMonitor.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleSMUMonitor;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = AppleSMUMonitor;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		65BA7FCC0DDE251C0001BF1A /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleSMUMonitor.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleSMUMonitor;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = AppleSMUMonitor;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		65BA7FDA0DDE251C0001BF1A /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleMaxim6690.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleMaxim6690;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = AppleMaxim6690;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		65BA7FDB0DDE251C0001BF1A /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleMaxim6690.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleMaxim6690;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = AppleMaxim6690;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		65BA7FDC0DDE251C0001BF1A /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleMaxim6690.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleMaxim6690;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = AppleMaxim6690;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		65BA7FE90DDE251C0001BF1A /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleAD741x.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleAD741x;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = AppleAD741x;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		65BA7FEA0DDE251C0001BF1A /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleAD741x.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleAD741x;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = AppleAD741x;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		65BA7FEB0DDE251C0001BF1A /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleAD741x.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleAD741x;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = AppleAD741x;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		65BA7FF80DDE251C0001BF1A /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleLM7x.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleLM7x;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = AppleLM7x;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		65BA7FF90DDE251C0001BF1A /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleLM7x.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleLM7x;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = AppleLM7x;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		65BA7FFA0DDE251C0001BF1A /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleLM7x.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleLM7x;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = AppleLM7x;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		65BA80070DDE251C0001BF1A /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleLM8x.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleLM8x;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = AppleLM8x;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		65BA80080DDE251C0001BF1A /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleLM8x.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleLM8x;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = AppleLM8x;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		65BA80090DDE251C0001BF1A /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleLM8x.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleLM8x;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = AppleLM8x;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		65BA80170DDE251C0001BF1A /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleMaxim1989.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleMaxim1989;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = AppleMaxim1989;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		65BA80180DDE251C0001BF1A /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleMaxim1989.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleMaxim1989;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = AppleMaxim1989;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		65BA80190DDE251C0001BF1A /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleMaxim1989.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleMaxim1989;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = AppleMaxim1989;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		65BA80270DDE251C0001BF1A /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "\"$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks\"";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOI2CMaxim1631.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CMaxim1631;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = IOI2CMaxim1631;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		65BA80280DDE251C0001BF1A /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "\"$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks\"";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOI2CMaxim1631.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CMaxim1631;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = IOI2CMaxim1631;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		65BA80290DDE251C0001BF1A /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				FRAMEWORK_SEARCH_PATHS = "\"$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks\"";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOI2CMaxim1631.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CMaxim1631;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = IOI2CMaxim1631;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		65BA80370DDE251C0001BF1A /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "\"$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks\"";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOI2CMaxim1989.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CMaxim1989;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = IOI2CMaxim1989;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		65BA80380DDE251C0001BF1A /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "\"$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks\"";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOI2CMaxim1989.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CMaxim1989;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = IOI2CMaxim1989;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		65BA80390DDE251C0001BF1A /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				FRAMEWORK_SEARCH_PATHS = "\"$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks\"";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOI2CMaxim1989.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CMaxim1989;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = IOI2CMaxim1989;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		65BA80460DDE251C0001BF1A /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "\"$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks\"";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOI2CMaxim6690.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CMaxim6690;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = IOI2CMaxim6690;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		65BA80470DDE251C0001BF1A /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "\"$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks\"";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOI2CMaxim6690.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CMaxim6690;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = IOI2CMaxim6690;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		65BA80480DDE251C0001BF1A /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				FRAMEWORK_SEARCH_PATHS = "\"$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks\"";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOI2CMaxim6690.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CMaxim6690;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = IOI2CMaxim6690;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		65BA80550DDE251C0001BF1A /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "\"$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks\"";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOI2CAD741x.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CAD741x;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = IOI2CAD741x;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		65BA80560DDE251C0001BF1A /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "\"$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks\"";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOI2CAD741x.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CAD741x;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = IOI2CAD741x;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		65BA80570DDE251C0001BF1A /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				FRAMEWORK_SEARCH_PATHS = "\"$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks\"";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOI2CAD741x.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CAD741x;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = IOI2CAD741x;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		65BA80640DDE251D0001BF1A /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "\"$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks\"";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOI2CLM6x.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CLM6x;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = IOI2CLM6x;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		65BA80650DDE251D0001BF1A /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "\"$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks\"";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOI2CLM6x.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CLM6x;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = IOI2CLM6x;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		65BA80660DDE251D0001BF1A /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				FRAMEWORK_SEARCH_PATHS = "\"$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks\"";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOI2CLM6x.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CLM6x;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = IOI2CLM6x;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		65BA80730DDE251D0001BF1A /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "\"$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks\"";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOI2CLM7x.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CLM7x;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = IOI2CLM7x;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		65BA80740DDE251D0001BF1A /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "\"$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks\"";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOI2CLM7x.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CLM7x;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = IOI2CLM7x;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		65BA80750DDE251D0001BF1A /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				FRAMEWORK_SEARCH_PATHS = "\"$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks\"";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOI2CLM7x.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CLM7x;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = IOI2CLM7x;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		65BA80820DDE251D0001BF1A /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "\"$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks\"";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOI2CLM8x.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CLM8x;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = IOI2CLM8x;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		65BA80830DDE251D0001BF1A /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "\"$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks\"";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOI2CLM8x.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CLM8x;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = IOI2CLM8x;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		65BA80840DDE251D0001BF1A /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				FRAMEWORK_SEARCH_PATHS = "\"$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks\"";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOI2CLM8x.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CLM8x;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = IOI2CLM8x;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		65BA80910DDE251D0001BF1A /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "\"$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks\"";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOI2CSMUSat.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CSMUSat;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = IOI2CSMUSat;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		65BA80920DDE251D0001BF1A /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "\"$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks\"";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOI2CSMUSat.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CSMUSat;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = IOI2CSMUSat;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		65BA80930DDE251D0001BF1A /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = ppc;
+				FRAMEWORK_SEARCH_PATHS = "\"$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks\"";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOI2CSMUSat.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.IOI2CSMUSat;
+				MODULE_VERSION = 1.7.2d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = IOI2CSMUSat;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		658CB0A70DDE227F007E3E6F /* Build configuration list for PBXProject "AppleHWSensor" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				658CB0770DDE227F007E3E6F /* Development */,
+				658CB0780DDE227F007E3E6F /* Deployment */,
+				658CB0790DDE227F007E3E6F /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		65BA7FBA0DDE251C0001BF1A /* Build configuration list for PBXNativeTarget "AppleHWSensor" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				65BA7FBB0DDE251C0001BF1A /* Development */,
+				65BA7FBC0DDE251C0001BF1A /* Deployment */,
+				65BA7FBD0DDE251C0001BF1A /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		65BA7FC90DDE251C0001BF1A /* Build configuration list for PBXNativeTarget "AppleSMUMonitor" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				65BA7FCA0DDE251C0001BF1A /* Development */,
+				65BA7FCB0DDE251C0001BF1A /* Deployment */,
+				65BA7FCC0DDE251C0001BF1A /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		65BA7FD90DDE251C0001BF1A /* Build configuration list for PBXNativeTarget "AppleMaxim6690" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				65BA7FDA0DDE251C0001BF1A /* Development */,
+				65BA7FDB0DDE251C0001BF1A /* Deployment */,
+				65BA7FDC0DDE251C0001BF1A /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		65BA7FE80DDE251C0001BF1A /* Build configuration list for PBXNativeTarget "AppleAD741x" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				65BA7FE90DDE251C0001BF1A /* Development */,
+				65BA7FEA0DDE251C0001BF1A /* Deployment */,
+				65BA7FEB0DDE251C0001BF1A /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		65BA7FF70DDE251C0001BF1A /* Build configuration list for PBXNativeTarget "AppleLM7x" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				65BA7FF80DDE251C0001BF1A /* Development */,
+				65BA7FF90DDE251C0001BF1A /* Deployment */,
+				65BA7FFA0DDE251C0001BF1A /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		65BA80060DDE251C0001BF1A /* Build configuration list for PBXNativeTarget "AppleLM8x" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				65BA80070DDE251C0001BF1A /* Development */,
+				65BA80080DDE251C0001BF1A /* Deployment */,
+				65BA80090DDE251C0001BF1A /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		65BA80160DDE251C0001BF1A /* Build configuration list for PBXNativeTarget "AppleMaxim1989" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				65BA80170DDE251C0001BF1A /* Development */,
+				65BA80180DDE251C0001BF1A /* Deployment */,
+				65BA80190DDE251C0001BF1A /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		65BA80260DDE251C0001BF1A /* Build configuration list for PBXNativeTarget "IOI2CMaxim1631" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				65BA80270DDE251C0001BF1A /* Development */,
+				65BA80280DDE251C0001BF1A /* Deployment */,
+				65BA80290DDE251C0001BF1A /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		65BA80360DDE251C0001BF1A /* Build configuration list for PBXNativeTarget "IOI2CMaxim1989" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				65BA80370DDE251C0001BF1A /* Development */,
+				65BA80380DDE251C0001BF1A /* Deployment */,
+				65BA80390DDE251C0001BF1A /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		65BA80450DDE251C0001BF1A /* Build configuration list for PBXNativeTarget "IOI2CMaxim6690" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				65BA80460DDE251C0001BF1A /* Development */,
+				65BA80470DDE251C0001BF1A /* Deployment */,
+				65BA80480DDE251C0001BF1A /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		65BA80540DDE251C0001BF1A /* Build configuration list for PBXNativeTarget "IOI2CAD741x" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				65BA80550DDE251C0001BF1A /* Development */,
+				65BA80560DDE251C0001BF1A /* Deployment */,
+				65BA80570DDE251C0001BF1A /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		65BA80630DDE251D0001BF1A /* Build configuration list for PBXNativeTarget "IOI2CLM6x" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				65BA80640DDE251D0001BF1A /* Development */,
+				65BA80650DDE251D0001BF1A /* Deployment */,
+				65BA80660DDE251D0001BF1A /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		65BA80720DDE251D0001BF1A /* Build configuration list for PBXNativeTarget "IOI2CLM7x" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				65BA80730DDE251D0001BF1A /* Development */,
+				65BA80740DDE251D0001BF1A /* Deployment */,
+				65BA80750DDE251D0001BF1A /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		65BA80810DDE251D0001BF1A /* Build configuration list for PBXNativeTarget "IOI2CLM8x" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				65BA80820DDE251D0001BF1A /* Development */,
+				65BA80830DDE251D0001BF1A /* Deployment */,
+				65BA80840DDE251D0001BF1A /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		65BA80900DDE251D0001BF1A /* Build configuration list for PBXNativeTarget "IOI2CSMUSat" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				65BA80910DDE251D0001BF1A /* Development */,
+				65BA80920DDE251D0001BF1A /* Deployment */,
+				65BA80930DDE251D0001BF1A /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 089C1669FE841209C02AAC07 /* Project object */;
+}

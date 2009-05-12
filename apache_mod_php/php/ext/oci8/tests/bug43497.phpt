@@ -1,7 +1,16 @@
 --TEST--
 Bug #43497 (OCI8 XML/getClobVal aka temporary LOBs leak UGA memory)
 --SKIPIF--
-<?php if (!extension_loaded('oci8')) die ("skip no oci8 extension"); ?>
+<?php 
+if (!extension_loaded('oci8')) die ("skip no oci8 extension"); 
+ob_start();
+phpinfo(INFO_MODULES);
+$phpinfo = ob_get_clean();
+$ov = preg_match('/Oracle Version => 9/', $phpinfo);
+if ($ov === 1) {
+	die ("skip expected output only valid for Oracle clients from 10g onwards");
+}
+?>
 --FILE--
 <?php
 

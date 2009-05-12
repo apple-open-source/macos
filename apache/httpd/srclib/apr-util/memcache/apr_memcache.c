@@ -295,6 +295,27 @@ static apr_status_t conn_connect(apr_memcache_conn_t *conn)
     return rv;
 }
 
+static apr_status_t conn_clean(void *data)
+{
+    apr_memcache_conn_t *conn = data;
+    struct iovec vec[2];
+    apr_size_t written;
+
+    /* send a quit message to the memcached server to be nice about it. */
+    vec[0].iov_base = MC_QUIT;
+    vec[0].iov_len = MC_QUIT_LEN;
+
+    vec[1].iov_base = MC_EOL;
+    vec[1].iov_len = MC_EOL_LEN;
+    
+    /* Return values not checked, since we just want to make it go away. */
+    apr_socket_sendv(conn->sock, vec, 2, &written);
+    apr_socket_close(conn->sock);
+
+    conn->p = NULL; /* so that destructor does not destroy the pool again */
+
+    return APR_SUCCESS;
+}
 
 static apr_status_t
 mc_conn_construct(void **conn_, void *params, apr_pool_t *pool)
@@ -310,7 +331,11 @@ mc_conn_construct(void **conn_, void *params, apr_pool_t *pool)
         return rv;
     }
 
+#if APR_HAS_THREADS
+    conn = malloc(sizeof( apr_memcache_conn_t )); /* non-pool space! */
+#else
     conn = apr_palloc(np, sizeof( apr_memcache_conn_t ));
+#endif
 
     conn->p = np;
 
@@ -318,6 +343,9 @@ mc_conn_construct(void **conn_, void *params, apr_pool_t *pool)
 
     if (rv != APR_SUCCESS) {
         apr_pool_destroy(np);
+#if APR_HAS_THREADS
+        free(conn);
+#endif
         return rv;
     }
 
@@ -334,34 +362,33 @@ mc_conn_construct(void **conn_, void *params, apr_pool_t *pool)
     rv = conn_connect(conn);
     if (rv != APR_SUCCESS) {
         apr_pool_destroy(np);
+#if APR_HAS_THREADS
+        free(conn);
+#endif
     }
     else {
+        apr_pool_cleanup_register(np, conn, conn_clean, apr_pool_cleanup_null);
         *conn_ = conn;
     }
     
     return rv;
 }
 
+#if APR_HAS_THREADS
 static apr_status_t
 mc_conn_destruct(void *conn_, void *params, apr_pool_t *pool)
 {
     apr_memcache_conn_t *conn = (apr_memcache_conn_t*)conn_;
-    struct iovec vec[2];
-    apr_size_t written;
     
-    /* send a quit message to the memcached server to be nice about it. */
-    vec[0].iov_base = MC_QUIT;
-    vec[0].iov_len = MC_QUIT_LEN;
+    if (conn->p) {
+        apr_pool_destroy(conn->p);
+    }
 
-    vec[1].iov_base = MC_EOL;
-    vec[1].iov_len = MC_EOL_LEN;
-    
-    /* Return values not checked, since we just want to make it go away. */
-    apr_socket_sendv(conn->sock, vec, 2, &written);
-    apr_socket_close(conn->sock);
+    free(conn); /* free non-pool space */
     
     return APR_SUCCESS;
 }
+#endif
 
 APU_DECLARE(apr_status_t) apr_memcache_server_create(apr_pool_t *p, 
                                                      const char *host, apr_port_t port, 
@@ -1517,15 +1544,11 @@ static apr_time_t stat_read_rtime(apr_pool_t *p, char *buf, apr_size_t  len)
     char *tok;
     char *secs;
     char *usecs;
-    const char *sep = ":";
+    const char *sep = ":.";
 
     buf[len-2] = '\0';
 
     secs = apr_strtok(buf, sep, &tok);
-    if (secs == NULL) {
-        sep = ".";
-        secs = apr_strtok(buf, sep, &tok);
-    }
     usecs = apr_strtok(NULL, sep, &tok);
     if (secs && usecs) {
         return apr_time_make(atoi(secs), atoi(usecs));

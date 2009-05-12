@@ -124,7 +124,6 @@ static int dbd_freetds_select(apr_pool_t *pool, apr_dbd_t *sql,
                               const char *query, int seek)
 {
     apr_dbd_results_t *res;
-    int i;
     if (sql->trans && (sql->trans->errnum != SUCCEED)) {
         return 1;
     }
@@ -237,9 +236,10 @@ static const char *dbd_statement(apr_pool_t *pool,
 static int dbd_freetds_pselect(apr_pool_t *pool, apr_dbd_t *sql,
                                apr_dbd_results_t **results,
                                apr_dbd_prepared_t *statement,
-                               int seek, int nargs, const char **values)
+                               int seek, const char **values)
 {
-    const char *query = dbd_statement(pool, statement, nargs, values);
+    const char *query = dbd_statement(pool, statement,
+                                      statement->nargs, values);
     return dbd_freetds_select(pool, sql, results, query, seek);
 }
 static int dbd_freetds_pvselect(apr_pool_t *pool, apr_dbd_t *sql,
@@ -260,15 +260,15 @@ static int dbd_freetds_pvselect(apr_pool_t *pool, apr_dbd_t *sql,
         values[i] = va_arg(args, const char*);
     }
 
-    return dbd_freetds_pselect(pool, sql, results, statement, seek,
-                               statement->nargs, values);
+    return dbd_freetds_pselect(pool, sql, results, statement, seek, values);
 }
 static int dbd_freetds_query(apr_dbd_t *sql, int *nrows, const char *query);
 static int dbd_freetds_pquery(apr_pool_t *pool, apr_dbd_t *sql,
                               int *nrows, apr_dbd_prepared_t *statement,
-                              int nargs, const char **values)
+                              const char **values)
 {
-    const char *query = dbd_statement(pool, statement, nargs, values);
+    const char *query = dbd_statement(pool, statement,
+                                      statement->nargs, values);
     return dbd_freetds_query(sql, nrows, query);
 }
 static int dbd_freetds_pvquery(apr_pool_t *pool, apr_dbd_t *sql, int *nrows,
@@ -286,8 +286,7 @@ static int dbd_freetds_pvquery(apr_pool_t *pool, apr_dbd_t *sql, int *nrows,
     for (i = 0; i < statement->nargs; i++) {
         values[i] = va_arg(args, const char*);
     }
-    return dbd_freetds_pquery(pool, sql, nrows, statement,
-                              statement->nargs, values);
+    return dbd_freetds_pquery(pool, sql, nrows, statement, values);
 }
 
 static int dbd_freetds_get_row(apr_pool_t *pool, apr_dbd_results_t *res,
@@ -344,10 +343,10 @@ static const char *dbd_freetds_get_entry(const apr_dbd_row_t *row, int n)
     int t = dbcoltype(proc, n+1);
     int l = dbcollen(proc, n+1);
     if (dbwillconvert(t, SYBCHAR)) {
-      dbconvert(proc, t, ptr, l, SYBCHAR, row->buf, -1);
+      dbconvert(proc, t, ptr, l, SYBCHAR, (BYTE *)row->buf, -1);
       return (const char*)row->buf;
     }
-    return ptr;
+    return (char*)ptr;
 }
 
 static const char *dbd_freetds_error(apr_dbd_t *sql, int n)
@@ -442,6 +441,7 @@ static int recurse_args(apr_pool_t *pool, int n, const char *query,
 
 static int dbd_freetds_prepare(apr_pool_t *pool, apr_dbd_t *sql,
                              const char *query, const char *label,
+                             int nargs, int nvals, apr_dbd_type_e *types,
                              apr_dbd_prepared_t **statement)
 {
     apr_dbd_prepared_t *stmt;
@@ -556,14 +556,14 @@ static DBPROCESS *freetds_open(apr_pool_t *pool, const char *params,
             ++ptr;
             continue;
         }
-        for (key = ptr-1; isspace(*key); --key);
+        for (key = ptr-1; apr_isspace(*key); --key);
         klen = 0;
-        while (isalpha(*key)) {
+        while (apr_isalpha(*key)) {
             --key;
             ++klen;
         }
         ++key;
-        for (value = ptr+1; isspace(*value); ++value);
+        for (value = ptr+1; apr_isspace(*value); ++value);
 
         vlen = strcspn(value, delims);
         buf = apr_pstrndup(pool, value, vlen);        /* NULL-terminated copy */
@@ -642,7 +642,7 @@ static apr_status_t dbd_freetds_check_conn(apr_pool_t *pool,
     if (dbdead(handle->proc)) {
         /* try again */
         dbclose(handle->proc);
-        handle->proc = freetds_open(handle->pool, handle->params);
+        handle->proc = freetds_open(handle->pool, handle->params, NULL);
         if (!handle->proc || dbdead(handle->proc)) {
             return APR_EGENERAL;
         }

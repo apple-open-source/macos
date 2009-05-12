@@ -1253,6 +1253,21 @@ cupsPrintFiles2(http_t        *http,	/* I - HTTP connection */
     ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME, "job-name", NULL,
                  title);
 
+  if (num_files == 1)
+  {
+   /*
+    * Add the original document filename...
+    */
+
+    if ((base = strrchr(files[0], '/')) != NULL)
+      base ++;
+    else
+      base = files[0];
+
+    ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME, "document-name",
+		 NULL, base);
+  }
+
  /*
   * Then add all options...
   */

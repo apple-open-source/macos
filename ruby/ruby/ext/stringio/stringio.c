@@ -3,7 +3,7 @@
   stringio.c -
 
   $Author: shyouhei $
-  $Date: 2007-09-23 06:07:36 +0900 (Sun, 23 Sep 2007) $
+  $Date: 2008-06-29 17:21:46 +0900 (Sun, 29 Jun 2008) $
   $RoughId: stringio.c,v 1.13 2002/03/14 03:24:18 nobu Exp $
   created at: Tue Feb 19 04:10:38 JST 2002
 
@@ -947,7 +947,7 @@ strio_readline(argc, argv, self)
     VALUE *argv;
     VALUE self;
 {
-    VALUE line = strio_getline(argc, argv, readable(StringIO(self)));
+    VALUE line = strio_gets(argc, argv, self);
     if (NIL_P(line)) rb_eof_error();
     return line;
 }

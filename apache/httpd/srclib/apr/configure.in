@@ -139,10 +139,14 @@ AC_CHECK_PROG(ASCPP, cpp, cpp)
 AC_CHECK_TOOL(AR, ar, ar)
 
 dnl Various OS checks that apparently set required flags
+ifdef([AC_USE_SYSTEM_EXTENSIONS], [
+AC_USE_SYSTEM_EXTENSIONS
+], [
 AC_AIX
-AC_ISC_POSIX
 AC_MINIX
+])
 
+AC_ISC_POSIX
 APR_EBCDIC
 
 dnl this is our library name
@@ -351,7 +355,7 @@ case "$host:$CC" in
 	;;
 esac
 
-AC_CACHE_CHECK([whether the compiler provides atomic builtins], [atomic_builtins],
+AC_CACHE_CHECK([whether the compiler provides atomic builtins], [ap_cv_atomic_builtins],
 [AC_TRY_RUN([
 int main()
 {
@@ -387,9 +391,9 @@ int main()
         return 1;
 
     return 0;
-}], [atomic_builtins=yes], [atomic_builtins=no], [atomic_builtins=no])])
+}], [ap_cv_atomic_builtins=yes], [ap_cv_atomic_builtins=no], [ap_cv_atomic_builtins=no])])
 
-if test "$atomic_builtins" = "yes"; then
+if test "$ap_cv_atomic_builtins" = "yes"; then
     AC_DEFINE(HAVE_ATOMIC_BUILTINS, 1, [Define if compiler provides atomic builtins])
 fi
 
@@ -684,6 +688,7 @@ fi
 ac_cv_define_READDIR_IS_THREAD_SAFE=no
 ac_cv_define_GETHOSTBYNAME_IS_THREAD_SAFE=no
 ac_cv_define_GETHOSTBYADDR_IS_THREAD_SAFE=no
+ac_cv_define_GETSERVBYNAME_IS_THREAD_SAFE=no
 if test "$threads" = "1"; then
     echo "APR will use threads"
     AC_CHECK_LIB(c_r, readdir,
@@ -703,7 +708,14 @@ if test "$threads" = "1"; then
         AC_DEFINE(GETHOSTBYADDR_IS_THREAD_SAFE, 1, 
                   [Define if gethostbyaddr is thread safe])
     fi
-    AC_CHECK_FUNCS(gethostbyname_r gethostbyaddr_r)
+    if test "x$apr_getservbyname_is_thread_safe" = "x"; then
+        AC_CHECK_LIB(c_r, getservbyname, apr_getservbyname_is_thread_safe=yes)
+    fi
+    if test "$apr_getservbyname_is_thread_safe" = "yes"; then
+        AC_DEFINE(GETSERVBYNAME_IS_THREAD_SAFE, 1, 
+                  [Define if getservbyname is thread safe])
+    fi
+    AC_CHECK_FUNCS(gethostbyname_r gethostbyaddr_r getservbyname_r)
 else
     echo "APR will be non-threaded"
 fi
@@ -1333,6 +1345,20 @@ else
     socklen_t_value="int"
 fi
 
+APR_CHECK_SIZEOF_EXTENDED([#include <sys/types.h>], pid_t, 8)
+
+if test "$ac_cv_sizeof_pid_t" = "$ac_cv_sizeof_short"; then
+    pid_t_fmt='#define APR_PID_T_FMT "hd"'
+elif test "$ac_cv_sizeof_pid_t" = "$ac_cv_sizeof_int"; then
+    pid_t_fmt='#define APR_PID_T_FMT "d"'
+elif test "$ac_cv_sizeof_pid_t" = "$ac_cv_sizeof_long"; then
+    pid_t_fmt='#define APR_PID_T_FMT "ld"'
+elif test "$ac_cv_sizeof_pid_t" = "$ac_cv_sizeof_long_long"; then
+    pid_t_fmt='#define APR_PID_T_FMT APR_INT64_T_FMT'
+else
+    pid_t_fmt='#error Can not determine the proper size for pid_t'
+fi
+
 # Basically, we have tried to figure out the correct format strings
 # for APR types which vary between platforms, but we don't always get
 # it right.
@@ -1348,9 +1374,9 @@ case $host in
        ;;
    *-solaris*)
        if test "$ac_cv_sizeof_long" = "8"; then
-         pid_t_fmt="d"
+         pid_t_fmt='#define APR_PID_T_FMT "d"'
        else
-         pid_t_fmt="ld"
+         pid_t_fmt='#define APR_PID_T_FMT "ld"'
        fi
        ;;
    *aix4*|*aix5*)
@@ -1483,20 +1509,6 @@ if test "$ac_cv_sizeof_long" = "4"; then
                                ino_t_value="unsigned long")
 fi
 AC_MSG_NOTICE([using $ino_t_value for ino_t])
-
-APR_CHECK_SIZEOF_EXTENDED([#include <sys/types.h>], pid_t, 8)
-
-if test "$ac_cv_sizeof_pid_t" = "$ac_cv_sizeof_short"; then
-    pid_t_fmt='#define APR_PID_T_FMT "hd"'
-elif test "$ac_cv_sizeof_pid_t" = "$ac_cv_sizeof_int"; then
-    pid_t_fmt='#define APR_PID_T_FMT "d"'
-elif test "$ac_cv_sizeof_pid_t" = "$ac_cv_sizeof_long"; then
-    pid_t_fmt='#define APR_PID_T_FMT "ld"'
-elif test "$ac_cv_sizeof_pid_t" = "$ac_cv_sizeof_long_long"; then
-    pid_t_fmt='#define APR_PID_T_FMT APR_INT64_T_FMT'
-else
-    pid_t_fmt='#error Can not determine the proper size for pid_t'
-fi
 
 # Checks for endianness
 AC_C_BIGENDIAN
@@ -1874,6 +1886,70 @@ case $ac_decision in
         ;;
 esac
 
+if test $hasfcntlser = "1"; then
+AC_MSG_CHECKING(if fcntl returns EACCES when F_SETLK is already held)
+AC_TRY_RUN([
+#ifdef HAVE_STDLIB_H
+#include <stdlib.h>
+#endif
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+#ifdef HAVE_SYS_STAT_H
+#include <sys/stat.h>
+#endif
+#ifdef HAVE_SYS_WAIT_H
+#include <sys/wait.h>
+#endif
+#if defined(HAVE_UNISTD_H)
+#include <unistd.h>
+#endif
+#include <fcntl.h>
+#include <errno.h>
+
+int fd;
+struct flock proc_mutex_lock_it = {0};
+const char *fname = "conftest.fcntl";
+
+int main()
+{
+    int rc, status;;
+    proc_mutex_lock_it.l_whence = SEEK_SET;   /* from current point */
+    proc_mutex_lock_it.l_type = F_WRLCK;      /* set exclusive/write lock */
+
+    fd = creat(fname, S_IRWXU);
+    unlink(fname);
+
+    if (rc = lockit()) {
+        exit(-1);
+    }
+
+    if (fork()) {
+        wait(&status);
+    }
+    else {
+      return(lockit());
+    }
+
+    close(fd);
+    exit(WEXITSTATUS(status) != EACCES);
+}
+
+int lockit() {
+    int rc;
+    do {
+        rc = fcntl(fd, F_SETLK, &proc_mutex_lock_it);
+    } while ( rc < 0 && errno == EINTR);
+
+    return (rc < 0) ? errno : 0;
+}], [apr_fcntl_tryacquire_eacces=1], [apr_fcntl_tryacquire_eacces=0], [apr_fcntl_tryacquire_eacces=0])
+fi
+
+if test "$apr_fcntl_tryacquire_eacces" = "1"; then
+  AC_DEFINE(FCNTL_TRYACQUIRE_EACCES, 1, [Define if fcntl returns EACCES when F_SETLK is already held])
+fi
+
+
 AC_SUBST(hasflockser)
 AC_SUBST(hassysvser)
 AC_SUBST(hasposixser)
@@ -2129,6 +2205,11 @@ fi
 # Check the types only if we have gethostbyname_r
 if test "$ac_cv_func_gethostbyname_r" = "yes"; then
     APR_CHECK_GETHOSTBYNAME_R_STYLE
+fi
+
+# Check the types only if we have getservbyname_r
+if test "$ac_cv_func_getservbyname_r" = "yes"; then
+    APR_CHECK_GETSERVBYNAME_R_STYLE
 fi
 
 APR_CHECK_TCP_NODELAY_INHERITED

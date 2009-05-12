@@ -2,6 +2,86 @@
 		      What's new in GNU enscript
 		      --------------------------
 
+Noteworthy changes in enscript version 1.6.3:
+
+* Changes in the highlighting / pretty printing
+
+  - The `States*' config file options have changed.  The new options
+    are:
+      - StatesBinary		specify an absolute path for `states'
+      - StatesColor		use colors in the highlighting outputs?
+      - StatesConfigFile	config file name (enscript.st)
+      - StatesHighlightStyle	highlighting style
+      - StatesPath		path from which the states is looking
+				up the state definition files (.st)
+
+  - Support for user defined local highlighting definitions and styles.
+  - new option `--style=STYLE' to specify the highlighting style
+  - Verbose highlighting for the C, C++, and Objective-C languages.
+    In the verbose highlighting, some mathematical constructs (&&, ||,
+    !=, etc.) are replaced with the corresponding mathematical symbols
+    (logical and, logical or, not equal, etc.).  The mode can be
+    enabled with option `--style=emacs_verbose'.
+  - renamed `--pretty-print' and `--help-pretty-print' options to
+    `--highlight' and `--help-highlight'
+
+* states:
+
+  - Support for state inheritance.
+
+* new highlighting rules:
+
+  - bash, csh, ksh, tcsh, zsh
+	        Unix shells
+  - m4		m4 macro preprocessor
+  - skill	Cadence Design Systems lispy language
+  - vrml	Virtual Reality Modeling Language (VRML97)
+  - rfc		fix broken page breaks in RFCs and in Internet Drafts
+  - inf		GUI INF Script language
+  - matlab	Matlab files
+  - outline	Emacs' outline text
+  - tex		TeX/LaTeX source files.
+  - diffs	side diff files
+  - fortran_pp	fortran 77 with preprocessor
+  - wmlscript	WMLScript language
+
+  - new output language `ansi' to print color outputs on color xterm,
+    etc.
+
+* new encodings:
+
+  - 88599	ISO-8859-9 (ISO Latin5)
+  - 885910	ISO-8859-10 (ISO Latin6)
+
+* new options:
+
+  - -3, -4, -5, -6, -7, -8, -9	select 3-9 columns
+  - --nup-columnwise 		layout pages in the N-up printing
+                                columnwise
+  - --swap-even-page-margins	swap left and right side margins for
+				even numbered pages
+  - --extended-return-values    encode more status information in the
+				return value of the program
+  - --footer=STRING             specify the page footer string
+
+* misc:
+
+  - It is possible to specify the font encoding in the ^@font{}
+    escape.  But, it allows only `ps' or the enscript's global input
+    encoding values.  For example, ^@font{Symbol@7:ps}b^@font{default}
+    prints the beta symbol
+  - New escape ^@bgcolor{} to change the text background color.
+  - New fancy headers `squeeze' and `enscript-color'.
+  - Minor fixes in the 88593 and 88594 encodings.
+  - New highlighting style `msvc'.
+  - Support for the matrix printers.  Try `enscript -fMatrix10' ;-)
+  - Fixed some buffer overrun bugs.  Now all buffer space for unknown
+    items (filenames, user-supplied tokens, etc.) is allocated
+    dynamically.
+  - Removed the `--list-options' option.  It was an old debugging
+    option.  I can remember when I have used or updated it.
+
+
 Noteworthy changes in enscript version 1.6.1:
 
 * new options:

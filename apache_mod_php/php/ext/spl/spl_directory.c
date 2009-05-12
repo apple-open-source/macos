@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: spl_directory.c,v 1.45.2.27.2.26 2008/02/13 12:23:26 helly Exp $ */
+/* $Id: spl_directory.c,v 1.45.2.27.2.29 2008/09/11 15:32:15 lbarnaud Exp $ */
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"
@@ -426,6 +426,7 @@ static spl_filesystem_object * spl_filesystem_object_create_type(int ht, spl_fil
 					&use_include_path, &intern->u.file.zcontext) == FAILURE) {
 				php_set_error_handling(EH_NORMAL, NULL TSRMLS_CC);
 				intern->u.file.open_mode = NULL;
+				intern->file_name = NULL;
 				zval_dtor(return_value);
 				Z_TYPE_P(return_value) = IS_NULL;
 				return NULL;
@@ -1055,7 +1056,7 @@ SPL_METHOD(RecursiveDirectoryIterator, getChildren)
 	INIT_PZVAL(&zpath);
 	ZVAL_STRINGL(&zpath, intern->file_name, intern->file_name_len, 0);
 
-	spl_instantiate_arg_ex1(spl_ce_RecursiveDirectoryIterator, &return_value, 0, &zpath TSRMLS_CC);
+	spl_instantiate_arg_ex1(Z_OBJCE_P(getThis()), &return_value, 0, &zpath TSRMLS_CC);
 	
 	subdir = (spl_filesystem_object*)zend_object_store_get_object(return_value TSRMLS_CC);
 	if (subdir) {
@@ -2214,7 +2215,9 @@ SPL_METHOD(SplFileObject, seek)
 	spl_filesystem_file_rewind(getThis(), intern TSRMLS_CC);
 	
 	while(intern->u.file.current_line_num < line_pos) {
-		spl_filesystem_file_read_line(getThis(), intern, 1 TSRMLS_CC);
+		if (spl_filesystem_file_read_line(getThis(), intern, 1 TSRMLS_CC) == FAILURE) {
+			break;
+		}
 	}
 } /* }}} */
 

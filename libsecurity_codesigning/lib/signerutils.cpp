@@ -272,11 +272,8 @@ void MachOEditor::write(Arch &arch, EmbeddedSignatureBlob *blob)
 		size_t signingLength = arch.source->signingLength();
 		secdebug("codesign", "writing architecture %s at 0x%zx (%zd of %zd)",
 			arch.architecture.name(), offset, blob->length(), signingLength);
-		if (signingLength < blob->length()) {
-			secdebug("codesign", "trying to write %zd bytes into %zd area",
-				blob->length(), signingLength);
-			MacOSError::throwMe(errSecCSInternalError);
-		}
+		if (signingLength < blob->length())
+			MacOSError::throwMe(errSecCSCMSTooLarge);
 		arch.source->seek(offset);
 		arch.source->writeAll(*blob);
 		::free(blob);		// done with it

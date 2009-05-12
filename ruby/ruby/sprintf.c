@@ -3,7 +3,7 @@
   sprintf.c -
 
   $Author: shyouhei $
-  $Date: 2007-08-22 11:53:31 +0900 (Wed, 22 Aug 2007) $
+  $Date: 2008-06-20 08:12:46 +0900 (Fri, 20 Jun 2008) $
   created at: Fri Oct 15 10:39:26 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -18,6 +18,8 @@
 #include <math.h>
 
 #define BIT_DIGITS(N)   (((N)*146)/485 + 1)  /* log2(10) =~ 146/485 */
+#define BITSPERDIG (SIZEOF_BDIGITS*CHAR_BIT)
+#define EXTENDSIGN(n, l) (((~0 << (n)) >> (((n)*(l)) % BITSPERDIG)) & ~(~0 << (n)))
 
 static void fmt_setup _((char*,int,int,int,int));
 
@@ -36,7 +38,7 @@ remove_sign_bits(str, base)
 	}
     }
     else if (base == 8) {
-	if (*t == '3') t++;
+	*t |= EXTENDSIGN(3, strlen(t));
 	while (*t == '7') {
 	    t++;
 	}
@@ -247,7 +249,15 @@ rb_f_sprintf(argc, argv)
     int argc;
     VALUE *argv;
 {
+    return rb_str_format(argc - 1, argv + 1, GETNTHARG(0));
+}
+
+VALUE
+rb_str_format(argc, argv, fmt)
+    int argc;
+    VALUE *argv;
     VALUE fmt;
+{
     const char *p, *end;
     char *buf;
     int blen, bsiz;
@@ -276,7 +286,8 @@ rb_f_sprintf(argc, argv)
 	rb_raise(rb_eArgError, "flag after precision"); \
     }
 
-    fmt = GETNTHARG(0);
+    ++argc;
+    --argv;
     if (OBJ_TAINTED(fmt)) tainted = 1;
     StringValue(fmt);
     fmt = rb_str_new4(fmt);
@@ -469,7 +480,7 @@ rb_f_sprintf(argc, argv)
 		long v = 0;
 		int base, bignum = 0;
 		int len, pos;
-		VALUE tmp;
+		volatile VALUE tmp;
                 volatile VALUE tmp1;
 
 		switch (*p) {
@@ -726,6 +737,8 @@ rb_f_sprintf(argc, argv)
 		    }
 		    need = strlen(expr);
 		    if ((!isnan(fval) && fval < 0.0) || (flags & FPLUS))
+			need++;
+		    else if (flags & FSPACE)
 			need++;
 		    if ((flags & FWIDTH) && need < width)
 			need = width;

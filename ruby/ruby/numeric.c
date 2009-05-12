@@ -3,7 +3,7 @@
   numeric.c -
 
   $Author: shyouhei $
-  $Date: 2007-08-22 10:50:21 +0900 (Wed, 22 Aug 2007) $
+  $Date: 2008-08-04 13:31:06 +0900 (Mon, 04 Aug 2008) $
   created at: Fri Aug 13 18:33:09 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -63,6 +63,25 @@
 #define DBL_EPSILON 2.2204460492503131e-16
 #endif
 
+#ifndef HAVE_ROUND
+double
+round(x)
+    double x;
+{
+    double f;
+
+    if (x > 0.0) {
+	f = floor(x);
+	x = f + (x - f >= 0.5);
+    }
+    else if (x < 0.0) {
+	f = ceil(x);
+	x = f - (f - x >= 0.5);
+    }
+    return x;
+}
+#endif
+
 static ID id_coerce, id_to_i, id_eq;
 
 VALUE rb_cNumeric;
@@ -102,7 +121,9 @@ num_coerce(x, y)
 {
     if (CLASS_OF(x) == CLASS_OF(y))
 	return rb_assoc_new(y, x);
-    return rb_assoc_new(rb_Float(y), rb_Float(x));
+    x = rb_Float(x);
+    y = rb_Float(y);
+    return rb_assoc_new(y, x);
 }
 
 static VALUE
@@ -662,7 +683,10 @@ flodivmod(x, y, divp, modp)
 	mod = x - z * y;
     }
 #endif
-    div = (x - mod) / y;
+    if (isinf(x) && !isinf(y) && !isnan(y))
+	div = x;
+    else
+	div = (x - mod) / y;
     if (y*mod < 0) {
 	mod += y;
 	div -= 1.0;
@@ -735,11 +759,11 @@ flo_divmod(x, y)
     }
     flodivmod(RFLOAT(x)->value, fy, &div, &mod);
     if (FIXABLE(div)) {
-        val = div;
-        a = LONG2FIX(val);
+        val = round(div);
+	a = LONG2FIX(val);
     }
     else {
-        a = rb_dbl2big(div);
+	a = rb_dbl2big(div);
     }
     b = rb_float_new(mod);
     return rb_assoc_new(a, b);
@@ -1291,8 +1315,7 @@ flo_round(num)
     double f = RFLOAT(num)->value;
     long val;
 
-    if (f > 0.0) f = floor(f+0.5);
-    if (f < 0.0) f = ceil(f-0.5);
+    f = round(f);
 
     if (!FIXABLE(f)) {
 	return rb_dbl2big(f);
@@ -1513,6 +1536,7 @@ long
 rb_num2long(val)
     VALUE val;
 {
+  again:
     if (NIL_P(val)) {
 	rb_raise(rb_eTypeError, "no implicit conversion from nil to integer");
     }
@@ -1530,7 +1554,7 @@ rb_num2long(val)
 	    char *s;
 
 	    sprintf(buf, "%-.10g", RFLOAT(val)->value);
-	    if (s = strchr(buf, ' ')) *s = '\0';
+	    if ((s = strchr(buf, ' ')) != 0) *s = '\0';
 	    rb_raise(rb_eRangeError, "float %s out of range of integer", buf);
 	}
 
@@ -1539,7 +1563,7 @@ rb_num2long(val)
 
       default:
 	val = rb_to_int(val);
-	return NUM2LONG(val);
+	goto again;
     }
 }
 
@@ -1573,11 +1597,21 @@ check_int(num)
 }
 
 static void
-check_uint(num)
+check_uint(num, sign)
     unsigned long num;
+    VALUE sign;
 {
-    if (num > UINT_MAX) {
-	rb_raise(rb_eRangeError, "integer %lu too big to convert to `unsigned int'", num);
+    static const unsigned long mask = ~(unsigned long)UINT_MAX;
+
+    if (RTEST(sign)) {
+	/* minus */
+	if ((num & mask) != mask || (num & ~mask) <= INT_MAX + 1UL)
+	    rb_raise(rb_eRangeError, "integer %ld too small to convert to `unsigned int'", num);
+    }
+    else {
+	/* plus */
+	if ((num & mask) != 0)
+	    rb_raise(rb_eRangeError, "integer %lu too big to convert to `unsigned int'", num);
     }
 }
 
@@ -1607,9 +1641,7 @@ rb_num2uint(val)
 {
     unsigned long num = rb_num2ulong(val);
 
-    if (RTEST(rb_funcall(INT2FIX(0), '<', 1, val))) {
-	check_uint(num);
-    }
+    check_uint(num, rb_funcall(val, '<', 1, INT2FIX(0)));
     return num;
 }
 
@@ -1623,9 +1655,8 @@ rb_fix2uint(val)
         return rb_num2uint(val);
     }
     num = FIX2ULONG(val);
-    if (FIX2LONG(val) > 0) {
-	check_uint(num);
-    }
+
+    check_uint(num, rb_funcall(val, '<', 1, INT2FIX(0)));
     return num;
 }
 #else
@@ -1681,7 +1712,7 @@ rb_num2ll(val)
 	    char *s;
 
 	    sprintf(buf, "%-.10g", RFLOAT(val)->value);
-	    if (s = strchr(buf, ' ')) *s = '\0';
+	    if ((s = strchr(buf, ' ')) != 0) *s = '\0';
 	    rb_raise(rb_eRangeError, "float %s out of range of long long", buf);
 	}
 
@@ -2202,6 +2233,7 @@ static VALUE
 fix_pow(x, y)
     VALUE x, y;
 {
+    static const double zero = 0.0;
     long a = FIX2LONG(x);
 
     if (FIXNUM_P(y)) {
@@ -2211,7 +2243,10 @@ fix_pow(x, y)
 	if (b == 0) return INT2FIX(1);
 	if (b == 1) return x;
 	a = FIX2LONG(x);
-	if (a == 0) return INT2FIX(0);
+	if (a == 0) {
+	    if (b > 0) return INT2FIX(0);
+	    return rb_float_new(1.0 / zero);
+	}
 	if (a == 1) return INT2FIX(1);
 	if (a == -1) {
 	    if (b % 2 == 0)
@@ -2235,7 +2270,9 @@ fix_pow(x, y)
 	x = rb_int2big(FIX2LONG(x));
 	return rb_big_pow(x, y);
       case T_FLOAT:
-	if (a == 0) return rb_float_new(0.0);
+	if (a == 0) {
+	    return rb_float_new(RFLOAT(y)->value < 0 ? (1.0 / zero) : 0.0);
+	}
 	if (a == 1) return rb_float_new(1.0);
 	return rb_float_new(pow((double)a, RFLOAT(y)->value));
       default:
@@ -2397,6 +2434,16 @@ fix_rev(num)
     return LONG2NUM(val);
 }
 
+static VALUE
+fix_coerce(x)
+    VALUE x;
+{
+    while (!FIXNUM_P(x) && TYPE(x) != T_BIGNUM) {
+	x = rb_to_int(x);
+    }
+    return x;
+}
+
 /*
  * call-seq:
  *   fix & other     => integer
@@ -2410,10 +2457,10 @@ fix_and(x, y)
 {
     long val;
 
-    if (TYPE(y) == T_BIGNUM) {
+    if (!FIXNUM_P(y = fix_coerce(y))) {
 	return rb_big_and(y, x);
     }
-    val = FIX2LONG(x) & NUM2LONG(y);
+    val = FIX2LONG(x) & FIX2LONG(y);
     return LONG2NUM(val);
 }
 
@@ -2430,10 +2477,10 @@ fix_or(x, y)
 {
     long val;
 
-    if (TYPE(y) == T_BIGNUM) {
+    if (!FIXNUM_P(y = fix_coerce(y))) {
 	return rb_big_or(y, x);
     }
-    val = FIX2LONG(x) | NUM2LONG(y);
+    val = FIX2LONG(x) | FIX2LONG(y);
     return LONG2NUM(val);
 }
 
@@ -2450,10 +2497,10 @@ fix_xor(x, y)
 {
     long val;
 
-    if (TYPE(y) == T_BIGNUM) {
+    if (!FIXNUM_P(y = fix_coerce(y))) {
 	return rb_big_xor(y, x);
     }
-    val = FIX2LONG(x) ^ NUM2LONG(y);
+    val = FIX2LONG(x) ^ FIX2LONG(y);
     return LONG2NUM(val);
 }
 
@@ -2552,7 +2599,7 @@ fix_aref(fix, idx)
     long val = FIX2LONG(fix);
     long i;
 
-    if (TYPE(idx) == T_BIGNUM) {
+    if (!FIXNUM_P(idx = fix_coerce(idx))) {
 	idx = rb_big_norm(idx);
 	if (!FIXNUM_P(idx)) {
 	    if (!RBIGNUM(idx)->sign || val >= 0)
@@ -2560,7 +2607,7 @@ fix_aref(fix, idx)
 	    return INT2FIX(1);
 	}
     }
-    i = NUM2LONG(idx);
+    i = FIX2LONG(idx);
 
     if (i < 0) return INT2FIX(0);
     if (sizeof(VALUE)*CHAR_BIT-1 < i) {

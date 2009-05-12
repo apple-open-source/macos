@@ -1,7 +1,7 @@
 diff -Naur configure.orig configure
 --- configure.orig      2007-05-06 08:05:26.000000000 -0700
 +++ configure   2007-05-06 08:06:05.000000000 -0700
-@@ -3600,10 +3600,6 @@
+@@ -3679,10 +3679,6 @@
          CPPFLAGS="$CPPFLAGS -no-cpp-precomp"
        fi
      fi
@@ -9,20 +9,9 @@ diff -Naur configure.orig configure
 -#define BIND_8_COMPAT 1
 -EOF
 -
-     php_multiple_shlib_versions_ok=yes;;
- *beos*)
-     beos_threads=1
-diff -Naur configure.in.orig configure.in
---- configure.in.orig   2007-05-06 08:07:24.000000000 -0700
-+++ configure.in        2007-05-06 08:08:01.000000000 -0700
-@@ -174,7 +174,6 @@
-         CPPFLAGS="$CPPFLAGS -no-cpp-precomp"
-       fi
-     fi
--    AC_DEFINE(BIND_8_COMPAT, 1, [Enabling BIND8 compatibility for Panther])
-     php_multiple_shlib_versions_ok=yes;;
- *beos*)
-     beos_threads=1
+     php_multiple_shlib_versions_ok=yes
+     ;;
+   *beos*)
 diff -Naur /tmp/apache_mod_php/php-4.3.8/ext/standard/dns.c ./ext/standard/dns.c
 --- /tmp/apache_mod_php/php-4.3.8/ext/standard/dns.c    2003-09-01 15:37:46.000000000 -0700
 +++ ./ext/standard/dns.c        2004-12-14 12:37:22.000000000 -0800

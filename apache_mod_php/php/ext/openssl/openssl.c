@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: openssl.c,v 1.98.2.5.2.45 2008/04/07 10:44:03 tony2001 Exp $ */
+/* $Id: openssl.c,v 1.98.2.5.2.50 2008/11/30 21:39:57 pajoye Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -56,6 +56,7 @@
 #define OPENSSL_ALGO_MD5	2
 #define OPENSSL_ALGO_MD4	3
 #define OPENSSL_ALGO_MD2	4
+#define OPENSSL_ALGO_DSS1	5
 
 #define DEBUG_SMIME	0
 
@@ -641,6 +642,9 @@ static EVP_MD * php_openssl_get_evp_md_from_algo(long algo) { /* {{{ */
 		case OPENSSL_ALGO_MD2:
 			mdtype = (EVP_MD *) EVP_md2();
 			break;
+		case OPENSSL_ALGO_DSS1:
+			mdtype = (EVP_MD *) EVP_dss1();
+			break;
 		default:
 			return NULL;
 			break;
@@ -692,6 +696,7 @@ PHP_MINIT_FUNCTION(openssl)
 	REGISTER_LONG_CONSTANT("OPENSSL_ALGO_MD5", OPENSSL_ALGO_MD5, CONST_CS|CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("OPENSSL_ALGO_MD4", OPENSSL_ALGO_MD4, CONST_CS|CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("OPENSSL_ALGO_MD2", OPENSSL_ALGO_MD2, CONST_CS|CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("OPENSSL_ALGO_DSS1", OPENSSL_ALGO_DSS1, CONST_CS|CONST_PERSISTENT);
 
 	/* flags for S/MIME */
 	REGISTER_LONG_CONSTANT("PKCS7_DETACHED", PKCS7_DETACHED, CONST_CS|CONST_PERSISTENT);
@@ -1200,7 +1205,7 @@ PHP_FUNCTION(openssl_x509_checkpurpose)
 	STACK_OF(X509) * untrustedchain = NULL;
 	long purpose;
 	char * untrusted = NULL;
-	int untrusted_len;
+	int untrusted_len, ret;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "Zl|a!s", &zcert, &purpose, &zcainfo, &untrusted, &untrusted_len)
 			== FAILURE) {
@@ -1224,7 +1229,15 @@ PHP_FUNCTION(openssl_x509_checkpurpose)
 	if (cert == NULL) {
 		goto clean_exit;
 	}
-	RETVAL_LONG(check_cert(cainfo, cert, untrustedchain, purpose));
+
+	ret = check_cert(cainfo, cert, untrustedchain, purpose);
+
+        if (ret != 0 && ret != 1) {
+                RETVAL_LONG(ret);
+        } else {
+                RETVAL_BOOL(ret);
+        }
+
 
 clean_exit:
 	if (certresource == 1 && cert) {
@@ -2086,7 +2099,7 @@ cleanup:
 }
 /* }}} */
 
-/* {{{ proto bool openssl_csr_new(array dn, resource &privkey [, array configargs, array extraattribs])
+/* {{{ proto bool openssl_csr_new(array dn, resource &privkey [, array configargs [, array extraattribs]])
    Generates a privkey and CSR */
 PHP_FUNCTION(openssl_csr_new)
 {
@@ -3010,7 +3023,7 @@ PHP_FUNCTION(openssl_pkcs7_encrypt)
 		}
 	}
 
-	BIO_reset(infile);
+	(void)BIO_reset(infile);
 
 	/* write the encrypted data */
 	SMIME_write_PKCS7(outfile, p7, infile, flags);
@@ -3099,7 +3112,7 @@ PHP_FUNCTION(openssl_pkcs7_sign)
 		goto clean_exit;
 	}
 
-	BIO_reset(infile);
+	(void)BIO_reset(infile);
 
 	/* tack on extra headers */
 	if (zheaders) {
@@ -3522,7 +3535,9 @@ PHP_FUNCTION(openssl_sign)
 		efree(sigbuf);
 		RETVAL_FALSE;
 	}
+#if OPENSSL_VERSION_NUMBER >= 0x0090700fL
 	EVP_MD_CTX_cleanup(&md_ctx);
+#endif
 	if (keyresource == -1) {
 		EVP_PKEY_free(pkey);
 	}
@@ -3562,7 +3577,9 @@ PHP_FUNCTION(openssl_verify)
 	EVP_VerifyInit   (&md_ctx, mdtype);
 	EVP_VerifyUpdate (&md_ctx, data, data_len);
 	err = EVP_VerifyFinal (&md_ctx, (unsigned char *)signature, signature_len, pkey);
+#if OPENSSL_VERSION_NUMBER >= 0x0090700fL
 	EVP_MD_CTX_cleanup(&md_ctx);
+#endif
 
 	if (keyresource == -1) {
 		EVP_PKEY_free(pkey);
@@ -3918,30 +3935,33 @@ SSL *php_SSL_new_from_context(SSL_CTX *ctx, php_stream *stream TSRMLS_DC) /* {{{
 		X509 *cert = NULL;
 		EVP_PKEY *key = NULL;
 		SSL *tmpssl;
+		char resolved_path_buff[MAXPATHLEN];
 
-		/* a certificate to use for authentication */
-		if (SSL_CTX_use_certificate_chain_file(ctx, certfile) != 1) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to set local cert chain file `%s'; Check that your cafile/capath settings include details of your certificate and its issuer", certfile);
-			return NULL;
-		}
+		if (VCWD_REALPATH(certfile, resolved_path_buff)) {
+			/* a certificate to use for authentication */
+			if (SSL_CTX_use_certificate_chain_file(ctx, resolved_path_buff) != 1) {
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to set local cert chain file `%s'; Check that your cafile/capath settings include details of your certificate and its issuer", certfile);
+				return NULL;
+			}
 
-		if (SSL_CTX_use_PrivateKey_file(ctx, certfile, SSL_FILETYPE_PEM) != 1) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to set private key file `%s'", certfile);
-			return NULL;
-		}
+			if (SSL_CTX_use_PrivateKey_file(ctx, resolved_path_buff, SSL_FILETYPE_PEM) != 1) {
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to set private key file `%s'", resolved_path_buff);
+				return NULL;
+			}
 
-		tmpssl = SSL_new(ctx);
-		cert = SSL_get_certificate(tmpssl);
+			tmpssl = SSL_new(ctx);
+			cert = SSL_get_certificate(tmpssl);
 
-		if (cert) {
-			key = X509_get_pubkey(cert);
-			EVP_PKEY_copy_parameters(key, SSL_get_privatekey(tmpssl));
-			EVP_PKEY_free(key);
-		}
-		SSL_free(tmpssl);
+			if (cert) {
+				key = X509_get_pubkey(cert);
+				EVP_PKEY_copy_parameters(key, SSL_get_privatekey(tmpssl));
+				EVP_PKEY_free(key);
+			}
+			SSL_free(tmpssl);
 
-		if (!SSL_CTX_check_private_key(ctx)) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Private key does not match certificate!");
+			if (!SSL_CTX_check_private_key(ctx)) {
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Private key does not match certificate!");
+			}
 		}
 	}
 	if (ok) {

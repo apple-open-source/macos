@@ -1,0 +1,21 @@
+#!/bin/sh
+#
+# Definitions for GNU Enscript testing environment.
+#
+
+# Set ENSCRIPT_LIBRARY so enscript knows where the library files are.
+ENSCRIPT_LIBRARY="$srcdir/../../lib"
+export ENSCRIPT_LIBRARY
+
+output=testout.ps
+
+asciifiles="$srcdir/defs $srcdir/ascii.test $srcdir/../psgen.c"
+binaryfiles="../enscript ../mkafmmap"
+
+enscript="../enscript"
+
+# Check that $srcdir is set correctly.
+test -f $srcdir/defs || {
+  echo "defs: installation error" 1>&2
+  exit 1
+}

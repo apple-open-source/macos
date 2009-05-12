@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dir.c,v 1.147.2.3.2.16 2008/03/05 12:10:18 tony2001 Exp $ */
+/* $Id: dir.c,v 1.147.2.3.2.20 2008/08/11 23:16:40 lbarnaud Exp $ */
 
 /* {{{ includes/startup/misc */
 
@@ -26,6 +26,7 @@
 #include "php_dir.h"
 #include "php_string.h"
 #include "php_scandir.h"
+#include "basic_functions.h"
 
 #ifdef HAVE_DIRENT_H
 #include <dirent.h>
@@ -220,6 +221,8 @@ static void _php_do_opendir(INTERNAL_FUNCTION_PARAMETERS, int createobject)
 	if (dirp == NULL) {
 		RETURN_FALSE;
 	}
+
+	dirp->flags |= PHP_STREAM_FLAG_NO_FCLOSE;
 		
 	php_set_default_dir(dirp->rsrc_id TSRMLS_CC);
 
@@ -260,6 +263,11 @@ PHP_FUNCTION(closedir)
 
 	FETCH_DIRP();
 
+	if (!(dirp->flags & PHP_STREAM_FLAG_IS_DIR)) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%d is not a valid Directory resource", dirp->rsrc_id);
+		RETURN_FALSE;
+	}
+
 	rsrc_id = dirp->rsrc_id;
 	zend_list_delete(dirp->rsrc_id);
 
@@ -287,7 +295,7 @@ PHP_FUNCTION(chroot)
 		RETURN_FALSE;
 	}
 
-	realpath_cache_clean(TSRMLS_C);
+	php_clear_stat_cache(TSRMLS_C);
 	
 	ret = chdir("/");
 	
@@ -320,6 +328,15 @@ PHP_FUNCTION(chdir)
 	if (ret != 0) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s (errno %d)", strerror(errno), errno);
 		RETURN_FALSE;
+	}
+
+	if (BG(CurrentStatFile) && !IS_ABSOLUTE_PATH(BG(CurrentStatFile), strlen(BG(CurrentStatFile)))) {
+		efree(BG(CurrentStatFile));
+		BG(CurrentStatFile) = NULL;
+	}
+	if (BG(CurrentLStatFile) && !IS_ABSOLUTE_PATH(BG(CurrentLStatFile), strlen(BG(CurrentLStatFile)))) {
+		efree(BG(CurrentLStatFile));
+		BG(CurrentLStatFile) = NULL;
 	}
 
 	RETURN_TRUE;
@@ -360,6 +377,11 @@ PHP_FUNCTION(rewinddir)
 	
 	FETCH_DIRP();
 
+	if (!(dirp->flags & PHP_STREAM_FLAG_IS_DIR)) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%d is not a valid Directory resource", dirp->rsrc_id);
+		RETURN_FALSE;
+	}
+
 	php_stream_rewinddir(dirp);
 }
 /* }}} */
@@ -373,6 +395,11 @@ PHP_NAMED_FUNCTION(php_if_readdir)
 	php_stream_dirent entry;
 
 	FETCH_DIRP();
+
+	if (!(dirp->flags & PHP_STREAM_FLAG_IS_DIR)) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%d is not a valid Directory resource", dirp->rsrc_id);
+		RETURN_FALSE;
+	}
 
 	if (php_stream_readdir(dirp, &entry)) {
 		RETURN_STRINGL(entry.d_name, strlen(entry.d_name), 1);

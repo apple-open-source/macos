@@ -143,7 +143,7 @@ UConverter_toUnicode_HZ_OFFSETS_LOGIC(UConverterToUnicodeArgs *args,
     UChar *myTarget = args->target;
     const char *mySourceLimit = args->sourceLimit;
     UChar32 targetUniChar = 0x0000;
-    UChar mySourceChar = 0x0000;
+    int32_t mySourceChar = 0x0000;
     UConverterDataHZ* myData=(UConverterDataHZ*)(args->converter->extraInfo);
     tempBuf[0]=0; 
     tempBuf[1]=0;
@@ -157,105 +157,136 @@ UConverter_toUnicode_HZ_OFFSETS_LOGIC(UConverterToUnicodeArgs *args,
         if(myTarget < args->targetLimit){
             
             mySourceChar= (unsigned char) *mySource++;
-
-            switch(mySourceChar){
-                case 0x0A:
-                    if(args->converter->mode ==UCNV_TILDE){
-                        args->converter->mode=0;
-                        
-                    }
-                    *(myTarget++)=(UChar)mySourceChar;
-                    myData->isEmptySegment = FALSE;
-                    continue;
             
-                case UCNV_TILDE:
-                    if(args->converter->mode ==UCNV_TILDE){
-                        *(myTarget++)=(UChar)mySourceChar;
-                        args->converter->mode=0;
-                        myData->isEmptySegment = FALSE;
-                        continue;
-                        
-                    }
-                    else if(args->converter->toUnicodeStatus !=0){
-                        args->converter->mode=0;
-                        break;
-                    }
-                    else{
-                        args->converter->mode = UCNV_TILDE;
-                        continue;
-                    }
-                
-                
-                case UCNV_OPEN_BRACE:
-                    if(args->converter->mode == UCNV_TILDE){
-                        args->converter->mode=0;
-                        myData->isStateDBCS = TRUE;
-                        myData->isEmptySegment = TRUE;
-                        continue;
-                    }
-                    else{
-                        break;
-                    }
-               
-                
-                case UCNV_CLOSE_BRACE:
-                    if(args->converter->mode == UCNV_TILDE){
-                        args->converter->mode=0;
-                         myData->isStateDBCS = FALSE;
-                         if (myData->isEmptySegment) {
-                            myData->isEmptySegment = FALSE;	/* we are handling it, reset to avoid future spurious errors */
-                            *err = U_PARSE_ERROR;	/* temporary err to flag empty segment, will be reset to U_ILLEGAL_ESCAPE_SEQUENCE in _toUnicodeWithCallback */
-                            args->converter->toUBytes[0] = UCNV_TILDE;
-                            args->converter->toUBytes[1] = mySourceChar;
-                            args->converter->toULength = 2;
-                         	goto EXIT;
-                         }
-                         myData->isEmptySegment = TRUE;
-                        continue;
-                    }
-                    else{
-                        break;
-                    }
-                
-                default:
-                     /* if the first byte is equal to TILDE and the trail byte
-                     * is not a valid byte then it is an error condition
-                     */
-                    if(args->converter->mode == UCNV_TILDE){
-                        args->converter->mode=0;
-                        mySourceChar= (UChar)(((UCNV_TILDE+0x80) << 8) | ((mySourceChar & 0x00ff)+0x80));
-                        myData->isEmptySegment = FALSE;	/* different error here, reset this to avoid spurious future error */
-                        goto SAVE_STATE;
-                    }
-                    
-                    break;
-
-            }
-             
-            myData->isEmptySegment = FALSE;	/* the segment has something, either valid or will produce a different error, so reset this */
-            if(myData->isStateDBCS){
+            if(args->converter->mode == UCNV_TILDE) {
+                /* second byte after ~ */
+                args->converter->mode=0;
+                switch(mySourceChar) {
+				case 0x0A:
+					/* no output for ~\n (line-continuation marker) */
+					continue;
+				case UCNV_TILDE:
+				    if(args->offsets) {
+					    args->offsets[myTarget - args->target]=(int32_t)(mySource - args->source - 2);
+				    }
+					*(myTarget++)=(UChar)mySourceChar;
+					myData->isEmptySegment = FALSE;
+					continue;
+				case UCNV_OPEN_BRACE:
+				case UCNV_CLOSE_BRACE:
+					 myData->isStateDBCS = (mySourceChar == UCNV_OPEN_BRACE);
+					 if (myData->isEmptySegment) {
+						myData->isEmptySegment = FALSE; /* we are handling it, reset to avoid future spurious errors */
+						*err = U_PARSE_ERROR;   /* temporary err to flag empty segment, will be reset to U_ILLEGAL_ESCAPE_SEQUENCE in _toUnicodeWithCallback */
+						args->converter->toUBytes[0] = UCNV_TILDE;
+						args->converter->toUBytes[1] = mySourceChar;
+						args->converter->toULength = 2;
+						args->target = myTarget;
+						args->source = mySource;
+						return;
+					 }
+					 myData->isEmptySegment = TRUE;
+					continue;
+				default:
+					/* if the first byte is equal to TILDE and the trail byte
+					 * is not a valid byte then it is an error condition
+					 */
+					/* old
+					myData->isEmptySegment = FALSE;
+					mySourceChar= (UChar)(((UCNV_TILDE+0x80) << 8) | ((mySourceChar & 0x00ff)+0x80));
+					goto SAVE_STATE;
+					*/
+					/*
+					 * Ticket 5691: consistent illegal sequences:
+					 * - We include at least the first byte in the illegal sequence.
+					 * - If any of the non-initial bytes could be the start of a character,
+					 *   we stop the illegal sequence before the first one of those.
+					 */
+					myData->isEmptySegment = FALSE; /* different error here, reset this to avoid spurious future error */
+					*err = U_ILLEGAL_ESCAPE_SEQUENCE;
+					args->converter->toUBytes[0] = UCNV_TILDE;
+					if( myData->isStateDBCS ?
+							(0x21 <= mySourceChar && mySourceChar <= 0x7e) :
+							mySourceChar <= 0x7f
+					) {
+						/* The current byte could be the start of a character: Back it out. */
+						args->converter->toULength = 1;
+						--mySource;
+					} else {
+						/* Include the current byte in the illegal sequence. */
+						args->converter->toUBytes[1] = mySourceChar;
+						args->converter->toULength = 2;
+					}
+					args->target = myTarget;
+					args->source = mySource;
+					return;
+                }
+            } else if(myData->isStateDBCS) {
                 if(args->converter->toUnicodeStatus == 0x00){
-                    args->converter->toUnicodeStatus = (UChar) mySourceChar;
+                    /* lead byte */
+                    if(mySourceChar == UCNV_TILDE) {
+                        args->converter->mode = UCNV_TILDE;
+                    } else {
+                        /* add another bit to distinguish a 0 byte from not having seen a lead byte */
+                        args->converter->toUnicodeStatus = (uint32_t) (mySourceChar | 0x100);
+                        myData->isEmptySegment = FALSE; /* the segment has something, either valid or will produce a different error, so reset this */
+                    }
                     continue;
                 }
                 else{
+                    /* trail byte */
+                    /* old
                     tempBuf[0] = (char) (args->converter->toUnicodeStatus+0x80) ;
                     tempBuf[1] = (char) (mySourceChar+0x80);
                     mySourceChar= (UChar)(((args->converter->toUnicodeStatus+0x80) << 8) | ((mySourceChar & 0x00ff)+0x80));
                     args->converter->toUnicodeStatus =0x00;
                     targetUniChar = ucnv_MBCSSimpleGetNextUChar(myData->gbConverter->sharedData,
                         tempBuf, 2, args->converter->useFallback);
+                    */
+                    int leadIsOk, trailIsOk;
+                    uint32_t leadByte = args->converter->toUnicodeStatus & 0xff;
+                    targetUniChar = 0xffff;
+                    /*
+                     * Ticket 5691: consistent illegal sequences:
+                     * - We include at least the first byte in the illegal sequence.
+                     * - If any of the non-initial bytes could be the start of a character,
+                     *   we stop the illegal sequence before the first one of those.
+                     *
+                     * In HZ DBCS, if the second byte is in the 21..7e range,
+                     * we report only the first byte as the illegal sequence.
+                     * Otherwise we convert or report the pair of bytes.
+                     */
+                    leadIsOk = (uint8_t)(leadByte - 0x21) <= (0x7d - 0x21);
+                    trailIsOk = (uint8_t)(mySourceChar - 0x21) <= (0x7e - 0x21);
+                    if (leadIsOk && trailIsOk) {
+                        tempBuf[0] = (char) (leadByte+0x80) ;
+                        tempBuf[1] = (char) (mySourceChar+0x80);
+                        targetUniChar = ucnv_MBCSSimpleGetNextUChar(myData->gbConverter->sharedData,
+                            tempBuf, 2, args->converter->useFallback);
+                        mySourceChar= (leadByte << 8) | mySourceChar;
+                    } else if (trailIsOk) {
+                        /* report a single illegal byte and continue with the following DBCS starter byte */
+                        --mySource;
+                        mySourceChar = (int32_t)leadByte;
+                    } else {
+                        /* report a pair of illegal bytes if the second byte is not a DBCS starter */
+                        /* add another bit so that the code below writes 2 bytes in case of error */
+                        mySourceChar= 0x10000 | (leadByte << 8) | mySourceChar;
+                    }
+                    args->converter->toUnicodeStatus =0x00;
                 }
             }
             else{
-                if(args->converter->fromUnicodeStatus == 0x00){
-                    targetUniChar = ucnv_MBCSSimpleGetNextUChar(myData->gbConverter->sharedData,
-                        mySource - 1, 1, args->converter->useFallback);
+                if(mySourceChar == UCNV_TILDE) {
+                    args->converter->mode = UCNV_TILDE;
+                    continue;
+                } else if(mySourceChar <= 0x7f) {
+                    targetUniChar = (UChar)mySourceChar;  /* ASCII */
+                    myData->isEmptySegment = FALSE; /* the segment has something valid */
+                } else {
+                    targetUniChar = 0xffff;
+                    myData->isEmptySegment = FALSE; /* different error here, reset this to avoid spurious future error */
                 }
-                else{
-                    goto SAVE_STATE;
-                }
-
             }
             if(targetUniChar < 0xfffe){
                 if(args->offsets) {
@@ -264,27 +295,18 @@ UConverter_toUnicode_HZ_OFFSETS_LOGIC(UConverterToUnicodeArgs *args,
 
                 *(myTarget++)=(UChar)targetUniChar;
             }
-            else if(targetUniChar>=0xfffe){
-SAVE_STATE:
+            else /* targetUniChar>=0xfffe */ {
                 if(targetUniChar == 0xfffe){
                     *err = U_INVALID_CHAR_FOUND;
                 }
                 else{
                     *err = U_ILLEGAL_CHAR_FOUND;
                 }
-                if(myData->isStateDBCS){
-                    /* this should never occur since isStateDBCS is set to true 
-                     * only after tempBuf[0] and tempBuf[1]
-                     * are set to the input ..  just to please BEAM 
-                     */
-                    if(tempBuf[0]==0 || tempBuf[1]==0){
-                        *err = U_INTERNAL_PROGRAM_ERROR;
-                    }else{
-                        args->converter->toUBytes[0] = (uint8_t)(tempBuf[0]-0x80);
-                        args->converter->toUBytes[1] = (uint8_t)(tempBuf[1]-0x80);
+                if(mySourceChar > 0xff){
+                    args->converter->toUBytes[0] = (uint8_t)(mySourceChar >> 8);
+                    args->converter->toUBytes[1] = (uint8_t)mySourceChar;
                         args->converter->toULength=2;
                     }
-                }
                 else{
                     args->converter->toUBytes[0] = (uint8_t)mySourceChar;
                     args->converter->toULength=1;
@@ -297,7 +319,7 @@ SAVE_STATE:
             break;
         }
     }
-EXIT:
+
     args->target = myTarget;
     args->source = mySource;
 }

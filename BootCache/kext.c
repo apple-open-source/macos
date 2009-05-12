@@ -2058,7 +2058,7 @@ BC_sysctl SYSCTL_HANDLER_ARGS
 		if (bc.bc_data != NULL) {
 			if (bc.bc_length < BC_size_history()) {
 				debug("supplied history buffer too small");
-				error = ENOMEM;
+				error = EINVAL;
 				break;
 			}
 			if ((error = BC_copyout_history(bc.bc_data)) != 0)
@@ -2242,9 +2242,9 @@ BC_free_page(struct BC_cache_extent *ce, int page)
 {
 
 	/*
-	 * Translate the page in the extent to the page in the buffer.
+	 * Translate the page in the extent to the page in the submap.
 	 */
-	int realpage = page + (((unsigned int) ce->ce_data) / PAGE_SIZE);
+	int realpage = page + (((unsigned int) (ce->ce_data - BC_cache->c_buffer)) / PAGE_SIZE);
 
 	/*
 	 * Deallocate the page from our submap.

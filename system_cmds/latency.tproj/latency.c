@@ -879,7 +879,7 @@ char *argv[];
             exit(EXIT_FAILURE);
 	}
 
-	if ((last_decrementer_kd = (kd_buf **)malloc(hi.avail_cpus * sizeof(kd_buf *))) == (kd_buf **)0)
+	if ((last_decrementer_kd = (kd_buf **)malloc(hi.max_cpus * sizeof(kd_buf *))) == (kd_buf **)0)
 	        quit("can't allocate memory for decrementer tracing info\n");
 
 	nanosecs_to_sleep = (double)(num_of_usecs_to_sleep * 1000);
@@ -1299,7 +1299,7 @@ void sample_sc(uint64_t start, uint64_t stop)
 	end_of_sample = &((kd_buf *)my_buffer)[count];
 
 	/* Always reinitialize the DECR_TRAP array */
-	for (i=0; i < hi.avail_cpus; i++)
+	for (i=0; i < hi.max_cpus; i++)
 	      last_decrementer_kd[i] = (kd_buf *)my_buffer;
 
 	last_mach_sched = (kd_buf *)0;

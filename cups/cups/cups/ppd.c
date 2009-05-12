@@ -350,7 +350,7 @@ _ppdGetEncoding(const char *name)	/* I - LanguageEncoding string */
   else if (!strcasecmp(name, "ISOLatin5"))
     return (CUPS_ISO8859_5);
   else if (!strcasecmp(name, "JIS83-RKSJ"))
-    return (CUPS_WINDOWS_932);
+    return (CUPS_JIS_X0213);
   else if (!strcasecmp(name, "MacStandard"))
     return (CUPS_MAC_ROMAN);
   else if (!strcasecmp(name, "WindowsANSI"))
@@ -1038,19 +1038,23 @@ ppdOpen2(cups_file_t *fp)		/* I - File to read from */
 	* Add the "custom" option...
 	*/
 
-	if ((choice = ppd_add_choice(custom_option, "Custom")) == NULL)
-	{
-	  DEBUG_puts("Unable to add Custom choice!");
+        if ((choice = ppdFindChoice(custom_option, "Custom")) == NULL)
+	  if ((choice = ppd_add_choice(custom_option, "Custom")) == NULL)
+	  {
+	    DEBUG_puts("Unable to add Custom choice!");
 
-	  cg->ppd_status = PPD_ALLOC_ERROR;
+	    cg->ppd_status = PPD_ALLOC_ERROR;
 
-	  goto error;
-	}
+	    goto error;
+	  }
 
 	strlcpy(choice->text, text[0] ? text : _("Custom"),
 		sizeof(choice->text));
 
 	choice->code = strdup(string);
+
+	if (custom_option->section == PPD_ORDER_JCL)
+	  ppd_decode(choice->code);
       }
 
      /*
@@ -1074,14 +1078,15 @@ ppdOpen2(cups_file_t *fp)		/* I - File to read from */
 
         if (custom_option)
 	{
-	  if ((choice = ppd_add_choice(custom_option, "Custom")) == NULL)
-	  {
-	    DEBUG_puts("Unable to add Custom choice!");
+	  if ((choice = ppdFindChoice(custom_option, "Custom")) == NULL)
+	    if ((choice = ppd_add_choice(custom_option, "Custom")) == NULL)
+	    {
+	      DEBUG_puts("Unable to add Custom choice!");
 
-	    cg->ppd_status = PPD_ALLOC_ERROR;
+	      cg->ppd_status = PPD_ALLOC_ERROR;
 
-	    goto error;
-	  }
+	      goto error;
+	    }
 
 	  strlcpy(choice->text, text[0] ? text : _("Custom"),
 		  sizeof(choice->text));
@@ -1286,14 +1291,15 @@ ppdOpen2(cups_file_t *fp)		/* I - File to read from */
 
       if ((custom_attr = ppdFindAttr(ppd, custom_name, "True")) != NULL)
       {
-	if ((choice = ppd_add_choice(option, "Custom")) == NULL)
-	{
-	  DEBUG_puts("Unable to add Custom choice!");
+        if ((choice = ppdFindChoice(option, "Custom")) == NULL)
+	  if ((choice = ppd_add_choice(option, "Custom")) == NULL)
+	  {
+	    DEBUG_puts("Unable to add Custom choice!");
 
-	  cg->ppd_status = PPD_ALLOC_ERROR;
+	    cg->ppd_status = PPD_ALLOC_ERROR;
 
-	  goto error;
-	}
+	    goto error;
+	  }
 
 	strlcpy(choice->text,
 	        custom_attr->text[0] ? custom_attr->text : _("Custom"),

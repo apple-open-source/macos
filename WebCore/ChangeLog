@@ -1,3 +1,499 @@
+2009-03-19  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by NOBODY (OOPS!).
+
+        <rdar://problem/6702386> Incorrect bound check in SVGList::insertItemBefore
+
+        SVGList::insertItemBefore would not perform a bounds check on the
+        index it was provided, potentially leading to a buffer overflow.
+
+        Test: svg/dom/svglist-exception-on-out-bounds-error.html
+
+        * svg/SVGList.h:
+        (WebCore::SVGList::insertItemBefore):
+
+2009-02-26  Mark Rowe  <mrowe@apple.com>
+
+        Merge r41190.
+
+    2009-02-24  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Geoffrey Garen.
+
+        Related to <rdar://problem/6590295>
+        Allow disabling javascript: urls.
+
+        * WebCore.base.exp:
+        * html/HTMLAnchorElement.cpp:
+        (WebCore::HTMLAnchorElement::parseMappedAttribute):
+        * loader/FrameLoader.cpp:
+        (WebCore::FrameLoader::executeIfJavaScriptURL):
+        * page/Page.cpp:
+        (WebCore::Page::Page):
+        (WebCore::Page::setJavaScriptURLsAreAllowed):
+        (WebCore::Page::javaScriptURLsAreAllowed):
+        * page/Page.h:
+
+2009-01-28  Ada Chan  <adachan@apple.com>
+
+        Merge the rest of r33579.
+
+        Reviewed by Steve Falkenburg.
+
+        * platform/network/cf/ResourceHandleCFNet.cpp:
+        (WebCore::makeFinalRequest):
+        * platform/network/cf/ResourceRequestCFNet.cpp:
+        (WebCore::ResourceRequest::doUpdatePlatformRequest):
+        * platform/network/win/CookieJarWin.cpp:
+        (WebCore::setCookies):
+        (WebCore::cookies):
+        (WebCore::cookiesEnabled):
+
+2009-01-20  Mark Rowe  <mrowe@apple.com>
+
+        Merge r33579.
+
+    2008-05-19  Ada Chan  <adachan@apple.com>
+
+        Added CookieStorageWin.h/cpp, introducing methods to get/set the current CFHTTPCookieStorageRef.
+        When setting cookies-related attributes in CFURLRequest, make sure we get them from the
+        current CFHTTPCookieStorageRef.  Also, set the cookie storage in CFURLRequest.
+
+        Reviewed by Steve Falkenburg.
+
+        * WebCore.vcproj/WebCore.vcproj:
+        * platform/network/cf/ResourceHandleCFNet.cpp:
+        (WebCore::makeFinalRequest):
+        * platform/network/cf/ResourceRequestCFNet.cpp:
+        (WebCore::ResourceRequest::doUpdatePlatformRequest):
+        * platform/network/win/CookieJarCFNetWin.cpp:
+        (WebCore::setCookies):
+        (WebCore::cookies):
+        (WebCore::cookiesEnabled):
+        * platform/network/win/CookieStorageWin.cpp: Added.
+        (WebCore::currentCookieStorage):
+        (WebCore::setCurrentCookieStorage):
+        * platform/network/win/CookieStorageWin.h: Added.
+
+2009-01-19  Mark Rowe  <mrowe@apple.com>
+
+        Merge r33993.
+
+    2008-05-21  Beth Dakin  <bdakin@apple.com>
+
+        Reviewed by Anders.
+
+        Fix for <rdar://problem/5848161> REGRESSION (r31438?): Crash 
+        beneath ResourceHandle::setDefersLoading while running fast/loader/
+        simultaneous-reloads-assert.html (null CFURLConnection)
+
+        * platform/network/cf/ResourceHandleCFNet.cpp:
+        (WebCore::ResourceHandle::setDefersLoading): Added simple null-
+        check.
+
+2009-01-19  Mark Rowe  <mrowe@apple.com>
+
+        Merge r39247.
+
+    2008-12-11  Steve Falkenburg  <sfalken@apple.com>
+
+        Delete the previous timer-queue timer in the main thread, just prior to scheduling a new timer.
+        The code previously called DeleteTimerQueueTimer in the timer callback proc.
+        
+        The new technique simplifies the code, since we now create and delete timers on the
+        same thread, and don't access the timer queue or timer handles in the callback.
+        This allows us to remove some mutex use, and more importantly, it solves a race
+        condition that was occuring between ChangeTimerQueueTimer and DeleteTimerQueueTimer.
+        
+        Since the timer callback isn't passed the timer handle, we were retrieving that handle
+        via a global. If the timer callback code was entered, but then a new timer was immediately
+        scheduled (prior to the callback acquiring the mutex and calling DeleteTimerQueueTimer),
+        there was a small window where the timer could be re-scheduled via ChangeTimerQueueTimer
+        and then immediately deleted once the already running callback acquired the mutex and
+        then called DeleteTimerQueueTimer. This resulted in the newly scheduled timer never firing.
+        
+        Reviewed by Oliver Hunt.
+
+        * platform/win/SharedTimerWin.cpp:
+        (WebCore::queueTimerProc): Don't delete the timer in the callback.
+        (WebCore::setSharedTimerFireTime): Always delete and create the timer instead of using ChangeTimerQueueTimer.
+        (WebCore::stopSharedTimer): Call DeleteTimerQueueTimer directly.
+
+2008-10-27  Mark Rowe  <mrowe@apple.com>
+
+        Merge r37628.
+
+    2008-10-15  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        Remove unneeded check of whether a Page defers loading before running it
+        in a modal dialog.
+
+        No test possible.
+
+        Reviewed by Tim Hatcher.
+
+        * page/Chrome.cpp:
+
+2008-10-27  Mark Rowe  <mrowe@apple.com>
+
+        Merge r37897.
+
+    2008-10-27  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Kevin Decker.
+
+        <rdar://problem/6322650> Crash in fast/loader/simultaneous-reloads-assert.html
+        
+        Make sure to null check the NSURLConnection object.
+        
+        * platform/network/mac/ResourceHandleMac.mm:
+        (WebCore::ResourceHandle::start):
+        (WebCore::ResourceHandle::setDefersLoading):
+
+2008-10-22  Mark Rowe  <mrowe@apple.com>
+
+        Merge r37793.
+
+    2008-10-22  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Adam Roben
+
+        <rdar://6261773> - autocomplete="off" doesn't work on Windows
+
+        Visual Studio makes a poor decision regarding the combination of enums and bitfields, such that a 
+        statement like "m_autocomplete = Off" followed by "return m_autocomplete == Off" would return "false" 
+        instead of the much more correct "true."
+        
+        In the past we have worked around this by declaring the bitfield member as an unsigned instead 
+        of the enum type.
+
+        For more discussion, see http://trac.webkit.org/changeset/25329
+
+        * html/HTMLInputElement.h:  Work around insane Visual Studio enum issue  *sigh*
+
+2008-10-21  Mark Rowe  <mrowe@apple.com>
+
+        Merge r37704.
+
+    2008-10-19  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Timothy Hatcher.
+
+        - lower the default button repaint frequency
+
+        * rendering/RenderButton.cpp:
+        (WebCore::RenderButton::styleDidChange): Changed the timer interval from
+        0.01 to 0.03.
+
+2008-10-21  Mark Rowe  <mrowe@apple.com>
+
+        Merge r31577.
+
+    2008-04-02  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Ensure that debug symbols are generated for x86_64 and ppc64 builds.
+
+        * Configurations/Base.xcconfig:
+
+2008-10-13  Steve Falkenburg  <sfalken@apple.com>
+
+        Roll out r36884.
+
+        * platform/graphics/GraphicsContext.h:
+        * platform/graphics/win/GraphicsContextCGWin.cpp:
+        (WebCore::CGContextWithHDC):
+        (WebCore::GraphicsContext::GraphicsContext):
+
+2008-10-07  Mark Rowe  <mrowe@apple.com>
+
+        Merge r35415.
+
+    2008-07-28  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Sam Weinig
+
+        Test: security/autocomplete-cleared-on-back.html
+
+        <rdar://problem/6093281> - autocomplete="off" should work when going back
+
+        Taken care of in two ways:
+        1 - Listening for the page cache notification to clear the form, in cases where the page
+            is being restored from the page cache
+        2 - Not saving such form elements when doing the normal "save state" to a history item,
+            for cases with no page cache
+
+        * html/HTMLFormElement.cpp:
+        (WebCore::HTMLFormElement::~HTMLFormElement):
+        (WebCore::HTMLFormElement::parseMappedAttribute):
+        (WebCore::HTMLFormElement::didRestoreFromCache):
+        (WebCore::HTMLFormElement::willMoveToNewOwnerDocument):
+        (WebCore::HTMLFormElement::didMoveToNewOwnerDocument):
+        * html/HTMLFormElement.h:
+
+        * html/HTMLInputElement.cpp:
+        (WebCore::HTMLInputElement::~HTMLInputElement):
+        (WebCore::HTMLInputElement::setInputType):
+        (WebCore::HTMLInputElement::saveState):
+        (WebCore::HTMLInputElement::parseMappedAttribute):
+        (WebCore::HTMLInputElement::needsCacheCallback):
+        (WebCore::HTMLInputElement::registerForCacheCallbackIfNeeded): Only register if the type or attribute
+          indicate we should.
+        (WebCore::HTMLInputElement::unregisterForCacheCallbackIfNeeded): Only unregister if both the type
+          and attribute are clear of needing registration.
+        (WebCore::HTMLInputElement::didRestoreFromCache):
+        (WebCore::HTMLInputElement::willMoveToNewOwnerDocument):
+        (WebCore::HTMLInputElement::didMoveToNewOwnerDocument):
+        * html/HTMLInputElement.h:
+
+2008-10-07  Mark Rowe  <mrowe@apple.com>
+
+        Merge r35362.
+
+    2008-07-25  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Sam
+
+        Test: security/set-form-autocomplete-attribute.html
+
+        Part of the fix for <rdar://problem/6093281> - Improper handling of autocomplete
+
+        The autocomplete attribute works on both <form> and <input> elements, but was not
+        inherited properly when someone asked an <input> if it should autocomplete.
+
+        I fixed this up based on the rules in the current WF2 spec so if the <input> element
+        has its own autocomplete attribute set, it will follow that but otherwise it will
+        inherit from its parent <form>
+
+        * WebCore.base.exp:
+
+        * html/HTMLInputElement.cpp:
+        (WebCore::HTMLInputElement::init):
+        (WebCore::HTMLInputElement::autoComplete):
+        (WebCore::HTMLInputElement::parseMappedAttribute):
+        * html/HTMLInputElement.h:
+        (WebCore::HTMLInputElement::):
+
+2008-10-06  Mark Rowe  <mrowe@apple.com>
+
+        Merge r33567.
+
+    2008-05-18  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam.
+
+        - fix <rdar://problem/5943569> crash due to stale ownerNode pointer
+
+        Test: fast/dom/StyleSheet/ownerNode-lifetime.html
+
+        * bindings/js/JSStyleSheetCustom.cpp:
+        (WebCore::JSStyleSheet::mark): Added code to mark ownerNode. Includes a comment about how
+        it would be even better to solve this in the DOM rather than just in the JavaScript binding.
+
+        * css/StyleSheet.idl: Added CustomMarkFunction attribute.
+
+2008-10-06  Mark Rowe  <mrowe@apple.com>
+
+        Merge r36108.
+
+    2008-09-04  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Mitz
+
+        <rdar://problem/6180236> - Safari times out connections after 1 or 2 minutes
+
+        A 60-second default timeout was added in http://trac.webkit.org/changeset/17144 in an attempt 
+        to model default NSURLRequest behavior in a cross-platform manner.  
+
+        Sadly by always enforcing this 60 second timeout, WebCore was stomping over the wishes of any Webkit 
+        client that wished to enforce a much larger default timeout using NSURLRequest API.
+
+        Additionally, upon reviewing what all other browsers do, it seems apparent that "no limit" is desirable
+        behavior on the web and this restores previous Safari/WebKit behavior.
+
+        It would be easy to write a layout test for this, but to be effective it would have
+        to run for at least 61 seconds, which seems insane until will can parallelize run-webkit-tests
+
+        * manual-tests/timeout-test.html: Added.
+        * manual-tests/timeout-test.php: Added.
+
+        * platform/network/ResourceRequestBase.h:
+        (WebCore::ResourceRequestBase::ResourceRequestBase):  Rename the constant to "unspecifiedTimeoutInterval"
+          and make it UINT_MAX so platforms that do set it have an effective "no timeout."  (Windows, for example)
+        * platform/network/mac/ResourceRequestMac.mm:
+        (WebCore::ResourceRequest::doUpdatePlatformRequest):  If the timeout for this request is 
+          "unspecifiedTimeoutInterval", then don't bother setting the timeout using NSURLRequest API, allowing
+          WebKit applications to enforce their own default timeout.
+
+2008-10-06  Mark Rowe  <mrowe@apple.com>
+
+        Merge r36811.
+
+    2008-09-23  Alexey Proskuryakov  <ap@webkit.org>
+
+        Reviewed by Oliver Hunt, okayed by Darin Adler.
+
+        <rdar://problem/5575547> REGRESSION: ATOK has no phrase boundary on Safari/Mail.app
+
+        * rendering/InlineTextBox.cpp:
+        (WebCore::InlineTextBox::paintCompositionUnderline): Add 2 pixel spacing between clauses.
+
+2008-10-06  Mark Rowe  <mrowe@apple.com>
+
+        Merge r37008.
+
+    2008-09-27  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        https://bugs.webkit.org/show_bug.cgi?id=21178
+        <rdar://problem/6248651>
+
+        Check if the plug-in is allowed to load the resource. This matches Firefox.
+
+        Test: http/tests/plugins/local-geturl-from-remote.html
+
+        * plugins/PluginView.cpp:
+        (WebCore::PluginView::load):
+
+2008-10-04  Mark Rowe  <mrowe@apple.com>
+
+        Merge r35278.
+
+    2008-07-21  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        <rdar://problem/6091287> Revamp the handling of CFBundleShortVersionString to be fixed at the major component of the version number.
+
+        * Configurations/Version.xcconfig:
+        * Info.plist:
+
+2008-09-21  Steve Falkenburg  <sfalken@apple.com>
+
+        Merge r36748, r36750
+
+    2008-09-21  Steve Falkenburg  <sfalken@apple.com>
+
+        Removed unnecessary nested timer check.
+        
+        Rubber-stamped by Dan Bernstein.
+
+        * platform/win/SharedTimerWin.cpp:
+        (WebCore::TimerWindowWndProc):
+
+    2008-09-21  Steve Falkenburg  <sfalken@apple.com>
+
+        Improve timer resolution on WinXP.
+        https://bugs.webkit.org/show_bug.cgi?id=20979
+        
+        Removed last-chance timer. It should not be necessary.
+        Change timeEndPeriod timer to fire in 300ms instead of 20ms. Calling timeBeginPeriod/timeEndPeriod too often throws off accuracy.
+        Remove Vista checks. We now run the same code on both XP and Vista.
+        
+        Call through to JSC::getCurrentUTCTimeWithMicroseconds from WebCore::currentTime.
+        The code previously called GetSystemTimeAsFileTime, which is always low-resolution on XP, even within timeBeginPeriod(1).
+        
+        Reviewed by Maciej Stachowiak.
+
+        * platform/win/SharedTimerWin.cpp:
+        (WebCore::):
+        (WebCore::TimerWindowWndProc):
+        (WebCore::setSharedTimerFireTime):
+        * platform/win/SystemTimeWin.cpp:
+        (WebCore::currentTime):
+
+2008-09-21  Mark Rowe  <mrowe@apple.com>
+
+        Merge r35182.
+
+    2008-07-15  Adam Roben  <aroben@apple.com>
+
+        WebCore part of adding WebKit[Set]ShouldUseFontSmoothing functions
+
+        <rdar://6059127>
+
+        Reviewed by John Sullivan.
+
+        * platform/graphics/win/FontCGWin.cpp:
+        (WebCore::Font::drawGlyphs): Pass the result of
+        WebCoreShouldUseFontSmoothing() into wkSetFontSmoothingStyle.
+        * platform/win/WebCoreTextRenderer.cpp:
+        (WebCore::WebCoreSetShouldUseFontSmoothing):
+        (WebCore::WebCoreShouldUseFontSmoothing):
+        Added.
+        * platform/win/WebCoreTextRenderer.h:
+
+2008-09-14  Mark Rowe  <mrowe@apple.com>
+
+        Merge r35950.
+
+    2008-08-27  Timothy Hatcher  <timothy@apple.com>
+
+        Add support for support for -webkit-appearance: default-button on the Mac platform.
+
+        <rdar://problem/6173530>
+
+        Reviewed by Dave Hyatt.
+
+        * WebCore.base.exp: Export new symbols.
+        * platform/mac/WebCoreSystemInterface.h: Add wkAdvanceDefaultButtonPulseAnimation.
+        * platform/mac/WebCoreSystemInterface.mm: Ditto.
+        * rendering/RenderButton.cpp:
+        (WebCore::RenderButton::RenderButton): Remove #if PLATFORM(WIN).
+        (WebCore::RenderButton::setStyle): Ditto.
+        * rendering/RenderButton.h: Ditto.
+        * rendering/RenderThemeMac.mm:
+        (WebCore::RenderThemeMac::adjustRepaintRect): Add a case for DefaultButtonAppearance.
+        (WebCore::RenderThemeMac::setButtonCellState): Set the key equivalent to the return
+        key if the button is default, otherwise reset the key equivalent.
+        (WebCore::RenderThemeMac::paintButton): If the button is default call setDefaultButtonCell:
+        on the window, then wkAdvanceDefaultButtonPulseAnimation before painting. Restore
+        the window's previous default button cell when finished.
+
+2008-09-14  Mark Rowe  <mrowe@apple.com>
+
+        Merge r32881.
+
+    2008-05-05  Steve Falkenburg  <sfalken@apple.com>
+
+        Add support for default button appearance.
+        Add WebCore setting for app chrome mode.
+        
+        Reviewed by Dave Hyatt.
+
+        * css/CSSPrimitiveValueMappings.h:
+        (WebCore::CSSPrimitiveValue::CSSPrimitiveValue):
+        * css/CSSValueKeywords.in: Added default-button value keyword.
+        * page/Settings.cpp:
+        (WebCore::Settings::Settings):
+        (WebCore::Settings::setApplicationChromeMode):
+        * page/Settings.h:
+        (WebCore::Settings::inApplicationChromeMode):
+        * rendering/RenderButton.cpp:
+        (WebCore::RenderButton::RenderButton):
+        (WebCore::RenderButton::setStyle):
+        (WebCore::RenderButton::timerFired):
+        * rendering/RenderButton.h:
+        * rendering/RenderStyle.h:
+        (WebCore::):
+        * rendering/RenderTheme.cpp:
+        (WebCore::RenderTheme::adjustStyle):
+        (WebCore::RenderTheme::paint):
+        (WebCore::RenderTheme::paintBorderOnly):
+        (WebCore::RenderTheme::paintDecorations):
+        (WebCore::RenderTheme::isControlStyled):
+        (WebCore::RenderTheme::isDefault):
+        * rendering/RenderTheme.h:
+        (WebCore::):
+        * rendering/RenderThemeSafari.cpp:
+        (WebCore::RenderThemeSafari::determineState):
+        (WebCore::RenderThemeSafari::adjustRepaintRect):
+        (WebCore::RenderThemeSafari::adjustButtonStyle):
+        * rendering/RenderThemeWin.cpp:
+        (WebCore::RenderThemeWin::supportsFocus):
+
 2008-04-03  Anders Carlsson  <andersca@apple.com>
 
         Reviewed by Sam.

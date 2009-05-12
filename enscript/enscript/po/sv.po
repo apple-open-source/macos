@@ -1,0 +1,1298 @@
+# Swedish messages for enscript
+# Copyright (C) 2002 Free Software Foundation, Inc.
+# Martin Sjögren <md9ms@mdstud.chalmers.se>, 2002.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: enscript 1.6.3\n"
+"POT-Creation-Date: 2003-03-05 09:41+0200\n"
+"PO-Revision-Date: 2002-12-15 22:01+0100\n"
+"Last-Translator: Martin Sjögren <md9ms@mdstud.chalmers.se>\n"
+"Language-Team: Swedish <sv@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=iso-8859-1\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: compat/getopt.c:628
+#, c-format
+msgid "%s: option `%s' is ambiguous\n"
+msgstr "%s: flaggan \"%s\" är tvetydig\n"
+
+#: compat/getopt.c:652
+#, c-format
+msgid "%s: option `--%s' doesn't allow an argument\n"
+msgstr "%s: flaggan \"--%s\" tillåter inte något argument\n"
+
+#: compat/getopt.c:657
+#, c-format
+msgid "%s: option `%c%s' doesn't allow an argument\n"
+msgstr "%s: flaggan \"%c%s\" tillåter inte något argument\n"
+
+#: compat/getopt.c:674 compat/getopt.c:847
+#, c-format
+msgid "%s: option `%s' requires an argument\n"
+msgstr "%s: flaggan \"%s\" kräver ett argument\n"
+
+#: compat/getopt.c:703
+#, c-format
+msgid "%s: unrecognized option `--%s'\n"
+msgstr "%s: okänd flagga \"--%s\"\n"
+
+#: compat/getopt.c:707
+#, c-format
+msgid "%s: unrecognized option `%c%s'\n"
+msgstr "%s: okänd flagga \"%c%s\"\n"
+
+#: compat/getopt.c:733
+#, c-format
+msgid "%s: illegal option -- %c\n"
+msgstr "%s: otillåten flagga -- %c\n"
+
+#: compat/getopt.c:736
+#, c-format
+msgid "%s: invalid option -- %c\n"
+msgstr "%s: ogiltig flagga -- %c\n"
+
+#: compat/getopt.c:766 compat/getopt.c:896
+#, c-format
+msgid "%s: option requires an argument -- %c\n"
+msgstr "%s: flaggan kräver ett argument -- %c\n"
+
+#: compat/getopt.c:813
+#, c-format
+msgid "%s: option `-W %s' is ambiguous\n"
+msgstr "%s: flaggan \"-W %s\" är tvetydig\n"
+
+#: compat/getopt.c:831
+#, c-format
+msgid "%s: option `-W %s' doesn't allow an argument\n"
+msgstr "%s: flaggan \"-W %s\" tillåter inte något argument\n"
+
+#: compat/xalloc.c:70
+#, c-format
+msgid "xmalloc(): couldn't allocate %d bytes\n"
+msgstr "xmalloc(): kunde inte allokera %d byte\n"
+
+#: compat/xalloc.c:88
+#, c-format
+msgid "xcalloc(): couldn't allocate %d bytes\n"
+msgstr "xcalloc(): kunde inte allokera %d byte\n"
+
+#: compat/xalloc.c:109
+#, c-format
+msgid "xrealloc(): couldn't reallocate %d bytes\n"
+msgstr "xrealloc(): kunde inte omallokera %d byte\n"
+
+#: compat/regex.c:996
+msgid "Success"
+msgstr "Lyckades"
+
+#: compat/regex.c:997
+msgid "No match"
+msgstr "Inga träffar"
+
+#: compat/regex.c:998
+msgid "Invalid regular expression"
+msgstr "Ogiltigt reguljärt uttryck"
+
+#: compat/regex.c:999
+msgid "Invalid collation character"
+msgstr "Ogiltigt kollationeringstecken"
+
+#: compat/regex.c:1000
+msgid "Invalid character class name"
+msgstr "Ogiltigt teckenklassnamn"
+
+#: compat/regex.c:1001
+msgid "Trailing backslash"
+msgstr "Eftersläpande omvänt snedstreck"
+
+#: compat/regex.c:1002
+msgid "Invalid back reference"
+msgstr "Ogiltig bakåtreferens"
+
+#: compat/regex.c:1003
+msgid "Unmatched [ or [^"
+msgstr "Obalanserad [ eller [^"
+
+#: compat/regex.c:1004
+msgid "Unmatched ( or \\("
+msgstr "Obalanserad ( eller \\("
+
+#: compat/regex.c:1005
+msgid "Unmatched \\{"
+msgstr "Obalanserad \\{"
+
+#: compat/regex.c:1006
+msgid "Invalid content of \\{\\}"
+msgstr "Ogiltigt innehåll i \\{\\}"
+
+#: compat/regex.c:1007
+msgid "Invalid range end"
+msgstr "Ogiltigt omfångsslut"
+
+#: compat/regex.c:1008
+msgid "Memory exhausted"
+msgstr "Minnet slut"
+
+#: compat/regex.c:1009
+msgid "Invalid preceding regular expression"
+msgstr "Ogiltigt föregående reguljärt uttryck"
+
+#: compat/regex.c:1010
+msgid "Premature end of regular expression"
+msgstr "För tidigt slut på reguljärt uttryck"
+
+#: compat/regex.c:1011
+msgid "Regular expression too big"
+msgstr "Reguljärt uttryck för stort"
+
+#: compat/regex.c:1012
+msgid "Unmatched ) or \\)"
+msgstr "Obalanserad ) eller \\)"
+
+#: compat/regex.c:5458
+msgid "No previous regular expression"
+msgstr "Inget föregående reguljärt uttryck"
+
+#: src/main.c:966
+#, no-c-format
+msgid "$3v $-40N $3% pages $4L lines  $E $C"
+msgstr "$3v $-40N $3% sidor $4L rader  $E $C"
+
+#: src/main.c:996
+#, c-format
+msgid "couldn't get passwd entry for uid=%d: %s"
+msgstr "kunde inte hämta passwd-post för uid=%d: %s"
+
+#: src/main.c:1088
+#, c-format
+msgid "couldn't read config file \"%s/%s\": %s"
+msgstr "kunde inte läsa konfigurationsfilen \"%s/%s\": %s"
+
+#: src/main.c:1092
+msgid "I did also try the following directories:"
+msgstr "Jag försökte också med följande kataloger:"
+
+#: src/main.c:1093 src/main.c:1094 src/main.c:1095
+#, c-format
+msgid "\t%s"
+msgstr "\t%s"
+
+#: src/main.c:1096
+msgid "\t../lib"
+msgstr "\t../lib"
+
+#: src/main.c:1097
+msgid "\t../../lib"
+msgstr "\t../../lib"
+
+#: src/main.c:1099
+msgid "This is probably an installation error.  Please, try to rebuild:"
+msgstr "Det här är förmodligen ett installationsfel. Försök bygga om:"
+
+#: src/main.c:1100
+msgid "\tmake distclean"
+msgstr "\tmake distclean"
+
+#: src/main.c:1101
+msgid "\t./configure --prefix=PREFIX"
+msgstr "\t./configure --prefix=PREFIX"
+
+#: src/main.c:1102
+msgid "\tmake"
+msgstr "\tmake"
+
+#: src/main.c:1103
+msgid "\tmake check"
+msgstr "\tmake check"
+
+#: src/main.c:1104
+msgid "\tmake install"
+msgstr "\tmake install"
+
+#: src/main.c:1106
+msgid "or set the environment variable `ENSCRIPT_LIBRARY' to point to your"
+msgstr "eller sätt miljövariabeln \"ENSCRIPT_LIBRARY\" att peka till din"
+
+#: src/main.c:1108
+msgid "library directory."
+msgstr "bibliotekskatalog."
+
+#: src/main.c:1180
+#, c-format
+msgid "unknown encoding: %s"
+msgstr "okänd kodning: %s"
+
+#: src/main.c:1199
+#, c-format
+msgid "couldn't open AFM library: %s"
+msgstr "kunde inte öppna AFM-bibliotek: %s"
+
+#: src/main.c:1228
+msgid ""
+"known media:\n"
+"name             width\theight\tllx\tlly\turx\tury\n"
+"------------------------------------------------------------\n"
+msgstr ""
+"kända media:\n"
+"namn             bredd\thöjd\tnvx\tnvy\töhx\töhy\n"
+"------------------------------------------------------------\n"
+
+#: src/main.c:1247
+#, c-format
+msgid "do not know anything about media \"%s\""
+msgstr "känner inte till något om formatet \"%s\""
+
+#: src/main.c:1291
+#, c-format
+msgid ""
+"set new marginals for media `%s' (%dx%d): llx=%d, lly=%d, urx=%d, ury=%d\n"
+msgstr "sätt nya marginaler för formatet \"%s\" (%d×%d): nvx=%d, nvy=%d, öhx=%d, öhy%d\n"
+
+#: src/main.c:1302
+#, c-format
+msgid "illegal page label format \"%s\""
+msgstr "otillåtet sidetikettsformat \"%s\""
+
+#: src/main.c:1314
+#, c-format
+msgid "illegal non-printable format \"%s\""
+msgstr "otillåtet ej utskrivbart-format \"%s\""
+
+#: src/main.c:1328
+#, c-format
+msgid "illegal style for wrapped line marker: \"%s\""
+msgstr "otillåten stil på radbrytningstecken: \"%s\""
+
+#: src/main.c:1338
+#, c-format
+msgid "illegal N-up argument: %d"
+msgstr "otillåtet N-upp-argument: %d"
+
+#: src/main.c:1343
+#, c-format
+msgid "N-up argument must be power of 2: %d"
+msgstr "N-upp-argument måste vara en potens av 2: %d"
+
+#: src/main.c:1420
+#, c-format
+msgid "malformed underlay position: %s"
+msgstr "felutformad underlagsposition: %s"
+
+#: src/main.c:1443
+#, c-format
+msgid "illegal underlay style: %s"
+msgstr "otillåten underlagsstil: %s"
+
+#: src/main.c:1470
+msgid ""
+"Highlighting is supported for the following languages and file formats:\n"
+"\n"
+msgstr ""
+"Syntaxmarkering stöds för följande språk och filformat:\n"
+"\n"
+
+#: src/main.c:1641
+#, c-format
+msgid "couldn't create temporary toc file: %s"
+msgstr "kunde inte skapa temporär innehållsfil: %s"
+
+#: src/main.c:1688
+#, c-format
+msgid "couldn't stat input file \"%s\": %s"
+msgstr "kunde inte ta status på indatafilen \"%s\": %s"
+
+#: src/main.c:1708
+#, c-format
+msgid "couldn't rewind toc file: %s"
+msgstr "kunde inte spola tillbaks innehållsfilen: %s"
+
+#: src/main.c:1714
+msgid "Table of Contents"
+msgstr "Innehåll"
+
+#: src/main.c:1743
+msgid "no output generated\n"
+msgstr "ingen utdata genererad\n"
+
+#: src/main.c:1748
+#, c-format
+msgid "output sent to %s\n"
+msgstr "utdata skickad till %s\n"
+
+#: src/main.c:1749 src/main.c:1773
+msgid "printer"
+msgstr "skrivare"
+
+#: src/main.c:1751
+#, c-format
+msgid "output left in %s\n"
+msgstr "utdata lämnad i %s\n"
+
+#: src/main.c:1769
+#, c-format
+msgid "[ %d pages * %d copy ]"
+msgstr "[ %d sidor * %d kopia ]"
+
+#: src/main.c:1772
+#, c-format
+msgid " sent to %s\n"
+msgstr " skickad till %s\n"
+
+#: src/main.c:1775
+#, c-format
+msgid " left in %s\n"
+msgstr " lämnad i %s\n"
+
+#: src/main.c:1780
+#, c-format
+msgid "%d lines were %s\n"
+msgstr "%d rader blev %s\n"
+
+#: src/main.c:1782
+msgid "truncated"
+msgstr "avkortade"
+
+#: src/main.c:1782
+msgid "wrapped"
+msgstr "radbrutna"
+
+#: src/main.c:1788
+#, c-format
+msgid "%d characters were missing\n"
+msgstr "%d tecken saknades\n"
+
+#: src/main.c:1792
+msgid "missing character codes (decimal):\n"
+msgstr "saknade teckenkoder (decimalt):\n"
+
+#: src/main.c:1800
+#, c-format
+msgid "%d non-printable characters\n"
+msgstr "%d ej utskrivbara tecken\n"
+
+#: src/main.c:1805
+msgid "non-printable character codes (decimal):\n"
+msgstr "ej utskrivbara teckenkoder (decimalt):\n"
+
+#: src/main.c:1854
+#, c-format
+msgid "couldn't open printer `%s': %s"
+msgstr "kunde inte öppna skrivaren \"%s\": %s"
+
+#: src/main.c:1863
+#, c-format
+msgid "couldn't create output file \"%s\": %s"
+msgstr "kunde inte skapa utdatafilen \"%s\": %s"
+
+#: src/main.c:1880
+#, c-format
+msgid "couldn't close output file \"%s\": %s"
+msgstr "kunde inte stänga utdatafilen \"%s\": %s"
+
+#: src/main.c:1938
+#, c-format
+msgid ""
+"syntax error in option string %s=\"%s\":\n"
+"missing end of quotation: %c"
+msgstr ""
+"syntaxfel i flaggsträngen %s=\"%s\":\n"
+"saknar slut på citering: %c"
+
+#: src/main.c:1970
+#, c-format
+msgid ""
+"warning: didn't process following options from environment variable %s:\n"
+msgstr "varning: behandlade inte följande flaggor från miljövariabeln %s:\n"
+
+#: src/main.c:1974
+#, c-format
+msgid "  option %d = \"%s\"\n"
+msgstr "  flaggan %d = \"%s\"\n"
+
+#: src/main.c:2020
+msgid "number of columns must be larger than zero"
+msgstr "antalet kolumner måste vara större än noll"
+
+#: src/main.c:2078
+msgid "file alignment must be larger than zero"
+msgstr "filgrupperingen måste vara större än noll"
+
+#: src/main.c:2133 src/main.c:2139 src/main.c:2350 src/util.c:415
+#, c-format
+msgid "malformed font spec: %s"
+msgstr "felutformad typsnittsspecifikation: %s"
+
+#: src/main.c:2155
+#, c-format
+msgid "couldn't find header definition file \"%s.hdr\""
+msgstr "kunde inte hitta huvuddefinitionsfil \"%s.hdr\""
+
+#: src/main.c:2199
+#, c-format
+msgid "must print at least one line per each page: %s"
+msgstr "måste skriva ut åtminstone en rad per sida: %s"
+
+#: src/main.c:2219
+#, c-format
+msgid "%s: illegal newline character specifier: '%s': expected 'n' or 'r'\n"
+msgstr "%s: otillåtet nyradstecken: \"%s\"': väntade \"n\" eller \"r\"\n"
+
+#: src/main.c:2308
+#, c-format
+msgid "malformed argument `%s' for option -W, --option: no comma found"
+msgstr ""
+"felformulerat argument \"%s\" till flaggan -W, --option: inget komma funnet"
+
+#: src/main.c:2313
+#, c-format
+msgid "helper application specification must be single character: %s"
+msgstr "specifikation av hjälpapplikation måste vara ett enda tecken: %s"
+
+#: src/main.c:2409
+msgid "slice must be greater than zero"
+msgstr "skivnumret måste vara större än noll"
+
+#: src/main.c:2490 states/main.c:320
+#, c-format
+msgid "Try `%s --help' for more information.\n"
+msgstr "Prova \"%s --help\" för mer information.\n"
+
+#: src/main.c:2510
+#, c-format
+msgid ""
+"Usage: %s [OPTION]... [FILE]...\n"
+"Mandatory arguments to long options are mandatory for short options too.\n"
+"  -#                         an alias for option -n, --copies\n"
+"  -1                         same as --columns=1\n"
+"  -2                         same as --columns=2\n"
+"      --columns=NUM          specify the number of columns per page\n"
+"  -a, --pages=PAGES          specify which pages are printed\n"
+"  -A, --file-align=ALIGN     align separate input files to ALIGN\n"
+"  -b, --header=HEADER        set page header\n"
+"  -B, --no-header            no page headers\n"
+"  -c, --truncate-lines       cut long lines (default is to wrap)\n"
+"  -C, --line-numbers[=START]\n"
+"                             precede each line with its line number\n"
+"  -d                         an alias for option --printer\n"
+"  -D, --setpagedevice=KEY[:VALUE]\n"
+"                             pass a page device definition to output\n"
+"  -e, --escapes[=CHAR]       enable special escape interpretation\n"
+msgstr ""
+"Användning: %s [FLAGGA]... [FIL]...\n"
+"Obligatoriska argument till långa flaggor är obligatoriska även för de korta.\n"
+"  -#                         ett alias för -n, --copies\n"
+"  -1                         samma som --columns=1\n"
+"  -2                         samma som --columns=2\n"
+"      --columns=NUM          ange antalet kolumner per sida\n"
+"  -a, --pages=PAGES          ange vilka sidor som skrivs ut\n"
+"  -A, --file-align=JUSTERING justera separata indatafiler till JUSTERING\n"
+"  -b, --header=HUVUD         sätt sidhuvud\n"
+"  -B, --no-header            inga sidhuvuden\n"
+"  -c, --truncate-lines       bryt av långa rader (förvalet är att radbryta)\n"
+"  -C, --line-numbers[=START]\n"
+"                             skriv radnumret före varje rad\n"
+"  -d                         ett alias för flaggan --printer\n"
+"  -D, --setpagedevice=NYCKEL[:VÄRDE]\n"
+"                             ange en sidenhetsdefinition till utdatan\n"
+"  -e, --escapes[=TECKEN]     tillåt speciell kontrollsekvenstolkning\n"
+
+#: src/main.c:2530
+msgid "  -E, --highlight[=LANG]     highlight source code\n"
+msgstr "  -E, --highlight[=SPRÅK]    Syntaxmarkera källkod\n"
+
+#: src/main.c:2533
+msgid ""
+"  -f, --font=NAME            use font NAME for body text\n"
+"  -F, --header-font=NAME     use font NAME for header texts\n"
+"  -g, --print-anyway         nothing (compatibility option)\n"
+"  -G                         same as --fancy-header\n"
+"      --fancy-header[=NAME]  select fancy page header\n"
+"  -h, --no-job-header        suppress the job header page\n"
+"  -H, --highlight-bars=NUM   specify how high highlight bars are\n"
+"  -i, --indent=NUM           set line indent to NUM characters\n"
+"  -I, --filter=CMD           read input files through input filter CMD\n"
+"  -j, --borders              print borders around columns\n"
+"  -J,                        an alias for option --title\n"
+"  -k, --page-prefeed         enable page prefeed\n"
+"  -K, --no-page-prefeed      disable page prefeed\n"
+"  -l, --lineprinter          simulate lineprinter, this is an alias for:\n"
+"                               --lines-per-page=66, --no-header, --"
+"portrait,\n"
+"                               --columns=1\n"
+msgstr ""
+"  -f, --font=NAMN            använd typsnittet NAMN för vanlig text\n"
+"  -F, --header-font=NAMN     använd typsnittet NAMN för sidhuvudstext\n"
+"  -g, --print-anyway         inget (kompatibilitetsflagga)\n"
+"  -G                         samma som --fancy-header\n"
+"      --fancy-header[=NAMN]  välj konstfärdigt sidhuvud\n"
+"  -h, --no-job-header        välj bort jobbhuvudsidan\n"
+"  -H, --highlight-bars=NUM   ange hur höga markeringsstrecken ska vara\n"
+"  -i, --indent=NUM           sätt radindenteringen till NUM tecken\n"
+"  -I, --filter=KOMMANDO      läs indatafiler genom indatafiltret KOMMANDO\n"
+"  -j, --borders              skriv ut kanter runt kolumner\n"
+"  -J,                        ett alias för flaggan --title\n"
+"  -k, --page-prefeed         tillåt förmatning av sidor\n"
+"  -K, --no-page-prefeed      tillåt inte förmatning av sidor\n"
+"  -l, --lineprinter          simulera en radskrivare, detta är ett alias för:\n"
+"                               --lines-per-page=66, --no-header, --"
+"portrait,\n"
+"                               --columns=1\n"
+
+#: src/main.c:2551
+msgid ""
+"  -L, --lines-per-page=NUM   specify how many lines are printed on each "
+"page\n"
+"  -m, --mail                 send mail upon completion\n"
+"  -M, --media=NAME           use output media NAME\n"
+"  -n, --copies=NUM           print NUM copies of each page\n"
+"  -N, --newline=NL           select the newline character.  Possible\n"
+"                             values for NL are: n (`\\n') and r (`\\r').\n"
+"  -o                         an alias for option --output\n"
+"  -O, --missing-characters   list missing characters\n"
+"  -p, --output=FILE          leave output to file FILE.  If FILE is `-',\n"
+"                             leave output to stdout.\n"
+"  -P, --printer=NAME         print output to printer NAME\n"
+"  -q, --quiet, --silent      be really quiet\n"
+"  -r, --landscape            print in landscape mode\n"
+"  -R, --portrait             print in portrait mode\n"
+msgstr ""
+"  -L, --lines-per-page=NUM   ange antalet rader som ska skrivas på varje sida\n"
+"  -m, --mail                 skicka ett e-post när det är klart\n"
+"  -M, --media=NAMN           använd utdataformatet NAMN\n"
+"  -n, --copies=NUM           skriv ut NUM kopior av varje sida\n"
+"  -N, --newline=NR           välj nyradstecken. Möjliga värden för NR är:\n"
+"                             n (\"\\n\") och r (\"\\r\").\n"
+"  -o                         ett alias för flaggan --output\n"
+"  -O, --missing-characters   lista saknade tecken\n"
+"  -p, --output=FIL           lämna utdatan i filen FIL. Om FIL är \"-\",\n"
+"                             lämna utdatan till standard ut.\n"
+"  -P, --printer=NAMN         skriv ut på skrivaren NAMN\n"
+"  -q, --quiet, --silent      var väldigt tyst\n"
+"  -r, --landscape            skriv ut i landskapsläge\n"
+"  -R, --portrait             skriv ut i porträttläge\n"
+
+#: src/main.c:2567
+#, fuzzy
+msgid ""
+"  -s, --baselineskip=NUM     set baselineskip to NUM\n"
+"  -S, --statusdict=KEY[:VALUE]\n"
+"                             pass a statusdict definition to the output\n"
+"  -t, --title=TITLE          set banner page's job title to TITLE.  Option\n"
+"                             sets also the name of the input file stdin.\n"
+"  -T, --tabsize=NUM          set tabulator size to NUM\n"
+"  -u, --underlay[=TEXT]      print TEXT under every page\n"
+"  -U, --nup=NUM              print NUM logical pages on each output page\n"
+"  -v, --verbose              tell what we are doing\n"
+"  -V, --version              print version number\n"
+"  -w, --language=LANG        set output language to LANG\n"
+"  -W, --options=APP,OPTION   pass option OPTION to helper application APP\n"
+"  -X, --encoding=NAME        use input encoding NAME\n"
+"  -z, --no-formfeed          do not interpret form feed characters\n"
+"  -Z, --pass-through         pass through PostScript and PCL files\n"
+"                             without any modifications\n"
+msgstr ""
+"  -s, --baselineskip=NUM     sätt radavståndet till NUM\n"
+"  -S, --statusdict=NYCKEL[:VÄRDE]\n"
+"                             skicka en statuslexikondefinition till utdatan\n"
+"  -t, --title=TITEL          sätt banderollsidans jobbtitel till TITEL.\n"
+"                             Flaggan sätter också namnet på indatafilen\n"
+"                             standard in.\n"
+"  -T, --tabsize=NUM          sätt tabulatorstorleken till NUM\n"
+"  -u, --underlay[=TEXT]      skriv TEXT under varje sida\n"
+"  -U, --nup=NUM              skriv ut NUM logiska sidor per utdatasida\n"
+"  -v, --verbose              tala om vad vi gör\n"
+"  -V, --version              skriv ut versionsnummer\n"
+"  -w, --language=SPRÅK       sätt utdataspråket till SPRÅK\n"
+"  -W, --options=APP,FLAGGA   skicka flaggan FLAGGA till hjälpapplikationen\n"
+"                             APP\n"
+"  -X, --encoding=NAMN        använd indatakodningen NAMN\n"
+"  -z, --no-formfeed          tolka inte sidmatningstecken\n"
+"  -Z, --pass-through         skicka genom PostScript- och PCL-filer utan\n"
+"                             några ändringar\n"
+
+#: src/main.c:2585
+msgid ""
+"Long-only options:\n"
+"  --color[=bool]             create color outputs with states\n"
+"  --continuous-page-numbers  count page numbers across input files.  Don't\n"
+"                             restart numbering at beginning of each file.\n"
+"  --download-font=NAME       download font NAME\n"
+"  --extended-return-values   enable extended return values\n"
+"  --filter-stdin=NAME        specify how stdin is shown to the input filter\n"
+"  --footer=FOOTER            set page footer\n"
+"  --h-column-height=HEIGHT   set the horizontal column height to HEIGHT\n"
+"  --help                     print this help and exit\n"
+msgstr ""
+"Flaggor med enbart långa namn:\n"
+"  --color[=boolesk]          skapa färgutdata med tillstånd\n"
+"  --continuous-page-numbers  räkna sidnummer över flera indatafiler. Börja\n"
+"                             inte om numreringen för nya filer.\n"
+"  --download-font=NAMN       hämta hem typsnittet NAMN\n"
+"  --extended-return-values   använd utökade returvärden\n"
+"  --filter-stdin=NAMN        ange hur standard in visas för indatafiltret\n"
+"  --footer=SIDFOT            sätt sidfoten\n"
+"  --h-column-height=HÖJD     sätt den horisontella kolumnhöjden till HÖJD\n"
+"  --help                     visa denna hjälptexten och avsluta\n"
+
+#: src/main.c:2596
+#, fuzzy
+msgid ""
+"  --help-highlight           describe all supported --highlight languages\n"
+"                             and file formats\n"
+"  --highlight-bar-gray=NUM   print highlight bars with gray NUM (0 - 1)\n"
+"  --list-media               list names of all known media\n"
+"  --margins=LEFT:RIGHT:TOP:BOTTOM\n"
+"                             adjust page marginals\n"
+"  --mark-wrapped-lines[STYLE]\n"
+"                             mark wrapped lines in the output with STYLE\n"
+"  --non-printable-format=FMT specify how non-printable chars are printed\n"
+msgstr ""
+"  --help-highlight           beskriv alla språk och filformat med\n"
+"                             stöd för --highlight\n"
+"  --highlight-bar-gray=NUM   skriv ut markeringsrader med grå NUM (0 - 1)\n"
+"  --list-media               lista namnen på alla kända media\n"
+"  --margins=VÄNSTER:HÖGER:TOPP:BOTTEN\n"
+"                             justera sidmarginaler\n"
+"  --mark-wrapped-lines[STIL]\n"
+"                             markera radbrutna rader i utdatan med STIL\n"
+"  --non-printable-format=FMT ange hur ej utskrivbara tecken ska skrivas ut\n"
+
+#: src/main.c:2607
+msgid ""
+"  --nup-columnwise           layout pages in the N-up printing columnwise\n"
+"  --nup-xpad=NUM             set the page x-padding of N-up printing to NUM\n"
+"  --nup-ypad=NUM             set the page y-padding of N-up printing to NUM\n"
+"  --page-label-format=FMT    set page label format to FMT\n"
+"  --ps-level=LEVEL           set the PostScript language level that "
+"enscript\n"
+"                             should use\n"
+"  --printer-options=OPTIONS  pass extra options to the printer command\n"
+"  --rotate-even-pages        rotate even-numbered pages 180 degrees\n"
+msgstr ""
+"  --nup-columnwise           lägg ut sidor i kolumner i N-upp-utskrift\n"
+"  --nup-xpad=NUM             sätt sidans x-utfyllning för N-upp-utskrift till\n"
+"                             NUM\n"
+"  --nup-ypad=NUM             sätt sidans y-utfyllning för N-upp-utskrift till\n"
+"                             NUM\n"
+"  --page-label-format=FMT    sätt sidetikettsformatet till FMT\n"
+"  --ps-level=NIVÅ            sätt PostScript-språknivån som enscript ska\n"
+"                             använda\n"
+"  --printer-options=FLAGGOR  skicka med extra flaggor till "
+"utskriftskommandot\n"
+"  --rotate-even-pages        rotera sidor med jämnt nummer 180°\n"
+
+#: src/main.c:2617
+msgid ""
+"  --slice=NUM                print vertical slice NUM\n"
+"  --style=STYLE              use highlight style STYLE\n"
+"  --swap-even-page-margins   swap left and right side margins for each even\n"
+"                             numbered page\n"
+"  --toc                      print table of contents\n"
+"  --ul-angle=ANGLE           set underlay text's angle to ANGLE\n"
+"  --ul-font=NAME             print underlays with font NAME\n"
+"  --ul-gray=NUM              print underlays with gray value NUM\n"
+"  --ul-position=POS          set underlay's starting position to POS\n"
+"  --ul-style=STYLE           print underlays with style STYLE\n"
+"  --word-wrap                wrap long lines from word boundaries\n"
+msgstr ""
+"  --slice=NUM                skriv ut vertikal skiva NUM\n"
+"  --style=STIL               använd markeringsstilen STIL\n"
+"  --swap-even-page-margins   Byt ut vänster- och högermarginaler för varje\n"
+"                             sida med jämnt nummer\n"
+"  --toc                      skriv ut innehållsförteckning\n"
+"  --ul-angle=VINKEL          sätt underlagans textvinkel till VINKEL\n"
+"  --ul-font=NAMN             skriv ut underlagor med typsnittet NAMN\n"
+"  --ul-gray=NUM              skriv ut underlagor med gråvärde NUM\n"
+"  --ul-position=POS          sätt underlagans startposition till POS\n"
+"  --ul-style=STIL            skriv ut underlagor med stilen STIL\n"
+"  --word-wrap                radbryt långa rader vid ordgränser\n"
+
+#: src/main.c:2631
+msgid ""
+"\n"
+"Report bugs to mtr@iki.fi.\n"
+msgstr ""
+"\n"
+"Rapportera fel till mtr@iki.fi.\n"
+"Skicka synpunkter på översättningen till sv@li.org.\n"
+
+#: src/psgen.c:324
+#, c-format
+msgid "couldn't find prolog \"%s\": %s\n"
+msgstr "kunde inte hitta prologen \"%s\": %s\n"
+
+#: src/psgen.c:332
+#, c-format
+msgid "couldn't find encoding file \"%s.enc\": %s\n"
+msgstr "kunde inte hitta kodningsfilen \"%s.enc\": %s\n"
+
+#: src/psgen.c:464
+#, c-format
+msgid "couldn't find header definition file \"%s.hdr\": %s\n"
+msgstr "kunde inte hitta huvuddefinitionsfilen \"%s.hdr\": %s\n"
+
+#: src/psgen.c:608
+#, c-format
+msgid "processing file \"%s\"...\n"
+msgstr "bearbetar filen \"%s\"...\n"
+
+#: src/psgen.c:906
+#, c-format
+msgid "EPS file \"%s\" is too large for page\n"
+msgstr "EPS-filen \"%s\" är för stor för sidan\n"
+
+#: src/psgen.c:979
+msgid "user font encoding can be only the system's default or `ps'"
+msgstr "användartypsnittskodning kan bara vara systemets standard eller \"ps\""
+
+#: src/psgen.c:1220
+#, c-format
+msgid "unknown special escape: %s"
+msgstr "okänd speciell kontrollsekvens: %s"
+
+#: src/psgen.c:1346
+#, c-format
+msgid "illegal option %c for ^@epsf escape"
+msgstr "otillåten flagga %c för kontrollsekvensen ^@epsf"
+
+#: src/psgen.c:1352
+msgid "malformed ^@epsf escape: no ']' after options"
+msgstr "felutformad kontrollsekvens ^@epsf: ingen \"]\" efter flaggorna"
+
+#: src/psgen.c:1364
+#, c-format
+msgid ""
+"too long file name for ^@epsf escape:\n"
+"%.*s"
+msgstr ""
+"för långt filnamn för kontrollsekvensen ^@epsf:\n"
+"%.*s"
+
+#: src/psgen.c:1368
+msgid "unexpected EOF while scanning ^@epsf escape"
+msgstr "oväntat filslut vid bearbetning av kontrollsekvensen ^@epsf"
+
+#: src/psgen.c:1374
+msgid "malformed ^@epsf escape: no '{' found"
+msgstr "felutformad kontrollsekvens ^@epsf: ingen \"{\" hittad"
+
+#: src/psgen.c:1432
+#, c-format
+msgid "malformed %s escape: no '{' found"
+msgstr "felutformad kontrollsekvens %s: ingen \"{\" hittad"
+
+#: src/psgen.c:1446
+#, c-format
+msgid ""
+"too long argument for %s escape:\n"
+"%.*s"
+msgstr ""
+"för långt argument till kontrollsekvensen %s:\n"
+"%.*s"
+
+#: src/psgen.c:1465
+#, c-format
+msgid "malformed font spec for ^@font escape: %s"
+msgstr "felutformad typsnittsspecifikation för kontrollsekvensen ^@font: %s"
+
+#: src/psgen.c:1501
+#, c-format
+msgid "malformed color spec for ^@%s escape: %s"
+msgstr "felutformad färgspecifikation för kontrollsekvensen ^@%s: %s"
+
+#: src/psgen.c:1525
+#, c-format
+msgid "invalid value for ^@shade escape: %s"
+msgstr "ogiltigt värde för kontrollsekvensen ^@shade: %s"
+
+#: src/psgen.c:1533
+#, c-format
+msgid "invalid value for ^@bggray escape: %s"
+msgstr "ogiltigt värde för kontrollsekvensen ^@bggray: %s"
+
+#: src/psgen.c:2397
+#, c-format
+msgid "epsf: couldn't open pipe to command \"%s\": %s\n"
+msgstr "epsf: kunde inte öppna rör till kommandot \"%s\": %s\n"
+
+#: src/psgen.c:2430
+#, c-format
+msgid "couldn't open EPS file \"%s\": %s\n"
+msgstr "kunde inte öppna EPS-filen \"%s\": %s\n"
+
+#: src/psgen.c:2467
+#, c-format
+msgid "EPS file \"%s\" does not start with \"%%!\" magic\n"
+msgstr "EPS-filen \"%s\" börjar inte med \"%%!\"-magi\n"
+
+#: src/psgen.c:2492
+#, c-format
+msgid ""
+"EPS file \"%s\" contains malformed %%%%BoundingBox row:\n"
+"\"%.*s\"\n"
+msgstr ""
+"EPS-filen \"%s\" innehåller felutformad %%%%BoundingBox-rad:\n"
+"\"%.*s\"\n"
+
+#: src/psgen.c:2517
+#, c-format
+msgid "EPS file \"%s\" is not a valid EPS file\n"
+msgstr "EPS-filen \"%s\" är inte en giltig EPS-fil\n"
+
+#: src/psgen.c:2659
+#, c-format
+msgid "passing through all input files for output language `%s'\n"
+msgstr "skickar vidare alla indatafiler för utdataspråket \"%s\"\n"
+
+#: src/psgen.c:2711
+#, c-format
+msgid "passing through %s file \"%s\"\n"
+msgstr "skickar vidare %s-filen \"%s\"\n"
+
+#: src/psgen.c:2814
+#, c-format
+msgid "couldn't create temporary divert file: %s"
+msgstr "kunde inte skapa temporär omdirigeringsfil: %s"
+
+#: src/psgen.c:2831
+#, c-format
+msgid "couldn't rewind divert file: %s"
+msgstr "kunde inte spola tillbaks omdirigeringsfilen: %s"
+
+#: src/util.c:95
+#, fuzzy, c-format
+msgid "missing argument: %s"
+msgstr "otillåtet N-upp-argument: %d"
+
+#: src/util.c:185 src/util.c:213
+#, c-format
+msgid "illegal value \"%s\" for option %s"
+msgstr "otillåtet värde \"%s\" för flaggan %s"
+
+#: src/util.c:201
+#, c-format
+msgid "invalid value \"%s\" for option %s"
+msgstr "ogiltigt värde \"%s\" för flaggan %s"
+
+#: src/util.c:439
+#, c-format
+msgid "illegal option: %s"
+msgstr "otillåten flagga: %s"
+
+#: src/util.c:616
+#, c-format
+msgid "%s:%d: %%Format: no name"
+msgstr "%s:%d: %%Format: inget namn"
+
+#: src/util.c:627
+#, c-format
+msgid "%s:%d: %%Format: too long name, maxlen=%d"
+msgstr "%s:%d: %%Format: för långt namn, maxlängd=%d"
+
+#: src/util.c:650
+#, c-format
+msgid "%s:%d: %%Format: name \"%s\" is already defined"
+msgstr "%s:%d: %%Format: namnet \"%s\" är redan definierat"
+
+#: src/util.c:671
+#, c-format
+msgid "%s:%d: %%HeaderHeight: no argument"
+msgstr "%s:%d: %%HeaderHeight: inga argument"
+
+#: src/util.c:693
+#, c-format
+msgid "%s:%d: %%FooterHeight: no argument"
+msgstr "%s:%d: %%FooterHeight: inga argument"
+
+#: src/util.c:840
+#, c-format
+msgid "%s: warning: font size is negative\n"
+msgstr "%s: varning: typsnittsstorleken är negativ\n"
+
+#: src/util.c:842
+#, c-format
+msgid "%s: warning: font width is negative\n"
+msgstr "%s: varning: typsnittsbredden är negativ\n"
+
+#: src/util.c:844
+#, c-format
+msgid "%s: warning: font height is negative\n"
+msgstr "%s: varning: typsnittshöjden är negativ\n"
+
+#: src/util.c:863
+#, c-format
+msgid "reading AFM info for font \"%s\"\n"
+msgstr "läser AFM-information för typsnittet \"%s\"\n"
+
+#: src/util.c:896
+#, c-format
+msgid "couldn't open AFM file for font \"%s\", using default\n"
+msgstr "kunde inte öppna AFM-fil för typsnittet \"%s\", använder standardalternativet\n"
+
+#: src/util.c:903
+#, c-format
+msgid "couldn't open AFM file for the default font: %s"
+msgstr "kunde inte öppna AFM-fil för standardtypsnittet: %s"
+
+#: src/util.c:1092
+#, c-format
+msgid "downloading font \"%s\"\n"
+msgstr "hämtar hem typsnittet \"%s\"\n"
+
+#: src/util.c:1097
+#, c-format
+msgid "couldn't open font description file \"%s\": %s\n"
+msgstr "kunde inte öppna beskrivningsfilen \"%s\" för typsnittet: %s\n"
+
+#: src/util.c:1387
+#, c-format
+msgid "%s: too long format for %%D{} escape"
+msgstr "%s: för långt format för %%D{}-kontrollsekvens"
+
+#: src/util.c:1472
+#, c-format
+msgid "%s: unknown `%%' escape `%c' (%d)"
+msgstr "%s: okänd \"%%\"-kontrollsekvens \"%c\" (%d)"
+
+#: src/util.c:1510
+#, c-format
+msgid "%s: no closing ')' for $() escape"
+msgstr "%s: ingen avslutande \")\" för $()-kontrollsekvens"
+
+#: src/util.c:1513
+#, c-format
+msgid "%s: too long variable name for $() escape"
+msgstr "%s: för långt variabelnamn för $()-kontrollsekvens"
+
+#: src/util.c:1540
+#, c-format
+msgid "%s: too long format for $D{} escape"
+msgstr "%s: för långt format för $D{}-kontrollsekvens"
+
+#: src/util.c:1628
+#, c-format
+msgid "%s: unknown `$' escape `%c' (%d)"
+msgstr "%s: okänd \"$\"-kontrollsekvens \"%c\" (%d)"
+
+#: src/util.c:1819
+#, c-format
+msgid "malformed float dimension: \"%s\""
+msgstr "felutformad flyttalsdimension: \"%s\""
+
+#: src/util.c:1936
+#, c-format
+msgid "couldn't open input filter \"%s\" for file \"%s\": %s"
+msgstr "kunde inte öppna indatafiltret \"%s\" för filen \"%s\": %s"
+
+#: src/util.c:1953
+#, c-format
+msgid "couldn't open input file \"%s\": %s"
+msgstr "kunde inte öppna indatafilen \"%s\": %s"
+
+#: src/mkafmmap.c:173
+#, c-format
+msgid "file=%s\n"
+msgstr "fil=%s\n"
+
+#: src/mkafmmap.c:173
+msgid "stdout"
+msgstr "standard ut"
+
+#: src/mkafmmap.c:181
+#, c-format
+msgid "%s: couldn't open output file \"%s\""
+msgstr "%s: kunde inte öppna utdatafilen \"%s\""
+
+#: src/mkafmmap.c:195
+msgid "couldn't create AFM library"
+msgstr "kunde inte skapa AFM-bibliotek"
+
+#: src/mkafmmap.c:244
+#, c-format
+msgid ""
+"Usage: %s [OPTION]... FILE...\n"
+"Mandatory arguments to long options are mandatory for short options too.\n"
+"  -h, --help              print this help and exit\n"
+"  -p, --output-file=NAME  print output to file NAME (default file is\n"
+"                          font.map).  If FILE is `-', leavy output to\n"
+"                          stdout.\n"
+"  -V, --version           print version number\n"
+msgstr ""
+"Användning: %s [FLAGGA]... FIL...\n"
+"Obligatoriska argument till långa flaggor är obligatoriska även för de korta.\n"
+"  -h, --help              visa den här hjälptexten och avsluta\n"
+"  -p, --output-file=NAMN  skriv utdatan till filen NAMN (standardvalet är\n"
+"                          font.map). Om FIL är \"-\" skicka utdatan till\n"
+"                          stdandard ut.\n"
+"  -V, --version           visa versionsnummer\n"
+
+#: states/lex.l:169 states/lex.l:175
+msgid "error: EOF in comment"
+msgstr "fel: filslut inom kommentar"
+
+#: states/lex.l:206
+msgid "error: EOF in string constant"
+msgstr "fel: filslut inom strängkonstant"
+
+#: states/lex.l:313
+msgid "error: EOF in regular expression"
+msgstr "fel: filslut inom reguljärt uttryck"
+
+#: states/main.c:199
+#, c-format
+msgid "states for GNU %s %s"
+msgstr "tillstånd för GNU %s %s"
+
+#: states/main.c:254
+#, c-format
+msgid "%s: malformed variable definition \"%s\"\n"
+msgstr "%s: felutformad variabeldefinition \"%s\"\n"
+
+#: states/main.c:282
+#, c-format
+msgid "%s: couldn't create output file \"%s\": %s\n"
+msgstr "%s: kunde inte skapa utdatafilen \"%s\": %s\n"
+
+#: states/main.c:313
+#, c-format
+msgid "%s: unknown warning level `%s'\n"
+msgstr "%s: okänd varningsnivå \"%s\"\n"
+
+#: states/main.c:362 states/main.c:398 states/prims.c:1377 states/utils.c:229
+#, c-format
+msgid "%s: out of memory\n"
+msgstr "%s: minnet slut\n"
+
+#: states/main.c:423
+#, c-format
+msgid "%s: couldn't open input file `%s': %s\n"
+msgstr "%s: kunde inte öppna indatafilen \"%s\": %s\n"
+
+#: states/main.c:447
+#, c-format
+msgid ""
+"Usage: %s [OPTION]... [FILE]...\n"
+"Mandatory arguments to long options are mandatory for short options too.\n"
+msgstr ""
+"Användning: %s [FLAGGA]... [FIL]...\n"
+"Obligatoriska argument till långa flaggor är obligatoriska även för de korta.\n"
+
+#: states/main.c:451
+msgid ""
+"  -D, --define=VAR=VAL       define variable VAR to have value VAR\n"
+"  -f, --file=NAME            read state definitions from file NAME\n"
+"  -h, --help                 print this help and exit\n"
+"  -o, --output=NAME          save output to file NAME\n"
+"  -p, --path=PATH            set the load path to PATH\n"
+"  -s, --state=NAME           start from state NAME\n"
+"  -v, --verbose              increase the program verbosity\n"
+"  -V, --version              print version number\n"
+"  -W, --warning=LEVEL        set the warning level to LEVEL\n"
+msgstr ""
+"  -D, --define=VAR=VÄRDE     definera variabeln VAR till värdet VÄRDE\n"
+"  -f, --file=NAMN            läs tillståndsdefinition från filen NAMN\n"
+"  -h, --help                 visa den här hjälptexten och avsluta\n"
+"  -o, --output=NAMN          spara utdatan till filen NAMN\n"
+"  -p, --path=SÖKVÄG          sätt inläsningssökvägen till SÖKVÄG\n"
+"  -s, --state=NAMN           börja från tillståndet NAMN\n"
+"  -v, --verbose              öka programmets pratsamhet\n"
+"  -V, --version              visa versionsnummer\n"
+"  -W, --warning=NIVÅ         sätt varningsnivån till NIVÅ\n"
+
+#: states/prims.c:46
+#, fuzzy, c-format
+msgid "%s:%d: %s: too few arguments\n"
+msgstr "%s:%d: %s: otillåtet argument\n"
+
+#: states/prims.c:56
+#, fuzzy, c-format
+msgid "%s:%d: %s: too many arguments\n"
+msgstr "%s:%d: %s: otillåtet argument\n"
+
+#: states/prims.c:109 states/prims.c:129 states/prims.c:255 states/prims.c:428
+#: states/prims.c:903
+#, c-format
+msgid "%s:%d: %s: illegal argument type\n"
+msgstr "%s:%d: %s: otillåten argumenttyp\n"
+
+#: states/prims.c:470
+#, c-format
+msgid "%s: panic: "
+msgstr "%s: panik: "
+
+#: states/prims.c:504
+#, c-format
+msgid "%s:%d: %s: malformed version string `%s'\n"
+msgstr "%s:%d: %s: felutformad versionssträng \"%s\"\n"
+
+#: states/prims.c:519
+#, c-format
+msgid ""
+"%s: FATAL ERROR: States version %s or higher is required for this script\n"
+msgstr "%s: ÖDESDIGERT FEL: Tillstånd av version %s eller över krävs för detta skript\n"
+
+#: states/prims.c:610 states/prims.c:1276
+#, c-format
+msgid "%s:%d: %s: start offset is bigger than end offset\n"
+msgstr "%s:%d: %s: startavstånd är större än slutavstånd\n"
+
+#: states/prims.c:619 states/prims.c:635 states/prims.c:1282
+#, c-format
+msgid "%s:%d: %s: offset out of range\n"
+msgstr "%s:%d: %s: avstånd utanför intervallet\n"
+
+#: states/prims.c:653
+#, c-format
+msgid "%s:%d: %s: illegal argument\n"
+msgstr "%s:%d: %s: otillåtet argument\n"
+
+#: states/prims.c:700
+#, c-format
+msgid "%s:%d: %s: illegal regexp character syntax: %c\n"
+msgstr "%s:%d: %s: otillåten reguljäruttrycksteckensyntax: %c\n"
+
+#: states/prims.c:915
+#, c-format
+msgid "%s:%d: %s: couldn't define state `%s'\n"
+msgstr "%s:%d: %s: kunde inte definiera tillståndet \"%s\"\n"
+
+#: states/prims.c:1012
+#, c-format
+msgid "%s: primitive `%s': too few arguments for format\n"
+msgstr "%s: primitiv \"%s\": för få argument för formatet\n"
+
+#: states/prims.c:1040
+#, c-format
+msgid "%s:%d: %s: argument %d doesn't match format\n"
+msgstr "%s:%d: %s: argument %d matchar inte formatet\n"
+
+#: states/prims.c:1080
+#, c-format
+msgid "%s:%d: %s: no extra options can be specified for %%s\n"
+msgstr "%s:%d: %s: inga extra flaggor kan anges för %%s\n"
+
+#: states/prims.c:1089
+#, c-format
+msgid "%s:%d: %s: illegal type specifier `%c'\n"
+msgstr "%s:%d: %s: ogiltig typspecifierare \"%c\"\n"
+
+#: states/process.c:117
+#, c-format
+msgid "%s: undefined state `%s'\n"
+msgstr "%s: odefinierat tillstånd \"%s\"\n"
+
+#: states/process.c:198
+#, c-format
+msgid "%s: error: undefined variable `%s'\n"
+msgstr "%s: fel: odefinierad variabel \"%s\"\n"
+
+#: states/process.c:292
+#, c-format
+msgid "%s: undefined super state `%s'\n"
+msgstr "%s: odefinierat supertillstånd \"%s\"\n"
+
+#: states/utils.c:262
+#, c-format
+msgid "%s:%d: couldn't compile regular expression \"%s\": %s\n"
+msgstr "%s:%d kunde inte kompilera det reguljära uttrycket \"%s\": %s\n"
+
+#: states/utils.c:451 states/utils.c:479
+#, c-format
+msgid "%s: ouf of memory"
+msgstr "%s: minnet slut"
+
+#: states/utils.c:456
+#, c-format
+msgid "warning: redefining state `%s'"
+msgstr "varning: definierar om tillståndet \"%s\""
+
+#: states/utils.c:483
+#, c-format
+msgid "%s:%d: warning: redefining subroutine `%s'\n"
+msgstr "%s:%d: varning: definierar om subrutinen \"%s\"\n"
+
+#: states/utils.c:580
+#, c-format
+msgid "%s:%d: error: undefined variable `%s'\n"
+msgstr "%s:%d: fel: odefinierad variabel \"%s\"\n"
+
+#: states/utils.c:618
+#, c-format
+msgid "%s:%d: error: couldn't set variable `%s'\n"
+msgstr "%s:%d: fel: kunde inte tilldela variabeln \"%s\"\n"
+
+#: states/utils.c:769
+#, c-format
+msgid "%s:%d: error: expression between illegal types\n"
+msgstr "%s:%d: fel: uttryck mellan otillåtna typer\n"
+
+#: states/utils.c:867
+#, c-format
+msgid "%s:%d: error: too few arguments for subroutine\n"
+msgstr "%s:%d: fel: för få argument för subrutinen\n"
+
+#: states/utils.c:874
+#, c-format
+msgid "%s:%d: error: too many arguments for subroutine\n"
+msgstr "%s:%d: fel: för många argument för subrutinen\n"
+
+#: states/utils.c:928
+#, c-format
+msgid "%s:%d: error: undefined procedure `%s'\n"
+msgstr "%s:%d: fel: odefinierad procedur \"%s\"\n"
+
+#: states/utils.c:1020
+#, c-format
+msgid "%s:%d: error: illegal lvalue for assignment\n"
+msgstr "%s:%d: fel: otillåtet vvärde för tilldelning\n"
+
+#: states/utils.c:1028 states/utils.c:1112
+#, c-format
+msgid "%s:%d: error: array reference index is not integer\n"
+msgstr "%s:%d: fel: vektorreferensindex är inte ett heltal\n"
+
+#: states/utils.c:1034
+#, c-format
+msgid "%s:%d: error: negative array reference index\n"
+msgstr "%s:%d: fel: negativ vektorreferensindex\n"
+
+#: states/utils.c:1085
+#, c-format
+msgid "%s:%d: error: illegal rvalue for string assignment\n"
+msgstr "%s:%d: fel: otillåtet hvärde för strängtilldelning\n"
+
+#: states/utils.c:1104
+#, c-format
+msgid "%s:%d: error: illegal type for array reference\n"
+msgstr "%s:%d: fel: otillåten typ för vektorreferens\n"
+
+#: states/utils.c:1121
+#, c-format
+msgid "%s:%d: error: array reference index out of rance\n"
+msgstr "%s:%d: fel: vektorreferensindex utanför intervallet\n"
+
+#: states/utils.c:1347
+#, c-format
+msgid "%s: couldn't open definition file `%s': %s\n"
+msgstr "%s: kunde inte öppna definitionsfilen \"%s\": %s\n"
+
+#: states/utils.c:1403
+#, c-format
+msgid "%s: autoloading `%s' from `%s'\n"
+msgstr "%s: läser in \"%s\" automatiskt från \"%s\"\n"
+
+#~ msgid "couldn't create toc file name: %s"
+#~ msgstr "kunde inte skapa innehållsfilnamn: %s"
+
+#, fuzzy
+#~ msgid "couldn't create toc file \"%s\": %s"
+#~ msgstr "kunde inte skapa utdatafilen \"%s\": %s"
+
+#, fuzzy
+#~ msgid "couldn't create divert file name: %s"
+#~ msgstr "kunde inte skapa innehållsfilnamn: %s"
+
+#~ msgid "couldn't create divert file \"%s\": %s"
+#~ msgstr "kunde inte skapa omdirigeringsfilen \"%s\": %s"

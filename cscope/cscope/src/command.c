@@ -739,7 +739,7 @@ changestring(void)
 				
 		/* make sure it can be changed */
 		if (access(newfile, WRITE) != 0) {
-		    sprintf(msg, "Cannot write to file %s", newfile);
+		    snprintf(msg, sizeof(msg), "Cannot write to file %s", newfile);
 		    postmsg(msg);
 		    anymarked = NO;
 		    break;

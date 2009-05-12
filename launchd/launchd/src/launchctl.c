@@ -18,14 +18,14 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-static const char *const __rcs_file_version__ = "$Revision: 23642 $";
+static const char *const __rcs_file_version__ = "$Revision: 23792 $";
 
-#include "liblaunch_public.h"
-#include "liblaunch_private.h"
-#include "libbootstrap_public.h"
-#include "libvproc_public.h"
-#include "libvproc_private.h"
-#include "libvproc_internal.h"
+#include "launch.h"
+#include "launch_priv.h"
+#include "bootstrap.h"
+#include "vproc.h"
+#include "vproc_priv.h"
+#include "vproc_internal.h"
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFPriv.h>
@@ -1409,10 +1409,12 @@ system_specific_bootstrap(bool sflag)
 	loopback_setup_ipv4();
 	loopback_setup_ipv6();
 
-	if (path_check("/etc/rc.server")) {
-		const char *rcserver_tool[] = { _PATH_BSHELL, "/etc/rc.server", NULL };
-		assumes(fwexec(rcserver_tool, true) != -1);
+#if TARGET_OS_EMBEDDED
+	if (path_check("/etc/rc.boot")) {
+		const char *rcboot_tool[] = { "/etc/rc.boot", NULL };
+		assumes(fwexec(rcboot_tool, true) != -1);
 	}
+#endif
 
 	apply_sysctls_from_file("/etc/sysctl.conf");
 
@@ -1431,6 +1433,11 @@ system_specific_bootstrap(bool sflag)
 		do_potential_fsck();
 	}
 
+	if (path_check("/etc/rc.server")) {
+		const char *rcserver_tool[] = { _PATH_BSHELL, "/etc/rc.server", NULL };
+		assumes(fwexec(rcserver_tool, true) != -1);
+	}
+	
 	read_launchd_conf();
 
 	if (path_check("/var/account/acct")) {

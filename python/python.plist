@@ -27,6 +27,15 @@
 		<string>/Library/Python/2.x/site-packages is now native</string>
 		<string>man page explains readline modules use of libedit</string>
 		<string>initial dtrace probe support</string>
+		<string>CVE-2007-4965 integer overflow fix</string>
+		<string>CVE-2008-1679 integer overflow fix</string>
+		<string>CVE-2008-1887 buffer overflow fix</string>
+		<string>CVE-2008-2315 integer overflow fix</string>
+		<string>CVE-2008-2316 integer overflow fix</string>
+		<string>CVE-2008-3142 integer overflow fix</string>
+		<string>CVE-2008-3144 integer overflow fix</string>
+		<string>CVE-2008-5031 expandtabs fix</string>
+		<string>CESA-2008-008 fixes</string>
 	</array>	
 </dict>
 </array>

@@ -259,9 +259,10 @@ void show(io_registry_entry_t service, UInt32 serviceDepth, UInt64 stackOfBits, 
     }
 	
 	status = IORegistryEntryGetNameInPlane(service, plane, name);
-    
-    sprintf((char *)tempbuf, (char *)name);
-    strcat(buf,tempbuf);
+    if (status == KERN_SUCCESS)  {
+        sprintf((char *)tempbuf, "%s", name);
+        strcat(buf,tempbuf); 
+    }
     
     status = IORegistryEntryGetLocationInPlane(service, plane, location);
     if (status == KERN_SUCCESS)  {

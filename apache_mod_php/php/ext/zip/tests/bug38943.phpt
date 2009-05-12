@@ -1,26 +1,14 @@
 --TEST--
-#38943, properties in extended class cannot be set
+#38943, properties in extended class cannot be set (< 5.3)
 --SKIPIF--
 <?php
-/* $Id: bug38943.phpt,v 1.1.2.2 2006/10/09 16:02:34 bjori Exp $ */
+/* $Id: bug38943.phpt,v 1.1.2.3 2008/11/12 11:59:26 pajoye Exp $ */
 if(!extension_loaded('zip')) die('skip');
+if (!defined('PHP_VERSION_MAJOR')) die('skip');
 ?>
 --FILE--
 <?php
-class myZip extends ZipArchive {
-	private $test = 0;
-	public $testp = 1;
-	private $testarray = array();
-
-	public function __construct() {
-		$this->testarray[] = 1;
-		var_dump($this->testarray);
-	}
-}
-
-$z = new myZip;
-$z->testp = "foobar";
-var_dump($z);
+include dirname(__FILE__) . '/bug38943.inc';
 ?>
 --EXPECTF--
 array(1) {

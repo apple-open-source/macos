@@ -22,6 +22,13 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+
+//================================================================================================
+//
+//   Headers
+//
+//================================================================================================
+//
 #include <libkern/OSByteOrder.h>
 
 #include <IOKit/IOLib.h>
@@ -34,8 +41,21 @@
 #include <IOKit/usb/IOUSBRootHubDevice.h>
 #include <IOKit/usb/IOUSBLog.h>
 
+#include "AppleUSBOHCI.h"
+
+//================================================================================================
+//
+//   Local Definitions
+//
+//================================================================================================
+//
 #define super IOUSBControllerV3
 
+#define _controllerCanSleep				_expansionData->_controllerCanSleep
+
+#ifndef kACPIDevicePathKey
+	#define kIOPCIPMEOptionsKey			"IOPCIPMEOptions"
+#endif
 
 // From the file Gossamer.h that is not available
 enum {
@@ -48,13 +68,35 @@ enum {
 };
 
 
+//================================================================================================
+//
+//   kprintf logging
+//
+//	Convert USBLog to use kprintf debugging
+//
+//================================================================================================
+//
+#if OHCI_USE_KPRINTF
+	#define OHCIPWRMGMT_USE_KPRINTF OHCI_USE_KPRINTF
+#else
+	#define OHCIPWRMGMT_USE_KPRINTF 0
+#endif
 
-#include "AppleUSBOHCI.h"
+#if OHCIPWRMGMT_USE_KPRINTF
+	#undef USBLog
+	#undef USBError
+	void kprintf(const char *format, ...) __attribute__((format(printf, 1, 2)));
+	#define USBLog( LEVEL, FORMAT, ARGS... )  if ((LEVEL) <= OHCIPWRMGMT_USE_KPRINTF) { kprintf( FORMAT "\n", ## ARGS ) ; }
+	#define USBError( LEVEL, FORMAT, ARGS... )  { kprintf( FORMAT "\n", ## ARGS ) ; }
+#endif
 
-// this section needs to get moved to the IOPCIFamily
-#define DEBUG_PCI_PWR_MGMT 1
-#define _controllerCanSleep				_expansionData->_controllerCanSleep
 
+//================================================================================================
+//
+//   CheckSleepCapability
+//
+//================================================================================================
+//
 void
 AppleUSBOHCI::CheckSleepCapability(void)
 {
@@ -88,19 +130,27 @@ AppleUSBOHCI::CheckSleepCapability(void)
 		if (_device->getProperty("built-in"))
 		{
 			// rdar://5769508 - if we are on a built in PCI device, then assume the system supports D3cold
-			if (_device->hasPCIPowerManagement(kPCIPMCPMESupportFromD3Cold) && (_device->enablePCIPowerManagement(kPCIPMCSPowerStateD3) == kIOReturnSuccess))
+			if (_device->hasPCIPowerManagement(kPCIPMCPMESupportFromD3Cold))
 			{
-				_hasPCIPwrMgmt = true;
-				setProperty("Card Type","Built-in");
+				_device->setProperty(kIOPCIPMEOptionsKey, kOSBooleanTrue);
+				if (_device->enablePCIPowerManagement(kPCIPMCSPowerStateD3) == kIOReturnSuccess)
+				{
+					_hasPCIPwrMgmt = true;
+					setProperty("Card Type","Built-in");
+				}
 			}
 		}
 		else
 		{
 			// rdar://5856545 - on older machines without the built-in property, we need to use the "default" case in the IOPCIDevice code
-			if (_device->hasPCIPowerManagement() && (_device->enablePCIPowerManagement() == kIOReturnSuccess))
+			if (_device->hasPCIPowerManagement())
 			{
-				_hasPCIPwrMgmt = true;
-				setProperty("Card Type","Built-in");
+				_device->setProperty(kIOPCIPMEOptionsKey, kOSBooleanTrue);
+				if (_device->enablePCIPowerManagement() == kIOReturnSuccess)
+				{
+					_hasPCIPwrMgmt = true;
+					setProperty("Card Type","Built-in");
+				}
 			}
 		}
 		
@@ -127,6 +177,12 @@ AppleUSBOHCI::CheckSleepCapability(void)
 }
 
 
+//================================================================================================
+//
+//   callPlatformFunction
+//
+//================================================================================================
+//
 IOReturn 
 AppleUSBOHCI::callPlatformFunction(const OSSymbol *functionName,
 								   bool waitForFunction,
@@ -154,6 +210,12 @@ AppleUSBOHCI::callPlatformFunction(const OSSymbol *functionName,
 }
 
 
+//================================================================================================
+//
+//   SuspendUSBBus
+//
+//================================================================================================
+//
 void
 AppleUSBOHCI::SuspendUSBBus(bool goingToSleep)
 {
@@ -222,6 +284,13 @@ AppleUSBOHCI::SuspendUSBBus(bool goingToSleep)
 	 */
 }
 
+
+//================================================================================================
+//
+//   ResumeUSBBus
+//
+//================================================================================================
+//
 void
 AppleUSBOHCI::ResumeUSBBus(bool wakingFromSleep)
 {
@@ -338,6 +407,12 @@ AppleUSBOHCI::ResumeUSBBus(bool wakingFromSleep)
 
 
 
+//================================================================================================
+//
+//   AllocatePowerStateArray
+//
+//================================================================================================
+//
 IOReturn
 AppleUSBOHCI::AllocatePowerStateArray(void)
 {
@@ -359,13 +434,46 @@ AppleUSBOHCI::AllocatePowerStateArray(void)
 }
 
 
+//================================================================================================
+//
+//   SaveControllerStateForSleep
+//
+//================================================================================================
+//
 IOReturn				
 AppleUSBOHCI::SaveControllerStateForSleep(void)
 {	
+	UInt8			pciPMCapOffset = 0;
+	UInt16			pmControlStatus = 0;
+	
+	// <rdar://problem/6623922>
+	// The PCI family will have cleared the kPCIPMCSPMEStatus at this point. However, some OHCI controllers will apparently 
+	// set the bit again, probably when we actually put the individual ports into suspend. So we need to clear it before we
+	// put the controller into global suspend.
+	_device->findPCICapability(kIOPCIPowerManagementCapability, &pciPMCapOffset);
+	if (pciPMCapOffset > 0x3f)					// must be > 3f, section 3.1
+	{
+		pmControlStatus = pciPMCapOffset + 4;
+	}	
+	
+	if (pmControlStatus)
+	{
+		UInt16			pmcsr = _device->configRead16(pmControlStatus);
+		USBLog(7, "AppleUSBOHCI[%p]::SaveControllerStateForSleep before PMCS for device (%p) is (%p)", this, _device, (void*)pmcsr);
+		if (pmcsr & kPCIPMCSPMEStatus)
+		{
+			// this one bit (kPCIPMCSPMEStatus) is Read/Write Clear. All other bits are R/W, so we write back the same value we 
+			// read so that it will be clear after the write
+			_device->configWrite16(pmControlStatus, pmcsr);
+			IOSleep(2);
+		}
+	}
+	
 	USBLog(2, "AppleUSBOHCI[%p]::SaveControllerStateForSleep - suspending the bus", this);
 	_remote_wakeup_occurred = false;
 	
 	SuspendUSBBus(true);
+
 	USBLog(2, "AppleUSBOHCI[%p]::SaveControllerStateForSleep - The bus is now suspended", this);
 	_myBusState = kUSBBusStateSuspended;
 	
@@ -380,6 +488,12 @@ AppleUSBOHCI::SaveControllerStateForSleep(void)
 
 
 
+//================================================================================================
+//
+//   RestoreControllerStateFromSleep
+//
+//================================================================================================
+//
 IOReturn				
 AppleUSBOHCI::RestoreControllerStateFromSleep(void)
 {
@@ -413,6 +527,12 @@ AppleUSBOHCI::RestoreControllerStateFromSleep(void)
 
 
 
+//================================================================================================
+//
+//   ResetControllerState
+//
+//================================================================================================
+//
 IOReturn
 AppleUSBOHCI::ResetControllerState(void)
 {
@@ -449,6 +569,12 @@ AppleUSBOHCI::ResetControllerState(void)
 
 
 
+//================================================================================================
+//
+//   RestartControllerFromReset
+//
+//================================================================================================
+//
 IOReturn
 AppleUSBOHCI::RestartControllerFromReset(void)
 {
@@ -497,7 +623,12 @@ AppleUSBOHCI::RestartControllerFromReset(void)
 }
 
 
-
+//================================================================================================
+//
+//   EnableInterruptsFromController
+//
+//================================================================================================
+//
 IOReturn
 AppleUSBOHCI::EnableInterruptsFromController(bool enable)
 {
@@ -518,7 +649,12 @@ AppleUSBOHCI::EnableInterruptsFromController(bool enable)
 }
 
 
-
+//================================================================================================
+//
+//   DozeController
+//
+//================================================================================================
+//
 IOReturn
 AppleUSBOHCI::DozeController(void)
 {
@@ -529,7 +665,12 @@ AppleUSBOHCI::DozeController(void)
 }
 
 
-
+//================================================================================================
+//
+//   WakeControllerFromDoze
+//
+//================================================================================================
+//
 IOReturn				
 AppleUSBOHCI::WakeControllerFromDoze(void)
 {
@@ -540,7 +681,12 @@ AppleUSBOHCI::WakeControllerFromDoze(void)
 }
 
 
-
+//================================================================================================
+//
+//   powerChangeDone
+//
+//================================================================================================
+//
 void
 AppleUSBOHCI::powerChangeDone ( unsigned long fromState)
 {

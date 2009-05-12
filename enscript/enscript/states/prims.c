@@ -1,6 +1,6 @@
 /*
  * Primitive procedures for states.
- * Copyright (c) 1997 Markku Rossi.
+ * Copyright (c) 1997-1999 Markku Rossi.
  *
  * Author: Markku Rossi <mtr@iki.fi>
  */
@@ -30,12 +30,13 @@
  * Types and definitions.
  */
 
-#define DEFUN(prim) 			\
-static Node * 				\
-prim (prim_name, args, env, linenum)  	\
-     char *prim_name; 			\
-     List *args; 			\
-     Environment *env;			\
+#define DEFUN(prim)				\
+static Node *					\
+prim (prim_name, args, env, filename, linenum)	\
+     char *prim_name;				\
+     List *args;				\
+     Environment *env;				\
+     char *filename;				\
      unsigned int linenum;
 
 #define NEED_ARG()						\
@@ -43,7 +44,7 @@ do {								\
   if (arg == NULL)						\
     {								\
       fprintf (stderr, _("%s:%d: %s: too few arguments\n"),	\
-	       defs_file, linenum, prim_name);			\
+	       filename, linenum, prim_name);			\
       exit (1);							\
     }								\
 } while (0)
@@ -53,12 +54,13 @@ do {								\
     if (arg != NULL)						\
       {								\
 	fprintf (stderr, _("%s:%d: %s: too many arguments\n"),	\
-		 defs_file, linenum, prim_name);		\
+		 filename, linenum, prim_name);			\
 	exit (1);						\
       }								\
   } while (0)
 
-#define MATCH_ARG(type) match_arg (prim_name, type, &arg, env, linenum)
+#define MATCH_ARG(type) \
+  match_arg (prim_name, type, &arg, env, filename, linenum)
 
 #define APPEND(data, len)				\
   do {							\
@@ -80,7 +82,8 @@ do {								\
  */
 
 static Node *prim_print ___P ((char *prim_name, List *args,
-			       Environment *env, unsigned int linenum));
+			       Environment *env, char *filename,
+			       unsigned int linenum));
 
 
 /*
@@ -88,11 +91,12 @@ static Node *prim_print ___P ((char *prim_name, List *args,
  */
 
 static Node *
-match_arg (prim_name, type, argp, env, linenum)
+match_arg (prim_name, type, argp, env, filename, linenum)
      char *prim_name;
      NodeType type;
      ListItem **argp;
      Environment *env;
+     char *filename;
      unsigned int linenum;
 {
   ListItem *arg = *argp;
@@ -103,7 +107,7 @@ match_arg (prim_name, type, argp, env, linenum)
   if (type != nVOID && n->type != type)
     {
       fprintf (stderr, _("%s:%d: %s: illegal argument type\n"),
-	       defs_file, linenum, prim_name);
+	       filename, linenum, prim_name);
       exit (1);
     }
   *argp = arg->next;
@@ -123,7 +127,7 @@ DEFUN (prim_call)
   if (e->type != eSYMBOL)
     {
       fprintf (stderr, _("%s:%d: %s: illegal argument type\n"),
-	       defs_file, linenum, prim_name);
+	       filename, linenum, prim_name);
       exit (1);
     }
   cp = e->u.node->u.sym;
@@ -132,6 +136,26 @@ DEFUN (prim_call)
   LAST_ARG ();
 
   return execute_state (cp);
+}
+
+DEFUN (prim_calln)
+{
+  ListItem *arg = args->head;
+  Node *n;
+  char *cp;
+
+  n = MATCH_ARG (nSTRING);
+  LAST_ARG ();
+
+  cp = xmalloc (n->u.str.len + 1);
+  memcpy (cp, n->u.str.data, n->u.str.len);
+  cp[n->u.str.len] = '\0';
+
+  node_free (n);
+  n = execute_state (cp);
+  xfree (cp);
+
+  return n;
 }
 
 
@@ -229,7 +253,7 @@ DEFUN (prim_concat)
       if (n->type != nSTRING)
 	{
 	  fprintf (stderr, _("%s:%d: %s: illegal argument type\n"),
-		   defs_file, linenum, prim_name);
+		   filename, linenum, prim_name);
 	  exit (1);
 	}
 
@@ -402,7 +426,7 @@ DEFUN (prim_length)
 
 	default:
 	  fprintf (stderr, _("%s:%d: %s: illegal argument type\n"),
-		   defs_file, linenum, prim_name);
+		   filename, linenum, prim_name);
 	  exit (1);
 	  break;
 	}
@@ -445,7 +469,7 @@ DEFUN (prim_panic)
 {
   fprintf (stderr, _("%s: panic: "), program);
   ofp = stderr;
-  prim_print (prim_name, args, env, linenum);
+  prim_print (prim_name, args, env, filename, linenum);
   fprintf (stderr, "\n");
   exit (1);
 
@@ -478,7 +502,7 @@ DEFUN (prim_prereq)
     {
       fprintf (stderr,
 	       _("%s:%d: %s: malformed version string `%s'\n"),
-	       defs_file, linenum, prim_name, cp);
+	       filename, linenum, prim_name, cp);
       exit (1);
     }
 
@@ -584,7 +608,7 @@ DEFUN (prim_range)
     {
       fprintf (stderr,
 	       _("%s:%d: %s: start offset is bigger than end offset\n"),
-	       defs_file, linenum, prim_name);
+	       filename, linenum, prim_name);
       exit (1);
     }
 
@@ -593,7 +617,7 @@ DEFUN (prim_range)
       if (end->u.integer > from->u.str.len)
 	{
 	  fprintf (stderr, _("%s:%d: %s: offset out of range\n"),
-		   defs_file, linenum, prim_name);
+		   filename, linenum, prim_name);
 	  exit (1);
 	}
 
@@ -609,7 +633,7 @@ DEFUN (prim_range)
       if (end->u.integer > from->u.array.len)
 	{
 	  fprintf (stderr, _("%s:%d: %s: offset out of range\n"),
-		   defs_file, linenum, prim_name);
+		   filename, linenum, prim_name);
 	  exit (1);
 	}
 
@@ -627,7 +651,7 @@ DEFUN (prim_range)
   else
     {
       fprintf (stderr, _("%s:%d: %s: illegal argument\n"),
-	       defs_file, linenum, prim_name);
+	       filename, linenum, prim_name);
       exit (1);
     }
 
@@ -674,7 +698,7 @@ DEFUN (prim_regexp_syntax)
     {
       fprintf (stderr,
 	       _("%s:%d: %s: illegal regexp character syntax: %c\n"),
-	       defs_file, linenum, prim_name, syntax);
+	       filename, linenum, prim_name, syntax);
       exit (1);
     }
 
@@ -866,6 +890,37 @@ DEFUN (prim_regsuball)
 }
 
 
+DEFUN (prim_require_state)
+{
+  ListItem *arg = args->head;
+  Expr *e;
+  char *cp;
+  State *state;
+
+  e = (Expr *) arg->data;
+  if (e->type != eSYMBOL)
+    {
+      fprintf (stderr, _("%s:%d: %s: illegal argument type\n"),
+	       filename, linenum, prim_name);
+      exit (1);
+    }
+  cp = e->u.node->u.sym;
+
+  arg = arg->next;
+  LAST_ARG ();
+
+  state = lookup_state (cp);
+  if (state == NULL)
+    {
+      fprintf (stderr, _("%s:%d: %s: couldn't define state `%s'\n"),
+	       filename, linenum, prim_name, cp);
+      exit (1);
+    }
+
+  return nvoid;
+}
+
+
 DEFUN (prim_split)
 {
   ListItem *arg = args->head;
@@ -983,9 +1038,19 @@ DEFUN (prim_sprintf)
 		no_match:
 		  fprintf (stderr,
 			   _("%s:%d: %s: argument %d doesn't match format\n"),
-			   defs_file, linenum, prim_name, argument_count);
+			   filename, linenum, prim_name, argument_count);
 		  exit (1);
 		}
+	      sprintf (ifmt, "%%%s%c", ifmtopts, cp[i]);
+	      sprintf (buf, ifmt, n->u.integer);
+
+	      APPEND (buf, strlen (buf));
+	      break;
+
+	    case 'c':
+	      if (n->type != nINTEGER)
+		goto no_match;
+
 	      sprintf (ifmt, "%%%s%c", ifmtopts, cp[i]);
 	      sprintf (buf, ifmt, n->u.integer);
 
@@ -1013,7 +1078,7 @@ DEFUN (prim_sprintf)
 		{
 		  fprintf (stderr,
 			   _("%s:%d: %s: no extra options can be specified for %%s\n"),
-			   defs_file, linenum, prim_name);
+			   filename, linenum, prim_name);
 		  exit (1);
 		}
 	      APPEND (n->u.str.data, n->u.str.len);
@@ -1022,7 +1087,7 @@ DEFUN (prim_sprintf)
 	    default:
 	      fprintf (stderr,
 		       _("%s:%d: %s: illegal type specifier `%c'\n"),
-		       defs_file, linenum, prim_name, cp[i]);
+		       filename, linenum, prim_name, cp[i]);
 	      exit (1);
 	      break;
 	    }
@@ -1209,13 +1274,13 @@ DEFUN (prim_substring)
     {
       fprintf (stderr,
 	       _("%s:%d: %s: start offset is bigger than end offset\n"),
-	       defs_file, linenum, prim_name);
+	       filename, linenum, prim_name);
       exit (1);
     }
   if (end->u.integer > str->u.str.len)
     {
       fprintf (stderr, _("%s:%d: %s: offset out of range\n"),
-	       defs_file, linenum, prim_name);
+	       filename, linenum, prim_name);
       exit (1);
     }
 
@@ -1235,6 +1300,29 @@ DEFUN (prim_substring)
 }
 
 
+DEFUN (prim_system)
+{
+  ListItem *arg = args->head;
+  Node *str, *n;
+  char *cmd;
+  int result;
+
+  str = MATCH_ARG (nSTRING);
+  LAST_ARG ();
+
+  cmd = (char *) xcalloc (1, str->u.str.len + 1);
+  memcpy (cmd, str->u.str.data, str->u.str.len);
+
+  result = system (cmd);
+  xfree (cmd);
+
+  n = node_alloc (nINTEGER);
+  n->u.integer = result;
+
+  return n;
+}
+
+
 /*
  * Global functions.
  */
@@ -1246,6 +1334,7 @@ static struct
 } prims[] =
   {
     {"call", 			prim_call},
+    {"calln", 			prim_calln},
     {"check_namerules",		prim_check_namerules},
     {"check_startrules",	prim_check_startrules},
     {"concat",			prim_concat},
@@ -1263,12 +1352,14 @@ static struct
     {"regmatch",		prim_regmatch},
     {"regsub",			prim_regsub},
     {"regsuball",		prim_regsuball},
+    {"require_state",		prim_require_state},
     {"split",			prim_split},
     {"sprintf",			prim_sprintf},
     {"strcmp",			prim_strcmp},
     {"string",			prim_string},
     {"strncmp",			prim_strncmp},
     {"substring",		prim_substring},
+    {"system",			prim_system},
 
     {NULL, NULL},
   };

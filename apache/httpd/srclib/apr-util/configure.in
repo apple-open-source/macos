@@ -133,7 +133,7 @@ AC_ARG_WITH(apr-iconv,
                           [--enable-layout=*|\'--enable-layout=*])
         APRUTIL_EXPORT_LIBS="$abs_srcdir/$apu_apriconv_dir/lib/libapriconv.la \
                              $APRUTIL_EXPORT_LIBS"
-        APRUTIL_INCLUDES="-I$abs_srcdir/apu_apriconv_dir/include \
+        APRUTIL_INCLUDES="-I$abs_srcdir/$apu_apriconv_dir/include \
                           $APRUTIL_INCLUDES"
         APR_ICONV_DIR="$apu_apriconv_dir"
       else
@@ -157,6 +157,7 @@ APU_CHECK_DBD_SQLITE3
 APU_CHECK_DBD_SQLITE2
 APU_CHECK_DBD_ORACLE
 APU_CHECK_DBD_FREETDS
+APU_CHECK_DBD_ODBC
 APU_FIND_EXPAT
 APU_FIND_ICONV
 

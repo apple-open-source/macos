@@ -1,6 +1,6 @@
 %
 % PostScript prolog.
-% Copyright (c) 1995, 1996, 1997 Markku Rossi.
+% Copyright (c) 1995-1998 Markku Rossi.
 %
 % Author: Markku Rossi <mtr@iki.fi>
 %
@@ -69,6 +69,29 @@
   newfontname newfont definefont pop
 } def
 
+/MF_PS { % fontname newfontname -> -	make a new font preserving its enc
+  /newfontname exch def
+  /fontname exch def
+
+  /fontdict fontname findfont def
+  /newfont fontdict maxlength dict def
+
+  fontdict {
+    exch
+    dup /FID eq {
+      % skip FID pair
+      pop pop
+    } {
+      % copy to the new font dictionary
+      exch newfont 3 1 roll put
+    } ifelse
+  } forall
+
+  newfont /FontName newfontname put
+
+  newfontname newfont definefont pop
+} def
+
 /SF { % fontname width height -> -	set a new font
   /height exch def
   /width exch def
@@ -82,6 +105,14 @@
   /width exch def
 
   /F-gs-user-font MF
+  /F-gs-user-font width height SF
+} def
+
+/SUF_PS { % fontname width height -> -	set a new user font preserving its enc
+  /height exch def
+  /width exch def
+
+  /F-gs-user-font MF_PS
   /F-gs-user-font width height SF
 } def
 
@@ -108,6 +139,24 @@
   gsave
     x y blskip sub str stringwidth pop height Box
     gray setgray
+    fill
+  grestore
+  x y M str s
+} def
+
+/bgcs { % x y height blskip red green blue str -> -  show string with bg color
+  /str exch def
+  /blue exch def
+  /green exch def
+  /red exch def
+  /blskip exch def
+  /height exch def
+  /y exch def
+  /x exch def
+
+  gsave
+    x y blskip sub str stringwidth pop height Box
+    red green blue setrgbcolor
     fill
   grestore
   x y M str s

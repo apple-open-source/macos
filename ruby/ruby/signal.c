@@ -2,8 +2,8 @@
 
   signal.c -
 
-  $Author: knu $
-  $Date: 2007-03-11 17:31:53 +0900 (Sun, 11 Mar 2007) $
+  $Author: shyouhei $
+  $Date: 2008-06-29 16:52:47 +0900 (Sun, 29 Jun 2008) $
   created at: Tue Dec 20 10:13:44 JST 1994
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -19,6 +19,12 @@
 
 #ifdef __BEOS__
 #undef SIGBUS
+#endif
+
+#if defined HAVE_SIGPROCMASK || defined HAVE_SIGSETMASK
+#define USE_TRAP_MASK 1
+#else
+#define USE_TRAP_MASK 0
 #endif
 
 #ifndef NSIG
@@ -563,16 +569,17 @@ sighandler(sig)
 
 #if defined(HAVE_NATIVETHREAD) && defined(HAVE_NATIVETHREAD_KILL)
     if (!is_ruby_native_thread() && !rb_trap_accept_nativethreads[sig]) {
-        sigsend_to_ruby_thread(sig);
-        return;
+	sigsend_to_ruby_thread(sig);
+	return;
     }
 #endif
 
 #if !defined(BSD_SIGNAL) && !defined(POSIX_SIGNAL)
     if (rb_trap_accept_nativethreads[sig]) {
-        ruby_nativethread_signal(sig, sighandler);
-    } else {
-        ruby_signal(sig, sighandler);
+	ruby_nativethread_signal(sig, sighandler);
+    }
+    else {
+	ruby_signal(sig, sighandler);
     }
 #endif
 
@@ -663,7 +670,7 @@ rb_trap_exec()
 }
 
 struct trap_arg {
-#ifndef _WIN32
+#if USE_TRAP_MASK
 # ifdef HAVE_SIGPROCMASK
     sigset_t mask;
 # else
@@ -812,7 +819,7 @@ trap(arg)
     trap_list[sig].cmd = command;
     trap_list[sig].safe = ruby_safe_level;
     /* enable at least specified signal. */
-#ifndef _WIN32
+#if USE_TRAP_MASK
 #ifdef HAVE_SIGPROCMASK
     sigdelset(&arg->mask, sig);
 #else
@@ -822,7 +829,7 @@ trap(arg)
     return oldcmd;
 }
 
-#ifndef _WIN32
+#if USE_TRAP_MASK
 static VALUE
 trap_ensure(arg)
     struct trap_arg *arg;
@@ -841,7 +848,7 @@ trap_ensure(arg)
 void
 rb_trap_restore_mask()
 {
-#ifndef _WIN32
+#if USE_TRAP_MASK
 # ifdef HAVE_SIGPROCMASK
     sigprocmask(SIG_SETMASK, &trap_last_mask, NULL);
 # else
@@ -901,7 +908,7 @@ sig_trap(argc, argv)
     if (OBJ_TAINTED(arg.cmd)) {
 	rb_raise(rb_eSecurityError, "Insecure: tainted signal trap");
     }
-#ifndef _WIN32
+#if USE_TRAP_MASK
     /* disable interrupt */
 # ifdef HAVE_SIGPROCMASK
     sigfillset(&arg.mask);
@@ -984,7 +991,7 @@ init_sigchld(sig)
     int sig;
 {
     sighandler_t oldfunc;
-#ifndef _WIN32
+#if USE_TRAP_MASK
 # ifdef HAVE_SIGPROCMASK
     sigset_t mask;
 # else
@@ -992,7 +999,7 @@ init_sigchld(sig)
 # endif
 #endif
 
-#ifndef _WIN32
+#if USE_TRAP_MASK
     /* disable interrupt */
 # ifdef HAVE_SIGPROCMASK
     sigfillset(&mask);
@@ -1009,7 +1016,7 @@ init_sigchld(sig)
 	trap_list[sig].cmd = 0;
     }
 
-#ifndef _WIN32
+#if USE_TRAP_MASK
 #ifdef HAVE_SIGPROCMASK
     sigdelset(&mask, sig);
     sigprocmask(SIG_SETMASK, &mask, NULL);

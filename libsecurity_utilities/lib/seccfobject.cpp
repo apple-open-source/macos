@@ -195,7 +195,7 @@ SecCFObject::operator delete(void *object) throw()
 	CFRelease(cfType);
 }
 
-SecCFObject::~SecCFObject() throw()
+SecCFObject::~SecCFObject()
 {
 #if !defined(NDEBUG)
 	CFTypeRef cfType = *this;

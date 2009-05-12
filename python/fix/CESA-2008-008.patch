@@ -1,0 +1,1209 @@
+--- /python/branches/release25-maint/Include/pyport.h	2008/02/14 11:01:10	60792
++++ python/branches/release25-maint/Include/pyport.h	2008/02/14 11:26:18	60793
+@@ -89,6 +89,17 @@
+ #   error "Python needs a typedef for Py_uintptr_t in pyport.h."
+ #endif /* HAVE_UINTPTR_T */
+ 
++/* Largest possible value of size_t.
++   SIZE_MAX is part of C99, so it might be defined on some
++   platforms. If it is not defined, (size_t)-1 is a portable
++   definition for C89, due to the way signed->unsigned 
++   conversion is defined. */
++#ifdef SIZE_MAX
++#define PY_SIZE_MAX SIZE_MAX
++#else
++#define PY_SIZE_MAX ((size_t)-1)
++#endif
++
+ /* Py_ssize_t is a signed integral type such that sizeof(Py_ssize_t) ==
+  * sizeof(size_t).  C99 doesn't define such a thing directly (size_t is an
+  * unsigned integral type).  See PEP 353 for details.
+--- /python/branches/release25-maint/Lib/test/test_array.py	2008/02/14 11:01:10	60792
++++ python/branches/release25-maint/Lib/test/test_array.py	2008/02/14 11:26:18	60793
+@@ -975,6 +975,23 @@
+ class DoubleTest(FPTest):
+     typecode = 'd'
+     minitemsize = 8
++
++    def test_alloc_overflow(self):
++        a = array.array('d', [-1]*65536)
++        try:
++            a *= 65536
++        except MemoryError:
++            pass
++        else:
++            self.fail("a *= 2**16 didn't raise MemoryError")
++        b = array.array('d', [ 2.71828183, 3.14159265, -1])
++        try:
++            b * 1431655766
++        except MemoryError:
++            pass
++        else:
++            self.fail("a * 1431655766 didn't raise MemoryError")
++
+ tests.append(DoubleTest)
+ 
+ def test_main(verbose=None):
+--- /python/branches/release25-maint/Lib/test/test_struct.py	2008/02/14 11:01:10	60792
++++ python/branches/release25-maint/Lib/test/test_struct.py	2008/02/14 11:26:18	60793
+@@ -618,8 +618,12 @@
+     value, = struct.unpack('>I', data)
+     vereq(value, 0x12345678)
+ 
++def test_crasher():
++    assertRaises(MemoryError, struct.pack, "357913941c", "a")
++
+ # Test methods to pack and unpack from buffers rather than strings.
+ test_unpack_from()
+ test_pack_into()
+ test_pack_into_fn()
+ test_unpack_with_buffer()
++test_crasher()
+--- /python/branches/release25-maint/Modules/_csv.c	2008/02/14 11:01:10	60792
++++ python/branches/release25-maint/Modules/_csv.c	2008/02/14 11:26:18	60793
+@@ -560,6 +560,10 @@
+ 		self->field = PyMem_Malloc(self->field_size);
+ 	}
+ 	else {
++		if (self->field_size > INT_MAX / 2) {
++			PyErr_NoMemory();
++			return 0;
++		} 
+ 		self->field_size *= 2;
+ 		self->field = PyMem_Realloc(self->field, self->field_size);
+ 	}
+@@ -1055,6 +1059,12 @@
+ static int
+ join_check_rec_size(WriterObj *self, int rec_len)
+ {
++
++	if (rec_len < 0 || rec_len > INT_MAX - MEM_INCR) {
++		PyErr_NoMemory();
++		return 0;
++	}
++
+ 	if (rec_len > self->rec_size) {
+ 		if (self->rec_size == 0) {
+ 			self->rec_size = (rec_len / MEM_INCR + 1) * MEM_INCR;
+--- /python/branches/release25-maint/Modules/_struct.c	2008/02/14 11:01:10	60792
++++ python/branches/release25-maint/Modules/_struct.c	2008/02/14 11:26:18	60793
+@@ -1336,6 +1336,12 @@
+ 		}
+ 	}
+ 
++	/* check for overflow */
++	if ((len + 1) > (PY_SSIZE_T_MAX / sizeof(formatcode))) {
++		PyErr_NoMemory();
++		return -1;
++	}
++
+ 	self->s_size = size;
+ 	self->s_len = len;
+ 	codes = PyMem_MALLOC((len + 1) * sizeof(formatcode));
+--- /python/branches/release25-maint/Modules/arraymodule.c	2008/02/14 11:01:10	60792
++++ python/branches/release25-maint/Modules/arraymodule.c	2008/02/14 11:26:18	60793
+@@ -652,6 +652,9 @@
+ 		PyErr_BadArgument();
+ 		return NULL;
+ 	}
++	if (a->ob_size > PY_SSIZE_T_MAX - b->ob_size) {
++		return PyErr_NoMemory();
++	}
+ 	size = a->ob_size + b->ob_size;
+ 	np = (arrayobject *) newarrayobject(&Arraytype, size, a->ob_descr);
+ 	if (np == NULL) {
+@@ -674,6 +677,9 @@
+ 	Py_ssize_t nbytes;
+ 	if (n < 0)
+ 		n = 0;
++	if ((a->ob_size != 0) && (n > PY_SSIZE_T_MAX / a->ob_size)) {
++		return PyErr_NoMemory();
++	}
+ 	size = a->ob_size * n;
+ 	np = (arrayobject *) newarrayobject(&Arraytype, size, a->ob_descr);
+ 	if (np == NULL)
+@@ -819,6 +825,11 @@
+ 			     "can only extend with array of same kind");
+ 		return -1;
+ 	}
++	if ((self->ob_size > PY_SSIZE_T_MAX - b->ob_size) ||
++		((self->ob_size + b->ob_size) > PY_SSIZE_T_MAX / self->ob_descr->itemsize)) {
++			PyErr_NoMemory();
++			return -1;
++	}
+ 	size = self->ob_size + b->ob_size;
+ 	old_item = self->ob_item;
+         PyMem_RESIZE(self->ob_item, char, size*self->ob_descr->itemsize);
+@@ -861,6 +872,10 @@
+ 		if (n < 0)
+ 			n = 0;
+ 		items = self->ob_item;
++		if ((self->ob_descr->itemsize != 0) && 
++			(self->ob_size > PY_SSIZE_T_MAX / self->ob_descr->itemsize)) {
++			return PyErr_NoMemory();
++		}
+ 		size = self->ob_size * self->ob_descr->itemsize;
+ 		if (n == 0) {
+ 			PyMem_FREE(items);
+@@ -1153,6 +1168,10 @@
+ 		Py_INCREF(dict);
+ 	}
+ 	if (array->ob_size > 0) {
++		if (array->ob_descr->itemsize 
++				> PY_SSIZE_T_MAX / array->ob_size) {
++			return PyErr_NoMemory();
++		}
+ 		result = Py_BuildValue("O(cs#)O", 
+ 			array->ob_type, 
+ 			array->ob_descr->typecode,
+@@ -1315,6 +1334,9 @@
+ 			if ((*self->ob_descr->setitem)(self,
+ 					self->ob_size - n + i, v) != 0) {
+ 				self->ob_size -= n;
++				if (itemsize && (self->ob_size > PY_SSIZE_T_MAX / itemsize)) {
++					return PyErr_NoMemory();
++				}
+ 				PyMem_RESIZE(item, char,
+ 					          self->ob_size * itemsize);
+ 				self->ob_item = item;
+@@ -1374,6 +1396,10 @@
+ 	n = n / itemsize;
+ 	if (n > 0) {
+ 		char *item = self->ob_item;
++		if ((n > PY_SSIZE_T_MAX - self->ob_size) ||
++			((self->ob_size + n) > PY_SSIZE_T_MAX / itemsize)) {
++				return PyErr_NoMemory();
++		}
+ 		PyMem_RESIZE(item, char, (self->ob_size + n) * itemsize);
+ 		if (item == NULL) {
+ 			PyErr_NoMemory();
+@@ -1399,8 +1425,12 @@
+ static PyObject *
+ array_tostring(arrayobject *self, PyObject *unused)
+ {
+-	return PyString_FromStringAndSize(self->ob_item,
++	if (self->ob_size <= PY_SSIZE_T_MAX / self->ob_descr->itemsize) {
++		return PyString_FromStringAndSize(self->ob_item,
+ 				    self->ob_size * self->ob_descr->itemsize);
++	} else {
++		return PyErr_NoMemory();
++	}
+ }
+ 
+ PyDoc_STRVAR(tostring_doc,
+@@ -1428,6 +1458,9 @@
+ 	}
+ 	if (n > 0) {
+ 		Py_UNICODE *item = (Py_UNICODE *) self->ob_item;
++		if (self->ob_size > PY_SSIZE_T_MAX - n) {
++			return PyErr_NoMemory();
++		}
+ 		PyMem_RESIZE(item, Py_UNICODE, self->ob_size + n);
+ 		if (item == NULL) {
+ 			PyErr_NoMemory();
+--- /python/branches/release25-maint/Modules/audioop.c	2008/02/14 11:01:10	60792
++++ python/branches/release25-maint/Modules/audioop.c	2008/02/14 11:26:18	60793
+@@ -824,7 +824,7 @@
+ audioop_tostereo(PyObject *self, PyObject *args)
+ {
+         signed char *cp, *ncp;
+-        int len, size, val1, val2, val = 0;
++        int len, new_len, size, val1, val2, val = 0;
+         double fac1, fac2, fval, maxval;
+         PyObject *rv;
+         int i;
+@@ -841,7 +841,14 @@
+                 return 0;
+         }
+     
+-        rv = PyString_FromStringAndSize(NULL, len*2);
++        new_len = len*2;
++        if (new_len < 0) {
++                PyErr_SetString(PyExc_MemoryError,
++                                "not enough memory for output buffer");
++                return 0;
++        }
++
++        rv = PyString_FromStringAndSize(NULL, new_len);
+         if ( rv == 0 )
+                 return 0;
+         ncp = (signed char *)PyString_AsString(rv);
+@@ -1004,7 +1011,7 @@
+ {
+         signed char *cp;
+         unsigned char *ncp;
+-        int len, size, size2, val = 0;
++        int len, new_len, size, size2, val = 0;
+         PyObject *rv;
+         int i, j;
+ 
+@@ -1018,7 +1025,13 @@
+                 return 0;
+         }
+     
+-        rv = PyString_FromStringAndSize(NULL, (len/size)*size2);
++        new_len = (len/size)*size2;
++        if (new_len < 0) {
++                PyErr_SetString(PyExc_MemoryError,
++                                "not enough memory for output buffer");
++                return 0;
++        }
++        rv = PyString_FromStringAndSize(NULL, new_len);
+         if ( rv == 0 )
+                 return 0;
+         ncp = (unsigned char *)PyString_AsString(rv);
+@@ -1054,6 +1067,7 @@
+         int chan, d, *prev_i, *cur_i, cur_o;
+         PyObject *state, *samps, *str, *rv = NULL;
+         int bytes_per_frame;
++        size_t alloc_size;
+ 
+         weightA = 1;
+         weightB = 0;
+@@ -1096,8 +1110,14 @@
+         inrate /= d;
+         outrate /= d;
+ 
+-        prev_i = (int *) malloc(nchannels * sizeof(int));
+-        cur_i = (int *) malloc(nchannels * sizeof(int));
++        alloc_size = sizeof(int) * (unsigned)nchannels;
++        if (alloc_size < nchannels) {
++                PyErr_SetString(PyExc_MemoryError,
++                                "not enough memory for output buffer");
++                return 0;
++        }
++        prev_i = (int *) malloc(alloc_size);
++        cur_i = (int *) malloc(alloc_size);
+         if (prev_i == NULL || cur_i == NULL) {
+                 (void) PyErr_NoMemory();
+                 goto exit;
+@@ -1271,7 +1291,7 @@
+         unsigned char *cp;
+         unsigned char cval;
+         signed char *ncp;
+-        int len, size, val;
++        int len, new_len, size, val;
+         PyObject *rv;
+         int i;
+ 
+@@ -1284,12 +1304,18 @@
+                 return 0;
+         }
+     
+-        rv = PyString_FromStringAndSize(NULL, len*size);
++        new_len = len*size;
++        if (new_len < 0) {
++                PyErr_SetString(PyExc_MemoryError,
++                                "not enough memory for output buffer");
++                return 0;
++        }
++        rv = PyString_FromStringAndSize(NULL, new_len);
+         if ( rv == 0 )
+                 return 0;
+         ncp = (signed char *)PyString_AsString(rv);
+     
+-        for ( i=0; i < len*size; i += size ) {
++        for ( i=0; i < new_len; i += size ) {
+                 cval = *cp++;
+                 val = st_ulaw2linear16(cval);
+         
+@@ -1339,7 +1365,7 @@
+         unsigned char *cp;
+         unsigned char cval;
+         signed char *ncp;
+-        int len, size, val;
++        int len, new_len, size, val;
+         PyObject *rv;
+         int i;
+ 
+@@ -1352,12 +1378,18 @@
+                 return 0;
+         }
+     
+-        rv = PyString_FromStringAndSize(NULL, len*size);
++        new_len = len*size;
++        if (new_len < 0) {
++                PyErr_SetString(PyExc_MemoryError,
++                                "not enough memory for output buffer");
++                return 0;
++        }
++        rv = PyString_FromStringAndSize(NULL, new_len);
+         if ( rv == 0 )
+                 return 0;
+         ncp = (signed char *)PyString_AsString(rv);
+     
+-        for ( i=0; i < len*size; i += size ) {
++        for ( i=0; i < new_len; i += size ) {
+                 cval = *cp++;
+                 val = st_alaw2linear16(cval);
+         
+@@ -1482,7 +1514,7 @@
+ {
+         signed char *cp;
+         signed char *ncp;
+-        int len, size, valpred, step, delta, index, sign, vpdiff;
++        int len, new_len, size, valpred, step, delta, index, sign, vpdiff;
+         PyObject *rv, *str, *state;
+         int i, inputbuffer = 0, bufferstep;
+ 
+@@ -1504,7 +1536,13 @@
+         } else if ( !PyArg_ParseTuple(state, "ii", &valpred, &index) )
+                 return 0;
+     
+-        str = PyString_FromStringAndSize(NULL, len*size*2);
++        new_len = len*size*2;
++        if (new_len < 0) {
++                PyErr_SetString(PyExc_MemoryError,
++                                "not enough memory for output buffer");
++                return 0;
++        }
++        str = PyString_FromStringAndSize(NULL, new_len);
+         if ( str == 0 )
+                 return 0;
+         ncp = (signed char *)PyString_AsString(str);
+@@ -1512,7 +1550,7 @@
+         step = stepsizeTable[index];
+         bufferstep = 0;
+     
+-        for ( i=0; i < len*size*2; i += size ) {
++        for ( i=0; i < new_len; i += size ) {
+                 /* Step 1 - get the delta value and compute next index */
+                 if ( bufferstep ) {
+                         delta = inputbuffer & 0xf;
+--- /python/branches/release25-maint/Modules/binascii.c	2008/02/14 11:01:10	60792
++++ python/branches/release25-maint/Modules/binascii.c	2008/02/14 11:26:18	60793
+@@ -138,7 +138,7 @@
+ #define BASE64_PAD '='
+ 
+ /* Max binary chunk size; limited only by available memory */
+-#define BASE64_MAXBIN (INT_MAX/2 - sizeof(PyStringObject) - 3)
++#define BASE64_MAXBIN (PY_SSIZE_T_MAX/2 - sizeof(PyStringObject) - 3)
+ 
+ static unsigned char table_b2a_base64[] =
+ "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+@@ -195,6 +195,8 @@
+ 	if ( !PyArg_ParseTuple(args, "t#:a2b_uu", &ascii_data, &ascii_len) )
+ 		return NULL;
+ 
++	assert(ascii_len >= 0);
++
+ 	/* First byte: binary data length (in bytes) */
+ 	bin_len = (*ascii_data++ - ' ') & 077;
+ 	ascii_len--;
+@@ -348,6 +350,11 @@
+ 	if ( !PyArg_ParseTuple(args, "t#:a2b_base64", &ascii_data, &ascii_len) )
+ 		return NULL;
+ 
++	assert(ascii_len >= 0);
++
++	if (ascii_len > PY_SSIZE_T_MAX - 3)
++		return PyErr_NoMemory();
++
+ 	bin_len = ((ascii_len+3)/4)*3; /* Upper bound, corrected later */
+ 
+ 	/* Allocate the buffer */
+@@ -437,6 +444,9 @@
+ 
+ 	if ( !PyArg_ParseTuple(args, "s#:b2a_base64", &bin_data, &bin_len) )
+ 		return NULL;
++
++	assert(bin_len >= 0);
++
+ 	if ( bin_len > BASE64_MAXBIN ) {
+ 		PyErr_SetString(Error, "Too much data for base64 line");
+ 		return NULL;
+@@ -492,6 +502,11 @@
+ 	if ( !PyArg_ParseTuple(args, "t#:a2b_hqx", &ascii_data, &len) )
+ 		return NULL;
+ 
++	assert(len >= 0);
++
++	if (len > PY_SSIZE_T_MAX - 2)
++		return PyErr_NoMemory();
++
+ 	/* Allocate a string that is too big (fixed later) 
+ 	   Add two to the initial length to prevent interning which
+ 	   would preclude subsequent resizing.  */
+@@ -555,6 +570,11 @@
+ 	if ( !PyArg_ParseTuple(args, "s#:rlecode_hqx", &in_data, &len) )
+ 		return NULL;
+ 
++	assert(len >= 0);
++
++	if (len > PY_SSIZE_T_MAX / 2 - 2)
++		return PyErr_NoMemory();
++
+ 	/* Worst case: output is twice as big as input (fixed later) */
+ 	if ( (rv=PyString_FromStringAndSize(NULL, len*2+2)) == NULL )
+ 		return NULL;
+@@ -604,6 +624,11 @@
+ 	if ( !PyArg_ParseTuple(args, "s#:b2a_hqx", &bin_data, &len) )
+ 		return NULL;
+ 
++	assert(len >= 0);
++
++	if (len > PY_SSIZE_T_MAX / 2 - 2)
++		return PyErr_NoMemory();
++
+ 	/* Allocate a buffer that is at least large enough */
+ 	if ( (rv=PyString_FromStringAndSize(NULL, len*2+2)) == NULL )
+ 		return NULL;
+@@ -642,9 +667,13 @@
+ 	if ( !PyArg_ParseTuple(args, "s#:rledecode_hqx", &in_data, &in_len) )
+ 		return NULL;
+ 
++	assert(in_len >= 0);
++
+ 	/* Empty string is a special case */
+ 	if ( in_len == 0 )
+ 		return PyString_FromString("");
++    else if (in_len > PY_SSIZE_T_MAX / 2)
++        return PyErr_NoMemory();
+ 
+ 	/* Allocate a buffer of reasonable size. Resized when needed */
+ 	out_len = in_len*2;
+@@ -670,6 +699,7 @@
+ #define OUTBYTE(b) \
+ 	do { \
+ 		 if ( --out_len_left < 0 ) { \
++			  if ( out_len > PY_SSIZE_T_MAX / 2) return PyErr_NoMemory(); \
+ 			  _PyString_Resize(&rv, 2*out_len); \
+ 			  if ( rv == NULL ) return NULL; \
+ 			  out_data = (unsigned char *)PyString_AsString(rv) \
+@@ -738,7 +768,7 @@
+ 	if ( !PyArg_ParseTuple(args, "s#i:crc_hqx", &bin_data, &len, &crc) )
+ 		return NULL;
+ 
+-	while(len--) {
++	while(len-- > 0) {
+ 		crc=((crc<<8)&0xff00)^crctab_hqx[((crc>>8)&0xff)^*bin_data++];
+ 	}
+ 
+@@ -882,7 +912,7 @@
+ 	/* only want the trailing 32 bits */
+ 	crc &= 0xFFFFFFFFUL;
+ #endif
+-	while (len--)
++	while (len-- > 0)
+ 		crc = crc_32_tab[(crc ^ *bin_data++) & 0xffUL] ^ (crc >> 8);
+ 		/* Note:  (crc >> 8) MUST zero fill on left */
+ 
+@@ -912,6 +942,10 @@
+ 	if (!PyArg_ParseTuple(args, "s#:b2a_hex", &argbuf, &arglen))
+ 		return NULL;
+ 
++	assert(arglen >= 0);
++	if (arglen > PY_SSIZE_T_MAX / 2)
++		return PyErr_NoMemory();
++
+ 	retval = PyString_FromStringAndSize(NULL, arglen*2);
+ 	if (!retval)
+ 		return NULL;
+@@ -969,6 +1003,8 @@
+ 	if (!PyArg_ParseTuple(args, "s#:a2b_hex", &argbuf, &arglen))
+ 		return NULL;
+ 
++	assert(arglen >= 0);
++
+ 	/* XXX What should we do about strings with an odd length?  Should
+ 	 * we add an implicit leading zero, or a trailing zero?  For now,
+ 	 * raise an exception.
+--- /python/branches/release25-maint/Modules/cPickle.c	2008/02/14 11:01:10	60792
++++ python/branches/release25-maint/Modules/cPickle.c	2008/02/14 11:26:18	60793
+@@ -3429,6 +3429,14 @@
+ 	if (self->read_func(self, &s, 4) < 0) return -1;
+ 
+ 	l = calc_binint(s, 4);
++	if (l < 0) {
++		/* Corrupt or hostile pickle -- we never write one like
++		 * this.
++		 */
++		PyErr_SetString(UnpicklingError,
++				"BINSTRING pickle has negative byte count");
++		return -1;
++	}
+ 
+ 	if (self->read_func(self, &s, l) < 0)
+ 		return -1;
+@@ -3496,6 +3504,14 @@
+ 	if (self->read_func(self, &s, 4) < 0) return -1;
+ 
+ 	l = calc_binint(s, 4);
++	if (l < 0) {
++		/* Corrupt or hostile pickle -- we never write one like
++		 * this.
++		 */
++		PyErr_SetString(UnpicklingError,
++				"BINUNICODE pickle has negative byte count");
++		return -1;
++	}
+ 
+ 	if (self->read_func(self, &s, l) < 0)
+ 		return -1;
+--- /python/branches/release25-maint/Modules/cStringIO.c	2008/02/14 11:01:10	60792
++++ python/branches/release25-maint/Modules/cStringIO.c	2008/02/14 11:26:18	60793
+@@ -119,6 +119,7 @@
+ static PyObject *
+ IO_cgetval(PyObject *self) {
+         if (!IO__opencheck(IOOOBJECT(self))) return NULL;
++        assert(IOOOBJECT(self)->pos >= 0);
+         return PyString_FromStringAndSize(((IOobject*)self)->buf,
+                                           ((IOobject*)self)->pos);
+ }
+@@ -137,6 +138,7 @@
+         }
+         else
+                   s=self->string_size;
++        assert(self->pos >= 0);
+         return PyString_FromStringAndSize(self->buf, s);
+ }
+ 
+@@ -157,6 +159,8 @@
+         Py_ssize_t l;
+ 
+         if (!IO__opencheck(IOOOBJECT(self))) return -1;
++        assert(IOOOBJECT(self)->pos >= 0);
++        assert(IOOOBJECT(self)->string_size >= 0);
+         l = ((IOobject*)self)->string_size - ((IOobject*)self)->pos;  
+         if (n < 0 || n > l) {
+                 n = l;
+@@ -192,12 +196,17 @@
+         for (n = ((IOobject*)self)->buf + ((IOobject*)self)->pos,
+                s = ((IOobject*)self)->buf + ((IOobject*)self)->string_size; 
+              n < s && *n != '\n'; n++);
++
+         if (n < s) n++;
+ 
+         *output=((IOobject*)self)->buf + ((IOobject*)self)->pos;
+         l = n - ((IOobject*)self)->buf - ((IOobject*)self)->pos;
+-	assert(((IOobject*)self)->pos + l < INT_MAX);
+-        ((IOobject*)self)->pos += (int)l;
++
++        assert(IOOOBJECT(self)->pos <= PY_SSIZE_T_MAX - l);
++        assert(IOOOBJECT(self)->pos >= 0);
++        assert(IOOOBJECT(self)->string_size >= 0);
++
++        ((IOobject*)self)->pos += l;
+         return (int)l;
+ }
+ 
+@@ -215,6 +224,7 @@
+                 n -= m;
+                 self->pos -= m;
+         }
++        assert(IOOOBJECT(self)->pos >= 0);
+         return PyString_FromStringAndSize(output, n);
+ }
+ 
+@@ -277,6 +287,7 @@
+ 
+         if (!IO__opencheck(self)) return NULL;
+ 
++        assert(self->pos >= 0);
+         return PyInt_FromSsize_t(self->pos);
+ }
+ 
+--- /python/branches/release25-maint/Modules/cjkcodecs/multibytecodec.c	2008/02/14 11:01:10	60792
++++ python/branches/release25-maint/Modules/cjkcodecs/multibytecodec.c	2008/02/14 11:26:18	60793
+@@ -163,13 +163,17 @@
+ static int
+ expand_encodebuffer(MultibyteEncodeBuffer *buf, Py_ssize_t esize)
+ {
+-	Py_ssize_t orgpos, orgsize;
++	Py_ssize_t orgpos, orgsize, incsize;
+ 
+ 	orgpos = (Py_ssize_t)((char *)buf->outbuf -
+ 				PyString_AS_STRING(buf->outobj));
+ 	orgsize = PyString_GET_SIZE(buf->outobj);
+-	if (_PyString_Resize(&buf->outobj, orgsize + (
+-	    esize < (orgsize >> 1) ? (orgsize >> 1) | 1 : esize)) == -1)
++	incsize = (esize < (orgsize >> 1) ? (orgsize >> 1) | 1 : esize);
++
++	if (orgsize > PY_SSIZE_T_MAX - incsize)
++		return -1;
++
++	if (_PyString_Resize(&buf->outobj, orgsize + incsize) == -1)
+ 		return -1;
+ 
+ 	buf->outbuf = (unsigned char *)PyString_AS_STRING(buf->outobj) +orgpos;
+@@ -473,6 +477,12 @@
+ 	buf.excobj = NULL;
+ 	buf.inbuf = buf.inbuf_top = *data;
+ 	buf.inbuf_end = buf.inbuf_top + datalen;
++
++	if (datalen > (PY_SSIZE_T_MAX - 16) / 2) {
++		PyErr_NoMemory();
++		goto errorexit;
++	}
++
+ 	buf.outobj = PyString_FromStringAndSize(NULL, datalen * 2 + 16);
+ 	if (buf.outobj == NULL)
+ 		goto errorexit;
+@@ -736,6 +746,11 @@
+ 	origpending = ctx->pendingsize;
+ 
+ 	if (origpending > 0) {
++		if (datalen > PY_SSIZE_T_MAX - ctx->pendingsize) {
++			PyErr_NoMemory();
++			/* inbuf_tmp == NULL */
++			goto errorexit;
++		}
+ 		inbuf_tmp = PyMem_New(Py_UNICODE, datalen + ctx->pendingsize);
+ 		if (inbuf_tmp == NULL)
+ 			goto errorexit;
+@@ -798,9 +813,10 @@
+ 	Py_ssize_t npendings;
+ 
+ 	npendings = (Py_ssize_t)(buf->inbuf_end - buf->inbuf);
+-	if (npendings + ctx->pendingsize > MAXDECPENDING) {
+-		PyErr_SetString(PyExc_UnicodeError, "pending buffer overflow");
+-		return -1;
++	if (npendings + ctx->pendingsize > MAXDECPENDING ||
++		npendings > PY_SSIZE_T_MAX - ctx->pendingsize) {
++			PyErr_SetString(PyExc_UnicodeError, "pending buffer overflow");
++			return -1;
+ 	}
+ 	memcpy(ctx->pending + ctx->pendingsize, buf->inbuf, npendings);
+ 	ctx->pendingsize += npendings;
+@@ -1003,7 +1019,7 @@
+ 		  PyObject *args, PyObject *kwargs)
+ {
+ 	MultibyteDecodeBuffer buf;
+-	char *data, *wdata;
++	char *data, *wdata = NULL;
+ 	Py_ssize_t wsize, finalsize = 0, size, origpending;
+ 	int final = 0;
+ 
+@@ -1019,6 +1035,10 @@
+ 		wdata = data;
+ 	}
+ 	else {
++		if (size > PY_SSIZE_T_MAX - self->pendingsize) {
++			PyErr_NoMemory();
++			goto errorexit;
++		}
+ 		wsize = size + self->pendingsize;
+ 		wdata = PyMem_Malloc(wsize);
+ 		if (wdata == NULL)
+@@ -1234,6 +1254,10 @@
+ 			PyObject *ctr;
+ 			char *ctrdata;
+ 
++			if (PyString_GET_SIZE(cres) > PY_SSIZE_T_MAX - self->pendingsize) {
++				PyErr_NoMemory();
++				goto errorexit;
++            }
+ 			rsize = PyString_GET_SIZE(cres) + self->pendingsize;
+ 			ctr = PyString_FromStringAndSize(NULL, rsize);
+ 			if (ctr == NULL)
+--- /python/branches/release25-maint/Modules/datetimemodule.c	2008/02/14 11:01:10	60792
++++ python/branches/release25-maint/Modules/datetimemodule.c	2008/02/14 11:26:18	60793
+@@ -1111,6 +1111,8 @@
+ 	char sign;
+ 	int none;
+ 
++	assert(buflen >= 1);
++
+ 	offset = call_utcoffset(tzinfo, tzinfoarg, &none);
+ 	if (offset == -1 && PyErr_Occurred())
+ 		return -1;
+@@ -1188,6 +1190,11 @@
+ 	 * a new format.  Since computing the replacements for those codes
+ 	 * is expensive, don't unless they're actually used.
+ 	 */
++	if (PyString_Size(format) > INT_MAX - 1) {
++		PyErr_NoMemory();
++		goto Done;
++	}
++
+ 	totalnew = PyString_Size(format) + 1;	/* realistic if no %z/%Z */
+ 	newfmt = PyString_FromStringAndSize(NULL, totalnew);
+ 	if (newfmt == NULL) goto Done;
+--- /python/branches/release25-maint/Modules/md5.c	2008/02/14 11:01:10	60792
++++ python/branches/release25-maint/Modules/md5.c	2008/02/14 11:26:18	60793
+@@ -53,6 +53,7 @@
+ 
+ #include "md5.h"
+ #include <string.h>
++#include <limits.h>
+ 
+ #undef BYTE_ORDER	/* 1 = big-endian, -1 = little-endian, 0 = unknown */
+ #ifdef ARCH_IS_BIG_ENDIAN
+@@ -330,6 +331,18 @@
+     if (nbytes <= 0)
+ 	return;
+ 
++    /* this special case is handled recursively */
++    if (nbytes > INT_MAX - offset) {
++        int overlap;
++
++        /* handle the append in two steps to prevent overflow */
++        overlap = 64 - offset;
++
++        md5_append(pms, data, overlap);
++        md5_append(pms, data + overlap, nbytes - overlap); 
++        return;
++    }
++
+     /* Update the message length. */
+     pms->count[1] += nbytes >> 29;
+     pms->count[0] += nbits;
+--- /python/branches/release25-maint/Modules/rgbimgmodule.c	2008/02/14 11:01:10	60792
++++ python/branches/release25-maint/Modules/rgbimgmodule.c	2008/02/14 11:26:18	60793
+@@ -269,7 +269,7 @@
+ 	Py_Int32 *starttab = NULL, *lengthtab = NULL;
+ 	FILE *inf = NULL;
+ 	IMAGE image;
+-	int y, z, tablen;
++	int y, z, tablen, new_size;
+ 	int xsize, ysize, zsize;
+ 	int bpp, rle, cur, badorder;
+ 	int rlebuflen;
+@@ -306,9 +306,15 @@
+         }
+ 	if (rle) {
+ 		tablen = ysize * zsize * sizeof(Py_Int32);
++		rlebuflen = (int) (1.05 * xsize +10);
++		if ((tablen / sizeof(Py_Int32)) != (ysize * zsize) ||
++		    rlebuflen < 0) {
++			PyErr_NoMemory();
++			goto finally;
++		}
++
+ 		starttab = (Py_Int32 *)malloc(tablen);
+ 		lengthtab = (Py_Int32 *)malloc(tablen);
+-		rlebuflen = (int) (1.05 * xsize +10);
+ 		rledat = (unsigned char *)malloc(rlebuflen);
+ 		if (!starttab || !lengthtab || !rledat) {
+ 			PyErr_NoMemory();
+@@ -336,8 +342,14 @@
+ 
+ 		fseek(inf, 512 + 2 * tablen, SEEK_SET);
+ 		cur = 512 + 2 * tablen;
++		new_size = xsize * ysize + TAGLEN;
++		if (new_size < 0 || (new_size * sizeof(Py_Int32)) < 0) {
++			PyErr_NoMemory();
++			goto finally;
++		}
++
+ 		rv = PyString_FromStringAndSize((char *)NULL,
+-				      (xsize * ysize + TAGLEN) * sizeof(Py_Int32));
++				      new_size * sizeof(Py_Int32));
+ 		if (rv == NULL)
+ 			goto finally;
+ 
+@@ -405,8 +417,14 @@
+ 			copybw((Py_Int32 *) base, xsize * ysize);
+ 	}
+ 	else {
++		new_size = xsize * ysize + TAGLEN;
++		if (new_size < 0 || (new_size * sizeof(Py_Int32)) < 0) {
++			PyErr_NoMemory();
++			goto finally;
++		}
++
+ 		rv = PyString_FromStringAndSize((char *) 0,
+-					   (xsize*ysize+TAGLEN)*sizeof(Py_Int32));
++						new_size*sizeof(Py_Int32));
+ 		if (rv == NULL)
+ 			goto finally;
+ 
+@@ -596,10 +614,16 @@
+ 		return NULL;
+ 	}
+ 	tablen = ysize * zsize * sizeof(Py_Int32);
++	rlebuflen = (int) (1.05 * xsize + 10);
++
++	if ((tablen / sizeof(Py_Int32)) != (ysize * zsize) ||
++	    rlebuflen < 0 || (xsize * sizeof(Py_Int32)) < 0) {
++		PyErr_NoMemory();
++		goto finally;
++	}
+ 
+ 	starttab = (Py_Int32 *)malloc(tablen);
+ 	lengthtab = (Py_Int32 *)malloc(tablen);
+-	rlebuflen = (int) (1.05 * xsize + 10);
+ 	rlebuf = (unsigned char *)malloc(rlebuflen);
+ 	lumbuf = (unsigned char *)malloc(xsize * sizeof(Py_Int32));
+ 	if (!starttab || !lengthtab || !rlebuf || !lumbuf) {
+--- /python/branches/release25-maint/Modules/stropmodule.c	2008/02/14 11:01:10	60792
++++ python/branches/release25-maint/Modules/stropmodule.c	2008/02/14 11:26:18	60793
+@@ -589,7 +589,7 @@
+ 	char* e;
+ 	char* p;
+ 	char* q;
+-	Py_ssize_t i, j;
++	Py_ssize_t i, j, old_j;
+ 	PyObject* out;
+ 	char* string;
+ 	Py_ssize_t stringlen;
+@@ -606,12 +606,18 @@
+ 	}
+ 
+ 	/* First pass: determine size of output string */
+-	i = j = 0; /* j: current column; i: total of previous lines */
++	i = j = old_j = 0; /* j: current column; i: total of previous lines */
+ 	e = string + stringlen;
+ 	for (p = string; p < e; p++) {
+-		if (*p == '\t')
++		if (*p == '\t') {
+ 			j += tabsize - (j%tabsize);
+-		else {
++			if (old_j > j) {
++				PyErr_SetString(PyExc_OverflowError,
++						"new string is too long");
++				return NULL;
++			}
++			old_j = j;
++		} else {
+ 			j++;
+ 			if (*p == '\n') {
+ 				i += j;
+@@ -620,6 +626,11 @@
+ 		}
+ 	}
+ 
++	if ((i + j) < 0) {
++		PyErr_SetString(PyExc_OverflowError, "new string is too long");
++		return NULL;
++	}
++
+ 	/* Second pass: create output string and fill it */
+ 	out = PyString_FromStringAndSize(NULL, i+j);
+ 	if (out == NULL)
+--- /python/branches/release25-maint/Objects/bufferobject.c	2008/02/14 11:01:10	60792
++++ python/branches/release25-maint/Objects/bufferobject.c	2008/02/14 11:26:18	60793
+@@ -207,7 +207,10 @@
+ 				"size must be zero or positive");
+ 		return NULL;
+ 	}
+-	/* XXX: check for overflow in multiply */
++	if (sizeof(*b) > PY_SSIZE_T_MAX - size) {
++		/* unlikely */
++		return PyErr_NoMemory();
++	}
+ 	/* Inline PyObject_New */
+ 	o = (PyObject *)PyObject_MALLOC(sizeof(*b) + size);
+ 	if ( o == NULL )
+@@ -397,6 +400,8 @@
+ 	if ( (count = (*pb->bf_getreadbuffer)(other, 0, &ptr2)) < 0 )
+ 		return NULL;
+ 
++	assert(count <= PY_SIZE_MAX - size);
++
+  	ob = PyString_FromStringAndSize(NULL, size + count);
+ 	if ( ob == NULL )
+ 		return NULL;
+--- /python/branches/release25-maint/Objects/listobject.c	2008/02/14 11:01:10	60792
++++ python/branches/release25-maint/Objects/listobject.c	2008/02/14 11:26:18	60793
+@@ -45,7 +45,16 @@
+ 	 * system realloc().
+ 	 * The growth pattern is:  0, 4, 8, 16, 25, 35, 46, 58, 72, 88, ...
+ 	 */
+-	new_allocated = (newsize >> 3) + (newsize < 9 ? 3 : 6) + newsize;
++	new_allocated = (newsize >> 3) + (newsize < 9 ? 3 : 6);
++
++	/* check for integer overflow */
++	if (new_allocated > PY_SIZE_MAX - newsize) {
++		PyErr_NoMemory();
++		return -1;
++	} else {
++		new_allocated += newsize;
++	}
++
+ 	if (newsize == 0)
+ 		new_allocated = 0;
+ 	items = self->ob_item;
+@@ -92,8 +101,9 @@
+ 		return NULL;
+ 	}
+ 	nbytes = size * sizeof(PyObject *);
+-	/* Check for overflow */
+-	if (nbytes / sizeof(PyObject *) != (size_t)size)
++	/* Check for overflow without an actual overflow,
++	 *  which can cause compiler to optimise out */
++	if (size > PY_SIZE_MAX / sizeof(PyObject *))
+ 		return PyErr_NoMemory();
+ 	if (num_free_lists) {
+ 		num_free_lists--;
+@@ -1367,6 +1377,10 @@
+ 	 * we don't care what's in the block.
+ 	 */
+ 	merge_freemem(ms);
++	if (need > PY_SSIZE_T_MAX / sizeof(PyObject*)) {
++		PyErr_NoMemory();
++		return -1;
++	}
+ 	ms->a = (PyObject **)PyMem_Malloc(need * sizeof(PyObject*));
+ 	if (ms->a) {
+ 		ms->alloced = need;
+@@ -2532,6 +2546,8 @@
+ 				step = -step;
+ 			}
+ 
++			assert(slicelength <= PY_SIZE_MAX / sizeof(PyObject*));
++
+ 			garbage = (PyObject**)
+ 				PyMem_MALLOC(slicelength*sizeof(PyObject*));
+ 			if (!garbage) {
+--- /python/branches/release25-maint/Objects/obmalloc.c	2008/02/14 11:01:10	60792
++++ python/branches/release25-maint/Objects/obmalloc.c	2008/02/14 11:26:18	60793
+@@ -526,9 +526,9 @@
+ 		numarenas = maxarenas ? maxarenas << 1 : INITIAL_ARENA_OBJECTS;
+ 		if (numarenas <= maxarenas)
+ 			return NULL;	/* overflow */
+-		nbytes = numarenas * sizeof(*arenas);
+-		if (nbytes / sizeof(*arenas) != numarenas)
++		if (numarenas > PY_SIZE_MAX / sizeof(*arenas))
+ 			return NULL;	/* overflow */
++		nbytes = numarenas * sizeof(*arenas);
+ 		arenaobj = (struct arena_object *)realloc(arenas, nbytes);
+ 		if (arenaobj == NULL)
+ 			return NULL;
+--- /python/branches/release25-maint/Parser/node.c	2008/02/14 11:01:10	60792
++++ python/branches/release25-maint/Parser/node.c	2008/02/14 11:26:18	60793
+@@ -91,6 +91,9 @@
+ 	if (current_capacity < 0 || required_capacity < 0)
+ 		return E_OVERFLOW;
+ 	if (current_capacity < required_capacity) {
++		if (required_capacity > PY_SIZE_MAX / sizeof(node)) {
++			return E_NOMEM;
++		}
+ 		n = n1->n_child;
+ 		n = (node *) PyObject_REALLOC(n,
+ 					      required_capacity * sizeof(node));
+--- /python/branches/release25-maint/Python/asdl.c	2008/02/14 11:01:10	60792
++++ python/branches/release25-maint/Python/asdl.c	2008/02/14 11:26:18	60793
+@@ -5,8 +5,22 @@
+ asdl_seq_new(int size, PyArena *arena)
+ {
+ 	asdl_seq *seq = NULL;
+-	size_t n = sizeof(asdl_seq) +
+-			(size ? (sizeof(void *) * (size - 1)) : 0);
++	size_t n = (size ? (sizeof(void *) * (size - 1)) : 0);
++
++	/* check size is sane */
++	if (size < 0 || size == INT_MIN || 
++		(size && ((size - 1) > (PY_SIZE_MAX / sizeof(void *))))) {
++		PyErr_NoMemory();
++		return NULL;
++	}
++
++	/* check if size can be added safely */
++	if (n > PY_SIZE_MAX - sizeof(asdl_seq)) {
++		PyErr_NoMemory();
++		return NULL;
++	}
++
++	n += sizeof(asdl_seq);
+ 
+ 	seq = (asdl_seq *)PyArena_Malloc(arena, n);
+ 	if (!seq) {
+@@ -22,8 +36,22 @@
+ asdl_int_seq_new(int size, PyArena *arena)
+ {
+ 	asdl_int_seq *seq = NULL;
+-	size_t n = sizeof(asdl_seq) +
+-			(size ? (sizeof(int) * (size - 1)) : 0);
++	size_t n = (size ? (sizeof(void *) * (size - 1)) : 0);
++
++	/* check size is sane */
++	if (size < 0 || size == INT_MIN || 
++		(size && ((size - 1) > (PY_SIZE_MAX / sizeof(void *))))) {
++			PyErr_NoMemory();
++			return NULL;
++	}
++
++	/* check if size can be added safely */
++	if (n > PY_SIZE_MAX - sizeof(asdl_seq)) {
++		PyErr_NoMemory();
++		return NULL;
++	}
++
++	n += sizeof(asdl_seq);
+ 
+ 	seq = (asdl_int_seq *)PyArena_Malloc(arena, n);
+ 	if (!seq) {
+--- /python/branches/release25-maint/Python/ast.c	2008/02/14 11:01:10	60792
++++ python/branches/release25-maint/Python/ast.c	2008/02/14 11:26:18	60793
+@@ -3125,6 +3125,9 @@
+ 	     	buf = (char *)s;
+ 		u = NULL;
+ 	} else {
++		/* check for integer overflow */
++		if (len > PY_SIZE_MAX / 4)
++			return NULL;
+ 		/* "\XX" may become "\u005c\uHHLL" (12 bytes) */
+ 		u = PyString_FromStringAndSize((char *)NULL, len * 4);
+ 		if (u == NULL)
+--- /python/branches/release25-maint/Python/bltinmodule.c	2008/02/14 11:01:10	60792
++++ python/branches/release25-maint/Python/bltinmodule.c	2008/02/14 11:26:18	60793
+@@ -2491,11 +2491,43 @@
+ 					PyString_AS_STRING(item)[0];
+ 			} else {
+ 				/* do we need more space? */
+-				Py_ssize_t need = j + reslen + len-i-1;
++				Py_ssize_t need = j;
++
++				/* calculate space requirements while checking for overflow */
++				if (need > PY_SSIZE_T_MAX - reslen) {
++					Py_DECREF(item);
++					goto Fail_1;
++				}
++
++				need += reslen;
++
++				if (need > PY_SSIZE_T_MAX - len) {
++					Py_DECREF(item);
++					goto Fail_1;
++				}
++
++				need += len;
++
++				if (need <= i) {
++					Py_DECREF(item);
++					goto Fail_1;
++				}
++
++				need = need - i - 1;
++
++				assert(need >= 0);
++				assert(outlen >= 0);
++
+ 				if (need > outlen) {
+ 					/* overallocate, to avoid reallocations */
+-					if (need<2*outlen)
++					if (outlen > PY_SSIZE_T_MAX / 2) {
++						Py_DECREF(item);
++						return NULL;
++					}
++
++					if (need<2*outlen) {
+ 						need = 2*outlen;
++          }
+ 					if (_PyString_Resize(&result, need)) {
+ 						Py_DECREF(item);
+ 						return NULL;
+@@ -2587,11 +2619,31 @@
+ 			else {
+ 				/* do we need more space? */
+ 				Py_ssize_t need = j + reslen + len - i - 1;
++        
++				/* check that didnt overflow */
++				if ((j > PY_SSIZE_T_MAX - reslen) ||
++					((j + reslen) > PY_SSIZE_T_MAX - len) ||
++						((j + reslen + len) < i) ||
++							((j + reslen + len - i) <= 0)) {
++					Py_DECREF(item);
++					return NULL;
++				}
++
++				assert(need >= 0);
++				assert(outlen >= 0);
++				
+ 				if (need > outlen) {
+ 					/* overallocate,
+ 					   to avoid reallocations */
+-					if (need < 2 * outlen)
+-						need = 2 * outlen;
++					if (need < 2 * outlen) {
++            if (outlen > PY_SSIZE_T_MAX / 2) {
++              Py_DECREF(item);
++              return NULL;
++						} else {
++							need = 2 * outlen;
++				    }
++          }
++
+ 					if (PyUnicode_Resize(
+ 						&result, need) < 0) {
+ 						Py_DECREF(item);
+--- /python/branches/release25-maint/Python/compile.c	2008/02/14 11:01:10	60792
++++ python/branches/release25-maint/Python/compile.c	2008/02/14 11:26:18	60793
+@@ -225,6 +225,10 @@
+ 		return ident; /* Don't mangle if class is just underscores */
+ 	}
+ 	plen = strlen(p);
++
++	assert(1 <= PY_SSIZE_T_MAX - nlen);
++	assert(1 + nlen <= PY_SSIZE_T_MAX - plen);
++
+ 	ident = PyString_FromStringAndSize(NULL, 1 + nlen + plen);
+ 	if (!ident)
+ 		return 0;
+@@ -620,6 +624,8 @@
+ 	unsigned int *blocks = (unsigned int *)PyMem_Malloc(len*sizeof(int));
+ 	int i,j, opcode, blockcnt = 0;
+ 
++	assert(len <= PY_SIZE_MAX / sizeof(int));
++
+ 	if (blocks == NULL) {
+ 		PyErr_NoMemory();
+ 		return NULL;
+@@ -1281,6 +1287,12 @@
+ 		size_t oldsize, newsize;
+ 		oldsize = b->b_ialloc * sizeof(struct instr);
+ 		newsize = oldsize << 1;
++
++		if (oldsize > (PY_SIZE_MAX >> 1)) {
++			PyErr_NoMemory();
++			return -1;
++		}
++
+ 		if (newsize == 0) {
+ 			PyErr_NoMemory();
+ 			return -1;
+@@ -4067,6 +4079,10 @@
+ 	a->a_lnotab = PyString_FromStringAndSize(NULL, DEFAULT_LNOTAB_SIZE);
+ 	if (!a->a_lnotab)
+ 		return 0;
++	if (nblocks > PY_SIZE_MAX / sizeof(basicblock *)) {
++		PyErr_NoMemory();
++		return 0;
++	}
+ 	a->a_postorder = (basicblock **)PyObject_Malloc(
+ 					    sizeof(basicblock *) * nblocks);
+ 	if (!a->a_postorder) {
+@@ -4178,10 +4194,14 @@
+ 		nbytes = a->a_lnotab_off + 2 * ncodes;
+ 		len = PyString_GET_SIZE(a->a_lnotab);
+ 		if (nbytes >= len) {
+-			if (len * 2 < nbytes)
++			if ((len <= INT_MAX / 2) && (len * 2 < nbytes))
+ 				len = nbytes;
+-			else
++			else if (len <= INT_MAX / 2)
+ 				len *= 2;
++			else {
++				PyErr_NoMemory();
++				return 0;
++			}
+ 			if (_PyString_Resize(&a->a_lnotab, len) < 0)
+ 				return 0;
+ 		}
+@@ -4200,10 +4220,14 @@
+ 		nbytes = a->a_lnotab_off + 2 * ncodes;
+ 		len = PyString_GET_SIZE(a->a_lnotab);
+ 		if (nbytes >= len) {
+-			if (len * 2 < nbytes)
++			if ((len <= INT_MAX / 2) && len * 2 < nbytes)
+ 				len = nbytes;
+-			else
++			else if (len <= INT_MAX / 2)
+ 				len *= 2;
++			else {
++				PyErr_NoMemory();
++				return 0;
++			}
+ 			if (_PyString_Resize(&a->a_lnotab, len) < 0)
+ 				return 0;
+ 		}
+@@ -4262,6 +4286,8 @@
+ 	if (i->i_lineno && !assemble_lnotab(a, i))
+ 		return 0;
+ 	if (a->a_offset + size >= len) {
++		if (len > PY_SSIZE_T_MAX / 2)
++			return 0;
+ 		if (_PyString_Resize(&a->a_bytecode, len * 2) < 0)
+ 		    return 0;
+ 	}

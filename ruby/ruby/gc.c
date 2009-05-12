@@ -2,8 +2,8 @@
 
   gc.c -
 
-  $Author: knu $
-  $Date: 2007-03-03 16:30:46 +0900 (Sat, 03 Mar 2007) $
+  $Author: shyouhei $
+  $Date: 2008-08-04 12:16:55 +0900 (Mon, 04 Aug 2008) $
   created at: Tue Oct  5 09:44:46 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -80,16 +80,22 @@ static void run_final();
 static VALUE nomem_error;
 static void garbage_collect();
 
+NORETURN(void rb_exc_jump _((VALUE)));
+
 void
 rb_memerror()
 {
-    static int recurse = 0;
+    rb_thread_t th = rb_curr_thread;
 
-    if (!nomem_error || (recurse > 0 && rb_safe_level() < 4)) {
+    if (!nomem_error ||
+	(rb_thread_raised_p(th, RAISED_NOMEMORY) && rb_safe_level() < 4)) {
 	fprintf(stderr, "[FATAL] failed to allocate memory\n");
 	exit(1);
     }
-    recurse++;
+    if (rb_thread_raised_p(th, RAISED_NOMEMORY)) {
+	rb_exc_jump(nomem_error);
+    }
+    rb_thread_raised_set(th, RAISED_NOMEMORY);
     rb_exc_raise(nomem_error);
 }
 
@@ -103,9 +109,8 @@ ruby_xmalloc(size)
 	rb_raise(rb_eNoMemError, "negative allocation size (or too big)");
     }
     if (size == 0) size = 1;
-    malloc_increase += size;
 
-    if (malloc_increase > malloc_limit) {
+    if ((malloc_increase+size) > malloc_limit) {
 	garbage_collect();
     }
     RUBY_CRITICAL(mem = malloc(size));
@@ -116,6 +121,7 @@ ruby_xmalloc(size)
 	    rb_memerror();
 	}
     }
+    malloc_increase += size;
 
     return mem;
 }
@@ -144,7 +150,6 @@ ruby_xrealloc(ptr, size)
     }
     if (!ptr) return xmalloc(size);
     if (size == 0) size = 1;
-    malloc_increase += size;
     RUBY_CRITICAL(mem = realloc(ptr, size));
     if (!mem) {
 	garbage_collect();
@@ -153,6 +158,7 @@ ruby_xrealloc(ptr, size)
 	    rb_memerror();
         }
     }
+    malloc_increase += size;
 
     return mem;
 }
@@ -379,10 +385,19 @@ add_heap()
 }
 #define RANY(o) ((RVALUE*)(o))
 
+int 
+rb_during_gc()
+{
+    return during_gc;
+}
+
 VALUE
 rb_newobj()
 {
     VALUE obj;
+
+    if (during_gc)
+	rb_bug("object allocation during garbage collection phase");
 
     if (!freelist) garbage_collect();
 
@@ -444,20 +459,19 @@ static unsigned int STACK_LEVEL_MAX = 655300;
 #  if ( __GNUC__ == 3 && __GNUC_MINOR__ > 0 ) || __GNUC__ > 3
 __attribute__ ((noinline))
 #  endif
-static VALUE *
-stack_end_address(void)
+static void
+stack_end_address(VALUE **stack_end_p)
 {
-    return (VALUE *)__builtin_frame_address(0);
+    VALUE stack_end;
+    *stack_end_p = &stack_end;
 }
-#  define  SET_STACK_END    VALUE *stack_end = stack_end_address()
+#  define  SET_STACK_END    VALUE *stack_end; stack_end_address(&stack_end)
 # else
 #  define  SET_STACK_END    VALUE *stack_end = alloca(1)
 # endif
 # define STACK_END (stack_end)
 #endif
-#if defined(sparc) || defined(__sparc__)
-# define STACK_LENGTH  (rb_gc_stack_start - STACK_END + 0x80)
-#elif STACK_GROW_DIRECTION < 0
+#if STACK_GROW_DIRECTION < 0
 # define STACK_LENGTH  (rb_gc_stack_start - STACK_END)
 #elif STACK_GROW_DIRECTION > 0
 # define STACK_LENGTH  (STACK_END - rb_gc_stack_start + 1)
@@ -529,17 +543,18 @@ char *
 rb_source_filename(f)
     const char *f;
 {
-    char *name;
+    st_data_t name;
 
-    if (!st_lookup(source_filenames, (st_data_t)f, (st_data_t *)&name)) {
+    if (!st_lookup(source_filenames, (st_data_t)f, &name)) {
 	long len = strlen(f) + 1;
-	char *ptr = name = ALLOC_N(char, len + 1);
+	char *ptr = ALLOC_N(char, len + 1);
+	name = (st_data_t)ptr;
 	*ptr++ = 0;
 	MEMCPY(ptr, f, char, len);
-	st_add_direct(source_filenames, (st_data_t)ptr, (st_data_t)name);
+	st_add_direct(source_filenames, (st_data_t)ptr, name);
 	return ptr;
     }
-    return name + 1;
+    return (char *)name + 1;
 }
 
 static void
@@ -1268,7 +1283,7 @@ obj_free(obj)
 	if (RANY(obj)->as.scope.local_vars &&
             RANY(obj)->as.scope.flags != SCOPE_ALLOCA) {
 	    VALUE *vars = RANY(obj)->as.scope.local_vars-1;
-           if (!(RANY(obj)->as.scope.flags & SCOPE_CLONE) && vars[0] == 0)
+	    if (!(RANY(obj)->as.scope.flags & SCOPE_CLONE) && vars[0] == 0)
 		RUBY_CRITICAL(free(RANY(obj)->as.scope.local_tbl));
 	    if (RANY(obj)->as.scope.flags & SCOPE_MALLOC)
 		RUBY_CRITICAL(free(vars));
@@ -1514,7 +1529,7 @@ Init_stack(addr)
         rb_gc_stack_start = STACK_END_ADDRESS;
     }
 #else
-    if (!addr) addr = (VALUE *)&addr;
+    if (!addr) addr = (void *)&addr;
     STACK_UPPER(&addr, addr, ++addr);
     if (rb_gc_stack_start) {
 	if (STACK_UPPER(&addr,
@@ -1625,38 +1640,6 @@ Init_heap()
 }
 
 static VALUE
-os_live_obj()
-{
-    int i;
-    int n = 0;
-
-    for (i = 0; i < heaps_used; i++) {
-	RVALUE *p, *pend;
-
-	p = heaps[i].slot; pend = p + heaps[i].limit;
-	for (;p < pend; p++) {
-	    if (p->as.basic.flags) {
-		switch (TYPE(p)) {
-		  case T_ICLASS:
-		  case T_VARMAP:
-		  case T_SCOPE:
-		  case T_NODE:
-		    continue;
-		  case T_CLASS:
-		    if (FL_TEST(p, FL_SINGLETON)) continue;
-		  default:
-		    if (!p->as.basic.klass) continue;
-		    rb_yield((VALUE)p);
-		    n++;
-		}
-	    }
-	}
-    }
-
-    return INT2FIX(n);
-}
-
-static VALUE
 os_obj_of(of)
     VALUE of;
 {
@@ -1669,7 +1652,8 @@ os_obj_of(of)
 	p = heaps[i].slot; pend = p + heaps[i].limit;
 	for (;p < pend; p++) {
 	    if (p->as.basic.flags) {
-		switch (TYPE(p)) {
+		switch (BUILTIN_TYPE(p)) {
+		  case T_NONE:
 		  case T_ICLASS:
 		  case T_VARMAP:
 		  case T_SCOPE:
@@ -1679,7 +1663,7 @@ os_obj_of(of)
 		    if (FL_TEST(p, FL_SINGLETON)) continue;
 		  default:
 		    if (!p->as.basic.klass) continue;
-		    if (rb_obj_is_kind_of((VALUE)p, of)) {
+		    if (!of || rb_obj_is_kind_of((VALUE)p, of)) {
 			rb_yield((VALUE)p);
 			n++;
 		    }
@@ -1733,11 +1717,9 @@ os_each_obj(argc, argv)
 
     rb_secure(4);
     if (rb_scan_args(argc, argv, "01", &of) == 0) {
-	return os_live_obj();
+	of = 0;
     }
-    else {
-	return os_obj_of(of);
-    }
+    return os_obj_of(of);
 }
 
 static VALUE finalizers;
@@ -1981,6 +1963,7 @@ id2ref(obj, objid)
     VALUE obj, objid;
 {
     unsigned long ptr, p0;
+    int type;
 
     rb_secure(4);
     p0 = ptr = NUM2ULONG(objid);
@@ -1997,7 +1980,8 @@ id2ref(obj, objid)
         return ID2SYM(symid);
     }
 
-    if (!is_pointer_to_heap((void *)ptr)|| BUILTIN_TYPE(ptr) >= T_BLKTAG) {
+    if (!is_pointer_to_heap((void *)ptr)||
+	(type = BUILTIN_TYPE(ptr)) >= T_BLKTAG || type == T_ICLASS) {
 	rb_raise(rb_eRangeError, "0x%lx is not id value", p0);
     }
     if (BUILTIN_TYPE(ptr) == 0 || RBASIC(ptr)->klass == 0) {
@@ -2111,7 +2095,10 @@ Init_GC()
     source_filenames = st_init_strtable();
 
     rb_global_variable(&nomem_error);
-    nomem_error = rb_exc_new2(rb_eNoMemError, "failed to allocate memory");
+    nomem_error = rb_exc_new3(rb_eNoMemError,
+			      rb_obj_freeze(rb_str_new2("failed to allocate memory")));
+    OBJ_TAINT(nomem_error);
+    OBJ_FREEZE(nomem_error);
 
     rb_define_method(rb_mKernel, "hash", rb_obj_id, 0);
     rb_define_method(rb_mKernel, "__id__", rb_obj_id, 0);

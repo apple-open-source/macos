@@ -50,7 +50,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOUSBMassStorageClass</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.0.4, Copyright Apple Inc. 2000-2008</string>
+	<string>2.0.6, Copyright Apple Inc. 2000-2009</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -62,11 +62,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.0.4</string>
+	<string>2.0.6</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.0.4</string>
+	<string>2.0.6</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOUSBMassStorageClass1</key>
@@ -405,8 +405,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 2.0.4;
-				OPTIMIZATION_CFLAGS = "-O0";
+				MODULE_VERSION = 2.0.6;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -435,7 +434,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 2.0.4;
+				MODULE_VERSION = 2.0.6;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -462,7 +461,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 2.0.4;
+				MODULE_VERSION = 2.0.6;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";

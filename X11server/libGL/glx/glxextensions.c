@@ -171,7 +171,8 @@ __glXProcessServerString( const char * server_string,
    unsigned  base;
    unsigned  len;
 
-   (void) memset( server_support, 0, sizeof( server_support ) );
+   /* This code assumes that server_support is an unsigned char [8] type. */
+   (void) memset( server_support, 0, 8 );
    
    for ( base = 0 ; server_string[ base ] != NUL ; /* empty */ ) {
       /* Determine the length of the next extension name.
@@ -355,6 +356,68 @@ __glXGetClientExtensions( void )
 }
 
 
+static char *
+MergeUsableExtensions(const char *clientGLXexts,
+		      const char *serverGLXexts,
+		      /*using direct mode context*/ GLboolean direct) {
+   char *result = NULL;
+   size_t resultLength = 0;
+   size_t resultOffset = 0;
+   int exti;
+   
+   resultLength = 20;
+   result = Xmalloc(resultLength);
+
+   if(NULL == result) {
+       perror("Xmalloc");
+       abort();
+   }
+   
+   for(exti = 0; known_glx_extensions[exti].name; ++exti) {
+       const char *name = known_glx_extensions[exti].name;
+       int nameLength = strlen(name);
+       GLboolean add = GL_FALSE;
+
+       if(known_glx_extensions[exti].client_only 
+	  && strstr(clientGLXexts, name)) {
+	   /* The extension doesn't require any server support. */
+	   add = GL_TRUE;
+       }
+
+       if(strstr(serverGLXexts, name)
+	  && strstr(clientGLXexts, name)) {
+	   add = GL_TRUE;
+       }
+	  
+       if(known_glx_extensions[exti].direct_only && !direct) 
+	   continue;
+       
+       if(add) {
+	   size_t requestLength = nameLength + 1 + /*NUL*/ 1;
+	   
+	   if(resultLength < (requestLength + resultOffset)) {
+	       /* The allocated buffer is too small, so enlarge it. */
+	       resultLength = requestLength + resultLength * 2;
+		
+	       result = Xrealloc(result, resultLength);
+	       
+	       if(NULL == result) {
+		   perror("Xrealloc");
+		   abort();
+	       }
+	   }
+	   
+	   memcpy(result + resultOffset, name, nameLength);
+	   result[resultOffset + nameLength] = /*space*/ ' ';
+	   resultOffset += nameLength + 1;
+       }
+   }
+    
+   result[resultOffset] = '\0';
+   
+   return result;
+}
+
 /**
  * Calculate the list of application usable extensions.  The resulting
  * string is stored in \c psc->effectiveGLXexts.
@@ -367,20 +430,15 @@ __glXGetClientExtensions( void )
  * \todo Once libGL has full GLX 1.3 support, remove the SGI_make_current_read
  *       hack.
  */
-
 void
 __glXCalculateUsableExtensions( __GLXscreenConfigs *psc,
 				GLboolean display_is_direct_capable,
 				int minor_version )
 {
-   unsigned char server_support[8];
-   unsigned char usable[8];
-   unsigned      i;
-
+    const char *clientGLXexts;
    __glXExtensionsCtr();
    __glXExtensionsCtrScreen( psc );
-   __glXProcessServerString( psc->serverGLXexts, server_support );
-
+   clientGLXexts = __glXGetClientExtensions();
 
    /* This is a hack.  Some servers support GLX 1.3 but don't export
     * SGI_make_current_read.  This libGL supports SGI_make_current_read but
@@ -389,7 +447,7 @@ __glXCalculateUsableExtensions( __GLXscreenConfigs *psc,
     */
 
    if ( minor_version >= 3 ) {
-      SET_BIT( server_support, SGI_make_current_read_bit );
+       //SET_BIT( server_support, SGI_make_current_read_bit );
    }
 
 
@@ -402,20 +460,15 @@ __glXCalculateUsableExtensions( __GLXscreenConfigs *psc,
     * is enabled if and only if the client-side library and the server
     * support it.
     */
-
+   
    if ( display_is_direct_capable ) {
-      for ( i = 0 ; i < 8 ; i++ ) {
-	 usable[i] = (client_support[i] & client_only[i])
-	     | (client_support[i] & psc->direct_support[i] & server_support[i])
-	     | (client_support[i] & psc->direct_support[i] & direct_only[i]);
-      }
+       psc->effectiveGLXexts = MergeUsableExtensions(clientGLXexts,
+						     psc->serverGLXexts,
+						     /*direct*/ GL_TRUE);
    }
    else {
-      for ( i = 0 ; i < 8 ; i++ ) {
-	 usable[i] = (client_support[i] & client_only[i])
-	     | (client_support[i] & server_support[i]);
-      }
+       psc->effectiveGLXexts = MergeUsableExtensions(clientGLXexts,
+						     psc->serverGLXexts,
+						     /*direct*/ GL_FALSE);
    }
-
-   psc->effectiveGLXexts = __glXGetStringFromTable( usable );
 }

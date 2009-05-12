@@ -3,7 +3,7 @@
  * rubyext.c
  *
  * $Author: shyouhei $
- * $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+ * $Date: 2008-06-15 22:09:35 +0900 (Sun, 15 Jun 2008) $
  *
  * Copyright (C) 2003-2005 why the lucky stiff
  */
@@ -2280,7 +2280,6 @@ Init_syck()
      */
     cScalar = rb_define_class_under( rb_syck, "Scalar", cNode );
     rb_define_alloc_func( cScalar, syck_scalar_alloc );
-    rb_define_attr( cNode, "value", 1, 0 );
     rb_define_method( cScalar, "initialize", syck_scalar_initialize, 3 );
     rb_define_method( cScalar, "value=", syck_scalar_value_set, 1 );
     rb_define_method( cScalar, "style=", syck_scalar_style_set, 1 );

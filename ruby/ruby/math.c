@@ -3,7 +3,7 @@
   math.c -
 
   $Author: shyouhei $
-  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+  $Date: 2008-07-02 18:25:48 +0900 (Wed, 02 Jul 2008) $
   created at: Tue Jan 25 14:12:56 JST 1994
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -34,7 +34,7 @@ domain_check(x, msg)
 	if (isnan(x)) {
 #if defined(EDOM)
 	    errno = EDOM;
-#elif define(ERANGE)
+#elif defined(ERANGE)
 	    errno = ERANGE;
 #endif
 	    continue;

@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: pgsql.c,v 1.331.2.13.2.27 2007/12/31 07:20:10 sebastian Exp $ */
+/* $Id: pgsql.c,v 1.331.2.13.2.32 2008/10/16 00:45:21 felipe Exp $ */
 
 #include <stdlib.h>
 
@@ -1199,6 +1199,12 @@ PHP_FUNCTION(pg_query)
 static void _php_pgsql_free_params(char **params, int num_params)
 {
 	if (num_params > 0) {
+		int i;
+		for (i = 0; i < num_params; i++) {
+			if (params[i]) {
+				efree(params[i]);
+			}
+		}
 		efree(params);
 	}
 }
@@ -1216,7 +1222,6 @@ PHP_FUNCTION(pg_query_params)
 	int leftover = 0;
 	int num_params = 0;
 	char **params = NULL;
-	unsigned char otype;
 	PGconn *pgsql;
 	PGresult *pgsql_result;
 	ExecStatusType status;
@@ -1276,19 +1281,20 @@ PHP_FUNCTION(pg_query_params)
 				RETURN_FALSE;
 			}
 
-			otype = (*tmp)->type;
-			convert_to_string_ex(tmp);
-			if (Z_TYPE_PP(tmp) != IS_STRING) {
-				php_error_docref(NULL TSRMLS_CC, E_WARNING,"Error converting parameter");
-				_php_pgsql_free_params(params, num_params);
-				RETURN_FALSE;
-			}
-
-			if (otype == IS_NULL) {
+			if (Z_TYPE_PP(tmp) == IS_NULL) {
 				params[i] = NULL;
-			}
-			else {
-				params[i] = Z_STRVAL_PP(tmp);
+			} else {
+				zval tmp_val = **tmp;
+				zval_copy_ctor(&tmp_val);
+				convert_to_string(&tmp_val);
+				if (Z_TYPE(tmp_val) != IS_STRING) {
+					php_error_docref(NULL TSRMLS_CC, E_WARNING,"Error converting parameter");
+					zval_dtor(&tmp_val);
+					_php_pgsql_free_params(params, num_params);
+					RETURN_FALSE;
+				}
+				params[i] = estrndup(Z_STRVAL(tmp_val), Z_STRLEN(tmp_val));
+				zval_dtor(&tmp_val);
 			}
 
 			zend_hash_move_forward(Z_ARRVAL_PP(pv_param_arr));
@@ -1439,7 +1445,6 @@ PHP_FUNCTION(pg_execute)
 	int leftover = 0;
 	int num_params = 0;
 	char **params = NULL;
-	unsigned char otype;
 	PGconn *pgsql;
 	PGresult *pgsql_result;
 	ExecStatusType status;
@@ -1500,19 +1505,20 @@ PHP_FUNCTION(pg_execute)
 				RETURN_FALSE;
 			}
 
-			otype = (*tmp)->type;
-			SEPARATE_ZVAL(tmp);
-			convert_to_string_ex(tmp);
-			if (Z_TYPE_PP(tmp) != IS_STRING) {
-				php_error_docref(NULL TSRMLS_CC, E_WARNING,"Error converting parameter");
-				_php_pgsql_free_params(params, num_params);
-				RETURN_FALSE;
-			}
-
-			if (otype == IS_NULL) {
+			if (Z_TYPE_PP(tmp) == IS_NULL) {
 				params[i] = NULL;
 			} else {
-				params[i] = Z_STRVAL_PP(tmp);
+				zval tmp_val = **tmp;
+				zval_copy_ctor(&tmp_val);
+				convert_to_string(&tmp_val);
+				if (Z_TYPE(tmp_val) != IS_STRING) {
+					php_error_docref(NULL TSRMLS_CC, E_WARNING,"Error converting parameter");
+					zval_dtor(&tmp_val);
+					_php_pgsql_free_params(params, num_params);
+					RETURN_FALSE;
+				}
+				params[i] = estrndup(Z_STRVAL(tmp_val), Z_STRLEN(tmp_val));
+				zval_dtor(&tmp_val);
 			}
 
 			zend_hash_move_forward(Z_ARRVAL_PP(pv_param_arr));
@@ -1979,10 +1985,9 @@ PHP_FUNCTION(pg_fetch_result)
 	if (PQgetisnull(pgsql_result, pgsql_row, field_offset)) {
 		Z_TYPE_P(return_value) = IS_NULL;
 	} else {
-		Z_STRVAL_P(return_value) = PQgetvalue(pgsql_result, pgsql_row, field_offset);
-		Z_STRLEN_P(return_value) = (Z_STRVAL_P(return_value) ? strlen(Z_STRVAL_P(return_value)) : 0);
-		Z_STRVAL_P(return_value) = safe_estrndup(Z_STRVAL_P(return_value),Z_STRLEN_P(return_value));
-		Z_TYPE_P(return_value) = IS_STRING;
+		char *value = PQgetvalue(pgsql_result, pgsql_row, field_offset);
+		int value_len = PQgetlength(pgsql_result, pgsql_row, field_offset);
+		ZVAL_STRINGL(return_value, value, value_len, 1);
 	}
 }
 /* }}} */
@@ -4048,7 +4053,6 @@ PHP_FUNCTION(pg_send_query_params)
 	zval **pv_param_arr, **tmp;
 	int num_params = 0;
 	char **params = NULL;
-	unsigned char otype;
 	zval **query;
 	int id = -1;
 	PGconn *pgsql;
@@ -4097,20 +4101,20 @@ PHP_FUNCTION(pg_send_query_params)
 				RETURN_FALSE;
 			}
 
-			otype = (*tmp)->type;
-			SEPARATE_ZVAL(tmp);
-			convert_to_string_ex(tmp);
-			if (Z_TYPE_PP(tmp) != IS_STRING) {
-				php_error_docref(NULL TSRMLS_CC, E_WARNING,"Error converting parameter");
-				_php_pgsql_free_params(params, num_params);
-				RETURN_FALSE;
-			}
-
-			if (otype == IS_NULL) {
+			if (Z_TYPE_PP(tmp) == IS_NULL) {
 				params[i] = NULL;
-			}
-			else {
-				params[i] = Z_STRVAL_PP(tmp);
+			} else {
+				zval tmp_val = **tmp;
+				zval_copy_ctor(&tmp_val);
+				convert_to_string(&tmp_val);
+				if (Z_TYPE(tmp_val) != IS_STRING) {
+					php_error_docref(NULL TSRMLS_CC, E_WARNING,"Error converting parameter");
+					zval_dtor(&tmp_val);
+					_php_pgsql_free_params(params, num_params);
+					RETURN_FALSE;
+				}
+				params[i] = estrndup(Z_STRVAL(tmp_val), Z_STRLEN(tmp_val));
+				zval_dtor(&tmp_val);
 			}
 
 			zend_hash_move_forward(Z_ARRVAL_PP(pv_param_arr));
@@ -4194,7 +4198,6 @@ PHP_FUNCTION(pg_send_execute)
 	zval **pv_param_arr, **tmp;
 	int num_params = 0;
 	char **params = NULL;
-	unsigned char otype;
 	zval **stmtname;
 	int id = -1;
 	PGconn *pgsql;
@@ -4241,19 +4244,20 @@ PHP_FUNCTION(pg_send_execute)
 				RETURN_FALSE;
 			}
 
-			otype = (*tmp)->type;
-			convert_to_string(*tmp);
-			if (Z_TYPE_PP(tmp) != IS_STRING) {
-				php_error_docref(NULL TSRMLS_CC, E_WARNING,"Error converting parameter");
-				_php_pgsql_free_params(params, num_params);
-				RETURN_FALSE;
-			}
-
-			if (otype == IS_NULL) {
+			if (Z_TYPE_PP(tmp) == IS_NULL) {
 				params[i] = NULL;
-			}
-			else {
-				params[i] = Z_STRVAL_PP(tmp);
+			} else {
+				zval tmp_val = **tmp;
+				zval_copy_ctor(&tmp_val);
+				convert_to_string(&tmp_val);
+				if (Z_TYPE(tmp_val) != IS_STRING) {
+					php_error_docref(NULL TSRMLS_CC, E_WARNING,"Error converting parameter");
+					zval_dtor(&tmp_val);
+					_php_pgsql_free_params(params, num_params);
+					RETURN_FALSE;
+				}
+				params[i] = estrndup(Z_STRVAL(tmp_val), Z_STRLEN(tmp_val));
+				zval_dtor(&tmp_val);
 			}
 
 			zend_hash_move_forward(Z_ARRVAL_PP(pv_param_arr));
@@ -4407,27 +4411,47 @@ PHP_FUNCTION(pg_get_pid)
 PHP_PGSQL_API int php_pgsql_meta_data(PGconn *pg_link, const char *table_name, zval *meta TSRMLS_DC) 
 {
 	PGresult *pg_result;
-	char *tmp_name;
+	char *src, *tmp_name, *tmp_name2 = NULL;
 	smart_str querystr = {0};
 	int new_len;
 	int i, num_rows;
 	zval *elem;
 	
+	if (!*table_name) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "The table name must be specified");
+		return FAILURE;
+	}
+
+	src = estrdup(table_name);
+	tmp_name = php_strtok_r(src, ".", &tmp_name2);
+	
+	if (!*tmp_name2) {
+		/* Default schema */
+		tmp_name2 = tmp_name;
+		tmp_name = "public";
+	}
+
 	smart_str_appends(&querystr, 
 			"SELECT a.attname, a.attnum, t.typname, a.attlen, a.attnotNULL, a.atthasdef, a.attndims "
-			"FROM pg_class as c, pg_attribute a, pg_type t "
+			"FROM pg_class as c, pg_attribute a, pg_type t, pg_namespace n "
 			"WHERE a.attnum > 0 AND a.attrelid = c.oid AND c.relname = '");
+	tmp_name2 = php_addslashes(tmp_name2, strlen(tmp_name2), &new_len, 0 TSRMLS_CC);
+	smart_str_appendl(&querystr, tmp_name2, new_len);
 	
-	tmp_name = php_addslashes((char *)table_name, strlen(table_name), &new_len, 0 TSRMLS_CC);
+	smart_str_appends(&querystr, "' AND c.relnamespace = n.oid AND n.nspname = '");
+	tmp_name = php_addslashes(tmp_name, strlen(tmp_name), &new_len, 0 TSRMLS_CC);
 	smart_str_appendl(&querystr, tmp_name, new_len);
-	efree(tmp_name);
 
 	smart_str_appends(&querystr, "' AND a.atttypid = t.oid ORDER BY a.attnum;");
 	smart_str_0(&querystr);
 	
+	efree(tmp_name2);
+	efree(tmp_name);
+	efree(src);	
+	
 	pg_result = PQexec(pg_link, querystr.c);
 	if (PQresultStatus(pg_result) != PGRES_TUPLES_OK || (num_rows = PQntuples(pg_result)) == 0) {
-		php_error_docref(NULL TSRMLS_CC, E_NOTICE, "Failed to query meta_data for '%s' table %s", table_name, querystr.c);
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Table '%s' doesn't exists", table_name);
 		smart_str_free(&querystr);
 		PQclear(pg_result);
 		return FAILURE;
@@ -5003,7 +5027,7 @@ PHP_PGSQL_API int php_pgsql_convert(PGconn *pg_link, const char *table_name, con
 							ZVAL_STRINGL(new_val, "NOW()", sizeof("NOW()")-1, 1);
 						} else {
 							/* FIXME: better regex must be used */
-							if (php_pgsql_convert_match(Z_STRVAL_PP(val), "^([0-9]{4}[/-][0-9]{1,2}[/-][0-9]{1,2})([ \\t]+(([0-9]{1,2}:[0-9]{1,2}){1}(:[0-9]{1,2}){0,1}(\\.[0-9]+){0,1}([ \\t]*([+-][0-9]{1,2}(:[0-9]{1,2}){0,1}|[-a-zA-Z_/+]{1,50})){0,1})){0,1}$", 1 TSRMLS_CC) == FAILURE) {
+							if (php_pgsql_convert_match(Z_STRVAL_PP(val), "^([0-9]{4}[/-][0-9]{1,2}[/-][0-9]{1,2})([ \\t]+(([0-9]{1,2}:[0-9]{1,2}){1}(:[0-9]{1,2}){0,1}(\\.[0-9]+){0,1}([ \\t]*([+-][0-9]{1,4}(:[0-9]{1,2}){0,1}|[-a-zA-Z_/+]{1,50})){0,1})){0,1}$", 1 TSRMLS_CC) == FAILURE) {
 								err = 1;
 							} else {
 								ZVAL_STRING(new_val, Z_STRVAL_PP(val), 1);
@@ -5342,7 +5366,7 @@ static int do_exec(smart_str *querystr, int expect, PGconn *pg_link, ulong opt T
 			PQclear(pg_result);
 			return 0;
 		} else {
-			php_error_docref(NULL TSRMLS_CC, E_NOTICE, "Failed to execute '%s'", querystr->c);
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", PQresultErrorMessage(pg_result));
 			PQclear(pg_result);
 		}
 	}
@@ -5693,7 +5717,7 @@ cleanup:
 		FREE_ZVAL(ids_converted);
 	}
 	if (ret == SUCCESS && (opt & PGSQL_DML_STRING)) {
-		*sql = estrdup(querystr.c);
+		*sql = querystr.c;
 	}
 	else {
 		smart_str_free(&querystr);

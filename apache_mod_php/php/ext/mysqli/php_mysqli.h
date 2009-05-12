@@ -15,7 +15,7 @@
   | Author: Georg Richter <georg@php.net>                                |
   +----------------------------------------------------------------------+
 
-  $Id: php_mysqli.h,v 1.54.2.7.2.7 2007/12/31 07:20:08 sebastian Exp $ 
+  $Id: php_mysqli.h,v 1.54.2.7.2.8 2008/05/05 12:30:38 andrey Exp $ 
 */
 
 /* A little hack to prevent build break, when mysql is used together with
@@ -300,6 +300,11 @@ if ((MyG(report_mode) & MYSQLI_REPORT_ERROR) && mysql->net.last_errno) { \
 if ((MyG(report_mode) & MYSQLI_REPORT_ERROR) && stmt->last_errno) { \
 	php_mysqli_report_error(stmt->sqlstate, stmt->last_errno, stmt->last_error TSRMLS_CC); \
 }
+
+#if MYSQL_VERSION_ID > 32300 && MYSQL_VERSION_ID < 60000
+#define HAVE_LIBMYSQL_REPLICATION
+#endif
+
 
 PHP_MYSQLI_API void mysqli_register_link(zval *return_value, void *link TSRMLS_DC);
 PHP_MYSQLI_API void mysqli_register_stmt(zval *return_value, void *stmt TSRMLS_DC);

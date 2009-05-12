@@ -19,11 +19,17 @@
  * Contents:
  *
  *   main()               - Main entry for test program.
- *   check_basics()       - Check for CR LF, mixed line endings, and blank lines.
+ *   check_basics()       - Check for CR LF, mixed line endings, and blank
+ *                          lines.
  *   check_constraints()  - Check UIConstraints in the PPD file.
+ *   check_case()         - Check that there are no duplicate groups, options,
+ *                          or choices that differ only by case.
  *   check_defaults()     - Check default option keywords in the PPD file.
+ *   check_duplex()       - Check duplex keywords in the PPD file.
  *   check_filters()      - Check filters in the PPD file.
+ *   check_profiles()     - Check ICC color profiles in the PPD file.
  *   check_translations() - Check translations in the PPD file.
+ *   ppd_hash_name()      - Generate a hash value for a device or profile name.
  *   show_conflicts()     - Show option conflicts in a PPD file.
  *   test_raster()        - Test PostScript commands for raster printers.
  *   usage()              - Show program usage...
@@ -54,7 +60,9 @@ enum
   WARN_DEFAULTS = 2,
   WARN_FILTERS = 4,
   WARN_TRANSLATIONS = 8,
-  WARN_ALL = 15
+  WARN_PROFILES = 16,
+  WARN_DUPLEX = 32,
+  WARN_ALL = 63
 };
 
 
@@ -92,12 +100,18 @@ enum
 static void	check_basics(const char *filename);
 static int	check_constraints(ppd_file_t *ppd, int errors, int verbose,
 		                  int warn);
+static int	check_case(ppd_file_t *ppd, int errors, int verbose);
 static int	check_defaults(ppd_file_t *ppd, int errors, int verbose,
 		               int warn);
+static int	check_duplex(ppd_file_t *ppd, int errors, int verbose,
+		             int warn);
 static int	check_filters(ppd_file_t *ppd, const char *root, int errors,
 		              int verbose, int warn);
+static int	check_profiles(ppd_file_t *ppd, const char *root, int errors,
+		               int verbose, int warn);
 static int	check_translations(ppd_file_t *ppd, int errors, int verbose,\
 		                   int warn);
+static unsigned	ppd_hash_name(const char *name);
 static void	show_conflicts(ppd_file_t *ppd);
 static int	test_raster(ppd_file_t *ppd, int verbose);
 static void	usage(void);
@@ -124,9 +138,7 @@ main(int  argc,				/* I - Number of command-line args */
   int		ppdversion;		/* PPD spec version in PPD file */
   ppd_status_t	error;			/* Status of ppdOpen*() */
   int		line;			/* Line number for error */
-  struct stat	statbuf;		/* File information */
-  char		pathprog[1024],		/* Complete path to program/filter */
-		*root;			/* Root directory */
+  char		*root;			/* Root directory */
   int		xdpi,			/* X resolution */
 		ydpi;			/* Y resolution */
   ppd_file_t	*ppd;			/* PPD file record */
@@ -186,8 +198,12 @@ main(int  argc,				/* I - Number of command-line args */
 	        warn |= WARN_CONSTRAINTS;
 	      else if (!strcmp(argv[i], "defaults"))
 	        warn |= WARN_DEFAULTS;
+	      else if (!strcmp(argv[i], "duplex"))
+	        warn |= WARN_DUPLEX;
 	      else if (!strcmp(argv[i], "filters"))
 	        warn |= WARN_FILTERS;
+	      else if (!strcmp(argv[i], "profiles"))
+	        warn |= WARN_PROFILES;
 	      else if (!strcmp(argv[i], "translations"))
 	        warn |= WARN_TRANSLATIONS;
 	      else if (!strcmp(argv[i], "all"))
@@ -246,10 +262,10 @@ main(int  argc,				/* I - Number of command-line args */
         * Read from stdin...
 	*/
 
-        if (verbose >= 0)
-          printf("(stdin):");
-
         ppd = ppdOpen(stdin);
+
+        if (verbose >= 0)
+          printf("%s:", (ppd && ppd->pcfilename) ? ppd->pcfilename : "(stdin)");
       }
       else
       {
@@ -1002,55 +1018,6 @@ main(int  argc,				/* I - Number of command-line args */
 	}
       }
 
-     /*
-      * Check for a duplex option, and for standard values...
-      */
-
-      if ((option = ppdFindOption(ppd, "Duplex")) == NULL)
-	if ((option = ppdFindOption(ppd, "JCLDuplex")) == NULL)
-	  if ((option = ppdFindOption(ppd, "EFDuplex")) == NULL)
-            option = ppdFindOption(ppd, "KD03Duplex");
-
-      if (option != NULL)
-      {
-        if (ppdFindChoice(option, "None") == NULL)
-	{
-	  if (verbose >= 0)
-	  {
-	    if (!errors && !verbose)
-	      _cupsLangPuts(stdout, _(" FAIL\n"));
-
-	    _cupsLangPrintf(stdout,
-	                    _("      **FAIL**  REQUIRED %s does not define "
-			      "choice None!\n"
-			      "                REF: Page 122, section 5.17\n"),
-	                    option->keyword);
-          }
-
-	  errors ++;
-	}
-
-        for (j = option->num_choices, choice = option->choices; j > 0; j --, choice ++)
-          if (strcmp(choice->choice, "None") &&
-	      strcmp(choice->choice, "DuplexNoTumble") &&
-	      strcmp(choice->choice, "DuplexTumble") &&
-	      strcmp(choice->choice, "SimplexTumble"))
-	  {
-	    if (verbose >= 0)
-	    {
-	      if (!errors && !verbose)
-		_cupsLangPuts(stdout, _(" FAIL\n"));
-
-	      _cupsLangPrintf(stdout,
-	                      _("      **FAIL**  Bad %s choice %s!\n"
-			        "                REF: Page 122, section 5.17\n"),
-	        	      option->keyword, choice->choice);
-            }
-
-	    errors ++;
-	  }
-      }
-
       if ((attr = ppdFindAttr(ppd, "1284DeviceID", NULL)) &&
           strcmp(attr->name, "1284DeviceID"))
       {
@@ -1068,14 +1035,22 @@ main(int  argc,				/* I - Number of command-line args */
 	errors ++;
       }
 
+      errors = check_case(ppd, errors, verbose);
+
       if (!(warn & WARN_CONSTRAINTS))
         errors = check_constraints(ppd, errors, verbose, 0);
 
       if (!(warn & WARN_FILTERS))
         errors = check_filters(ppd, root, errors, verbose, 0);
 
+      if (!(warn & WARN_PROFILES))
+        errors = check_profiles(ppd, root, errors, verbose, 0);
+
       if (!(warn & WARN_TRANSLATIONS))
         errors = check_translations(ppd, errors, verbose, 0);
+
+      if (!(warn & WARN_DUPLEX))
+        errors = check_duplex(ppd, errors, verbose, 0);
 
       if ((attr = ppdFindAttr(ppd, "cupsLanguages", NULL)) != NULL &&
 	  attr->value)
@@ -1202,8 +1177,29 @@ main(int  argc,				/* I - Number of command-line args */
 	if (warn & WARN_FILTERS)
 	  errors = check_filters(ppd, root, errors, verbose, 1);
 
+	if (warn & WARN_PROFILES)
+	  errors = check_profiles(ppd, root, errors, verbose, 1);
+
 	if (warn & WARN_TRANSLATIONS)
 	  errors = check_translations(ppd, errors, verbose, 1);
+
+	if (warn & WARN_DUPLEX)
+	  errors = check_duplex(ppd, errors, verbose, 1);
+
+       /*
+        * Look for legacy duplex keywords...
+	*/
+
+	if ((option = ppdFindOption(ppd, "JCLDuplex")) == NULL)
+	  if ((option = ppdFindOption(ppd, "EFDuplex")) == NULL)
+	    option = ppdFindOption(ppd, "KD03Duplex");
+
+	if (option)
+	  _cupsLangPrintf(stdout,
+			  _("        WARN    Duplex option keyword %s may not "
+			    "work as expected and should be named Duplex!\n"
+			    "                REF: Page 122, section 5.17\n"),
+			  option->keyword);
 
        /*
 	* Look for default keywords with no corresponding option...
@@ -1232,22 +1228,6 @@ main(int  argc,				/* I - Number of command-line args */
 	                    _("        WARN    %s has no corresponding "
 			      "options!\n"),
 	                    attr->name);
-	}
-
-       /*
-        * Check for old Duplex option names...
-	*/
-
-	if ((option = ppdFindOption(ppd, "EFDuplex")) == NULL)
-          option = ppdFindOption(ppd, "KD03Duplex");
-
-        if (option)
-	{
-	  _cupsLangPrintf(stdout,
-	                  _("        WARN    Duplex option keyword %s "
-			    "should be named Duplex or JCLDuplex!\n"
-			    "                REF: Page 122, section 5.17\n"),
-	        	  option->keyword);
 	}
 
         ppdMarkDefaults(ppd);
@@ -1362,43 +1342,6 @@ main(int  argc,				/* I - Number of command-line args */
 	  }
       }
 
-     /*
-      * cupsICCProfile
-      */
-
-      for (attr = ppdFindAttr(ppd, "cupsICCProfile", NULL); 
-	   attr != NULL; 
-	   attr = ppdFindNextAttr(ppd, "cupsICCProfile", NULL))
-      {
-	if (attr->value)
-	{
-	  if (attr->value[0] == '/')
-	    snprintf(pathprog, sizeof(pathprog), "%s%s", root, attr->value);
-	  else
-	  {
-	    if ((ptr = getenv("CUPS_DATADIR")) == NULL)
-	      ptr = CUPS_DATADIR;
-
-            if (*ptr == '/' || !*root)
-	      snprintf(pathprog, sizeof(pathprog), "%s%s/profiles/%s", root,
-	               ptr, attr->value);
-            else
-	      snprintf(pathprog, sizeof(pathprog), "%s/%s/profiles/%s", root,
-	               ptr, attr->value);
-          }
-	}
-
-	if (!attr->value || !attr->value[0] || stat(pathprog, &statbuf))
-	{
-	  if (verbose >= 0)
-	    _cupsLangPrintf(stdout,
-			    _("        WARN    Missing cupsICCProfile "
-			      "file \"%s\"\n"),
-			    !attr->value || !attr->value[0] ? "<NULL>" :
-							      attr->value);
-	}
-      }
-
 #ifdef __APPLE__
      /*
       * APDialogExtension
@@ -1408,7 +1351,7 @@ main(int  argc,				/* I - Number of command-line args */
 	   attr != NULL; 
 	   attr = ppdFindNextAttr(ppd, "APDialogExtension", NULL))
       {
-	if ((!attr->value || stat(attr->value, &statbuf)) && verbose >= 0)
+	if ((!attr->value || access(attr->value, 0)) && verbose >= 0)
 	  _cupsLangPrintf(stdout, _("        WARN    Missing "
 				    "APDialogExtension file \"%s\"\n"),
 			  attr->value ? attr->value : "<NULL>");
@@ -1422,7 +1365,7 @@ main(int  argc,				/* I - Number of command-line args */
 	   attr != NULL; 
 	   attr = ppdFindNextAttr(ppd, "APPrinterIconPath", NULL))
       {
-	if ((!attr->value || stat(attr->value, &statbuf)) && verbose >= 0)
+	if ((!attr->value || access(attr->value, 0)) && verbose >= 0)
 	  _cupsLangPrintf(stdout, _("        WARN    Missing "
 				    "APPrinterIconPath file \"%s\"\n"),
 			  attr->value ? attr->value : "<NULL>");
@@ -1779,6 +1722,116 @@ check_constraints(ppd_file_t *ppd,	/* I - PPD file */
 
 
 /*
+ * 'check_case()' - Check that there are no duplicate groups, options,
+ *                  or choices that differ only by case.
+ */
+
+static int				/* O - Errors found */
+check_case(ppd_file_t *ppd,		/* I - PPD file */
+           int        errors,		/* I - Errors found */
+	   int        verbose)		/* I - Verbosity level */
+{
+  int		i, j;			/* Looping vars */
+  ppd_group_t	*groupa,		/* First group */
+		*groupb;		/* Second group */
+  ppd_option_t	*optiona,		/* First option */
+		*optionb;		/* Second option */
+  ppd_choice_t	*choicea,		/* First choice */
+		*choiceb;		/* Second choice */
+
+
+ /*
+  * Check that the groups do not have any duplicate names...
+  */
+
+  for (i = ppd->num_groups, groupa = ppd->groups; i > 1; i --, groupa ++)
+    for (j = i - 1, groupb = groupa + 1; j > 0; j --, groupb ++)
+      if (!strcasecmp(groupa->name, groupb->name))
+      {
+	if (!errors && !verbose)
+	  _cupsLangPuts(stdout, _(" FAIL\n"));
+
+	if (verbose >= 0)
+	  _cupsLangPrintf(stdout,
+			  _("      **FAIL**  Group names %s and %s differ only "
+			    "by case!\n"),
+			  groupa->name, groupb->name);
+
+	errors ++;
+      }
+
+ /*
+  * Check that the options do not have any duplicate names...
+  */
+
+  for (optiona = ppdFirstOption(ppd); optiona; optiona = ppdNextOption(ppd))
+  {
+    cupsArraySave(ppd->options);
+    for (optionb = ppdNextOption(ppd); optionb; optionb = ppdNextOption(ppd))
+      if (!strcasecmp(optiona->keyword, optionb->keyword))
+      {
+	if (!errors && !verbose)
+	  _cupsLangPuts(stdout, _(" FAIL\n"));
+
+	if (verbose >= 0)
+	  _cupsLangPrintf(stdout,
+			  _("      **FAIL**  Option names %s and %s differ only "
+			    "by case!\n"),
+			  optiona->keyword, optionb->keyword);
+
+	errors ++;
+      }
+    cupsArrayRestore(ppd->options);
+
+   /*
+    * Then the choices...
+    */
+
+    for (i = optiona->num_choices, choicea = optiona->choices;
+         i > 1;
+	 i --, choicea ++)
+      for (j = i - 1, choiceb = choicea + 1; j > 0; j --, choiceb ++)
+        if (!strcmp(choicea->choice, choiceb->choice))
+	{
+	  if (!errors && !verbose)
+	    _cupsLangPuts(stdout, _(" FAIL\n"));
+
+	  if (verbose >= 0)
+	    _cupsLangPrintf(stdout,
+			    _("      **FAIL**  Multiple occurrences of %s "
+			      "choice name %s!\n"),
+			    optiona->keyword, choicea->choice);
+
+	  errors ++;
+
+	  choicea ++;
+	  i --;
+	  break;
+	}
+        else if (!strcasecmp(choicea->choice, choiceb->choice))
+	{
+	  if (!errors && !verbose)
+	    _cupsLangPuts(stdout, _(" FAIL\n"));
+
+	  if (verbose >= 0)
+	    _cupsLangPrintf(stdout,
+			    _("      **FAIL**  %s choice names %s and %s "
+			      "differ only by case!\n"),
+			    optiona->keyword, choicea->choice, choiceb->choice);
+
+	  errors ++;
+	}
+  }
+
+ /*
+  * Return the number of errors found...
+  */
+
+  return (errors);
+}
+
+
+/*
  * 'check_defaults()' - Check default option keywords in the PPD file.
  */
 
@@ -1846,6 +1899,76 @@ check_defaults(ppd_file_t *ppd,		/* I - PPD file */
 
 
 /*
+ * 'check_duplex()' - Check duplex keywords in the PPD file.
+ */
+
+static int				/* O - Errors found */
+check_duplex(ppd_file_t *ppd,		/* I - PPD file */
+             int        errors,		/* I - Error found */
+	     int        verbose,	/* I - Verbosity level */
+             int        warn)		/* I - Warnings only? */
+{
+  int		i;			/* Looping var */
+  ppd_option_t	*option;		/* PPD option */
+  ppd_choice_t	*choice;		/* Current choice */
+  const char	*prefix;		/* Message prefix */
+
+
+  prefix = warn ? "  WARN  " : "**FAIL**";
+
+ /*
+  * Check for a duplex option, and for standard values...
+  */
+
+  if ((option = ppdFindOption(ppd, "Duplex")) != NULL)
+  {
+    if (!ppdFindChoice(option, "None"))
+    {
+      if (verbose >= 0)
+      {
+	if (!warn && !errors && !verbose)
+	  _cupsLangPuts(stdout, _(" FAIL\n"));
+
+	_cupsLangPrintf(stdout,
+			_("      %s  REQUIRED %s does not define "
+			  "choice None!\n"
+			  "                REF: Page 122, section 5.17\n"),
+			prefix, option->keyword);
+      }
+
+      if (!warn)
+	errors ++;
+    }
+
+    for (i = option->num_choices, choice = option->choices;
+	 i > 0;
+	 i --, choice ++)
+      if (strcmp(choice->choice, "None") &&
+	  strcmp(choice->choice, "DuplexNoTumble") &&
+	  strcmp(choice->choice, "DuplexTumble") &&
+	  strcmp(choice->choice, "SimplexTumble"))
+      {
+	if (verbose >= 0)
+	{
+	  if (!warn && !errors && !verbose)
+	    _cupsLangPuts(stdout, _(" FAIL\n"));
+
+	  _cupsLangPrintf(stdout,
+			  _("      %s  Bad %s choice %s!\n"
+			    "                REF: Page 122, section 5.17\n"),
+			  prefix, option->keyword, choice->choice);
+	}
+
+	if (!warn)
+	  errors ++;
+      }
+  }
+
+  return (errors);
+}
+
+
+/*
  * 'check_filters()' - Check filters in the PPD file.
  */
 
@@ -1859,7 +1982,6 @@ check_filters(ppd_file_t *ppd,		/* I - PPD file */
   int		i;			/* Looping var */
   ppd_attr_t	*attr;			/* PPD attribute */
   const char	*ptr;			/* Pointer into string */
-  struct stat	statbuf;		/* File information */
   char		super[16],		/* Super-type for filter */
 		type[256],		/* Type for filter */
 		program[1024],		/* Program/filter name */
@@ -1886,7 +2008,7 @@ check_filters(ppd_file_t *ppd,		/* I - PPD file */
       if (!warn)
         errors ++;
     }
-    else
+    else if (strcmp(program, "-"))
     {
       if (program[0] == '/')
 	snprintf(pathprog, sizeof(pathprog), "%s%s", root, program);
@@ -1903,7 +2025,7 @@ check_filters(ppd_file_t *ppd,		/* I - PPD file */
 		   program);
       }
 
-      if (stat(pathprog, &statbuf))
+      if (access(pathprog, X_OK))
       {
 	if (!warn && !errors && !verbose)
 	  _cupsLangPuts(stdout, _(" FAIL\n"));
@@ -1937,7 +2059,7 @@ check_filters(ppd_file_t *ppd,		/* I - PPD file */
       if (!warn)
         errors ++;
     }
-    else
+    else if (strcmp(program, "-"))
     {
       if (program[0] == '/')
 	snprintf(pathprog, sizeof(pathprog), "%s%s", root, program);
@@ -1954,7 +2076,7 @@ check_filters(ppd_file_t *ppd,		/* I - PPD file */
 		   program);
       }
 
-      if (stat(pathprog, &statbuf))
+      if (access(pathprog, X_OK))
       {
 	if (!warn && !errors && !verbose)
 	  _cupsLangPuts(stdout, _(" FAIL\n"));
@@ -1966,6 +2088,133 @@ check_filters(ppd_file_t *ppd,		/* I - PPD file */
         if (!warn)
 	  errors ++;
       }
+    }
+  }
+
+  return (errors);
+}
+
+
+/*
+ * 'check_profiles()' - Check ICC color profiles in the PPD file.
+ */
+
+static int				/* O - Errors found */
+check_profiles(ppd_file_t *ppd,		/* I - PPD file */
+               const char *root,	/* I - Root directory */
+	       int        errors,	/* I - Errors found */
+	       int        verbose,	/* I - Verbosity level */
+	       int        warn)		/* I - Warnings only? */
+{
+  int		i;			/* Looping var */
+  ppd_attr_t	*attr;			/* PPD attribute */
+  const char	*ptr;			/* Pointer into string */
+  const char	*prefix;		/* WARN/FAIL prefix */
+  char		filename[1024];		/* Profile filename */
+  int		num_profiles = 0;	/* Number of profiles */
+  unsigned	hash,			/* Current hash value */
+		hashes[1000];		/* Hash values of profile names */
+  const char	*specs[1000];		/* Specifiers for profiles */
+
+
+  prefix = warn ? "  WARN  " : "**FAIL**";
+
+  for (attr = ppdFindAttr(ppd, "cupsICCProfile", NULL);
+       attr;
+       attr = ppdFindNextAttr(ppd, "cupsICCProfile", NULL))
+  {
+   /*
+    * Check for valid selector...
+    */
+
+    for (i = 0, ptr = strchr(attr->spec, '.'); ptr; ptr = strchr(ptr + 1, '.'))
+      i ++;
+
+    if (!attr->value || i < 2)
+    {
+      if (!warn && !errors && !verbose)
+	_cupsLangPuts(stdout, _(" FAIL\n"));
+
+      if (verbose >= 0)
+	_cupsLangPrintf(stdout,
+			_("      %s  Bad cupsICCProfile %s!\n"),
+			prefix, attr->spec);
+
+      if (!warn)
+        errors ++;
+
+      continue;
+    }
+
+   /*
+    * Check for valid profile filename...
+    */
+
+    if (attr->value[0] == '/')
+      snprintf(filename, sizeof(filename), "%s%s", root, attr->value);
+    else
+    {
+      if ((ptr = getenv("CUPS_DATADIR")) == NULL)
+	ptr = CUPS_DATADIR;
+
+      if (*ptr == '/' || !*root)
+	snprintf(filename, sizeof(filename), "%s%s/profiles/%s", root, ptr,
+		 attr->value);
+      else
+	snprintf(filename, sizeof(filename), "%s/%s/profiles/%s", root, ptr,
+		 attr->value);
+    }
+
+    if (access(filename, 0))
+    {
+      if (!warn && !errors && !verbose)
+	_cupsLangPuts(stdout, _(" FAIL\n"));
+
+      if (verbose >= 0)
+	_cupsLangPrintf(stdout, _("      %s  Missing cupsICCProfile "
+				  "file \"%s\"!\n"), prefix, attr->value);
+
+      if (!warn)
+	errors ++;
+    }
+
+   /*
+    * Check for hash collisions...
+    */
+
+    hash = ppd_hash_name(attr->spec);
+
+    if (num_profiles > 0)
+    {
+      for (i = 0; i < num_profiles; i ++)
+	if (hashes[i] == hash)
+	  break;
+
+      if (i < num_profiles)
+      {
+	if (!warn && !errors && !verbose)
+	  _cupsLangPuts(stdout, _(" FAIL\n"));
+
+	if (verbose >= 0)
+	  _cupsLangPrintf(stdout,
+			  _("      %s  cupsICCProfile %s hash value "
+			    "collides with %s!\n"), prefix, attr->spec,
+			  specs[i]);
+
+	if (!warn)
+	  errors ++;
+      }
+    }
+
+   /*
+    * Remember up to 1000 profiles...
+    */
+
+    if (num_profiles < 1000)
+    {
+      hashes[num_profiles] = hash;
+      specs[num_profiles]  = attr->spec;
+      num_profiles ++;
     }
   }
 
@@ -1999,6 +2248,7 @@ check_translations(ppd_file_t *ppd,	/* I - PPD file */
   cups_array_t	*langlist;		/* List of languages so far */
   char		ll[3];			/* Base language */
   const char	*prefix;		/* WARN/FAIL prefix */
+  const char	*text;			/* Pointer into UI text */
 
 
   prefix = warn ? "  WARN  " : "**FAIL**";
@@ -2113,6 +2363,22 @@ check_translations(ppd_file_t *ppd,	/* I - PPD file */
 
 	for (j = 0; j < option->num_choices; j ++)
 	{
+         /*
+	  * First see if this choice is a number; if so, don't require
+	  * translation...
+	  */
+
+          for (text = option->choices[j].text; *text; text ++)
+	    if (!strchr("0123456789-+.", *text))
+	      break;
+
+          if (!*text)
+	    continue;
+
+	 /*
+	  * Check custom choices differently...
+	  */
+
 	  if (!strcasecmp(option->choices[j].choice, "Custom") &&
 	      (coption = ppdFindCustomOption(ppd,
 					     option->keyword)) != NULL)
@@ -2273,6 +2539,27 @@ check_translations(ppd_file_t *ppd,	/* I - PPD file */
   }
 
   return (errors);
+}
+
+
+/*
+ * 'ppd_hash_name()' - Generate a hash value for a device or profile name.
+ *
+ * This function is primarily used on Mac OS X, but is generally accessible
+ * since cupstestppd needs to check for profile name collisions in PPD files...
+ */
+
+unsigned				/* O - Hash value */
+ppd_hash_name(const char *name)		/* I - Name to hash */
+{
+  int		mult;			/* Multiplier */
+  unsigned	hash = 0;		/* Hash value */
+
+
+  for (mult = 1; *name && mult <= 128; mult ++, name ++)
+    hash += (*name & 255) * mult;
+
+  return (hash);
 }
 
 
@@ -2442,7 +2729,8 @@ usage(void)
 		  "Options:\n"
 		  "\n"
 		  "    -R root-directory    Set alternate root\n"
-		  "    -W {all,none,constraints,defaults,filters,translations}\n"
+		  "    -W {all,none,constraints,defaults,duplex,filters,"
+		  "translations}\n"
 		  "                         Issue warnings instead of errors\n"
 		  "    -q                   Run silently\n"
 		  "    -r                   Use 'relaxed' open mode\n"

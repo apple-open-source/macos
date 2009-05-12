@@ -315,7 +315,7 @@ email_message(const char *to,		/* I - Recipient of message */
   cupsFilePrintf(fp, "Content-Type: text/plain%s", nl);
   cupsFilePuts(fp, nl);
   cupsFilePrintf(fp, "%s%s", text, nl);
-  cupsFilePrintf(fp, ".\n", nl);
+  cupsFilePrintf(fp, ".%s", nl);
 
  /*
   * Close the connection to the mail server...

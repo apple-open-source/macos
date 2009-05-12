@@ -2493,9 +2493,10 @@ SInt32 CSearchPlugin::GetRecordList ( sGetRecordList *inData )
 						}
 					}
 					//condition on eDSRecordNotFound will no longer be needed
-					else if ( (siResult == eDSRecordNotFound ) ||
-						  (siResult == eDSInvalidRecordName) ||
-						  (siResult == eDSInvalidRecordType) )
+					else if ( siResult == eDSRecordNotFound ||
+							  siResult == eDSInvalidRecordName ||
+							  siResult == eDSInvalidRecordType ||
+							  siResult == eDSNoStdMappingAvailable )
 					{
 						// No records were found on this node,
 						// get next node
@@ -2507,7 +2508,7 @@ SInt32 CSearchPlugin::GetRecordList ( sGetRecordList *inData )
 							{
 								//release the continue data
 								dsReleaseContinueData(pContinue->fNodeRef, pContinue->fContextData);
-								pContinue->fContextData = nil;
+								pContinue->fContextData = 0;
 							}
 						}
 					}
@@ -3416,9 +3417,10 @@ SInt32 CSearchPlugin::AttributeValueSearch ( sDoAttrValueSearchWithData *inData 
 						}
 					}
 					//condition on eDSRecordNotFound will no longer be needed
-					else if ( (siResult == eDSRecordNotFound ) ||
-						  (siResult == eDSInvalidRecordName) ||
-						  (siResult == eDSInvalidRecordType) )
+					else if ( siResult == eDSRecordNotFound ||
+							  siResult == eDSInvalidRecordName ||
+							  siResult == eDSInvalidRecordType ||
+							  siResult == eDSNoStdMappingAvailable )
 					{
 						// No records were found on this node,
 						// get next node
@@ -3430,7 +3432,7 @@ SInt32 CSearchPlugin::AttributeValueSearch ( sDoAttrValueSearchWithData *inData 
 							{
 								//release the continue data
 								dsReleaseContinueData(pContinue->fNodeRef, pContinue->fContextData);
-								pContinue->fContextData = nil;
+								pContinue->fContextData = 0;
 							}
 						}
 					}
@@ -3929,9 +3931,10 @@ SInt32 CSearchPlugin::MultipleAttributeValueSearch ( sDoMultiAttrValueSearchWith
 						}
 					}
 					//condition on eDSRecordNotFound will no longer be needed
-					else if ( (siResult == eDSRecordNotFound ) ||
-						  (siResult == eDSInvalidRecordName) ||
-						  (siResult == eDSInvalidRecordType) )
+					else if ( siResult == eDSRecordNotFound ||
+							  siResult == eDSInvalidRecordName ||
+							  siResult == eDSInvalidRecordType ||
+							  siResult == eDSNoStdMappingAvailable )
 						  //move on to the next node if these
 						  //conditions are met
 					{
@@ -3944,7 +3947,7 @@ SInt32 CSearchPlugin::MultipleAttributeValueSearch ( sDoMultiAttrValueSearchWith
 							{
 								//release the continue data
 								dsReleaseContinueData(pContinue->fNodeRef, pContinue->fContextData);
-								pContinue->fContextData = nil;
+								pContinue->fContextData = 0;
 							}
 						}
 					}

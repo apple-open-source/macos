@@ -3,6 +3,8 @@
 $target=shift @ARGV;
 sys_print("mkdir $ENV{SRCROOT}") unless -e $ENV{SRCROOT};
 
+$ENV{PYTHONPATH}="/usr/X11/lib/python2.5:/usr/X11/lib/python2.5/site-packages";
+
 sub sys_print {
     $command=shift;
     print "$command\n";
@@ -147,6 +149,8 @@ sub build {
 	$conf_flags .= `cat $conf_flags_path`;
 	chomp $conf_flags;
     }
+
+    sys_print("sed -i.bak 's/sysconfig.get_python_lib(\\([^,]\\),0/sysconfig.get_python_lib(\\1,1/g' configure");
 
     sys_print("./configure $conf_flags");
     sys_print("make -j".`sysctl -n hw.activecpu`);

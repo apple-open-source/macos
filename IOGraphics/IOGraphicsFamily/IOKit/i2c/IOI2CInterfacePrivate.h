@@ -45,9 +45,7 @@ struct IOI2CBuffer
 
 #ifdef KERNEL
 
-#ifndef __ppc__
 #pragma pack(push, 4)
-#endif
 
 struct IOI2CRequest_10_5_0
 {
@@ -55,9 +53,6 @@ struct IOI2CRequest_10_5_0
     IOReturn		result;
     uint32_t		completion;
     IOOptionBits	commFlags;
-#ifdef __ppc__
-    uint32_t		__reservedE;
-#endif
     uint64_t		minReplyDelay;
     uint8_t		sendAddress;
     uint8_t		sendSubAddress;
@@ -72,11 +67,12 @@ struct IOI2CRequest_10_5_0
     uint32_t		replyBuffer;
     uint32_t		replyBytes;
     uint32_t		__reservedD[16];
+#ifdef __ppc__
+    uint32_t		__reservedE;
+#endif
 };
 
-#ifndef __ppc__
 #pragma pack(pop)
-#endif
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 

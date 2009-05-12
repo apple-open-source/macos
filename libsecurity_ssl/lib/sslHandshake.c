@@ -51,7 +51,7 @@ SSLProcessHandshakeRecord(SSLRecord rec, SSLContext *ctx)
     sint32          remaining;
     UInt8           *p;
 	UInt8			*startingP;		// top of record we're parsing
-    SSLHandshakeMsg message;
+    SSLHandshakeMsg message = {};
     SSLBuffer       messageData;
     
     if (ctx->fragmentedMessageCache.data != 0)
@@ -126,7 +126,15 @@ SSLProcessHandshakeRecord(SSLRecord rec, SSLContext *ctx)
             return err;
         }
     }
-    
+
+	/* Server offered their certificate and cert verification was
+	 * disabled: give the client the opportunity to verify the
+	 * server's identity by temporarily returning to the caller
+	 */
+	if ((message.type == SSL_HdskCert) && !ctx->enableCertVerify &&
+		(ctx->protocolSide == SSL_ClientSide) && ctx->breakOnServerAuth)
+		return errSSLServerAuthCompleted;
+	
     return noErr;
 }
 
@@ -591,18 +599,32 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
             {   SSLFatalSessionAlert(SSL_AlertHandshakeFail, ctx);
                 return errSSLProtocol;
             }
+            assert(ctx->protocolSide == SSL_ClientSide);
             ctx->certRequested = 1;
-			ctx->clientCertState = kSSLClientCertRequested;
+            ctx->clientCertState = kSSLClientCertRequested;
             break;
         case SSL_HdskServerKeyExchange:
             SSLChangeHdskState(ctx, SSL_HdskStateHelloDone);
             break;
         case SSL_HdskServerHelloDone:
-            if (ctx->certRequested) {
+			/* waiting until server has sent hello done, so we can
+			 * send certificate, keyexchange and cert verify message together
+			 */
+			if (ctx->clientCertState == kSSLClientCertRequested) {
 				/* 
 				 * Server wants a client authentication cert - do 
 				 * we have one? 
 				 */
+
+				if (ctx->state == SSL_HdskStateClientCert) {
+					SSLChangeHdskState(ctx, SSL_HdskServerHelloDone);
+				} 
+				else if (ctx->breakOnCertRequest) { 
+					/* allow client to intervene, regardless of whether localCert is set */
+					SSLChangeHdskState(ctx, SSL_HdskStateClientCert);
+					return errSSLClientCertRequested;
+				}
+				
                 if (ctx->localCert != 0 && ctx->x509Requested) {
 					if ((err = SSLPrepareAndQueueMessage(SSLEncodeCertificate,
 							ctx)) != 0) {

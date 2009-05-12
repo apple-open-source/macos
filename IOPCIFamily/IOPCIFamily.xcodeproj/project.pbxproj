@@ -26,7 +26,6 @@
 		A613B2800D46AA65007BA726 /* IOPCIBridge.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4094C51900CEE7A80ACA2928 /* IOPCIBridge.cpp */; };
 		A613B2810D46AA65007BA726 /* IOPCIDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4094C51A00CEE7A80ACA2928 /* IOPCIDevice.cpp */; };
 		A613B2820D46AA65007BA726 /* IOPCIDeviceI386.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4094C51B00CEE7A80ACA2928 /* IOPCIDeviceI386.cpp */; };
-		A613B2830D46AA65007BA726 /* IOPCIDevicePPC.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4094C51C00CEE7A80ACA2928 /* IOPCIDevicePPC.cpp */; };
 		A613B2840D46AA65007BA726 /* IOPCIConfigurator.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1590524609368A190010639A /* IOPCIConfigurator.cpp */; };
 		A613B2900D46AA65007BA726 /* IOAGPDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 03DB1084033AA50A03CA2A5F /* IOAGPDevice.h */; };
 		A613B2910D46AA65007BA726 /* IOPCIBridge.h in Headers */ = {isa = PBXBuildFile; fileRef = 03DB1085033AA50A03CA2A5F /* IOPCIBridge.h */; };
@@ -38,6 +37,7 @@
 		A613B29B0D46AA65007BA726 /* IOPCIDevice.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 03DB1086033AA50A03CA2A5F /* IOPCIDevice.h */; };
 		A613B29D0D46AA65007BA726 /* IOPCIConfigurator.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = A6DD8EEE0937A0EC000A918D /* IOPCIConfigurator.h */; };
 		A613B29E0D46AA65007BA726 /* IOPCIPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = A6DD8EEF0937A0EC000A918D /* IOPCIPrivate.h */; };
+		A655D6E50E4BB51D00550BCC /* IOPCIDeviceMappedIO.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A655D6E40E4BB51D00550BCC /* IOPCIDeviceMappedIO.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -98,10 +98,10 @@
 		4094C51900CEE7A80ACA2928 /* IOPCIBridge.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIBridge.cpp; sourceTree = "<group>"; };
 		4094C51A00CEE7A80ACA2928 /* IOPCIDevice.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIDevice.cpp; sourceTree = "<group>"; };
 		4094C51B00CEE7A80ACA2928 /* IOPCIDeviceI386.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIDeviceI386.cpp; sourceTree = "<group>"; };
-		4094C51C00CEE7A80ACA2928 /* IOPCIDevicePPC.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIDevicePPC.cpp; sourceTree = "<group>"; };
 		A613B28C0D46AA65007BA726 /* Info-IOPCIFamily.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOPCIFamily.plist"; sourceTree = "<group>"; };
 		A613B28D0D46AA65007BA726 /* IOPCIFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOPCIFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		A613B2A30D46AA65007BA726 /* IOPCIFamily Headers */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "IOPCIFamily Headers"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A655D6E40E4BB51D00550BCC /* IOPCIDeviceMappedIO.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIDeviceMappedIO.cpp; sourceTree = "<group>"; };
 		A6DD8EEE0937A0EC000A918D /* IOPCIConfigurator.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOPCIConfigurator.h; path = IOKit/pci/IOPCIConfigurator.h; sourceTree = SOURCE_ROOT; };
 		A6DD8EEF0937A0EC000A918D /* IOPCIPrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOPCIPrivate.h; path = IOKit/pci/IOPCIPrivate.h; sourceTree = SOURCE_ROOT; };
 		A6F210C10A78022400875EC6 /* AppleSamplePCI.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleSamplePCI.cpp; sourceTree = "<group>"; };
@@ -170,7 +170,7 @@
 				4094C51900CEE7A80ACA2928 /* IOPCIBridge.cpp */,
 				4094C51A00CEE7A80ACA2928 /* IOPCIDevice.cpp */,
 				4094C51B00CEE7A80ACA2928 /* IOPCIDeviceI386.cpp */,
-				4094C51C00CEE7A80ACA2928 /* IOPCIDevicePPC.cpp */,
+				A655D6E40E4BB51D00550BCC /* IOPCIDeviceMappedIO.cpp */,
 				03DB1082033AA50A03CA2A5F /* IOKit */,
 			);
 			name = Source;
@@ -363,8 +363,8 @@
 				A613B2800D46AA65007BA726 /* IOPCIBridge.cpp in Sources */,
 				A613B2810D46AA65007BA726 /* IOPCIDevice.cpp in Sources */,
 				A613B2820D46AA65007BA726 /* IOPCIDeviceI386.cpp in Sources */,
-				A613B2830D46AA65007BA726 /* IOPCIDevicePPC.cpp in Sources */,
 				A613B2840D46AA65007BA726 /* IOPCIConfigurator.cpp in Sources */,
+				A655D6E50E4BB51D00550BCC /* IOPCIDeviceMappedIO.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -415,6 +415,7 @@
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "\"$(SRCROOT)\"";
 				INFOPLIST_FILE = "Info-IOPCIFamily.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -448,6 +449,7 @@
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "\"$(SRCROOT)\"";
 				INFOPLIST_FILE = "Info-IOPCIFamily.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -479,6 +481,7 @@
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "\"$(SRCROOT)\"";
 				INFOPLIST_FILE = "Info-IOPCIFamily.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";

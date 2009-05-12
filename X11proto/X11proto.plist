@@ -4,39 +4,39 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2008-02-11</string>
+		<string>2008-12-10</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>xcb</string>
+		<string>xcbproto</string>
 		<key>OpenSourceSHA1</key>
-		<string>72bb3fe28e7ef55af335e8df41ca871517891698</string>
+		<string>9623d544338cdec292d04200aab5df5c88e96811</string>
 		<key>OpenSourceURL</key>
-		<string>http://xcb.freedesktop.org/dist/xcb-proto-1.1.tar.bz2</string>
+		<string>http://xcb.freedesktop.org/dist/xcb-proto-1.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.1</string>
+		<string>1.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://xcb.freedesktop.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2008-02-11</string>
+		<string>2008-09-24</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>fontconfig</string>
 		<key>OpenSourceSHA1</key>
-		<string>9ffad5f5eb2c5dd277bfed1cafc6e62aa0172842</string>
+		<string>93752566b8327485b153bd156049614f779b4c57</string>
 		<key>OpenSourceURL</key>
-		<string>http://www.fontconfig.org/release/fontconfig-2.5.0.tar.gz</string>
+		<string>http://www.fontconfig.org/release/fontconfig-2.6.0.tar.gz</string>
 		<key>OpenSourceVersion</key>
-		<string>2.5.0</string>
+		<string>2.6.0</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.fontconfig.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2008-06-16</string>
+		<string>2009-03-12</string>
 		<key>OpenSourceLicense</key>
 		<string>modified BSD (with credit clause)</string>
 		<key>OpenSourceLicenseFile</key>
@@ -44,11 +44,11 @@
 		<key>OpenSourceProject</key>
 		<string>freetype</string>
 		<key>OpenSourceSHA1</key>
-		<string>611bae913e8a593449a4dc60e0bf3300abc4f974</string>
+		<string>db08969cb5053879ff9e973fe6dd2c52c7ea2d4e</string>
 		<key>OpenSourceURL</key>
-		<string>http://download.savannah.gnu.org/releases/freetype/freetype-2.3.6.tar.bz2</string>
+		<string>http://download.savannah.gnu.org/releases/freetype/freetype-2.3.9.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>2.3.6</string>
+		<string>2.3.9</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.freetype.org</string>
 	</dict>
@@ -70,17 +70,17 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-10-16</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>applewmproto</string>
 		<key>OpenSourceSHA1</key>
-		<string>7e55f16dd09be0999c35713c299debf304e17d2d</string>
+		<string>c2fd52bf9f2ad05141cc37da56e8b46113e73172</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/proto/applewmproto-X11R7.0-1.0.3.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/proto/applewmproto-1.1.1.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.3</string>
+		<string>1.1.1</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
@@ -550,17 +550,17 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2008-05-28</string>
+		<string>2008-11-26</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xproto</string>
 		<key>OpenSourceSHA1</key>
-		<string>ed09b262381a725ca54585bb9ff7b98f8a8cfea0</string>
+		<string>cb8b35d290c4c57c78dad06b91136fef08e0f80c</string>
 		<key>OpenSourceURL</key>
-		<string>http://xorg.freedesktop.org/archive/individual/proto/xproto-7.0.13.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/proto/xproto-7.0.14.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>7.0.13</string>
+		<string>7.0.14</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>

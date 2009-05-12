@@ -125,7 +125,7 @@ protected:
 	void completeAdd(Item &item, PrimaryKey &key);
 	
 public:
-    virtual ~KeychainImpl() throw();
+    virtual ~KeychainImpl();
 
 	bool operator ==(const KeychainImpl &) const;
 

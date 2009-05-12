@@ -663,15 +663,25 @@ tDirStatus CDSLocalPluginNode::CreateDictionaryForNewRecord( CFStringRef inNativ
 				break;
 			
 			case ENAMETOOLONG:
-				DbgLog( kLogPlugin, "CDSLocalPluginNode::CreateDictionaryForNewRecord(), file name is too long: %s",
+				DbgLog( kLogNotice, "CDSLocalPluginNode::CreateDictionaryForNewRecord(), file name is too long: %s",
 						recFilePathCStr );
 				throw( eDSInvalidRecordName );
 				break;
 
 			default:
-				DbgLog( kLogPlugin, "CDSLocalPluginNode::CreateDictionaryForNewRecord(), file at %s error, stat() result = %d",
-						recFilePathCStr, result );
-				throw( eDSRecordAlreadyExists );
+				// if file is zero length, we can just remove it
+				if ( statBuffer.st_size == 0 ) {
+					DbgLog( kLogDebug, "CDSLocalPluginNode::CreateDictionaryForNewRecord(), file at %s was zero length recreating",
+						    recFilePathCStr );
+					unlink( recFilePathCStr );
+					result = ENOENT;
+				}
+				else {
+					DbgLog( kLogDebug, "CDSLocalPluginNode::CreateDictionaryForNewRecord(), file at %s error, stat() result = %d",
+						    recFilePathCStr, result );
+					throw( eDSRecordAlreadyExists );
+				}
+				break;
 		}
 		
 		mutableAttrsValuesDict = ::CFDictionaryCreateMutable( NULL, 0, &kCFTypeDictionaryKeyCallBacks,

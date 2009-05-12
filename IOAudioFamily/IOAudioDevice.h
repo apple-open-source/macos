@@ -65,7 +65,7 @@ class IOCommandGate;
  *
  *  It must also execute control value chages when requested by the system (i.e. volume adjustments).
  *
- *  In order to allow sleep and work to work on the system, the IOAudioDevice subclass is responsible
+ *  In order to allow sleep and wake to work on the system, the IOAudioDevice subclass is responsible
  *  for performing the necessary actions to sleep and wake its hardware (and restore necessary state
  *  on wake).
  *

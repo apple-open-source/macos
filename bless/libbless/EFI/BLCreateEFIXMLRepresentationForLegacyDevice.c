@@ -29,17 +29,6 @@
  *
  */
 
-#include <IOKit/IOKitLib.h>
-#include <IOKit/IOCFSerialize.h>
-#include <IOKit/IOBSD.h>
-#include <IOKit/IOKitKeys.h>
-#include <IOKit/storage/IOMedia.h>
-#ifndef __MACTYPES__
-typedef struct NumVersion NumVersion;
-#endif
-#include <IOKit/usb/IOUSBLib.h>
-#include <IOKit/storage/IOStorageProtocolCharacteristics.h>
-
 #include <CoreFoundation/CoreFoundation.h>
 
 #include <string.h>
@@ -48,6 +37,17 @@ typedef struct NumVersion NumVersion;
 
 #include "bless.h"
 #include "bless_private.h"
+
+#if SUPPORT_CSM_LEGACY_BOOT
+
+#include <IOKit/IOKitLib.h>
+#include <IOKit/IOCFSerialize.h>
+#include <IOKit/IOBSD.h>
+#include <IOKit/IOKitKeys.h>
+#include <IOKit/storage/IOMedia.h>
+#include <IOKit/usb/IOUSBLib.h>
+#include <IOKit/storage/IOStorageProtocolCharacteristics.h>
+#include <IOKit/storage/IOCDBlockStorageDevice.h>
 
 typedef enum {
     EfiMemoryMappedIO = 11
@@ -224,7 +224,7 @@ static int addLegacyTypeForBSDName(BLContextPtr context,
     kern_return_t               kret;
     int                         spaces = 0;
     bool                        foundUSB = false;
-    bool                        foundATAPI = false;
+    bool                        foundCD = false;
     CFStringRef                 type;
     CFDictionaryRef             protocolCharacteristics;
     
@@ -254,10 +254,8 @@ static int addLegacyTypeForBSDName(BLContextPtr context,
 
             if(CFEqual(interconnect, CFSTR(kIOPropertyPhysicalInterconnectTypeUSB))) {
                 foundUSB = true;
-            } else if(CFEqual(interconnect, CFSTR(kIOPropertyPhysicalInterconnectTypeATAPI))) {
-                foundATAPI = true;
             }
-            //otherwise assume it's an HD-class device
+            //otherwise assume it's an CD- or HD-class device
         }
         
     }
@@ -265,7 +263,7 @@ static int addLegacyTypeForBSDName(BLContextPtr context,
     if(protocolCharacteristics) CFRelease(protocolCharacteristics);
     
     
-    if(!foundUSB && !foundATAPI) {
+    if(!foundUSB) {
         // try to use the registry topology to see if it's a USB device
         
         kret = IORegistryEntryCreateIterator (media, kIOServicePlane,
@@ -294,6 +292,14 @@ static int addLegacyTypeForBSDName(BLContextPtr context,
                 IOObjectRelease(service);    
                 break;
             }
+
+            if(IOObjectConformsTo(service, kIOCDBlockStorageDeviceClass)) {
+                contextprintf(context, kBLLogLevelVerbose,
+                              "Found %s in parent hierarchy\n", kIOCDBlockStorageDeviceClass);        
+                foundCD = true;
+                IOObjectRelease(service);    
+                break;
+            }
             
             spaces++;
             IOObjectRelease(service);    
@@ -303,7 +309,7 @@ static int addLegacyTypeForBSDName(BLContextPtr context,
     
     if(foundUSB) {
         type = CFSTR("USB");
-    } else if(foundATAPI) {
+    } else if(foundCD) {
         type = CFSTR("CD");
     } else {
         type = CFSTR("HD");
@@ -314,3 +320,14 @@ static int addLegacyTypeForBSDName(BLContextPtr context,
 
     return 0;
 }
+
+#else /* !SUPPORT_CSM_LEGACY_BOOT */
+
+int BLCreateEFIXMLRepresentationForLegacyDevice(BLContextPtr context,
+                                                const char *bsdName,
+                                                CFStringRef *xmlString)
+{
+    return 1;
+}
+
+#endif /* !SUPPORT_CSM_LEGACY_BOOT */

@@ -11,4 +11,4 @@ ntpdate -bvs
 # configuration (/etc/ntp.conf).
 #sb=/usr/bin/sandbox-exec -f /usr/share/sandbox/ntpd.sb
 
-exec $sb /usr/sbin/ntpd -n -g -p /var/run/ntpd.pid -f /var/db/ntp.drift
+exec $sb /usr/sbin/ntpd -c /private/etc/ntp-restrict.conf -n -g -p /var/run/ntpd.pid -f /var/db/ntp.drift

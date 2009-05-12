@@ -133,6 +133,8 @@ ClientSession::Global::Global()
     // find server port
 	serverPort = findSecurityd();
     
+    IPCN(ucsp_client_verifyPrivileged(serverPort.port(), mig_get_reply_port(), &securitydCreds, &rcode));
+	
     // send identification/setup message
     string extForm;
     try {
@@ -207,7 +209,9 @@ Port ClientSession::findSecurityd()
 //
 void ClientSession::childCheckIn(Port serverPort, Port taskPort)
 {
-	check(ucsp_client_childCheckIn(findSecurityd(), serverPort, taskPort));
+	Port securitydPort = findSecurityd();
+	IPCN(ucsp_client_verifyPrivileged(securitydPort, mig_get_reply_port(), &securitydCreds, &rcode));
+	check(ucsp_client_childCheckIn(securitydPort, serverPort, taskPort));
 }
 
 

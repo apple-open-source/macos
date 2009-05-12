@@ -4,7 +4,7 @@
  * <amos+ruby@utdallas.edu>
  *
  * $RoughId: syslog.c,v 1.21 2002/02/25 12:21:17 knu Exp $
- * $Id: syslog.c 11708 2007-02-12 23:01:19Z shyouhei $
+ * $Id: syslog.c 17807 2008-07-02 09:56:56Z shyouhei $
  */
 
 #include "ruby.h"
@@ -22,6 +22,7 @@ static void syslog_write(int pri, int argc, VALUE *argv)
 {
     VALUE str;
 
+    rb_secure(4);
     if (argc < 1) {
         rb_raise(rb_eArgError, "no log message supplied");
     }
@@ -38,6 +39,7 @@ static void syslog_write(int pri, int argc, VALUE *argv)
 /* Syslog module methods */
 static VALUE mSyslog_close(VALUE self)
 {
+    rb_secure(4);
     if (!syslog_opened) {
         rb_raise(rb_eRuntimeError, "syslog not opened");
     }
@@ -132,6 +134,7 @@ static VALUE mSyslog_get_mask(VALUE self)
 
 static VALUE mSyslog_set_mask(VALUE self, VALUE mask)
 {
+    rb_secure(4);
     if (!syslog_opened) {
         rb_raise(rb_eRuntimeError, "must open syslog before setting log mask");
     }

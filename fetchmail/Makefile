@@ -3,7 +3,7 @@ UserType              = Administration
 ToolType              = Services
 GnuAfterInstall       = post-install install-plist
 Extra_Configure_Flags = --disable-nls --with-ssl \
-                       --with-kerberos5=/usr --with-kerberos=/usr \
+                       --with-kerberos5=/usr \
                        --with-gssapi=/usr/include
 Extra_CC_Flags = -mdynamic-no-pic
 
@@ -27,7 +27,14 @@ AEP_Version    = 6.3.8
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = python_config_patch null_exec_patch bind9_patch manpage_patch krb5_patch autoconf_patch
+AEP_Patches    = python_config_patch \
+		null_exec_patch \
+		bind9_patch \
+		manpage_patch \
+		krb5_patch \
+		CVE-2007-4565.diff \
+		CVE-2008-2711.diff \
+		configure.diff
 
 # Extract the source.
 install_source::
@@ -35,7 +42,7 @@ install_source::
 	$(RMDIR) $(SRCROOT)/$(Project)
 	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(Project)
 	for patchfile in $(AEP_Patches); do \
-		(cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/files/$$patchfile) || exit 1; \
+		patch -d $(SRCROOT)/$(Project) -F0 -p0 < $(SRCROOT)/files/$$patchfile || exit 1; \
 	done
 
 OSV = $(DSTROOT)/usr/local/OpenSourceVersions

@@ -24,9 +24,9 @@ struct cpuinfo {
 typedef struct cpuinfo cpuinfo_t;
 
 translator cpuinfo_t < processor_t P > {
-	cpu_id = P->processor_data.slot_num;
+	cpu_id = P->cpu_num;
 	cpu_pset = P->processor_set;
-	cpu_chip = P->processor_data.slot_num; /* XXX */
+	cpu_chip = P->cpu_num; /* XXX */
 	cpu_lgrp = 0; /* XXX */
 	cpu_info = *((_processor_info_t *)`dtrace_zero); /* ` */ /* XXX */
 }; 

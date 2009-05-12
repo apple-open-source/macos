@@ -18,7 +18,7 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-static const char *const __rcs_file_version__ = "$Revision: 23274 $";
+static const char *const __rcs_file_version__ = "$Revision: 23792 $";
 
 #include "config.h"
 #include "launchd_unix_ipc.h"
@@ -47,8 +47,8 @@ static const char *const __rcs_file_version__ = "$Revision: 23274 $";
 #include <paths.h>
 #include <string.h>
 
-#include "liblaunch_public.h"
-#include "liblaunch_private.h"
+#include "launch.h"
+#include "launch_priv.h"
 #include "launchd.h"
 #include "launchd_runtime.h"
 #include "launchd_core_logic.h"
@@ -466,8 +466,8 @@ adjust_rlimits(launch_data_t in)
 					break;
 				case RLIMIT_NPROC:
 					/* kernel will not clamp to this value, we must */
-					if (gval > (2048 + 20)) {
-						gval = 2048 + 20;
+					if (gval > 2500) {
+						gval = 2500;
 					}
 					break;
 				default:

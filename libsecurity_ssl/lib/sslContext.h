@@ -297,6 +297,10 @@ struct SSLContext
 	#endif
 
 	Boolean				anonCipherEnable;
+
+	/* optional switches to enable additional returns from SSLHandshake */
+	Boolean             breakOnServerAuth;
+	Boolean             breakOnCertRequest;
 };
 
 #ifdef __cplusplus

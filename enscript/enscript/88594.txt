@@ -182,9 +182,9 @@ octal	hex	PostScript	HTML entity	character
 0236	0x9e	non-printable
 0237	0x9f	non-printable
 
-0240   0xa0    /space          &nbsp;           
+0240	0xa0    /space          &nbsp;           
 0241	0xa1	/Aogonek	&#x0104;	¡
-0242	0xa2	/kra		&#x0138;	¢
+0242	0xa2	/kgreenlandic	&#x0138;	¢
 0243	0xa3	/Rcedilla	&#x0156;	£
 0244	0xa4	/currency	&curren;	¤
 0245	0xa5	/Itilde		&#x0128;	¥
@@ -212,7 +212,7 @@ octal	hex	PostScript	HTML entity	character
 0270	0xb8	/cedilla	&cedil;		¸
 0271	0xb9	/scaron		&scaron;	¹
 0272	0xba	/emacron	&#x0113;	º
-0273	0xbb	/gcedilla	&#x0123;	»
+0273	0xbb	/gacute		&#x0123;	»
 0274	0xbc	/tbar		&#x0167;	¼
 0275	0xbd	/Eng		&#x014A;	½
 0276	0xbe	/zcaron		&#x017E;	¾

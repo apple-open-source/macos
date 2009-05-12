@@ -135,7 +135,7 @@ ACL::ACL(Access &acc, string description, const CSSM_ACL_KEYCHAIN_PROMPT_SELECTO
 //
 // Destroy an ACL
 //
-ACL::~ACL() throw()
+ACL::~ACL() 
 {
 	// release subject form (if any)
 	chunkFree(mSubjectForm, allocator);

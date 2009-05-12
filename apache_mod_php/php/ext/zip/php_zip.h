@@ -16,7 +16,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: php_zip.h,v 1.10.2.5 2008/01/18 00:51:38 pajoye Exp $ */
+/* $Id: php_zip.h,v 1.10.2.7 2008/11/12 11:59:26 pajoye Exp $ */
 
 #ifndef PHP_ZIP_H
 #define PHP_ZIP_H
@@ -31,6 +31,17 @@ extern zend_module_entry zip_module_entry;
 #include "lib/zip.h"
 
 #define PHP_ZIP_VERSION_STRING "1.8.11"
+
+#if ((PHP_MAJOR_VERSION >= 5 && PHP_MINOR_VERSION >= 2) || PHP_MAJOR_VERSION >= 6)
+# define PHP_ZIP_USE_OO 1
+#endif
+
+#ifndef  Z_SET_REFCOUNT_P
+# if PHP_MAJOR_VERSION < 6 && (PHP_MAJOR_VERSION == 5 && PHP_MINOR_VERSION < 3)
+#  define Z_SET_REFCOUNT_P(pz, rc)  pz->refcount = rc 
+#  define Z_UNSET_ISREF_P(pz) pz->is_ref = 0 
+# endif
+#endif
 
 /* {{{ OPENBASEDIR_CHECKPATH(filename) */
 #if (PHP_MAJOR_VERSION < 6)
@@ -55,6 +66,7 @@ typedef struct _ze_zip_read_rsrc {
 	struct zip_stat sb;
 } zip_read_rsrc;
 
+#ifdef PHP_ZIP_USE_OO 
 #define ZIPARCHIVE_ME(name, arg_info, flags)	ZEND_FENTRY(name, c_ziparchive_ ##name, arg_info, flags)
 #define ZIPARCHIVE_METHOD(name)	ZEND_NAMED_FUNCTION(c_ziparchive_##name)
 
@@ -73,6 +85,7 @@ php_stream *php_stream_zip_opener(php_stream_wrapper *wrapper, char *path, char 
 php_stream *php_stream_zip_open(char *filename, char *path, char *mode STREAMS_DC TSRMLS_DC);
 
 extern php_stream_wrapper php_stream_zip_wrapper;
+#endif
 
 #endif	/* PHP_ZIP_H */
 

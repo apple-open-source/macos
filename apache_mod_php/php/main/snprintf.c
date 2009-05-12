@@ -16,7 +16,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: snprintf.c,v 1.37.2.4.2.16 2007/12/31 07:20:15 sebastian Exp $ */
+/* $Id: snprintf.c,v 1.37.2.4.2.17 2008/09/15 11:47:03 dmitry Exp $ */
 
 
 #include "php.h"
@@ -155,10 +155,7 @@ PHPAPI char *php_gcvt(double value, int ndigit, char dec_point, char exponent, c
 		*dst++ = '-';
 	}
 
-	for (i = 0; i < ndigit && digits[i] != '\0'; i++);
-	
-	if ((decpt >= 0 && decpt - i > 4)
-			|| (decpt < 0 && decpt < -3)) {     /* use E-style */
+	if ((decpt >= 0 && decpt > ndigit) || decpt < -3) { /* use E-style */
 		/* exponential format (e.g. 1.2345e+13) */
 		if (--decpt < 0) {
 			sign = 1;

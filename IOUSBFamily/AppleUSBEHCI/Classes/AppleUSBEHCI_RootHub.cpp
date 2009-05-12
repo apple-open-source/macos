@@ -319,11 +319,11 @@ AppleUSBEHCI::GetRootHubPortStatus(IOUSBHubPortStatus *status, UInt16 port)
     {
 	    statusFlags |= kHubPortConnection;
     }
-    if( (portSC & kEHCIPortSC_Enabled) != 0)
+    if ( (portSC & kEHCIPortSC_Enabled) != 0)
     {
 	    statusFlags |= kHubPortEnabled;
     }
-    if(((portSC & kEHCIPortSC_Suspend) != 0))
+    if ( (portSC & kEHCIPortSC_Suspend) != 0)
     {
 	    statusFlags |= kHubPortSuspend;
     }
@@ -1290,6 +1290,8 @@ AppleUSBEHCI::RHResumePortTimer(UInt32 port)
 
 	USBLog(5, "AppleUSBEHCI[%p]::RHResumePortTimer - timing the resume for port %d", this, (int)port);
 	IOSleep(20);								// wait 20 ms for the resume to complete
+	USBLog(6, "AppleUSBEHCI[%p]::RHResumePortTimer - Host controller resume about to finish - calling EnsureUsability", this);
+	EnsureUsability();		
 	_commandGate->runAction(RHResumePortCompletionEntry, (void*)port);
 }
 

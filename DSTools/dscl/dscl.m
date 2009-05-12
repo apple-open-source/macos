@@ -716,8 +716,10 @@ dscl_set_password(u_int32_t dsid, int argc, char *argv[])
 	if (argc > 0)
 	{
 		passwordItems = [NSMutableArray arrayWithCapacity:argc];
-		for (;argc > 0; argc--, argv++)
+		for (;argc > 0; argc--, argv++) {
 			[passwordItems addObject:[NSString stringWithUTF8String:argv[0]]];
+			bzero( argv[0], strlen(argv[0]) );
+		}
 	}
 	else
 	{

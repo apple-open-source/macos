@@ -202,7 +202,7 @@ APR_DECLARE(apr_status_t) apr_pollset_remove(apr_pollset_t *pollset,
     pfd_elem_t *ep;
     apr_status_t rv = APR_SUCCESS;
     int res;
-    int err;
+    int err = 0;
 
     pollset_lock_rings();
 
@@ -315,7 +315,15 @@ APR_DECLARE(apr_status_t) apr_pollset_poll(apr_pollset_t *pollset,
 
     if (ret == -1) {
         (*num) = 0;
-        rv = apr_get_netos_error();
+        if (errno == EINTR) {
+            rv = APR_EINTR;
+        }
+        else if (errno == ETIME) {
+            rv = APR_TIMEUP;
+        }
+        else {
+            rv = APR_EGENERAL;
+        }
     }
     else if (nget == 0) {
         rv = APR_TIMEUP;

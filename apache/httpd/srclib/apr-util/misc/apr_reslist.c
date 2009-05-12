@@ -158,6 +158,7 @@ static apr_status_t reslist_cleanup(void *data_)
     assert(rl->nidle == 0);
     assert(rl->ntotal == 0);
 
+    apr_thread_mutex_unlock(rl->listlock);
     apr_thread_mutex_destroy(rl->listlock);
     apr_thread_cond_destroy(rl->avail);
 
@@ -244,7 +245,8 @@ APU_DECLARE(apr_status_t) apr_reslist_create(apr_reslist_t **reslist,
 
     /* Do some sanity checks so we don't thrash around in the
      * maintenance routine later. */
-    if (min > smax || min > hmax || smax > hmax || ttl < 0) {
+    if (min < 0 || min > smax || min > hmax || smax > hmax || hmax == 0 ||
+        ttl < 0) {
         return APR_EINVAL;
     }
 
@@ -273,6 +275,9 @@ APU_DECLARE(apr_status_t) apr_reslist_create(apr_reslist_t **reslist,
 
     rv = reslist_maint(rl);
     if (rv != APR_SUCCESS) {
+        /* Destroy what we've created so far.
+         */
+        reslist_cleanup(rl);
         return rv;
     }
 

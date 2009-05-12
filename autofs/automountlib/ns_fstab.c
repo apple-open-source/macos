@@ -25,9 +25,7 @@
  */
 
 /*
- * Portions Copyright 2007 Apple Inc.
- *
- * $Id$
+ * Portions Copyright 2007-2009 Apple Inc.
  */
 
 #include <stdio.h>
@@ -985,6 +983,11 @@ loaddirect_static(local_map, opts, stack, stkptr)
 
 /*
  * Find the -static map entry corresponding to a given mount point.
+ *
+ * We return with the read lock held, so that the cache doesn't
+ * get cleared, and all the entries freed, while somebody's holding
+ * onto an entry.  The holder must call release_staticmap_entry()
+ * with the entry; for now, all that will do is release the rwlock.
  */
 struct staticmap *
 get_staticmap_entry(const char *dir)
@@ -1015,6 +1018,7 @@ get_staticmap_entry(const char *dir)
 			/*
 			 * That failed; give up.
 			 */
+			pthread_rwlock_unlock(&fstab_cache_lock);
 			return (NULL);
 		}
 
@@ -1022,10 +1026,27 @@ get_staticmap_entry(const char *dir)
 		 * Check what we now have cached.
 		 */
 		static_ent = find_staticmap_entry(dir, NULL);
+
+		/*
+		 * If we still have nothing, release the read lock,
+		 * as we're not returning a pointer to something
+		 * in the cache.
+		 */
+		if (static_ent == NULL)
+			pthread_rwlock_unlock(&fstab_cache_lock);
 	}
 
-	pthread_rwlock_unlock(&fstab_cache_lock);
 	return (static_ent);
+}
+
+/*
+ * Indicate that we're done with a -static map entry returned by
+ * get_staticmap_entry().
+ */
+void
+release_staticmap_entry(__unused struct staticmap *static_ent)
+{
+	pthread_rwlock_unlock(&fstab_cache_lock);
 }
 
 /*

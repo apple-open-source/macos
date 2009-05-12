@@ -153,6 +153,9 @@
 		527067DC070246B300C5D30E /* iToolsTrustedApps.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 527067DB070246B300C5D30E /* iToolsTrustedApps.plist */; };
 		527067DD070246BD00C5D30E /* iToolsTrustedApps.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 527067DB070246B300C5D30E /* iToolsTrustedApps.plist */; };
 		527067DE070246C400C5D30E /* iToolsTrustedApps.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 527067DB070246B300C5D30E /* iToolsTrustedApps.plist */; };
+		BE58D1320F5BC8BD005C363C /* TrustAdditions.h in Headers */ = {isa = PBXBuildFile; fileRef = BEB9BB540F574CC900432F34 /* TrustAdditions.h */; };
+		BEB9BB560F574CC900432F34 /* TrustAdditions.h in Headers */ = {isa = PBXBuildFile; fileRef = BEB9BB540F574CC900432F34 /* TrustAdditions.h */; };
+		BEB9BB570F574CC900432F34 /* TrustAdditions.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BEB9BB550F574CC900432F34 /* TrustAdditions.cpp */; };
 		BEE896E20A61F0BB00BF88A5 /* SecItem.h in Headers */ = {isa = PBXBuildFile; fileRef = BEE896E00A61F0BB00BF88A5 /* SecItem.h */; };
 		BEE896E30A61F0BB00BF88A5 /* SecItemPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = BEE896E10A61F0BB00BF88A5 /* SecItemPriv.h */; };
 		BEE896E40A61F0C900BF88A5 /* SecItem.h in Headers */ = {isa = PBXBuildFile; fileRef = BEE896E00A61F0BB00BF88A5 /* SecItem.h */; };
@@ -368,6 +371,8 @@
 		4CFDC28306CD9C6A007BEE7E /* DynamicDLDBList.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = DynamicDLDBList.cpp; sourceTree = "<group>"; };
 		4CFDC28406CD9C6A007BEE7E /* DynamicDLDBList.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DynamicDLDBList.h; sourceTree = "<group>"; };
 		527067DB070246B300C5D30E /* iToolsTrustedApps.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = iToolsTrustedApps.plist; path = plist/iToolsTrustedApps.plist; sourceTree = SOURCE_ROOT; };
+		BEB9BB540F574CC900432F34 /* TrustAdditions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TrustAdditions.h; sourceTree = "<group>"; };
+		BEB9BB550F574CC900432F34 /* TrustAdditions.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TrustAdditions.cpp; sourceTree = "<group>"; };
 		BEE896E00A61F0BB00BF88A5 /* SecItem.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecItem.h; sourceTree = "<group>"; };
 		BEE896E10A61F0BB00BF88A5 /* SecItemPriv.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecItemPriv.h; sourceTree = "<group>"; };
 		BEE896E60A61F12300BF88A5 /* SecItem.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SecItem.cpp; sourceTree = "<group>"; };
@@ -666,6 +671,8 @@
 				058C797B09F56D1400DB7E98 /* TrustSettingsUtils.h */,
 				4CCB00430580089000981D43 /* security_keychain.exp */,
 				C2AA2B55052E099D006D0211 /* generateErrStrings.pl */,
+				BEB9BB540F574CC900432F34 /* TrustAdditions.h */,
+				BEB9BB550F574CC900432F34 /* TrustAdditions.cpp */,
 			);
 			name = Internal;
 			sourceTree = "<group>";
@@ -773,6 +780,7 @@
 				BEE896E50A61F0CD00BF88A5 /* SecItemPriv.h in Headers */,
 				05A83C370AAF591100906F28 /* SecKeychainItemExtendedAttributes.h in Headers */,
 				05A83C810AAF5D0E00906F28 /* ExtendedAttribute.h in Headers */,
+				BE58D1320F5BC8BD005C363C /* TrustAdditions.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -829,6 +837,7 @@
 				BEE896E30A61F0BB00BF88A5 /* SecItemPriv.h in Headers */,
 				05AE95490AA748570076501C /* SecImportExportOpenSSH.h in Headers */,
 				05A83C380AAF591100906F28 /* SecKeychainItemExtendedAttributes.h in Headers */,
+				BEB9BB560F574CC900432F34 /* TrustAdditions.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -972,6 +981,7 @@
 				05AE954A0AA748580076501C /* SecImportExportOpenSSH.cpp in Sources */,
 				05A83C800AAF5CEA00906F28 /* ExtendedAttribute.cpp in Sources */,
 				05A83C880AAF5E0A00906F28 /* SecKeychainItemExtendedAttributes.cpp in Sources */,
+				BEB9BB570F574CC900432F34 /* TrustAdditions.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1041,7 +1051,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 34101;
+				CURRENT_PROJECT_VERSION = 36620;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
@@ -1090,7 +1100,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 34101;
+				CURRENT_PROJECT_VERSION = 36620;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
@@ -1134,7 +1144,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 34101;
+				CURRENT_PROJECT_VERSION = 36620;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
@@ -1179,7 +1189,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 34101;
+				CURRENT_PROJECT_VERSION = 36620;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,

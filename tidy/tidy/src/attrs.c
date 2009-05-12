@@ -5,9 +5,9 @@
   
   CVS Info :
 
-    $Author: iccir $ 
-    $Date: 2007/03/02 09:03:16 $ 
-    $Revision: 1.11 $ 
+    $Author: mrowe $ 
+    $Date: 2009/01/29 05:45:41 $ 
+    $Revision: 1.14 $ 
 
 */
 
@@ -632,9 +632,14 @@ static void emptyHash( TidyAttribImpl * attribs )
 }
 #endif
 
-static const Attribute* lookup(TidyAttribImpl* ARG_UNUSED(attribs),
+static const Attribute* lookup(TidyDocImpl* ARG_UNUSED(doc),
+                               TidyAttribImpl* ARG_UNUSED(attribs),
                                ctmbstr atnam)
 {
+#ifdef TIDY_APPLE_CHANGES
+    static Attribute unknownEventHandler;
+#endif
+
     const Attribute *np;
 #if ATTRIBUTE_HASH_LOOKUP
     const AttrHash *p;
@@ -657,6 +662,22 @@ static const Attribute* lookup(TidyAttribImpl* ARG_UNUSED(attribs),
             return np;
 #endif
 
+#ifdef TIDY_APPLE_CHANGES
+    if (!unknownEventHandler.name) {
+        unknownEventHandler.name = "onunknowneventhandler";
+        unknownEventHandler.versions = VERS_ALL;
+        unknownEventHandler.attrchk = CH_SCRIPT;
+    }
+
+    /* When sanitizing against XSS problems we strip all onfoo-style event handlers to prevent potential
+       security problems caused by event handlers that we aren't explicitly aware of, such as was the case
+       with <rdar://problem/6507826>. */
+    if (cfgBool(doc, TidySanitizeAgainstXSS)) {
+        if (TY_(tmbstrncasecmp)(atnam, "on", 2) == 0)
+            return &unknownEventHandler;
+    }
+#endif
+
     return NULL;
 }
 
@@ -677,7 +698,7 @@ AttVal* TY_(AttrGetById)( Node* node, TidyAttrId id )
 const Attribute* TY_(FindAttribute)( TidyDocImpl* doc, AttVal *attval )
 {
     if ( attval )
-       return lookup( &doc->attribs, attval->attribute );
+       return lookup( doc, &doc->attribs, attval->attribute );
     return NULL;
 }
 
@@ -704,7 +725,7 @@ AttVal* TY_(AddAttribute)( TidyDocImpl* doc,
     else
         av->value = NULL;
 
-    av->dict = lookup(&doc->attribs, name);
+    av->dict = lookup(doc, &doc->attribs, name);
 
     TY_(InsertAttributeAtEnd)(node, av);
     return av;
@@ -732,7 +753,7 @@ AttVal* TY_(RepairAttrValue)(TidyDocImpl* doc, Node* node, ctmbstr name, ctmbstr
 static Bool CheckAttrType( TidyDocImpl* doc,
                            ctmbstr attrname, AttrCheck type )
 {
-    const Attribute* np = lookup( &doc->attribs, attrname );
+    const Attribute* np = lookup( doc, &doc->attribs, attrname );
     return (Bool)( np && np->attrchk == type );
 }
 

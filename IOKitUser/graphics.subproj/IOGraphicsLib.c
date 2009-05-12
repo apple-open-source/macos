@@ -54,7 +54,9 @@
 
 enum {
     kAquaMinWidth  = 800,
-    kAquaMinHeight = 600
+    kAquaMinHeight = 600,
+    kInstallMinWidth  = 1024,
+    kInstallMinHeight = 768
 };
 
 #if IOGRAPHICSTYPES_REV < 10
@@ -67,6 +69,7 @@ enum {
     kAddSafeFlags = (kDisplayModeValidFlag | kDisplayModeValidateAgainstDisplay)
 };
 
+#define kAppleSetupDonePath     "/var/db/.AppleSetupDone"
 #define kIOFirstBootFlagPath	"/var/db/.com.apple.iokit.graphics"
 #define kSafeBootFlagPath	"/private/tmp/.SafeBoot"
 
@@ -150,6 +153,7 @@ static CFMutableDictionaryRef	gConnectRefDict = 0;
 static CFMutableDictionaryRef	gIOGraphicsProperties = 0;
 static bool			gIOGraphicsSentPrefs = true;
 static io_service_t		gIOGraphicsPrefsService;
+static bool			gIOGraphicsInstallBoot = false;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -313,6 +317,8 @@ IOFramebufferServerStart( void )
                     IORegistryEntrySetCFProperty(gIOGraphicsPrefsService, CFSTR(kIOGraphicsPrefsKey), prefs); 
             }
 	}
+	struct stat stat_buf;
+	gIOGraphicsInstallBoot = (0 != stat(kAppleSetupDonePath, &stat_buf));
     }
 
     return( KERN_SUCCESS );
@@ -873,11 +879,25 @@ GetTovr( IOFBConnectRef connectRef, IOAppleTimingID appleTimingID,  UInt32 * fla
 {
     CFDictionaryRef tovr;
     CFDataRef	    modetovr = NULL;
-    UInt32	    maskFlags = 0xffffffff;
+    UInt32	    setFlags, maskFlags = 0xffffffff;
     bool	    result    = false;
 
     if (appleTimingID && connectRef->overrides)
     {
+	if ((connectRef->defaultMinWidth == kInstallMinWidth)
+	 && (kDisplayVendorIDUnknown  == connectRef->displayVendor)
+	 && (kDisplayProductIDGeneric == connectRef->displayProduct))
+	{
+	    if (kIOTimingIDVESA_1024x768_60hz == appleTimingID)
+	    {
+		appleTimingID = kIOTimingIDVESA_800x600_60hz;
+	    }
+	    else if ((kIOTimingIDVESA_800x600_60hz == appleTimingID)
+			|| (kIOTimingIDVESA_800x600_56hz == appleTimingID))
+	    {
+		appleTimingID = kIOTimingIDVESA_1024x768_60hz;
+	    }
+	}
 	tovr = CFDictionaryGetValue( connectRef->overrides, CFSTR("tovr") );
 	result = (tovr && (modetovr = CFDictionaryGetValue( tovr, (const void *) (uintptr_t) appleTimingID )));
 	if (result)
@@ -891,7 +911,9 @@ GetTovr( IOFBConnectRef connectRef, IOAppleTimingID appleTimingID,  UInt32 * fla
 	    *flags &= maskFlags;
 	    *flags |= OSReadBigInt32(&tovrRec->timingOverrideSetFlags, 0);
 	}
+	
     }
+
     if (_maskFlags)
 	*_maskFlags = maskFlags;
 
@@ -1583,8 +1605,8 @@ IOFBBuildModeList( IOFBConnectRef connectRef )
     connectRef->driverModeInfo  = 0;
     connectRef->driverModeCount = 0;
 
-    // -- scaling
-    if( scaleCandidate)
+    // -- scaling (but not for HDMI displays)
+    if( scaleCandidate )
         IOFBInstallScaledModes( connectRef, &scaleDesc );
 
     if( connectRef->suppressRefresh)
@@ -1965,7 +1987,8 @@ IOFBInterestCallback( void * refcon, io_service_t service __unused,
 
 	next = connectRef;
 	do {
-	    next->clientCallbacks->ConnectionChange(next->clientCallbackRef, (void *) NULL);
+	    if (next->clientCallbacks)
+		next->clientCallbacks->ConnectionChange(next->clientCallbackRef, (void *) NULL);
 	    next = next->nextDependent;
 	} while( next && (next != connectRef) );
 
@@ -2295,7 +2318,7 @@ IOFBLookDefaultDisplayMode( IOFBConnectRef connectRef )
         } else
             rQuality = rDefault = 0;
 
-        if( (info->nominalWidth < kAquaMinWidth) || (info->nominalHeight < kAquaMinHeight))
+        if( (info->nominalWidth < connectRef->defaultMinWidth) || (info->nominalHeight < connectRef->defaultMinHeight))
             rDefault--;
         else if (!defaultToDependent && !desireHPix && (0 != (info->flags & kDisplayModeDefaultFlag)))
 	{
@@ -2444,13 +2467,52 @@ IOFBCheckScaleDupMode( IOFBConnectRef connectRef, IOFBDisplayModeDescription * d
 
 static kern_return_t
 IOFBInstallScaledMode( IOFBConnectRef connectRef,
-                       IOFBDisplayModeDescription * desc,
+                       IOFBDisplayModeDescription * _desc,
 		       IOOptionBits installFlags)
 {
+    IOFBDisplayModeDescription * desc = _desc;
+    IOFBDisplayModeDescription __desc;
+    UInt32 insetH, insetV, width, height, swap;
     kern_return_t kr;
 
     kr = IOFBDriverPreflight(connectRef, desc);
 
+    if ((kIOReturnSuccess != kr) 
+     && !(kIOScaleCanBorderInsetOnly & connectRef->scalerInfo->scalerFeatures))
+    {
+	insetH = desc->timingInfo.detailedInfo.v2.horizontalScaledInset;
+	insetV = desc->timingInfo.detailedInfo.v2.verticalScaledInset;
+
+	if (insetH || insetV)
+	{
+	    width = desc->timingInfo.detailedInfo.v2.horizontalScaled;
+	    height = desc->timingInfo.detailedInfo.v2.verticalScaled;
+
+	    if (kIOScaleSwapAxes & desc->timingInfo.detailedInfo.v2.scalerFlags)
+	    {
+		swap = width;
+		width  = height;
+		height = swap;
+	    }
+
+	    if ((width == desc->timingInfo.detailedInfo.v2.horizontalActive)
+	     && (height == desc->timingInfo.detailedInfo.v2.verticalActive))
+	    {
+		__desc = *_desc;
+		desc = &__desc;
+		if (kIOScaleSwapAxes & desc->timingInfo.detailedInfo.v2.scalerFlags)
+		{
+		    swap = insetH;
+		    insetH  = insetV;
+		    insetV = swap;
+		}
+		desc->timingInfo.detailedInfo.v2.horizontalScaled -= 2*insetH;
+		desc->timingInfo.detailedInfo.v2.verticalScaled   -= 2*insetV;
+
+		kr = IOFBDriverPreflight(connectRef, desc);
+	    }
+	}
+    }
     if (kIOReturnSuccess != kr)
 	return (kr);
 
@@ -2467,7 +2529,7 @@ UpdateTimingInfoForTransform(IOFBConnectRef connectRef,
 {
     Boolean doUnderscan = (connectRef->useScalerUnderscan 
 			    && (kIOFBScalerUnderscan & connectRef->transform));
-    UInt32 width, height;
+    UInt32 width, height, swap;
 
     desc->timingInfo.detailedInfo.v2.scalerFlags &= ~kIOScaleRotateFlags;
 
@@ -2484,7 +2546,7 @@ UpdateTimingInfoForTransform(IOFBConnectRef connectRef,
     if ((kIOScaleSwapAxes & connectRef->transform)
      && !(kScaleInstallNoResTransform & flags))
     {
-        UInt32 swap = width;
+        swap = width;
         width  = height;
         height = swap;
     }
@@ -2492,21 +2554,24 @@ UpdateTimingInfoForTransform(IOFBConnectRef connectRef,
     desc->timingInfo.detailedInfo.v2.verticalScaled   = height;
     if (doUnderscan)
     {
+	width  = desc->timingInfo.detailedInfo.v2.horizontalActive;
+	height = desc->timingInfo.detailedInfo.v2.verticalActive;
+	width = (width  >> 4) & ~7;
+	height = (height >> 4) & ~1;
+	desc->timingInfo.detailedInfo.v2.horizontalScaledInset = width;
+	desc->timingInfo.detailedInfo.v2.verticalScaledInset   = height;
+
 	if (kIOScaleCanBorderInsetOnly & connectRef->scalerInfo->scalerFeatures)
 	{
-	    width = (width  >> 4) & ~7;
-	    height = (height >> 4) & ~1;
-	    desc->timingInfo.detailedInfo.v2.horizontalScaledInset = width;
-	    desc->timingInfo.detailedInfo.v2.verticalScaledInset   = height;
+	    if ((kIOScaleSwapAxes & connectRef->transform)
+	     && !(kScaleInstallNoResTransform & flags))
+	    {
+		swap = width;
+		width  = height;
+		height = swap;
+	    }
 	    desc->timingInfo.detailedInfo.v2.horizontalScaled -= 2*width;
 	    desc->timingInfo.detailedInfo.v2.verticalScaled   -= 2*height;
-	}
-	else
-	{
-	    width  = desc->timingInfo.detailedInfo.v2.horizontalActive;
-	    height = desc->timingInfo.detailedInfo.v2.verticalActive;
-	    desc->timingInfo.detailedInfo.v2.horizontalScaledInset = (width  >> 4) & ~7;
-	    desc->timingInfo.detailedInfo.v2.verticalScaledInset   = (height >> 4) & ~1;
 	}
     }
 
@@ -3146,6 +3211,8 @@ IOFramebufferServerOpen( mach_port_t connect )
             continue;
 
 	connectRef->iographicsProperties = gIOGraphicsProperties;
+	connectRef->defaultMinWidth  = gIOGraphicsInstallBoot ? kInstallMinWidth : kAquaMinWidth;
+	connectRef->defaultMinHeight = gIOGraphicsInstallBoot ? kInstallMinHeight : kAquaMinHeight;
 
 #if RLOG
 	if (gAllConnects)
@@ -3230,8 +3297,8 @@ IOFramebufferServerOpen( mach_port_t connect )
             continue;
 
         startFlags = info.flags;
-        if( (info.nominalWidth  < kAquaMinWidth)
-          || (info.nominalHeight < kAquaMinHeight)) {
+        if( (info.nominalWidth  < connectRef->defaultMinWidth)
+          || (info.nominalHeight < connectRef->defaultMinHeight)) {
             err = kIOReturnNoResources;
             continue;
         }

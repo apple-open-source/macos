@@ -3,7 +3,7 @@
 #
 #   Top-level Makefile for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 2007 by Apple Inc.
+#   Copyright 2007-2008 by Apple Inc.
 #   Copyright 1997-2007 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -90,14 +90,9 @@ depend:
 
 .PHONY: clang
 clang:
-	if test ! -d clang; then \
-		mkdir clang; \
-	else \
-		rm -rf clang/*; \
-	fi
-	$(MAKE) $(MFLAGS) CC="scan-build -o ../clang $(CC)" \
-		CXX="scan-build -o ../clang $(CXX)" clean all
-	test `ls -1 clang | wc -l` != 0 || exit 1
+	$(RM) -r clang
+	scan-build -k -o `pwd`/clang $(MAKE) $(MFLAGS) \
+		CC=ccc-analyzer CXX=ccc-analyzer clean all
 
 
 #

@@ -3,7 +3,7 @@
   variable.c -
 
   $Author: shyouhei $
-  $Date: 2007-08-22 08:52:26 +0900 (Wed, 22 Aug 2007) $
+  $Date: 2008-06-29 18:25:35 +0900 (Sun, 29 Jun 2008) $
   created at: Tue Apr 19 23:55:15 JST 1994
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -642,6 +642,7 @@ rb_f_untrace_var(argc, argv)
     struct global_entry *entry;
     struct trace_var *trace;
 
+    rb_secure(4);
     rb_scan_args(argc, argv, "11", &var, &cmd);
     id = rb_to_id(var);
     if (!st_lookup(rb_global_tbl, id, (st_data_t *)&entry)) {

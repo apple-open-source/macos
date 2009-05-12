@@ -21,7 +21,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: file.c,v 1.409.2.6.2.31 2007/12/31 07:20:12 sebastian Exp $ */
+/* $Id: file.c,v 1.409.2.6.2.37 2008/11/26 04:20:41 lbarnaud Exp $ */
 
 /* Synced with php 3.0 revision 1.218 1999-06-16 [ssb] */
 
@@ -195,10 +195,10 @@ PHP_MINIT_FUNCTION(file)
 	REGISTER_LONG_CONSTANT("SEEK_SET", SEEK_SET, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SEEK_CUR", SEEK_CUR, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SEEK_END", SEEK_END, CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("LOCK_SH", 1, CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("LOCK_EX", 2, CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("LOCK_UN", 3, CONST_CS | CONST_PERSISTENT);
-	REGISTER_LONG_CONSTANT("LOCK_NB", 4, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LOCK_SH", PHP_LOCK_SH, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LOCK_EX", PHP_LOCK_EX, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LOCK_UN", PHP_LOCK_UN, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("LOCK_NB", PHP_LOCK_NB, CONST_CS | CONST_PERSISTENT);
 
 	REGISTER_LONG_CONSTANT("STREAM_NOTIFY_CONNECT", 		PHP_STREAM_NOTIFY_CONNECT,			CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("STREAM_NOTIFY_AUTH_REQUIRED",	PHP_STREAM_NOTIFY_AUTH_REQUIRED,	CONST_CS | CONST_PERSISTENT);
@@ -291,7 +291,9 @@ PHP_MINIT_FUNCTION(file)
 	REGISTER_LONG_CONSTANT("FILE_SKIP_EMPTY_LINES",			PHP_FILE_SKIP_EMPTY_LINES,			CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("FILE_APPEND", 					PHP_FILE_APPEND,					CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("FILE_NO_DEFAULT_CONTEXT",		PHP_FILE_NO_DEFAULT_CONTEXT,		CONST_CS | CONST_PERSISTENT);
-	
+	REGISTER_LONG_CONSTANT("FILE_TEXT",						0,									CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("FILE_BINARY",					0,									CONST_CS | CONST_PERSISTENT);
+
 #ifdef HAVE_FNMATCH
 	REGISTER_LONG_CONSTANT("FNM_NOESCAPE", FNM_NOESCAPE, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("FNM_PATHNAME", FNM_PATHNAME, CONST_CS | CONST_PERSISTENT);
@@ -345,7 +347,7 @@ PHP_FUNCTION(flock)
 	}
 
 	/* flock_values contains all possible actions if (operation & 4) we won't block on the lock */
-	act = flock_values[act - 1] | (operation & 4 ? LOCK_NB : 0);
+	act = flock_values[act - 1] | (operation & PHP_LOCK_NB ? LOCK_NB : 0);
 	if (php_stream_lock(stream, act)) {
 		if (operation && errno == EWOULDBLOCK && arg3 && PZVAL_IS_REF(arg3)) {
 			Z_LVAL_P(arg3) = 1;
@@ -891,7 +893,7 @@ PHP_NAMED_FUNCTION(php_if_fopen)
 	if (stream == NULL) {
 		RETURN_FALSE;
 	}
-
+	
 	php_stream_to_zval(stream, return_value);
 
 	if (zcontext) {
@@ -912,6 +914,12 @@ PHPAPI PHP_FUNCTION(fclose)
 	}
 
 	PHP_STREAM_TO_ZVAL(stream, arg1);
+	
+	if ((stream->flags & PHP_STREAM_FLAG_NO_FCLOSE) != 0) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%d is not a valid stream resource", stream->rsrc_id);
+		RETURN_FALSE;
+	}
+	
 	if (!stream->is_persistent) {
 		zend_list_delete(stream->rsrc_id);
 	} else {
@@ -1129,7 +1137,7 @@ PHPAPI PHP_FUNCTION(fgetc)
 }
 /* }}} */
 
-/* {{{ proto string fgetss(resource fp [, int length, string allowable_tags])
+/* {{{ proto string fgetss(resource fp [, int length [, string allowable_tags]])
    Get a line from file pointer and strip HTML tags */
 PHPAPI PHP_FUNCTION(fgetss)
 {
@@ -1913,7 +1921,7 @@ quit_loop:
 }
 /* }}} */
 
-#define FPUTCSV_FLD_CHK(c) memchr(Z_STRVAL_PP(field), c, Z_STRLEN_PP(field))
+#define FPUTCSV_FLD_CHK(c) memchr(Z_STRVAL(field), c, Z_STRLEN(field))
 
 /* {{{ proto int fputcsv(resource fp, array fields [, string delimiter [, string enclosure]])
    Format line as CSV and write to file pointer */
@@ -1924,7 +1932,7 @@ PHP_FUNCTION(fputcsv)
 	const char escape_char = '\\';
 	php_stream *stream;
 	int ret;
-	zval *fp = NULL, *fields = NULL, **field = NULL;
+	zval *fp = NULL, *fields = NULL, **field_tmp = NULL, field;
 	char *delimiter_str = NULL, *enclosure_str = NULL;
 	int delimiter_str_len, enclosure_str_len;
 	HashPosition pos;
@@ -1965,11 +1973,14 @@ PHP_FUNCTION(fputcsv)
 
 	count = zend_hash_num_elements(Z_ARRVAL_P(fields));
 	zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(fields), &pos);
-	while (zend_hash_get_current_data_ex(Z_ARRVAL_P(fields), (void **) &field, &pos) == SUCCESS) {
- 		if (Z_TYPE_PP(field) != IS_STRING) {
-			SEPARATE_ZVAL(field);
-			convert_to_string(*field);
-		} 
+	while (zend_hash_get_current_data_ex(Z_ARRVAL_P(fields), (void **) &field_tmp, &pos) == SUCCESS) {
+		field = **field_tmp;
+
+ 		if (Z_TYPE_PP(field_tmp) != IS_STRING) {
+			zval_copy_ctor(&field);
+			convert_to_string(&field);
+		}
+
 		/* enclose a field that contains a delimiter, an enclosure character, or a newline */
 		if (FPUTCSV_FLD_CHK(delimiter) ||
 		    FPUTCSV_FLD_CHK(enclosure) ||
@@ -1978,8 +1989,8 @@ PHP_FUNCTION(fputcsv)
 		    FPUTCSV_FLD_CHK('\r') ||
 		    FPUTCSV_FLD_CHK('\t') ||
 		    FPUTCSV_FLD_CHK(' ')) {
-			char *ch  = Z_STRVAL_PP(field);
-			char *end = ch + Z_STRLEN_PP(field);
+			char *ch  = Z_STRVAL(field);
+			char *end = ch + Z_STRLEN(field);
 			int escaped = 0;
 
 			smart_str_appendc(&csvline, enclosure);
@@ -1996,13 +2007,17 @@ PHP_FUNCTION(fputcsv)
 			}
 			smart_str_appendc(&csvline, enclosure);
 		} else {
-			smart_str_appendl(&csvline, Z_STRVAL_PP(field), Z_STRLEN_PP(field));
+			smart_str_appendl(&csvline, Z_STRVAL(field), Z_STRLEN(field));
 		}
 
 		if (++i != count) {
 			smart_str_appendl(&csvline, &delimiter, 1);
 		}
 		zend_hash_move_forward_ex(Z_ARRVAL_P(fields), &pos);
+		
+		if (Z_TYPE_PP(field_tmp) != IS_STRING) {
+			zval_dtor(&field);
+		}
 	}
 
 	smart_str_appendc(&csvline, '\n');

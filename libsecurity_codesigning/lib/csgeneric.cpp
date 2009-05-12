@@ -65,7 +65,7 @@ SecCode *GenericCode::locateGuest(CFDictionaryRef attributes)
 		CFRef<CFDataRef> attrData;
 		void *attrPtr = NULL; size_t attrLength = 0;
 		if (attributes) {
-			attrData = CFPropertyListCreateXMLData(NULL, attributes);
+			attrData.take(CFPropertyListCreateXMLData(NULL, attributes));
 			attrPtr = (void *)CFDataGetBytePtr(attrData);
 			attrLength = CFDataGetLength(attrData);
 		}

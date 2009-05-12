@@ -72,7 +72,7 @@ bool IOFWIPBusInterface::init(IOFireWireIP *primaryInterface)
 	fCurrentAsyncIPCommands	= 0;
 	fCurrentRCBCommands		= 0;
 	fUnitCount				= 0;
-	fOptimalMTU			= 0;
+	fOptimalMTU				= 0;
 	fLowWaterMark			= kLowWaterMark;
 	fIPLocalNode->fIPoFWDiagnostics.fMaxQueueSize		= TRANSMIT_QUEUE_SIZE;
 
@@ -92,9 +92,9 @@ bool IOFWIPBusInterface::init(IOFireWireIP *primaryInterface)
 		
 		fControl->resetBus();
 
-		registerService();
-
 		fStarted  = true;
+
+		registerService();
 	}
 	
 	return fStarted;

@@ -21,6 +21,12 @@
  */
 
 
+//================================================================================================
+//
+//   Headers
+//
+//================================================================================================
+//
 #include <IOKit/usb/USB.h>
 #include <IOKit/usb/IOUSBLog.h>
 #include <IOKit/usb/IOUSBRootHubDevice.h>
@@ -30,20 +36,56 @@
 #include <IOKit/acpi/IOACPIPlatformDevice.h>
 #include <libkern/libkern.h>
 
-#ifndef kACPIDevicePathKey
-#define kACPIDevicePathKey			"acpi-path"
-#endif
-
 #include "AppleUSBUHCI.h"
 
+//================================================================================================
+//
+//   Local Definitions
+//
+//================================================================================================
+//
 #define super IOUSBControllerV3
-
-// ========================================================================
-#pragma mark Public power management interface
-// ========================================================================
 
 #define _controllerCanSleep				_expansionData->_controllerCanSleep
 
+#ifndef kACPIDevicePathKey
+	#define kACPIDevicePathKey			"acpi-path"
+#endif
+
+
+//================================================================================================
+//
+//   kprintf logging
+//
+//	Convert USBLog to use kprintf debugging
+//	The switch is in the header file, but the work is done here because the header is included by the companion controllers
+//
+//================================================================================================
+//
+#if UHCI_USE_KPRINTF
+	#define UHCIPWRMGMT_USE_KPRINTF UHCI_USE_KPRINTF
+#else
+	#define UHCIPWRMGMT_USE_KPRINTF 0
+#endif
+
+#if UHCIPWRMGMT_USE_KPRINTF
+	#undef USBLog
+	#undef USBError
+	void kprintf(const char *format, ...) __attribute__((format(printf, 1, 2)));
+	#define USBLog( LEVEL, FORMAT, ARGS... )  if ((LEVEL) <= UHCIPWRMGMT_USE_KPRINTF) { kprintf( FORMAT "\n", ## ARGS ) ; }
+	#define USBError( LEVEL, FORMAT, ARGS... )  { kprintf( FORMAT "\n", ## ARGS ) ; }
+#endif
+
+
+#pragma mark Public power management interface
+
+
+//================================================================================================
+//
+//   CheckSleepCapability
+//
+//================================================================================================
+//
 void
 AppleUSBUHCI::CheckSleepCapability(void)
 {
@@ -79,7 +121,12 @@ AppleUSBUHCI::CheckSleepCapability(void)
 }
 
 
-
+//================================================================================================
+//
+//   callPlatformFunction
+//
+//================================================================================================
+//
 IOReturn
 AppleUSBUHCI::callPlatformFunction(const OSSymbol *functionName,
                                    bool waitForFunction,
@@ -112,14 +159,15 @@ AppleUSBUHCI::callPlatformFunction(const OSSymbol *functionName,
     return super::callPlatformFunction(functionName, waitForFunction, param1, param2, param3, param4);
 }
 
-
-
-// ========================================================================
 #pragma mark Internal methods
-// ========================================================================
 
 
-
+//================================================================================================
+//
+//   ResumeController
+//
+//================================================================================================
+//
 void			
 AppleUSBUHCI::ResumeController(void)
 {
@@ -190,7 +238,12 @@ AppleUSBUHCI::ResumeController(void)
 }
 
 
-
+//================================================================================================
+//
+//   SuspendController
+//
+//================================================================================================
+//
 void			
 AppleUSBUHCI::SuspendController(void)
 {
@@ -240,7 +293,12 @@ AppleUSBUHCI::SuspendController(void)
 }
 
 
-
+//================================================================================================
+//
+//   SaveControllerStateForSleep
+//
+//================================================================================================
+//
 IOReturn				
 AppleUSBUHCI::SaveControllerStateForSleep(void)
 {	
@@ -255,6 +313,12 @@ AppleUSBUHCI::SaveControllerStateForSleep(void)
 
 
 
+//================================================================================================
+//
+//   RestoreControllerStateFromSleep
+//
+//================================================================================================
+//
 IOReturn				
 AppleUSBUHCI::RestoreControllerStateFromSleep(void)
 {
@@ -281,10 +345,11 @@ AppleUSBUHCI::RestoreControllerStateFromSleep(void)
 }
 
 
-
+//================================================================================================
 //
-// ResetControllerState
-// puts the controller into a known state - data structures in place, but interrupts disabled the controller halted
+//   ResetControllerState
+//
+//================================================================================================
 //
 IOReturn
 AppleUSBUHCI::ResetControllerState(void)
@@ -321,7 +386,12 @@ AppleUSBUHCI::ResetControllerState(void)
 }
 
 
-
+//================================================================================================
+//
+//   RestartControllerFromReset
+//
+//================================================================================================
+//
 IOReturn
 AppleUSBUHCI::RestartControllerFromReset(void)
 {
@@ -337,7 +407,12 @@ AppleUSBUHCI::RestartControllerFromReset(void)
 }
 
 
-
+//================================================================================================
+//
+//   EnableInterruptsFromController
+//
+//================================================================================================
+//
 IOReturn
 AppleUSBUHCI::EnableInterruptsFromController(bool enable)
 {
@@ -360,7 +435,12 @@ AppleUSBUHCI::EnableInterruptsFromController(bool enable)
 }
 
 
-
+//================================================================================================
+//
+//   DozeController
+//
+//================================================================================================
+//
 IOReturn
 AppleUSBUHCI::DozeController(void)
 {
@@ -372,7 +452,12 @@ AppleUSBUHCI::DozeController(void)
 }
 
 
-
+//================================================================================================
+//
+//   WakeControllerFromDoze
+//
+//================================================================================================
+//
 IOReturn				
 AppleUSBUHCI::WakeControllerFromDoze(void)
 {
@@ -383,7 +468,12 @@ AppleUSBUHCI::WakeControllerFromDoze(void)
 }
 
 
-
+//================================================================================================
+//
+//   powerStateWillChangeTo
+//
+//================================================================================================
+//
 IOReturn
 AppleUSBUHCI::powerStateWillChangeTo ( IOPMPowerFlags capabilities, unsigned long newState, IOService* whichDevice)
 {
@@ -393,7 +483,12 @@ AppleUSBUHCI::powerStateWillChangeTo ( IOPMPowerFlags capabilities, unsigned lon
 }
 
 
-
+//================================================================================================
+//
+//   powerStateDidChangeTo
+//
+//================================================================================================
+//
 IOReturn
 AppleUSBUHCI::powerStateDidChangeTo ( IOPMPowerFlags capabilities, unsigned long newState, IOService* whichDevice)
 {
@@ -403,7 +498,12 @@ AppleUSBUHCI::powerStateDidChangeTo ( IOPMPowerFlags capabilities, unsigned long
 }
 
 
-
+//================================================================================================
+//
+//   powerChangeDone
+//
+//================================================================================================
+//
 void
 AppleUSBUHCI::powerChangeDone ( unsigned long fromState)
 {
@@ -418,7 +518,14 @@ AppleUSBUHCI::powerChangeDone ( unsigned long fromState)
 
 
 #pragma mark ¥¥¥¥ Utility functions ¥¥¥¥
-static IOACPIPlatformDevice * CopyACPIDevice( IORegistryEntry * device )
+//================================================================================================
+//
+//   CopyACPIDevice
+//
+//================================================================================================
+//
+static IOACPIPlatformDevice * 
+CopyACPIDevice( IORegistryEntry * device )
 {
 	IOACPIPlatformDevice *  acpiDevice = 0;
 	OSString *				acpiPath;
@@ -449,6 +556,12 @@ static IOACPIPlatformDevice * CopyACPIDevice( IORegistryEntry * device )
 	return (acpiDevice);
 }
 
+//================================================================================================
+//
+//   HasExpressCardUSB
+//
+//================================================================================================
+//
 static bool HasExpressCardUSB( IORegistryEntry * acpiDevice, UInt32 * portnum )
 {
 	const IORegistryPlane *	acpiPlane;
@@ -502,8 +615,14 @@ static bool HasExpressCardUSB( IORegistryEntry * acpiDevice, UInt32 * portnum )
 	return match;
 }
 
-// Checks for ExpressCard connected to this controller, and returns the port number (1 based)
-// Will return 0 if no ExpressCard is connected to this controller.
+//================================================================================================
+//
+//   ExpressCardPort
+//
+//   Checks for ExpressCard connected to this controller, and returns the port number (1 based)
+//   Will return 0 if no ExpressCard is connected to this controller.
+//
+//================================================================================================
 //
 UInt32 AppleUSBUHCI::ExpressCardPort( IOService * provider )
 {

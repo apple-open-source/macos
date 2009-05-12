@@ -129,6 +129,7 @@ bool						IOUSBController::gUsedBusIDs[kMaxNumberUSBBusses];
 #define _provider						_expansionData->_provider
 #define _controllerCanSleep				_expansionData->_controllerCanSleep
 #define _needToClose					_expansionData->_needToClose
+#define _isochMaxBusStall				_expansionData->_isochMaxBusStall
 
 //================================================================================================
 //
@@ -1143,28 +1144,19 @@ IOUSBController::DoIsocTransfer(OSObject *owner, void *cmd, void *, void *, void
             // We need to return the result of the transfer here, not just the result of the commandSleep()
             //
 			kr = command->GetStatus();
-			controller->_freeUSBIsocCommandPool->returnCommand(command);
         }
     }
     else
     {
         kr = controller->IsocTransaction(command);
-		if (kr)
+
+        if (kr)
 		{
-			if (command->GetDMACommand())
-			{
-				IOMemoryDescriptor		*memDesc = (IOMemoryDescriptor *)command->GetDMACommand()->getMemoryDescriptor();
-				if (memDesc)
-				{
-					USBLog(7, "%s[%p]::DoIsocTransfer - ASYNC - clearing memory descriptor %p from dmaCommand %p", controller->getName(), controller, command->GetDMACommand()->getMemoryDescriptor(), command->GetDMACommand());
-					command->GetDMACommand()->clearMemoryDescriptor();								// this automatically calls complete()
-					// memDesc->complete();					should i do this?
-					// memDesc->release();					should i do this?
-				}
-			}
-			controller->_freeUSBIsocCommandPool->returnCommand(command);
+			USBLog(2, "%s[%p]::DoIsocTransfer - error 0x%x (%s) queueing request (Bus: 0x%x, Addr: %d, EP: %d  Direction: %d)", controller->getName(), controller, kr, USBStringFromReturn(kr), (uint32_t)controller->_busNumber, command->GetAddress(), command->GetEndpoint(), command->GetDirection());
 		}
-    }	
+		
+	}	
+
     return kr;
 }
 
@@ -1191,8 +1183,8 @@ IOUSBController::IsocTransaction(IOUSBIsocCommand *command)
     completion.parameter = (void *)command;
 
 	command->SetUSLCompletion(completion);
-	if (!_activeIsochTransfers)
-		requireMaxBusStall(10000);										// require a max stall of 10 microseconds on the PCI bus
+	if (!_activeIsochTransfers && (_isochMaxBusStall != 0))
+		requireMaxBusStall(_isochMaxBusStall);										// require a max stall of 10 microseconds on the PCI bus
 		
 	_activeIsochTransfers++;
 	err = UIMCreateIsochTransfer(command);	
@@ -1200,7 +1192,7 @@ IOUSBController::IsocTransaction(IOUSBIsocCommand *command)
 	{
         USBLog(3,"%s[%p]::IsocTransaction: error queueing isoc transfer (0x%x)", getName(), this, err);
 		_activeIsochTransfers--;
-		if (!_activeIsochTransfers)
+		if (!_activeIsochTransfers && (_isochMaxBusStall != 0))
 			requireMaxBusStall(0);										// remove max stall requirement on the PCI bus
     }
 
@@ -1240,10 +1232,6 @@ IOUSBController::IsocCompletionHandler(OSObject *target, void *parameter, IORetu
 	{
 		USBLog(7, "%s[%p]::IsocCompletionHandler - clearing memory descriptor (%p) from dmaCommand (%p)", me->getName(), me, memDesc, command->GetDMACommand());
 		command->GetDMACommand()->clearMemoryDescriptor();
-		// USBLog(1, "%s[%p]::IsocCompletionHandler - completing memory descriptor (%p)", me->getName(), me, memDesc);
-		// memDesc->complete();						should i do this?
-		// USBLog(1, "%s[%p]::IsocCompletionHandler - done with completing memory descriptor (%p) now releasing", me->getName(), me, memDesc);
-		// memDesc->release();						should i do this?
 	}
 	
 	// Remember if this was a sync transfer
@@ -1450,14 +1438,15 @@ IOUSBController::DoIOTransfer(OSObject *owner, void *cmd, void *, void *, void *
                 err = kIOReturnBadArgument;
                 break;
         }
-    }
-	
-    if (err)
-    {
-        // prior to 1.8.3f5, we would call the completion routine here. that seems
-        // a mistake, so we don't do it any more
-        USBLog(2, "%s[%p]::DoIOTransfer - error 0x%x (%s) queueing request (Bus: 0x%x, Addr: %d, EP: %d  Direction: %d, Type: %d)", controller->getName(), controller, err, USBStringFromReturn(err), (uint32_t)controller->_busNumber, command->GetAddress(), command->GetEndpoint(), command->GetDirection(), command->GetType() );
-    }
+ 
+	    if (err)
+		{
+			// prior to 1.8.3f5, we would call the completion routine here. that seems
+			// a mistake, so we don't do it any more
+			USBLog(2, "%s[%p]::DoIOTransfer - error 0x%x (%s) queueing request (Bus: 0x%x, Addr: %d, EP: %d  Direction: %d, Type: %d)", controller->getName(), controller, err, USBStringFromReturn(err), (uint32_t)controller->_busNumber, command->GetAddress(), command->GetEndpoint(), command->GetDirection(), command->GetType() );
+		}
+		
+	}
 	
     return err;
 }
@@ -2586,7 +2575,7 @@ IOUSBController::DeviceRequest(IOUSBDevRequest *request, IOUSBCompletion *comple
 	// If we have a sync request, then we always return the command after the DoControlTransfer.  If it's an async request, we only return it if 
 	// we get an immediate error
 	//
-	if ( isSyncTransfer ||  (!isSyncTransfer && (kIOReturnSuccess != err)) )
+	if ( (kIOReturnSuccess != err) ||  isSyncTransfer )
 	{
 		IOUSBCommand			*aBufferCommand = command->GetBufferUSBCommand();
 		command->SetBufferUSBCommand(NULL);
@@ -2757,7 +2746,7 @@ IOUSBController::DeviceRequest(IOUSBDevRequestDesc *request, IOUSBCompletion *co
 	// If we have a sync request, then we always return the command after the DoControlTransfer.  If it's an async request, we only return it if 
 	// we get an immediate error
 	//
-	if ( isSyncTransfer ||  (!isSyncTransfer && (kIOReturnSuccess != err)) )
+	if ( (kIOReturnSuccess != err) ||  isSyncTransfer )
 	{
 		IOUSBCommand			*aBufferCommand = command->GetBufferUSBCommand();
 		command->SetBufferUSBCommand(NULL);

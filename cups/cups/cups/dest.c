@@ -331,7 +331,15 @@ cupsGetDests2(http_t      *http,	/* I - HTTP connection */
   */
 
   num_dests = cups_get_sdests(http, CUPS_GET_PRINTERS, num_dests, dests);
-  num_dests = cups_get_sdests(http, CUPS_GET_CLASSES, num_dests, dests);
+  if (cupsLastError() < IPP_REDIRECTION_OTHER_SITE)
+    num_dests = cups_get_sdests(http, CUPS_GET_CLASSES, num_dests, dests);
+
+  if (cupsLastError() >= IPP_REDIRECTION_OTHER_SITE)
+  {
+    cupsFreeDests(num_dests, *dests);
+    *dests = (cups_dest_t *)0;
+    return (0);
+  }
 
  /*
   * Make a copy of the "real" queues for a later sanity check...

@@ -1,0 +1,12 @@
+diff -up -r /SourceCache/ntp/ntp-45/ntp/ntpd/ntp_crypto.c ./ntpd/ntp_crypto.c
+--- /SourceCache/ntp/ntp-45/ntp/ntpd/ntp_crypto.c	2006-12-28 04:03:28.000000000 -0800
++++ ./ntpd/ntp_crypto.c	2008-12-16 16:00:41.000000000 -0800
+@@ -1612,7 +1612,7 @@ crypto_verify(
+ 	 */
+ 	EVP_VerifyInit(&ctx, peer->digest);
+ 	EVP_VerifyUpdate(&ctx, (u_char *)&ep->tstamp, vallen + 12);
+-	if (!EVP_VerifyFinal(&ctx, (u_char *)&ep->pkt[i], siglen, pkey))
++	if (1 != EVP_VerifyFinal(&ctx, (u_char *)&ep->pkt[i], siglen, pkey))
+ 		return (XEVNT_SIG);
+ 
+ 	if (peer->crypto & CRYPTO_FLAG_VRFY) {

@@ -1,6 +1,6 @@
 #
 # Automakefile for the AFM files.
-# Copyright (c) 1995-1998 Markku Rossi
+# Copyright (c) 1995-1999 Markku Rossi
 #
 # Author: Markku Rossi <mtr@iki.fi>
 #
@@ -31,6 +31,16 @@ hvnbo.afm hvno.afm hvo.afm ncb.afm ncbi.afm nci.afm ncr.afm pob.afm	\
 pobi.afm poi.afm por.afm sy.afm tib.afm tibi.afm tii.afm tir.afm	\
 zcmi.afm zd.afm
 
-pkgdata_DATA = font.map $(default_afm)
+public_fonts = matrix.afm matrix.pfa
 
-EXTRA_DIST = $(pkgdata_DATA)
+EXTRA_DIST = font.map $(default_afm) $(public_fonts)
+
+install-data-local:
+	$(top_srcdir)/mkinstalldirs $(datadir)/enscript
+	$(top_srcdir)/mkinstalldirs $(datadir)/enscript/afm
+	for f in $(EXTRA_DIST); do \
+	  $(INSTALL_DATA) $(srcdir)/$$f $(datadir)/enscript/afm/$$f; \
+	done
+
+uninstall-local:
+	rm -rf $(datadir)/enscript/afm

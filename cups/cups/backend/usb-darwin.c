@@ -633,14 +633,12 @@ print_device(const char *uri,		/* I - Device URI */
 	status = (*g.classdriver)->WritePipe(g.classdriver, (UInt8*)print_ptr, &bytes, 0);
 
        /*
-	* Ignore timeout errors...
+	* Ignore timeout errors, but retain the number of bytes written to
+	* avoid sending duplicate data (<rdar://problem/6254911>)...
 	*/
 
 	if (status == kIOUSBTransactionTimeout)
-	{
 	  status = 0;
-	  bytes = 0;
-	}
 
 	if (status || bytes < 0)
 	{

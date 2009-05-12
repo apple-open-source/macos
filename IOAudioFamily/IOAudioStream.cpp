@@ -110,6 +110,13 @@ OSMetaClassDefineReservedUnused(IOAudioStream, 47);
 
 #define CMPSAMPLERATE(left, right) ((left.whole < right->whole) ? -1 : (left.whole == right->whole) ? (left.fraction < right->fraction) ? -1 : 0 : 1)
 
+// <rdar://problem/5994776> Amount of frames allowed to go over the pseudo mix buffer size. We use the source buffer as a mix buffer in encoded format mode.
+// But we can't clip an arbitrary amount of data. We need to limit it to what the size of the source buffer is. The problem seems to
+// be that the source buffer size is hidden by some VBR change. The true size of the source buffer is saved off an then readded after we can use it. 
+// So through imperical testing it looks like the source buffer size is 4 times the IOBufferSize. We set it to 3 times to be safe. 
+
+#define kMixBufferMaxSize ( 2043 ) //  Limit to 2 pages but there is 16 bytes taken out of the sample buffer for VBR stuff
+
 bool IOAudioStream::validateFormat(IOAudioStreamFormat *streamFormat, IOAudioStreamFormatExtension *formatExtension, IOAudioStreamFormatDesc *formatDesc, const IOAudioSampleRate *sampleRate)
 {
     bool foundFormat = false;
@@ -1365,7 +1372,7 @@ IOReturn IOAudioStream::processOutputSamples(IOAudioClientBuffer *clientBuffer, 
                     
             assert(audioEngine);
         
-            numSampleFramesPerBuffer = audioEngine->getNumSampleFramesPerBuffer();
+
             
             // If we haven't mixed any samples for this client yet,
             // we have to figure out which loop those samples belong to
@@ -1696,10 +1703,24 @@ void IOAudioStream::clipIfNecessary()
 	}
 	lastSampleFrame = clippedPosition.fSampleFrame + (clientBufferListStart->mixedPosition.fSampleFrame - clippedPosition.fSampleFrame);
 */
+			UInt32 numSamplesToClip;
 
 			if (clientBufferListStart->mixedPosition.fLoopCount == clippedPosition.fLoopCount) {
-                if (clientBufferListStart->mixedPosition.fSampleFrame > clippedPosition.fSampleFrame) {
-                    clipOutputSamples(clippedPosition.fSampleFrame, clientBufferListStart->mixedPosition.fSampleFrame - clippedPosition.fSampleFrame);
+                if (clientBufferListStart->mixedPosition.fSampleFrame > clippedPosition.fSampleFrame)  {
+					 numSamplesToClip = clientBufferListStart->mixedPosition.fSampleFrame - clippedPosition.fSampleFrame;
+					if (!format.fIsMixable) {
+						if ( numSamplesToClip <= kMixBufferMaxSize ) { 	// <rdar://problem/5994776>
+							clipOutputSamples(clippedPosition.fSampleFrame, numSamplesToClip );
+						} else {
+							reserved->mClipOutputStatus = kIOReturnOverrun;
+#ifdef DEBUG
+							audioDebugIOLog(6,"IOAudioStream[%p]::clipIfNecessary() clipOutputSamples clip too large for source buffer numSamplesToClip=%lu clientBufferListStart->numSampleFrames %lu", this,numSamplesToClip, clientBufferListStart->numSampleFrames );
+							IOLog("IOAudioStream[%p]::clipIfNecessary() clipOutputSamples clip too large for source buffer numSamplesToClip=%lu clientBufferListStart->numSampleFrames %lu\n", this,numSamplesToClip, clientBufferListStart->numSampleFrames );
+#endif
+						}
+					} else {
+						clipOutputSamples(clippedPosition.fSampleFrame, numSamplesToClip);
+					}
                     clippedPosition.fSampleFrame = clientBufferListStart->mixedPosition.fSampleFrame;
                 } else if (clientBufferListStart->mixedPosition.fSampleFrame < clippedPosition.fSampleFrame) {
                     IOLog("IOAudioStream[%p]::clipIfNecessary() - Error: already clipped to a position (0x%lx,0x%lx) past data to be clipped (0x%lx, 0x%lx) - data ignored.\n", this, clippedPosition.fLoopCount, clippedPosition.fSampleFrame, clientBufferListStart->mixedPosition.fLoopCount, clientBufferListStart->mixedPosition.fSampleFrame);
@@ -1711,15 +1732,42 @@ void IOAudioStream::clipIfNecessary()
                 assert(audioEngine);
                 
                 numSampleFramesPerBuffer = audioEngine->getNumSampleFramesPerBuffer();
-
-                clipOutputSamples(clippedPosition.fSampleFrame, numSampleFramesPerBuffer - clippedPosition.fSampleFrame);
+				numSamplesToClip = numSampleFramesPerBuffer - clippedPosition.fSampleFrame;
+				
 				if (!format.fIsMixable) {
+					if ( numSamplesToClip <= kMixBufferMaxSize) { // <rdar://problem/5994776>
+						clipOutputSamples(clippedPosition.fSampleFrame, numSamplesToClip );
+					} else {
+						reserved->mClipOutputStatus = kIOReturnOverrun;
+#ifdef DEBUG
+						audioDebugIOLog(6,"IOAudioStream[%p]::clipIfNecessary() clipOutputSamples wrap clip too large for source buffer numSamplesToClip=%lu clientBufferListStart->numSampleFrames %lu", this,numSamplesToClip, clientBufferListStart->numSampleFrames );					
+						IOLog("IOAudioStream[%p]::clipIfNecessary() clipOutputSamples wrap clip too large for source buffer numSamplesToClip=%lu clientBufferListStart->numSampleFrames %lu\n", this,numSamplesToClip, clientBufferListStart->numSampleFrames );					
+#endif
+					}
+				} else {
+					clipOutputSamples(clippedPosition.fSampleFrame, numSamplesToClip );
+				}
+				
+				if (!format.fIsMixable) {
+					UInt32 remainingSamplesToClip = (numSampleFramesPerBuffer - clippedPosition.fSampleFrame);
+					
 					// Move the mix buffer to where we left off because the clip routine always starts at the beginning of the source buffer,
 					// but that's not the right place when we don't have a source buffer and are using the mixbuffer as a pseduo-source buffer.
-					mixBuffer = (char *)mixBuffer + ((numSampleFramesPerBuffer - clippedPosition.fSampleFrame) * format.fNumChannels * (format.fBitWidth / 8));
+					audioDebugIOLog(6,"IOAudioStream[%p]::clipIfNecessary() clipOutputSamples wrap  mixBuffer=%p remainingSamplesToClip=0x%lu clientBufferListStart->mixedPosition.fSampleFrame=%lu", this,mixBuffer,remainingSamplesToClip,clientBufferListStart->mixedPosition.fSampleFrame );				
+					if ( remainingSamplesToClip + clientBufferListStart->mixedPosition.fSampleFrame <= kMixBufferMaxSize) // <rdar://problem/5994776>
+					{
+						mixBuffer = (char *)mixBuffer + (remainingSamplesToClip * format.fNumChannels * (format.fBitWidth / 8));
+						clipOutputSamples(0, clientBufferListStart->mixedPosition.fSampleFrame);
+					} else {
+						reserved->mClipOutputStatus = kIOReturnOverrun;
+#ifdef DEBUG
+						audioDebugIOLog(6,"IOAudioStream[%p]::clipIfNecessary() clipOutputSamples mixBufferOffset  too large for source buffer numSamplesToClip=%lu clientBufferListStart->numSampleFrames=%lu remainingSamplesToClip=%lu", this,clientBufferListStart->mixedPosition.fSampleFrame, clientBufferListStart->numSampleFrames,remainingSamplesToClip );							
+						IOLog("IOAudioStream[%p]::clipIfNecessary() clipOutputSamples mixBufferOffset  too large for source buffer numSamplesToClip=%lu clientBufferListStart->numSampleFrames=%lu remainingSamplesToClip=%lu", this,clientBufferListStart->mixedPosition.fSampleFrame, clientBufferListStart->numSampleFrames,remainingSamplesToClip );
+#endif
+					}
+				} else {
+					clipOutputSamples(0, clientBufferListStart->mixedPosition.fSampleFrame);	
 				}
-
-				clipOutputSamples(0, clientBufferListStart->mixedPosition.fSampleFrame);
                 clippedPosition = clientBufferListStart->mixedPosition;
             }
         }

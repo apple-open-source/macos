@@ -17,7 +17,7 @@
    | PHP 4.0 patches by Zeev Suraski <zeev@zend.com>                      |
    +----------------------------------------------------------------------+
  */
-/* $Id: mod_php5.c,v 1.19.2.7.2.14 2007/12/31 07:20:15 sebastian Exp $ */
+/* $Id: mod_php5.c,v 1.19.2.7.2.16 2008/11/28 23:22:39 stas Exp $ */
 
 #include "php_apache_http.h"
 #include "http_conf_globals.h"
@@ -597,6 +597,8 @@ static int send_php(request_rec *r, int display_source_mode, char *filename)
 		return OK;
 	}
 
+	SG(server_context) = r;
+
 	zend_first_try {
 
 		/* Make sure file exists */
@@ -654,8 +656,6 @@ static int send_php(request_rec *r, int display_source_mode, char *filename)
 		/* Init timeout */
 		hard_timeout("send", r);
 
-		SG(server_context) = r;
-		
 		php_save_umask();
 		add_common_vars(r);
 		add_cgi_vars(r);
@@ -729,11 +729,11 @@ static zend_bool should_overwrite_per_dir_entry(HashTable *target_ht, php_per_di
 		return 1; /* does not exist in dest, copy from source */
 	}
 
-	if (new_per_dir_entry->type==PHP_INI_SYSTEM
-		&& orig_per_dir_entry->type!=PHP_INI_SYSTEM) {
-		return 1;
-	} else {
+	if (orig_per_dir_entry->type==PHP_INI_SYSTEM
+		&& new_per_dir_entry->type!=PHP_INI_SYSTEM) {
 		return 0;
+	} else {
+		return 1;
 	}
 }
 /* }}} */
@@ -770,9 +770,9 @@ static void *php_merge_dir(pool *p, void *basev, void *addv)
 
 	/* need a copy of addv to merge */
 	new = php_create_dir(p, "php_merge_dir");
-	zend_hash_copy(new, (HashTable *) addv, (copy_ctor_func_t) copy_per_dir_entry, NULL, sizeof(php_per_dir_entry));
+	zend_hash_copy(new, (HashTable *) basev, (copy_ctor_func_t) copy_per_dir_entry, NULL, sizeof(php_per_dir_entry));
 
-	zend_hash_merge_ex(new, (HashTable *) basev, (copy_ctor_func_t) copy_per_dir_entry, sizeof(php_per_dir_entry), (merge_checker_func_t) should_overwrite_per_dir_entry, NULL);
+	zend_hash_merge_ex(new, (HashTable *) addv, (copy_ctor_func_t) copy_per_dir_entry, sizeof(php_per_dir_entry), (merge_checker_func_t) should_overwrite_per_dir_entry, NULL);
 	return new;
 }
 /* }}} */

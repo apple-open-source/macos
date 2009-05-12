@@ -1,5 +1,5 @@
 dnl
-dnl "$Id: cups-manpages.m4 6649 2007-07-11 21:46:42Z mike $"
+dnl "$Id: cups-manpages.m4 8231 2009-01-12 19:17:21Z mike $"
 dnl
 dnl   Manpage stuff for the Common UNIX Printing System (CUPS).
 dnl
@@ -51,14 +51,6 @@ AC_SUBST(PMANDIR)
 
 dnl Setup manpage extensions...
 case "$uname" in
-	*BSD* | Darwin*)
-		# *BSD
-		MAN1EXT=1
-		MAN5EXT=5
-		MAN7EXT=7
-		MAN8EXT=8
-		MAN8DIR=8
-		;;
 	IRIX*)
 		# SGI IRIX
 		MAN1EXT=1
@@ -75,8 +67,8 @@ case "$uname" in
 		MAN8EXT=1m
 		MAN8DIR=1m
 		;;
-	Linux* | GNU*)
-		# Linux and GNU Hurd
+	Linux* | GNU* | Darwin*)
+		# Linux, GNU Hurd, and Mac OS X
 		MAN1EXT=1.gz
 		MAN5EXT=5.gz
 		MAN7EXT=7.gz
@@ -100,5 +92,5 @@ AC_SUBST(MAN8EXT)
 AC_SUBST(MAN8DIR)
 
 dnl
-dnl End of "$Id: cups-manpages.m4 6649 2007-07-11 21:46:42Z mike $".
+dnl End of "$Id: cups-manpages.m4 8231 2009-01-12 19:17:21Z mike $".
 dnl

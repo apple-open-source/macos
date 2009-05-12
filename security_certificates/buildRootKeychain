@@ -19,7 +19,8 @@ set SETTINGS_FILE_PATH="$KC_DIR/$SETTINGS_FILE"
 set SECURITY=/usr/bin/security
 
 # save keychain list so we don't add SystemRootCertificates to it
-set SAVED_KC_LIST=`$SECURITY list`
+set SAVED_KC_LIST=`$SECURITY list -d user`
+printf "Saved user keychain list:\n%s\n\n" "${SAVED_KC_LIST}"
 
 echo Creating empty $ROOT_CERT_KC...
 rm -f "$ROOT_CERT_KC_PATH" || exit(1)
@@ -40,9 +41,28 @@ foreach root (*)
 	$SECURITY -q add-trusted-cert -i "$SETTINGS_FILE_PATH" -o "$SETTINGS_FILE_PATH" -k "$ROOT_CERT_KC_PATH" "$root" || exit(1)
 end
 
+# Check that we successfully added every root in the "roots" directory
+#
+
+set EXPECTED=`ls -1 "$ROOT_CERT_DIR" | wc -l | awk '{print $1}'`
+
+set ACTUAL=`security find-certificate -a "$ROOT_CERT_KC_PATH" | grep "labl" | wc -l | awk '{print $1}'`
+#echo $ACTUAL
+
+if ("$EXPECTED" != "$ACTUAL") then
+	printf "Failed to add all roots (expected $EXPECTED -- actual $ACTUAL)\n"
+	exit(1)
+else
+	printf "SUCCESS - $ACTUAL certificates added\n"
+endif
+
 chmod 0644 "$SETTINGS_FILE_PATH" || exit(1)
 chmod 0644 "$ROOT_CERT_KC_PATH" || exit(1)
 
-$SECURITY list -s $SAVED_KC_LIST
+# set the keychain list, using xargs to pass the saved argument list
+#####/bin/echo -n "${SAVED_KC_LIST}" | xargs $SECURITY list -d user -s
+
+set POST_KC_LIST=`$SECURITY list -d user`
+printf "Post-save user keychain list:\n%s\n\n" "${POST_KC_LIST}"
 
 echo "=== System Root Certificate Processing complete. ==="

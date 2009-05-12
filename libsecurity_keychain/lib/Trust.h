@@ -55,7 +55,7 @@ public:
 	SECCFFUNCTIONS(Trust, SecTrustRef, errSecInvalidItemRef, gTypes().Trust)
 
     Trust(CFTypeRef certificates, CFTypeRef policies);
-    virtual ~Trust() throw();
+    virtual ~Trust();
 
 	// set (or reset) more input parameters
 	void policies(CFTypeRef policies)			{ mPolicies.take(cfArrayize(policies)); }
@@ -72,6 +72,7 @@ public:
 	// get at evaluation results
     void buildEvidence(CFArrayRef &certChain, TPEvidenceInfo * &statusChain);
     CSSM_TP_VERIFY_CONTEXT_RESULT_PTR cssmResult();
+	void extendedResult(CFDictionaryRef &extendedResult);
     
     SecTrustResultType result() const			{ return mResult; }
 	OSStatus cssmResultCode() const				{ return mTpReturn; }
@@ -104,6 +105,8 @@ private:
 							uint32 numAdded, 
 							Allocator &alloc);
 	bool				revocationPolicySpecified(CFArrayRef policies);
+	CFMutableArrayRef	forceOCSPRevocationPolicy(uint32 &numAdded, 
+							Allocator &alloc);
 	
 private:
     TP mTP;							// our TP
@@ -127,7 +130,10 @@ private:
     vector< SecPointer<Certificate> > mCertChain; // distilled certificate chain
 
     // information returned to caller but owned by us
-    CFRef<CFArrayRef> mEvidenceReturned; // evidence chain returned
+    CFRef<CFArrayRef> mEvidenceReturned;	// evidence chain returned
+	CFRef<CFArrayRef> mAllowedAnchors;		// array of permitted anchor certificates
+	CFRef<CFArrayRef> mFilteredCerts;		// array of certificates to verify, post-filtering
+    CFRef<CFDictionaryRef> mExtendedResult;	// dictionary of extended results
 
 	bool mUsingTrustSettings;
 

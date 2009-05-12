@@ -2378,7 +2378,7 @@ authentication is required for the resource. The
 must be a member of one or more of the named groups that
 follow.</P>
 
-<P>The <CODE>user</CODE> keyboard specifies that the
+<P>The <CODE>user</CODE> keyword specifies that the
 authenticated user must be one of the named users or groups that
 follow. Group names are specified using the "@" prefix.</P>
 
@@ -2475,6 +2475,23 @@ address for the administrator on the system. By default the
 administrator email address is <CODE>root@server</CODE>, where
 <CODE>server</CODE> is the <A
 HREF="#ServerName"><CODE>ServerName</CODE></A>.</P>
+
+
+<H2 CLASS="title"><A NAME="ServerAlias">ServerAlias</A></H2>
+
+<H3>Examples</H3>
+
+<PRE CLASS="command">
+ServerAlias althost
+ServerAlias althost.foo.com
+ServerAlias althost.bar.com
+</PRE>
+
+<H3>Description</H3>
+
+<P>The <CODE>ServerAlias</CODE> directive specifies alternate names that the
+server is known by. By default it contains a list of all aliases associated
+with the <A HREF="#ServerName"><CODE>ServerName</CODE></A>.</P>
 
 
 <H2 CLASS="title"><A NAME="ServerBin">ServerBin</A></H2>

@@ -1,12 +1,12 @@
-% 
+%
 % a2ps styled header.
-% Copyright (c) 1996 Markku Rossi.
+% Copyright (c) 1996-1999 Markku Rossi.
 % Author: Markku Rossi <mtr@iki.fi>
 %
 
 %
 % This file is part of GNU enscript.
-% 
+%
 % This program is free software; you can redistribute it and/or modify
 % it under the terms of the GNU General Public License as published by
 % the Free Software Foundation; either version 2, or (at your option)
@@ -24,20 +24,21 @@
 %
 
 % -- code follows this line --
-%Format: userstr	Printed by %n from %M
-%Format: datestr	%D{%b %d %Y %H:%M}
-%Format: upperpagestr	Page $V$%
-%Format: lowerpagestr	$V$%
+%Format: userstr	Printed by %N
+%Format: datestr	%D{%d %b %Y %H:%M}
+%Format: fmodstr	$D{%d %b %Y %H:%M}
+%Format: upperpagestr	Page $V$%/$=
+%Format: lowerpagestr	page $p
 
-%HeaderHeight: 38
-%FooterHeight: 15
+%HeaderHeight: 36
+%FooterHeight: 12
 
 % Fonts.
 /Helvetica /helvetica-encoded MF
-/SmallFont /helvetica-encoded findfont 12 scalefont def
+/SmallFont /helvetica-encoded findfont 10 scalefont def
 
 /Helvetica-Bold /helvetica-bold-encoded MF
-/BigFont   /helvetica-bold-encoded findfont 15 scalefont def
+/BigFont   /helvetica-bold-encoded findfont 12 scalefont def
 
 /a2ps_marg 10 def
 
@@ -49,6 +50,15 @@
     a2ps_marg sub
     d_footer_y moveto lowerpagestr show
 
+    % current date in footer
+    SmallFont setfont
+    d_footer_x a2ps_marg add d_footer_y moveto datestr show
+
+    % full filename in footer
+    SmallFont setfont
+    d_footer_x d_footer_w 2 div add fname stringwidth pop 2 div sub
+    d_footer_y moveto fname show
+
     % gray box to header
     .95 setgray
     d_header_x d_header_y d_header_w 24 Box fill
@@ -57,23 +67,22 @@
     % borders.
     .5 setlinewidth
     d_header_x d_header_y d_header_w 24 Box stroke
-    d_footer_x d_footer_y d_footer_h add d_output_w d_output_h Box stroke
 
     % userstr
-    d_header_x d_header_w add userstr stringwidth pop sub a2ps_marg sub 
+    d_header_x d_header_w add userstr stringwidth pop sub a2ps_marg sub
     d_header_y 29 add moveto userstr show
 
     % datestr
-    d_header_x a2ps_marg add d_header_y 6 add moveto datestr show
+    d_header_x a2ps_marg add d_header_y 6 add moveto fmodstr show
 
     % upperpagestr
     d_header_x d_header_w add upperpagestr stringwidth pop sub
-    a2ps_marg sub 
+    a2ps_marg sub
     d_header_y 6 add moveto upperpagestr show
 
     % filename
     BigFont setfont
-    d_header_x d_header_w 2 div add ftail stringwidth pop 2 div sub 
+    d_header_x d_header_w 2 div add ftail stringwidth pop 2 div sub
     d_header_y 6 add moveto ftail show
   grestore
 } def

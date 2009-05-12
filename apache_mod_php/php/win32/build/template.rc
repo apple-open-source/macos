@@ -1,11 +1,11 @@
 /* This is a template RC file.
- * $Id: template.rc,v 1.7.2.2.2.1 2007/01/01 19:32:09 iliaa Exp $
+ * $Id: template.rc,v 1.7.2.2.2.2 2008/11/03 19:28:23 auroraeosrose Exp $
  * Do not edit with MSVC */
 #ifdef APSTUDIO_INVOKED
 # error dont edit with MSVC
 #endif
 
-#include "winres.h"
+#include "winresrc.h"
 #include "main/php_version.h"
 
 LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US

@@ -25,9 +25,7 @@
  */
 
 /*
- * Portions Copyright 2007 Apple Inc.  All rights reserved.
- *
- * $Id$
+ * Portions Copyright 2007-2009 Apple Inc.
  */
 
 /*

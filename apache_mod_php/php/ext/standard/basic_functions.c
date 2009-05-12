@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: basic_functions.c,v 1.725.2.31.2.69 2008/03/20 00:55:26 dsp Exp $ */
+/* $Id: basic_functions.c,v 1.725.2.31.2.79 2008/11/28 23:27:46 stas Exp $ */
 
 #include "php.h"
 #include "php_streams.h"
@@ -59,7 +59,7 @@ typedef struct yy_buffer_state *YY_BUFFER_STATE;
 #include <netinet/in.h>
 #endif
 
-#include<netdb.h>
+#include <netdb.h>
 
 #if HAVE_ARPA_INET_H
 # include <arpa/inet.h>
@@ -378,7 +378,7 @@ ZEND_END_ARG_INFO()
 
 static
 ZEND_BEGIN_ARG_INFO_EX(arginfo_extract, 0, 0, 1)
-	ZEND_ARG_INFO(0, arg) /* ARRAY_INFO(0, arg, 0) */
+	ZEND_ARG_INFO(ZEND_SEND_PREFER_REF, arg) /* ARRAY_INFO(0, arg, 0) */
 	ZEND_ARG_INFO(0, extract_type)
 	ZEND_ARG_INFO(0, prefix)
 ZEND_END_ARG_INFO()
@@ -3917,6 +3917,8 @@ static void basic_globals_ctor(php_basic_globals *basic_globals_p TSRMLS_DC)
 	memset(&BG(mblen_state), 0, sizeof(BG(mblen_state)));
 #endif
 	BG(incomplete_class) = incomplete_class_entry;
+	BG(page_uid) = -1;
+	BG(page_gid) = -1;
 }
 
 
@@ -4131,6 +4133,7 @@ PHP_RINIT_FUNCTION(basic)
 	memset(BG(strtok_table), 0, 256);
 	BG(strtok_string) = NULL;
 	BG(strtok_zval) = NULL;
+	BG(strtok_last) = NULL;
 	BG(locale_string) = NULL;
 	BG(user_compare_func_name) = NULL;
 	BG(array_walk_func_name) = NULL;
@@ -4219,6 +4222,8 @@ PHP_RSHUTDOWN_FUNCTION(basic)
 
 	PHP_RSHUTDOWN(user_filters)(SHUTDOWN_FUNC_ARGS_PASSTHRU);
 	
+	BG(page_uid) = -1;
+	BG(page_gid) = -1;
 	return SUCCESS;
 }
 
@@ -4944,6 +4949,7 @@ error options:
 	1 = send via email to 3rd parameter 4th option = additional headers
 	2 = send via tcp/ip to 3rd parameter (name or ip:port)
 	3 = save to file in 3rd parameter
+	4 = send to SAPI logger directly
 */
 
 /* {{{ proto bool error_log(string message [, int message_type [, string destination [, string extra_headers]]])
@@ -5046,7 +5052,13 @@ PHPAPI int _php_error_log(int opt_err, char *message, char *opt, char *headers T
 			php_stream_write(stream, message, strlen(message));
 			php_stream_close(stream);
 			break;
-
+		case 4: /* send to SAPI */
+			if (sapi_module.log_message) {
+				sapi_module.log_message(message);
+			} else {
+				return FAILURE;
+			}
+			break;
 		default:
 			php_log_err(message TSRMLS_CC);
 			break;
@@ -6305,7 +6317,11 @@ PHP_FUNCTION(parse_ini_file)
 	Z_TYPE(fh) = ZEND_HANDLE_FILENAME;
 
 	array_init(return_value);
-	zend_parse_ini_file(&fh, 0, ini_parser_cb, return_value);
+	if (zend_parse_ini_file(&fh, 0, ini_parser_cb, return_value) == FAILURE) {
+		zend_hash_destroy(Z_ARRVAL_P(return_value));
+		efree(Z_ARRVAL_P(return_value));
+		RETURN_FALSE;
+	}
 }
 /* }}} */
 

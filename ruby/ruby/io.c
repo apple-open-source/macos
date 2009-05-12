@@ -3,7 +3,7 @@
   io.c -
 
   $Author: shyouhei $
-  $Date: 2007-05-23 01:28:10 +0900 (Wed, 23 May 2007) $
+  $Date: 2008-06-29 16:52:47 +0900 (Sun, 29 Jun 2008) $
   created at: Fri Oct 15 18:08:59 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -245,6 +245,7 @@ flush_before_seek(fptr)
     if (fptr->mode & FMODE_WBUF) {
 	io_fflush(GetWriteFile(fptr), fptr);
     }
+    errno = 0;
     return fptr;
 }
 
@@ -668,7 +669,7 @@ rb_io_tell(io)
 
     GetOpenFile(io, fptr);
     pos = io_tell(fptr);
-    if (pos < 0) rb_sys_fail(fptr->path);
+    if (pos < 0 && errno) rb_sys_fail(fptr->path);
     return OFFT2NUM(pos);
 }
 
@@ -683,7 +684,7 @@ rb_io_seek(io, offset, whence)
     pos = NUM2OFFT(offset);
     GetOpenFile(io, fptr);
     pos = io_seek(fptr, pos, whence);
-    if (pos < 0) rb_sys_fail(fptr->path);
+    if (pos < 0 && errno) rb_sys_fail(fptr->path);
     clearerr(fptr->f);
 
     return INT2FIX(0);
@@ -1722,7 +1723,7 @@ rb_io_getline(rs, io)
 
 	while ((c = appendline(fptr, newline, &str)) != EOF &&
 	       (c != newline || RSTRING(str)->len < rslen ||
-		(rspara || rscheck(rsptr,rslen,rs), 0) ||
+		((rspara || rscheck(rsptr,rslen,rs)) && 0) ||
 		memcmp(RSTRING(str)->ptr+RSTRING(str)->len-rslen,rsptr,rslen)));
 
 	if (rspara) {
@@ -2168,6 +2169,7 @@ fptr_finalize(fptr, noraise)
 {
     int n1 = 0, n2 = 0, f1, f2 = -1;
 
+    errno = 0;
     if (fptr->f2) {
 	f2 = fileno(fptr->f2);
 	while (n2 = 0, fflush(fptr->f2) < 0) {
@@ -3254,7 +3256,7 @@ rb_io_s_popen(argc, argv, klass)
 	mode = rb_io_modenum_mode(FIX2INT(pmode));
     }
     else {
-	mode = rb_io_flags_mode(rb_io_mode_flags(StringValuePtr(pmode)));
+	mode = rb_io_flags_mode(rb_io_mode_flags(StringValueCStr(pmode)));
     }
     SafeStringValue(pname);
     port = pipe_open(pname, 0, mode);
@@ -3282,12 +3284,14 @@ rb_open_file(argc, argv, io)
     VALUE io;
 {
     VALUE fname, vmode, perm;
-    char *mode;
-    int flags, fmode;
+    char *path, *mode;
+    int flags;
+    unsigned int fmode;
 
     rb_scan_args(argc, argv, "12", &fname, &vmode, &perm);
     SafeStringValue(fname);
 
+    path = StringValueCStr(fname);
     if (FIXNUM_P(vmode) || !NIL_P(perm)) {
 	if (FIXNUM_P(vmode)) {
 	    flags = FIX2INT(vmode);
@@ -3296,13 +3300,13 @@ rb_open_file(argc, argv, io)
 	    SafeStringValue(vmode);
 	    flags = rb_io_mode_modenum(RSTRING(vmode)->ptr);
 	}
-	fmode = NIL_P(perm) ? 0666 :  NUM2INT(perm);
+	fmode = NIL_P(perm) ? 0666 :  NUM2UINT(perm);
 
-	rb_file_sysopen_internal(io, RSTRING(fname)->ptr, flags, fmode);
+	rb_file_sysopen_internal(io, path, flags, fmode);
     }
     else {
-	mode = NIL_P(vmode) ? "r" : StringValuePtr(vmode);
-	rb_file_open_internal(io, RSTRING(fname)->ptr, mode);
+	mode = NIL_P(vmode) ? "r" : StringValueCStr(vmode);
+	rb_file_open_internal(io, path, mode);
     }
     return io;
 }
@@ -3352,7 +3356,8 @@ rb_io_s_sysopen(argc, argv)
     VALUE *argv;
 {
     VALUE fname, vmode, perm;
-    int flags, fmode, fd;
+    int flags, fd;
+    unsigned int fmode;
     char *path;
 
     rb_scan_args(argc, argv, "12", &fname, &vmode, &perm);
@@ -3365,7 +3370,7 @@ rb_io_s_sysopen(argc, argv)
 	flags = rb_io_mode_modenum(RSTRING(vmode)->ptr);
     }
     if (NIL_P(perm)) fmode = 0666;
-    else             fmode = NUM2INT(perm);
+    else             fmode = NUM2UINT(perm);
 
     path = ALLOCA_N(char, strlen(RSTRING(fname)->ptr)+1);
     strcpy(path, RSTRING(fname)->ptr);
@@ -3655,7 +3660,7 @@ rb_io_reopen(argc, argv, file)
     }
 
     if (!NIL_P(nmode)) {
-	fptr->mode = rb_io_mode_flags(StringValuePtr(nmode));
+	fptr->mode = rb_io_mode_flags(StringValueCStr(nmode));
     }
 
     if (fptr->path) {
@@ -3663,7 +3668,7 @@ rb_io_reopen(argc, argv, file)
 	fptr->path = 0;
     }
 
-    fptr->path = strdup(RSTRING(fname)->ptr);
+    fptr->path = strdup(StringValueCStr(fname));
     mode = rb_io_flags_mode(fptr->mode);
     if (!fptr->f) {
 	fptr->f = rb_fopen(fptr->path, mode);
@@ -3674,16 +3679,16 @@ rb_io_reopen(argc, argv, file)
 	return file;
     }
 
-    if (freopen(RSTRING(fname)->ptr, mode, fptr->f) == 0) {
+    if (freopen(fptr->path, mode, fptr->f) == 0) {
 	rb_sys_fail(fptr->path);
     }
 #ifdef USE_SETVBUF
     if (setvbuf(fptr->f, NULL, _IOFBF, 0) != 0)
-	rb_warn("setvbuf() can't be honoured for %s", RSTRING(fname)->ptr);
+	rb_warn("setvbuf() can't be honoured for %s", fptr->path);
 #endif
 
     if (fptr->f2) {
-	if (freopen(RSTRING(fname)->ptr, "w", fptr->f2) == 0) {
+	if (freopen(fptr->path, "w", fptr->f2) == 0) {
 	    rb_sys_fail(fptr->path);
 	}
     }
@@ -4232,7 +4237,7 @@ rb_io_initialize(argc, argv, io)
 	}
 	else {
 	    SafeStringValue(mode);
-	    flags = rb_io_mode_modenum(RSTRING(mode)->ptr);
+	    flags = rb_io_mode_modenum(StringValueCStr(mode));
 	}
     }
     else {
@@ -4402,7 +4407,7 @@ next_argv()
       retry:
 	if (RARRAY(rb_argv)->len > 0) {
 	    filename = rb_ary_shift(rb_argv);
-	    fn = StringValuePtr(filename);
+	    fn = StringValueCStr(filename);
 	    if (strlen(fn) == 1 && fn[0] == '-') {
 		current_file = rb_stdin;
 		if (ruby_inplace_mode) {
@@ -5063,7 +5068,7 @@ rb_f_syscall(argc, argv)
 	if (!NIL_P(v)) {
 	    StringValue(v);
 	    rb_str_modify(v);
-	    arg[i] = (unsigned long)RSTRING(v)->ptr;
+	    arg[i] = (unsigned long)StringValueCStr(v);
 	}
 	else {
 	    arg[i] = (unsigned long)NUM2LONG(*argv);
@@ -5271,7 +5276,7 @@ rb_io_s_foreach(argc, argv)
     else if (!NIL_P(arg.sep)) {
 	StringValue(arg.sep);
     }
-    arg.io = rb_io_open(RSTRING(fname)->ptr, "r");
+    arg.io = rb_io_open(StringValueCStr(fname), "r");
     if (NIL_P(arg.io)) return Qnil;
 
     return rb_ensure(io_s_foreach, (VALUE)&arg, rb_io_close, arg.io);
@@ -5310,7 +5315,7 @@ rb_io_s_readlines(argc, argv, io)
     SafeStringValue(fname);
 
     arg.argc = argc - 1;
-    arg.io = rb_io_open(RSTRING(fname)->ptr, "r");
+    arg.io = rb_io_open(StringValueCStr(fname), "r");
     if (NIL_P(arg.io)) return Qnil;
     return rb_ensure(io_s_readlines, (VALUE)&arg, rb_io_close, arg.io);
 }
@@ -5348,7 +5353,7 @@ rb_io_s_read(argc, argv, io)
     SafeStringValue(fname);
 
     arg.argc = argc ? 1 : 0;
-    arg.io = rb_io_open(RSTRING(fname)->ptr, "r");
+    arg.io = rb_io_open(StringValueCStr(fname), "r");
     if (NIL_P(arg.io)) return Qnil;
     if (!NIL_P(offset)) {
 	rb_io_seek(arg.io, offset, SEEK_SET);
@@ -5624,7 +5629,7 @@ opt_i_set(val)
     StringValue(val);
     if (ruby_inplace_mode) free(ruby_inplace_mode);
     ruby_inplace_mode = 0;
-    ruby_inplace_mode = strdup(RSTRING(val)->ptr);
+    ruby_inplace_mode = strdup(StringValueCStr(val));
 }
 
 /*

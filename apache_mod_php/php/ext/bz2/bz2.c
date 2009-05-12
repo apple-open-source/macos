@@ -16,7 +16,7 @@
   +----------------------------------------------------------------------+
 */
  
-/* $Id: bz2.c,v 1.14.2.3.2.13 2007/12/31 07:20:04 sebastian Exp $ */
+/* $Id: bz2.c,v 1.14.2.3.2.15 2008/07/23 11:25:50 tony2001 Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -248,6 +248,7 @@ PHP_BZ2_API php_stream *_php_stream_bz2open(php_stream_wrapper *wrapper,
 				bz_file = BZ2_bzdopen(fd, mode);
 			}
 		}
+
 		/* remove the file created by php_stream_open_wrapper(), it is not needed since BZ2 functions
 		 * failed.
 		 */

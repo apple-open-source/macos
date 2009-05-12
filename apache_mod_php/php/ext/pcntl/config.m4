@@ -1,12 +1,9 @@
 dnl
-dnl $Id: config.m4,v 1.10 2003/10/28 17:08:18 gschlossnagle Exp $
+dnl $Id: config.m4,v 1.10.6.1 2008/08/07 13:11:28 tony2001 Exp $
 dnl
 
-dnl Process Control (pcntl) extentsion --EXPERIMENTAL--
-dnl TODO - Add platform checks 
-
 PHP_ARG_ENABLE(pcntl, whether to enable pcntl support,
-[  --enable-pcntl          Enable experimental pcntl support (CLI/CGI only)])
+[  --enable-pcntl          Enable pcntl support (CLI/CGI only)])
 
 if test "$PHP_PCNTL" != "no"; then
  

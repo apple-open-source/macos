@@ -35,9 +35,20 @@
 #include <libkern/c++/OSContainers.h>
 #include <libkern/version.h>
 
+#ifndef VERSION_MAJOR
+#error VERSION_MAJOR
+#endif
+
 #define	pmSleepEnabled		reserved->pmSleepEnabled
 #define	pmControlStatus		reserved->pmControlStatus
 #define	sleepControlBits	reserved->sleepControlBits
+
+enum
+{
+    // pmSleepEnabled
+    kPMEnable  = 0x01,
+    kPMEOption = 0x02
+};
 
 #if 0
 
@@ -164,6 +175,41 @@ void IOPCIDevice::free()
     super::free();
 }
 
+
+
+IOReturn IOPCIDevice::powerStateWillChangeTo (IOPMPowerFlags  capabilities, 
+					      unsigned long   stateNumber, 
+					      IOService*      whatDevice)
+{
+    if (stateNumber == kIOPCIDeviceOffState)
+    {
+	if ((kPMEOption & pmSleepEnabled) && pmControlStatus && (sleepControlBits & kPCIPMCSPMEStatus))
+	{
+	    UInt16		pmcsr;
+	    // if we would normally reset the PME_Status bit when going to sleep, do it now
+	    // at the beginning of the power change. that way any PME event generated from this point
+	    // until we go to sleep should wake the machine back up.
+	    pmcsr = configRead16(pmControlStatus);
+	    if (pmcsr & kPCIPMCSPMEStatus)
+	    {
+		// the the PME_Status bit is set at this point, we clear it but leave all other bits
+		// untouched by writing the exact same value back to the register. This is because the
+		// PME_Status bit is R/WC.
+		LOG("%s[%p]::powerStateWillChangeTo(OFF) - PMCS has PME set(0x%x) - CLEARING\n", getName(), this, pmcsr);
+		configWrite16(pmControlStatus, pmcsr);
+		LOG("%s[%p]::powerStateWillChangeTo(OFF) - PMCS now is(0x%x)\n", getName(), this, configRead16(pmControlStatus));
+	    }
+	    else
+	    {
+		LOG("%s[%p]::powerStateWillChangeTo(OFF) - PMCS has PME clear(0x%x) - not touching\n", getName(), this, pmcsr);
+	    }
+	}
+    }
+    return super::powerStateWillChangeTo(capabilities, stateNumber, whatDevice);
+}
+
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 // setPowerState
 //
@@ -191,8 +237,16 @@ IOReturn IOPCIDevice::setPowerState( unsigned long powerState,
 
 	    if (pmSleepEnabled && pmControlStatus && sleepControlBits)
 	    {
-		LOG("%s[%p]::setPowerState(OFF) - setting PMCS to %x\n", getName(), this, sleepControlBits);
-		configWrite16(pmControlStatus, sleepControlBits);
+		UInt16 bits = sleepControlBits;
+		if (kPMEOption & pmSleepEnabled)
+		{
+		    // we don't clear the PME_Status at this time. Instead, we cleared it in powerStateWillChangeTo
+		    // so this write will change our power state to the desired state and will also set PME_En
+		    bits &= ~kPCIPMCSPMEStatus;
+		}
+		LOG("%s[%p]::setPowerState(OFF) - writing 0x%x to PMCS currently (0x%x)\n", getName(), this, bits, configRead16(pmControlStatus));
+		configWrite16(pmControlStatus, bits);
+		LOG("%s[%p]::setPowerState(OFF) - after writing, PMCS is (0x%x)\n", getName(), this, configRead16(pmControlStatus));
 	    }
 	    break;
 	    
@@ -203,6 +257,7 @@ IOReturn IOPCIDevice::setPowerState( unsigned long powerState,
 		{
 		    LOG("%s[%p]::setPowerState(ON) - moving PMCS from %x to D0\n", 
 			getName(), this, configRead16(pmControlStatus));
+			// the write below will clear PME_Status, clear PME_En, and set the Power State to D0
 		    configWrite16(pmControlStatus, kPCIPMCSPMEStatus | kPCIPMCSPowerStateD0);
 		    IOSleep(10);
 		}
@@ -210,6 +265,7 @@ IOReturn IOPCIDevice::setPowerState( unsigned long powerState,
 		{
 		    LOG("%s[%p]::setPowerState(ON) - PMCS already at D0 (%x)\n", 
 			getName(), this, configRead16(pmControlStatus));
+			// the write below will clear PME_Status, clear PME_En, and set the Power State to D0
 		    configWrite16(pmControlStatus, kPCIPMCSPMEStatus);
 		}
 	    }
@@ -582,13 +638,17 @@ IOReturn IOPCIDevice::enablePCIPowerManagement(IOOptionBits state)
 	
 	if (!sleepControlBits)
 	{
-	    LOG("%s[%p] - enablePCIPwrMgmt - no sleep control bits - not enabling", getName(), this);
+	    LOG("%s[%p] - enablePCIPwrMgmt - no sleep control bits - not enabling\n", getName(), this);
 	    ret = kIOReturnBadArgument;
 	}
 	else
 	{
-	    LOG("%s[%p] - enablePCIPwrMgmt, enabling", getName(), this);
+	    LOG("%s[%p] - enablePCIPwrMgmt, enabling\n", getName(), this);
 	    pmSleepEnabled = true;
+#if VERSION_MAJOR < 10
+	    if (getProperty(kIOPCIPMEOptionsKey))
+#endif
+		pmSleepEnabled |= kPMEOption;
 	}
     }
     return ret;

@@ -1,0 +1,298 @@
+<!DOCTYPE html PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html>
+<head>
+<title>GNU Enscript Frequently Asked Questions (FAQ)</title>
+<LINK REV="made" HREF="mailto:mtr@iki.fi">
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#1F00FF" ALINK="#FF0000" VLINK="#9900DD">
+<h1>GNU Enscript Frequently Asked Questions (FAQ)</h1>
+
+<address>$Id: FAQ.html,v 1.1.1.1 2003/03/05 07:25:53 mtr Exp $</address>
+<hr>
+
+<center>
+<b>For GNU Enscript version 1.6.0</b>
+<p>
+
+This FAQ assumes that you are using the latest version of GNU
+Enscript, there are many old bugs and misfeatures but many of them
+have been fixed for the latest version.  For on-line information about
+the latest version, bugs, features, etc. please, check the GNU
+Enscript WWW home at URL:
+<a href="http://www.iki.fi/~mtr/genscript/">http://www.iki.fi/~mtr/genscript/</a>.
+
+</center>
+<hr>
+
+<h2>Contents</h2>
+<ul>
+  <li><a href="#misc"><b>Misc</b></a>
+  <li><a href="#charactersets"><b>Character Sets</b></a>
+  <li><a href="#outputmedia"><b>Printing, Output Media</b></a>
+</ul>
+
+<a name="misc">
+<hr>
+<h2>Misc</h2>
+<ul>
+  <li> <b>Does enscript read PPD files?</b>
+       <br>
+       No.  PPD file support is on my TODO list, I will implement in the near
+       future.
+       <p>
+
+  <li> <b>What's missing / what's different in the Adobe enscript
+       emulation?</b>
+       <ul>
+	 <li>Enscript's option `-o' has been changed.  In enscript `-o' lists
+	      missing characters.  In GNU enscript `-o' is an alias
+	      for `-p' and missing characters are listed with an option `-O'.
+       </ul>
+  <li> <b>Make install installs with teh current umask. I use 077 for
+    root, which gives all the installed directories rwx------. No good
+    for general use...</b>
+    <br>
+    Makefile is just doing what it was told.  Change your umask for
+    the installation time or override INSTALL_DATA and INSTALL_PROGRAM
+    Makefile variables.
+</ul>
+
+<a name="charactersets">
+<hr>
+<h2>Character Sets</h2>
+
+<ul>
+  <li> <b>How can I use ibmpc's line drawing characters?</b>
+       <p>
+       First, you will need a PostScript font (.pfa or .pfb) which has
+       those line drawing characters.  This is the trickiest task
+       since these fonts are really rare.  Once you find one, you must
+       make it available for enscript (see file README for details) so
+       it can be downloaded to the printer.
+       <p>
+       Since these suitable fonts are so rare, the ibmpc encoding do not
+       contain mappings for those line drawing characters, this means they
+       won't print if you use the ibmpc encoding.  You must rely on the
+       font's build-in encoding and print your files with option `-X ps' or
+       `--encoding=ps'.
+       <p>
+  <li> <b>How can I use the ISO-8859-7 input encoding?</b>
+       <p>
+       Manolis Lourakis
+       (<a href="mailto:lourakis@csd.uch.gr">lourakis@csd.uch.gr</a>)
+       has written a document that describes how this can be done.  It
+       can be found from URL:
+
+       <blockquote>
+       <a href="http://www.csd.uch.gr/~lourakis/genscript/">http://www.csd.uch.gr/~lourakis/genscript/</a>
+       </blockquote>
+       <p>
+  <li> <b>I tried the iso8859/2 input encoding but enscript says that 44
+       characters were missing and I get '?' on paper instead of latin2
+       characters.  Did I missed something? (This answer holds also for
+       other input encodings).</b>
+       <p>
+       No, everything is ok but the problem is that Adobe's default Courier
+       font does not have characters named: Aogonek, Lcaron, Sacute, Tcaron,
+       Zacute, ... (those 44 missing characters) so enscript can't print
+       them.  You can solve this if you have a courier (or whatever) font
+       that has those missing characters.  One good canditate is courier
+       font distributed with the X distribution, it is called cour.pf{a,b}
+       and should be found from all good FTP sites.
+       <p>
+       To solve this problem, you must:
+       <ol>
+	 <li> find a nice font to do the job.
+	 <li> copy this font and its AFM file to some appropriate directory,
+	      let's say `$HOME/fonts/':
+
+<pre>
+$ ls fonts/cour*
+fonts/cour.afm  fonts/cour.pfa
+</pre>
+
+	 <li> create a font map for this new font directory (<b>mkafmmap</b>
+	      program comes with the enscript distribution):
+
+<pre>
+$ cd fonts
+$ mkafmmap *.afm
+file=font.map
+BrushScript.afm...
+Hobo.afm...
+Stencil.afm...
+cour.afm...
+uaqrrc.afm...
+ugqb.afm...
+unmr.afm...
+unmrs.afm...
+</pre>
+
+	 <li> edit enscript's personal (or the global) configuration file to
+	      use this new font:
+
+<pre>
+$ cat ~/.enscriptrc
+#
+# My enscript init file.
+#
+
+DefaultFancyHeader: emacs
+
+#PageLabelFormat: long
+
+Clean7Bit: 0
+
+AFMPath: /home/mtr/fonts:/usr/local/share/enscript
+</pre>
+
+	 <li> now it should work:
+
+<pre>
+$ cd myprogs/enscript/
+$ enscript -v -G2r -pfoo.ps latin2.txt
+AFM: scanning path...
+AFM: reading font map "/home/mtr/fonts/font.map"
+AFM: reading font map "/usr/local/share/enscript/font.map"
+reading AFM info for font "Courier"
+processing file "latin2.txt"...
+[ 3 pages * 1 copy ] left in foo.ps
+</pre>
+       </ol>
+       Now enscript uses this new courier font that has those missing
+       characters.  Since the font file `.pfa' is found from the font
+       path, enscript automatically includes that font file to your
+       PostScript output.  This means that it can be printed with any
+       PostScript printer; now file really contains that font so it does
+       not depend on printer's fonts.
+       <p>
+</ul>
+
+<a name="outputmedia">
+<hr>
+<h2>Printing, Output Media</h2>
+
+<ul>
+  <li> <b>I printed some documents with options `-G2r', everything goes just
+       fine but there are no page numbers in the upper right corner.  What
+       goes wrong?</b>
+  <br> You are probably using wrong output media; your printer uses
+       different output media than enscript.  Check what is your default
+       output media in the <b>enscript.cfg</b> (and <b>$HOME/.enscriptrc</b>)
+       file and change it if needed.  For example, to change enscript's
+       default media A4 to Letter, you must to do the following change:
+
+<pre>
+# Default output media.
+DefaultMedia: A4
+=>
+DefaultMedia: Letter
+</pre>
+
+       You can also set the default output media during the
+       configuration step, just give configure script option
+       <p>
+
+       <b>--with-media</b>[=<i>media</i>]
+       <p>
+       If no <i>media</i> is given, it defaults to <tt>Letter</tt>.
+       <p>
+
+  <li> <b>How can I change margins under enscript?</b>
+  <br> You have to define a new output media which has better margins.
+       This is quite easy, just define the new media in enscript's
+       configuration file.  For example, below is a new `A4BigMargin'
+       media with bigger margins:
+
+<pre>
+# Media definitions:
+#	name		width	height	llx	lly	urx	ury
+Media:	A3		839	1190	18	17	821	1173
+Media:	A4		595	839	18	17	581	822
+Media:	A5		420	595	18	17	406	578
+Media:  Letter		612	792	18	17	597	776
+Media:	Legal		612	1008	18	17	597	992
+
+Media:   A4BigMargin	595	839	36	34	563	805
+</pre>
+
+       You can select this media by giving enscript option `-M A4BigMargin'
+       or by setting it to be your default output media by editing
+       <b>enscript.cfg</b>:
+
+<pre>
+# Default output media.
+DefaultMedia: A4
+=>
+DefaultMedia: A4BigMargin
+</pre>
+       <p>
+
+  <li> <b>Ghostscript does not show enscript's outputs correctly, what's the
+       problem?</b>
+  <br> There is one minor problem in enscript / ghostscript co-operation.
+       Enscript's default output media is <b>A4</b> (because I live in
+       Europe) and GhostScript's default output media is <b>Letter</b>.
+       There are three solutions for this problem:<p>
+
+       <ol>
+	 <li> Tell Enscript that it should use the Letter media:
+<pre>
+$ enscript -MLetter <i>other options and files</i>
+</pre>
+
+	 <li> Fix Enscript<br>
+	      Add / edit following line to file enscript.cfg:
+<pre>
+# Default output media.
+DefaultMedia: A4
+
+=>
+
+# Default output media.
+DefaultMedia: Letter
+</pre>
+
+	 <li> Fix GhostScript <br>
+	      edit following line to file gs_init.ps:
+<pre>
+% Optionally choose a default paper size other than U.S. letter.
+% (a4) /PAPERSIZE where { pop pop } { /PAPERSIZE exch def } ifelse
+
+=>
+
+% Optionally choose a default paper size other than U.S. letter.
+(a4) /PAPERSIZE where { pop pop } { /PAPERSIZE exch def } ifelse
+</pre>
+	      or give ghostscript option <code>-sPAPERSIZE=a4</code>
+       </ol>
+ <p>
+ <li> <b>My PostScript printer supports only level 1 PostScript.  How
+ can I setup enscript to work with it?</b>
+ <p>
+ The level 2 features are protected by an if-else block in the
+ generated output file.  So, basicly everything should work smoothly.
+ But, there is a but.  As a default, enscript generates the page size
+ selection code, and it might cause a syntax error on level 1
+ PostScript engines.  This problem is fixed by disabling the page size
+ generation.  Just edit your <strong>.enscriptrc</strong> or
+ <strong>enscript.cfg</strong> files and add the following line:
+
+<pre>
+GeneratePageSize: 0
+</pre>
+
+</ul>
+
+<HR>
+Please send comments on these web pages to
+
+<A HREF="mailto:mtr@iki.fi"><EM>mtr@iki.fi</EM></A>.
+<P>
+Copyright &copy; 1998 Markku Rossi
+<P>
+Verbatim copying and distribution is permitted
+in any medium, provided this notice is preserved.
+<HR>
+</BODY>
+</HTML>

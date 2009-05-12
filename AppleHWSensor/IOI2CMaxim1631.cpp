@@ -4,7 +4,6 @@
  *
  * Copyright (c) 2005 Apple Computer, Inc.  All rights reserved.
  *
- *
  *******************************************************************/
 
 #include "IOI2CMaxim1631.h"

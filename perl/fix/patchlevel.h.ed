@@ -1,4 +1,7 @@
 /^	,NULL/i
 	,"fix for regcomp CVE-2007-5116 security vulnerability"
+	,"fix for double-free CVE-2008-1927 security vulnerability"
+	,"/Library/Perl/Updates/<version> comes before system perl directories"
+	,"installprivlib and installarchlib points to the Updates directory"
 .
 w

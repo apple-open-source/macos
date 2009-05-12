@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dba_db4.c,v 1.15.2.3.2.2 2007/12/31 07:20:05 sebastian Exp $ */
+/* $Id: dba_db4.c,v 1.15.2.3.2.3 2008/06/19 22:41:33 sixd Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -36,7 +36,11 @@
 #include <db.h>
 #endif
 
-static void php_dba_db4_errcall_fcn(const char *errpfx, char *msg)
+static void php_dba_db4_errcall_fcn(
+#if (DB_VERSION_MAJOR == 4 && DB_VERSION_MINOR >= 3)
+	const DB_ENV *dbenv, 
+#endif
+	const char *errpfx, const char *msg)
 {
 	TSRMLS_FETCH();
 	
@@ -81,7 +85,6 @@ DBA_OPEN_FUNC(db4)
 		return FAILURE; /* not possible */
 	}
 
-	gmode |= DB_INIT_LOCK;
 	if (info->flags & DBA_PERSISTENT) {
 		gmode |= DB_THREAD;
 	}
@@ -90,10 +93,6 @@ DBA_OPEN_FUNC(db4)
 		convert_to_long_ex(info->argv[0]);
 		filemode = Z_LVAL_PP(info->argv[0]);
 	}
-
-#ifdef DB_FCNTL_LOCKING
-	gmode |= DB_FCNTL_LOCKING;
-#endif
 
 	if ((err=db_create(&dbp, NULL, 0)) == 0) {
 	    dbp->set_errcall(dbp, php_dba_db4_errcall_fcn);

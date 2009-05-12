@@ -812,6 +812,8 @@ OSStatus KRBCopyClientPrincipalInfo (void *inKerberosSession,  CFDictionaryRef i
 		CSSM_DATA certData;
 		krb5_data kcert;
 		CFStringRef description = NULL;
+ 		const CFStringRef dotmac = CFSTR(".Mac Sharing Certificate");
+ 		const CFStringRef mobileMe = CFSTR("MobileMe Sharing Certificate");
 		
 		/* get the cert data */
 		err = SecCertificateGetData(certRef, &certData);
@@ -833,7 +835,9 @@ OSStatus KRBCopyClientPrincipalInfo (void *inKerberosSession,  CFDictionaryRef i
 		
 		SecCertificateCopySubjectComponent (certRef, &CSSMOID_Description, &description);
 
-		if (NULL != description && kCFCompareEqualTo == CFStringCompare(description, CFSTR (".Mac Sharing Certificate"), 0)) {
+		if (NULL != description &&
+ 			(kCFCompareEqualTo == CFStringCompare(description, dotmac, 0) || kCFCompareEqualTo == CFStringCompare(description, mobileMe, 0)))
+		{
 			CFStringRef	commonName = NULL, organizationalUnit = NULL;
 			
 			SecCertificateCopyCommonName (certRef, &commonName);

@@ -501,7 +501,7 @@ ppdMarkOption(ppd_file_t *ppd,		/* I - PPD file record */
 
     if ((coption = ppdFindCustomOption(ppd, option)) != NULL)
     {
-      num_vals = cupsParseOptions(choice + 1, 0, &vals);
+      num_vals = cupsParseOptions(choice, 0, &vals);
 
       for (i = 0, val = vals; i < num_vals; i ++, val ++)
       {

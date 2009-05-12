@@ -102,6 +102,7 @@ apr_status_t apu_dso_init(apr_pool_t *pool)
     return ret;
 }
 
+#if APR_HAS_DSO
 apr_status_t apu_dso_load(apr_dso_handle_sym_t *dsoptr, const char *module,
                           const char *modsym, apr_pool_t *pool)
 {
@@ -161,6 +162,23 @@ apr_status_t apu_dso_load(apr_dso_handle_sym_t *dsoptr, const char *module,
         if (rv == APR_SUCCESS) { /* APR_EDSOOPEN */
             break;
         }
+#if defined(APU_DSO_LIBDIR)
+        else if (i < paths->nelts - 1) {
+#else
+        else {   /* No APU_DSO_LIBDIR to skip */
+#endif
+             /* try with apr-util-APU_MAJOR_VERSION appended */
+            eos = apr_cpystrn(eos,
+                              "apr-util-" APU_STRINGIFY(APU_MAJOR_VERSION) "/",
+                              sizeof(path) - (eos - path));
+
+            apr_cpystrn(eos, module, sizeof(path) - (eos - path));
+
+            rv = apr_dso_load(&dlhandle, path, global);
+            if (rv == APR_SUCCESS) { /* APR_EDSOOPEN */
+                break;
+            }
+        }
     }
 
     if (rv != APR_SUCCESS) /* APR_ESYMNOTFOUND */
@@ -177,4 +195,5 @@ apr_status_t apu_dso_load(apr_dso_handle_sym_t *dsoptr, const char *module,
     return rv;
 #endif /* APU_DSO_BUILD */
 }
+#endif /* APR_HAS_DSO */
 

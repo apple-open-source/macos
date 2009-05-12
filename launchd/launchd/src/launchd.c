@@ -18,7 +18,7 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-static const char *const __rcs_file_version__ = "$Revision: 23506 $";
+static const char *const __rcs_file_version__ = "$Revision: 23748 $";
 
 #include "config.h"
 #include "launchd.h"
@@ -67,11 +67,14 @@ static const char *const __rcs_file_version__ = "$Revision: 23506 $";
 #include <setjmp.h>
 #include <spawn.h>
 #include <sched.h>
+#if TARGET_OS_EMBEDDED
+#include <pthread.h>
+#endif
 
-#include "libbootstrap_public.h"
-#include "libvproc_public.h"
-#include "libvproc_internal.h"
-#include "liblaunch_public.h"
+#include "bootstrap.h"
+#include "vproc.h"
+#include "vproc_internal.h"
+#include "launch.h"
 
 #include "launchd_runtime.h"
 #include "launchd_core_logic.h"
@@ -97,9 +100,17 @@ static void fatal_signal_handler(int sig, siginfo_t *si, void *uap);
 static void handle_pid1_crashes_separately(void);
 static void prep_shutdown_log_dir(void);
 
+#if TARGET_OS_EMBEDDED
+static void *update_thread(void *nothing);
+#endif
+
 static bool re_exec_in_single_user_mode = false;
 static void *crash_addr;
 static pid_t crash_pid;
+
+#if TARGET_OS_EMBEDDED
+static unsigned int g_sync_frequency = 30;
+#endif
 
 static bool shutdown_in_progress = false;
 bool debug_shutdown_hangs = false;
@@ -142,6 +153,19 @@ main(int argc, char *const *argv)
 		ipc_server_init();
 	}
 
+#if TARGET_OS_EMBEDDED
+	pthread_attr_t attr;
+	pthread_attr_init(&attr);
+	pthread_attr_setstacksize(&attr, PTHREAD_STACK_MIN);
+	
+	if( getpid() == 1 ) {
+		/* Start the update thread -- rdar://problem/5039559&6153301 */
+		pthread_t t = NULL;
+		int err = pthread_create(&t, &attr, update_thread, NULL);
+		launchd_assumes(err == 0);
+	}
+#endif	
+	
 	monitor_networking_state();
 
 	if (getpid() == 1) {
@@ -178,7 +202,7 @@ static __attribute__((unused)) typeof(sleep) *__junk_dyld_trick2 = sleep;
 static __attribute__((unused)) typeof(reboot) *__junk_dyld_trick3 = reboot;
 
 void
-fatal_signal_handler(int sig, siginfo_t *si, void *uap)
+fatal_signal_handler(int sig, siginfo_t *si, void *uap __attribute__((unused)))
 {
 	const char *doom_why = "at instruction";
 	char *sample_args[] = { "/usr/bin/sample", "1", "1", "-file", PID1_CRASH_LOGFILE, NULL };
@@ -243,6 +267,19 @@ prep_shutdown_log_dir(void)
 {
 	launchd_assumes(mkdir(SHUTDOWN_LOG_DIR, S_IRWXU) != -1 || errno == EEXIST);
 }
+
+#if TARGET_OS_EMBEDDED
+void *
+update_thread(void *nothing __attribute__((unused)))
+{
+	while( g_sync_frequency ) {
+		sync();
+		sleep(g_sync_frequency);
+	}
+	
+	return NULL;
+}
+#endif
 
 void
 launchd_shutdown(void)
@@ -376,7 +413,7 @@ monitor_networking_state(void)
 }
 
 void
-pfsystem_callback(void *obj, struct kevent *kev)
+pfsystem_callback(void *obj __attribute__((unused)), struct kevent *kev)
 {
 	bool new_networking_state;
 	char buf[1024];

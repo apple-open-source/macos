@@ -1,0 +1,252 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN""http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>FcPatternGet-Type</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REL="HOME"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="FcPattern"
+HREF="x102.html#AEN255"><LINK
+REL="PREVIOUS"
+TITLE="FcPatternGet"
+HREF="r570.html"><LINK
+REL="NEXT"
+TITLE="FcPatternBuild"
+HREF="r707.html"></HEAD
+><BODY
+CLASS="REFENTRY"
+BGCOLOR="#FFFFFF"
+TEXT="#000000"
+LINK="#0000FF"
+VLINK="#840084"
+ALINK="#0000FF"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="3"
+ALIGN="center"
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="bottom"
+><A
+HREF="r570.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="80%"
+ALIGN="center"
+VALIGN="bottom"
+></TD
+><TD
+WIDTH="10%"
+ALIGN="right"
+VALIGN="bottom"
+><A
+HREF="r707.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><H1
+><A
+NAME="FCPATTERNGET-TYPE"
+></A
+>FcPatternGet-Type</H1
+><DIV
+CLASS="REFNAMEDIV"
+><A
+NAME="AEN604"
+></A
+><H2
+>Name</H2
+>FcPatternGetInteger, FcPatternGetDouble, FcPatternGetString, FcPatternGetMatrix, FcPatternGetCharSet, FcPatternGetBool, FcPatternGetFTFace, FcPatternGetLangSet&nbsp;--&nbsp;Return a typed value from a pattern</DIV
+><DIV
+CLASS="REFSYNOPSISDIV"
+><A
+NAME="AEN614"
+></A
+><H2
+>Synopsis</H2
+><DIV
+CLASS="FUNCSYNOPSIS"
+><P
+></P
+><A
+NAME="AEN615"
+></A
+><PRE
+CLASS="FUNCSYNOPSISINFO"
+>#include &lt;fontconfig.h&gt;
+	</PRE
+><P
+><CODE
+><CODE
+CLASS="FUNCDEF"
+>FcResult FcPatternGetInteger</CODE
+>(FcPattern *p, const char *object, int n, int *i);</CODE
+></P
+><P
+><CODE
+><CODE
+CLASS="FUNCDEF"
+>FcResult FcPatternGetDouble</CODE
+>(FcPattern *p, const char *object, int n, double *d);</CODE
+></P
+><P
+><CODE
+><CODE
+CLASS="FUNCDEF"
+>FcResult FcPatternGetString</CODE
+>(FcPattern *p, const char *object, int n, FcChar8 **s);</CODE
+></P
+><P
+><CODE
+><CODE
+CLASS="FUNCDEF"
+>FcResult FcPatternGetMatrix</CODE
+>(FcPattern *p, const char *object, int n, FcMatrix **s);</CODE
+></P
+><P
+><CODE
+><CODE
+CLASS="FUNCDEF"
+>FcResult FcPatternGetCharSet</CODE
+>(FcPattern *p, const char *object, int n, FcCharSet **c);</CODE
+></P
+><P
+><CODE
+><CODE
+CLASS="FUNCDEF"
+>FcResult FcPatternGetBool</CODE
+>(FcPattern *p, const char *object, int n, FcBool *b);</CODE
+></P
+><P
+><CODE
+><CODE
+CLASS="FUNCDEF"
+>FcBool FcPatternGetFTFace</CODE
+>(FcPattern *p, const char *object, const FT_Face *f);</CODE
+></P
+><P
+><CODE
+><CODE
+CLASS="FUNCDEF"
+>FcBool FcPatternGetLangSet</CODE
+>(FcPattern *p, const char *object, const FcLangSet **l);</CODE
+></P
+><P
+></P
+></DIV
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN701"
+></A
+><H2
+>Description</H2
+><P
+>These are convenience functions that call FcPatternGet and verify that the
+returned data is of the expected type. They return FcResultTypeMismatch if
+this is not the case.  Note that these (like FcPatternGet) do not make a
+copy of any data structure referenced by the return value.  Use these
+in preference to FcPatternGet to provide compile-time typechecking.
+	    </P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN704"
+></A
+><H2
+>Version</H2
+><P
+>Fontconfig version 2.6.0
+
+	    </P
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="r570.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="r707.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>FcPatternGet</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="x102.html#AEN255"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>FcPatternBuild</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

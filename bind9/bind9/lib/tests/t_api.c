@@ -1,8 +1,8 @@
 /*
- * Copyright (C) 2004, 2005  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2008  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2003  Internet Software Consortium.
  *
- * Permission to use, copy, modify, and distribute this software for any
+ * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: t_api.c,v 1.52.18.6 2005/11/30 03:44:39 marka Exp $ */
+/* $Id: t_api.c,v 1.52.18.9 2008/01/17 23:46:05 tbox Exp $ */
 
 /*! \file */
 
@@ -130,7 +130,7 @@ main(int argc, char **argv) {
 	/*
 	 * -a option is now default.
 	 */
-	memset(T_tvec, 0xffff, sizeof(T_tvec));
+	memset(T_tvec, 0xff, sizeof(T_tvec));
 
 	/*
 	 * Parse args.
@@ -141,7 +141,7 @@ main(int argc, char **argv) {
 			/*
 			 * Flag all tests to be run.
 			 */
-			memset(T_tvec, 0xffff, sizeof(T_tvec));
+			memset(T_tvec, 0xff, sizeof(T_tvec));
 		}
 		else if (c == 'b') {
 			T_dir = isc_commandline_argument;
@@ -306,8 +306,8 @@ main(int argc, char **argv) {
 						  "the test case timed out\n");
 							else
 								t_info(
-				         "the test case caused exception %d\n",
-					 		     WTERMSIG(status));
+					 "the test case caused exception %d\n",
+							     WTERMSIG(status));
 							t_result(T_UNRESOLVED);
 						    }
 					    } else if ((deadpid == -1) &&

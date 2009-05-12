@@ -28,6 +28,7 @@
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
 #include "RenderTextFragment.h"
+#include "RenderTheme.h"
 
 namespace WebCore {
 
@@ -37,6 +38,7 @@ RenderButton::RenderButton(Node* node)
     : RenderFlexibleBox(node)
     , m_buttonText(0)
     , m_inner(0)
+    , m_default(false)
 {
 }
 
@@ -70,6 +72,16 @@ void RenderButton::setStyle(RenderStyle* style)
     if (m_inner) // RenderBlock handled updating the anonymous block's style.
         m_inner->style()->setBoxFlex(1.0f);
     setReplaced(isInline());
+
+    if (!m_default && theme()->isDefault(this)) {
+        if (!m_timer)
+            m_timer.set(new Timer<RenderButton>(this, &RenderButton::timerFired));
+        m_timer->startRepeating(0.03);
+        m_default = true;
+    } else if (m_default && !theme()->isDefault(this)) {
+        m_default = false;
+        m_timer.clear();
+    }
 }
 
 void RenderButton::updateFromElement()
@@ -122,5 +134,9 @@ IntRect RenderButton::controlClipRect(int tx, int ty) const
     return IntRect(tx + borderLeft(), ty + borderTop(), m_width - borderLeft() - borderRight(), m_height - borderTop() - borderBottom());
 }
 
+void RenderButton::timerFired(Timer<RenderButton>*)
+{
+    repaint();
+}
 
 } // namespace WebCore

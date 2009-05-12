@@ -114,7 +114,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleHWSensor;
-				MODULE_VERSION = 1.7.3d0;
+				MODULE_VERSION = 1.7.2d1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -154,7 +154,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleHWSensor</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleHWSensor version 1.7.3, Copyright 2002-2008 Apple Inc.</string>
+	<string>AppleHWSensor version 1.7.2, Copyright 2002-2008 Apple Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -166,11 +166,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.3</string>
+	<string>1.7.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.3d0</string>
+	<string>1.7.2d1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>ControlTypeALS</key>
@@ -469,7 +469,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.IOI2CMaxim1631;
-				MODULE_VERSION = 1.7.3d0;
+				MODULE_VERSION = 1.7.2d1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -496,7 +496,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOI2CMaxim1631</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOI2CMaxim1631 version 1.7.3, Copyright 2002-2008 Apple Inc.</string>
+	<string>IOI2CMaxim1631 version 1.7.2, Copyright 2002-2008 Apple Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -508,11 +508,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.3</string>
+	<string>1.7.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.3d0</string>
+	<string>1.7.2d1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOI2CMaxim1631</key>
@@ -835,7 +835,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleLM8x;
-				MODULE_VERSION = 1.7.3d0;
+				MODULE_VERSION = 1.7.2d1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -862,7 +862,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleLM8x</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleLM8x version 1.7.3, Copyright 2002-2008 Apple Inc.</string>
+	<string>AppleLM8x version 1.7.2, Copyright 2002-2008 Apple Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -874,11 +874,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.3</string>
+	<string>1.7.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.3d0</string>
+	<string>1.7.2d1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleLM8x-ppci2c</key>
@@ -1127,7 +1127,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleMaxim1989;
-				MODULE_VERSION = 1.7.3d0;
+				MODULE_VERSION = 1.7.2d1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1154,7 +1154,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleMaxim1989</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleMaxim1989 version 1.7.3, Copyright 2002-2008 Apple Inc.</string>
+	<string>AppleMaxim1989 version 1.7.2, Copyright 2002-2008 Apple Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1166,11 +1166,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.3</string>
+	<string>1.7.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.3d0</string>
+	<string>1.7.2d1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleMaxim1989-ppci2c</key>
@@ -1326,7 +1326,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.IOI2CLM6x;
-				MODULE_VERSION = 1.7.3d0;
+				MODULE_VERSION = 1.7.2d1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1353,7 +1353,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOI2CLM6x</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOI2CLM6x version 1.7.3, Copyright 2002-2008 Apple Inc.</string>
+	<string>IOI2CLM6x version 1.7.2, Copyright 2002-2008 Apple Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1365,11 +1365,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.3</string>
+	<string>1.7.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.3d0</string>
+	<string>1.7.2d1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOI2CLM6x</key>
@@ -1501,7 +1501,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.IOI2CLM8x;
-				MODULE_VERSION = 1.7.3d0;
+				MODULE_VERSION = 1.7.2d1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1528,7 +1528,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOI2CLM8x</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOI2CLM8x version 1.7.3, Copyright 2002-2008 Apple Inc.</string>
+	<string>IOI2CLM8x version 1.7.2, Copyright 2002-2008 Apple Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1540,11 +1540,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.3</string>
+	<string>1.7.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.3d0</string>
+	<string>1.7.2d1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOI2CLM8x</key>
@@ -1684,7 +1684,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.IOI2CAD741x;
-				MODULE_VERSION = 1.7.3d0;
+				MODULE_VERSION = 1.7.2d1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1711,7 +1711,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOI2CAD741x</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOI2CAD741x version 1.7.3, Copyright 2002-2008 Apple Inc.</string>
+	<string>IOI2CAD741x version 1.7.2, Copyright 2002-2008 Apple Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1723,11 +1723,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.3</string>
+	<string>1.7.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.3d0</string>
+	<string>1.7.2d1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOI2CAD741x</key>
@@ -1861,7 +1861,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.IOI2CMaxim1989;
-				MODULE_VERSION = 1.7.3d0;
+				MODULE_VERSION = 1.7.2d1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1888,7 +1888,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOI2CMaxim1989</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOI2CMaxim1989 version 1.7.3, Copyright 2002-2008 Apple Inc.</string>
+	<string>IOI2CMaxim1989 version 1.7.2, Copyright 2002-2008 Apple Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1900,11 +1900,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.3</string>
+	<string>1.7.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.3d0</string>
+	<string>1.7.2d1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOI2CMaxim1989</key>
@@ -2061,7 +2061,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.IOI2CMaxim6690;
-				MODULE_VERSION = 1.7.3d0;
+				MODULE_VERSION = 1.7.2d1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -2088,7 +2088,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOI2CMaxim6690</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOI2CMaxim6690 version 1.7.3, Copyright 2002-2008 Apple Inc.</string>
+	<string>IOI2CMaxim6690 version 1.7.2, Copyright 2002-2008 Apple Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -2100,11 +2100,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.3</string>
+	<string>1.7.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.3d0</string>
+	<string>1.7.2d1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOI2CMaxim6690</key>
@@ -2281,7 +2281,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.IOI2CLM7x;
-				MODULE_VERSION = 1.7.3d0;
+				MODULE_VERSION = 1.7.2d1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -2308,7 +2308,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOI2CLM7x</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOI2CLM7x version 1.7.3, Copyright 2002-2008 Apple Inc.</string>
+	<string>IOI2CLM7x version 1.7.2, Copyright 2002-2008 Apple Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -2320,11 +2320,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.3</string>
+	<string>1.7.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.3d0</string>
+	<string>1.7.2d1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOI2CLM7x</key>
@@ -2495,7 +2495,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleAD741x;
-				MODULE_VERSION = 1.7.3d0;
+				MODULE_VERSION = 1.7.2d1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -2522,7 +2522,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleAD741x</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleAD741x version 1.7.3, Copyright 2002-2008 Apple Inc.</string>
+	<string>AppleAD741x version 1.7.2, Copyright 2002-2008 Apple Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -2534,11 +2534,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.3</string>
+	<string>1.7.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.3d0</string>
+	<string>1.7.2d1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleAD741x-ppci2c</key>
@@ -2679,7 +2679,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleMaxim6690;
-				MODULE_VERSION = 1.7.3d0;
+				MODULE_VERSION = 1.7.2d1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -2706,7 +2706,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleMaxim6690</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleMaxim6690 version 1.7.3, Copyright 2002-2008 Apple Inc.</string>
+	<string>AppleMaxim6690 version 1.7.2, Copyright 2002-2008 Apple Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -2718,11 +2718,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.3</string>
+	<string>1.7.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.3d0</string>
+	<string>1.7.2d1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleMaxim6690-ppci2c</key>
@@ -2886,7 +2886,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.IOI2CSMUSat;
-				MODULE_VERSION = 1.7.3d0;
+				MODULE_VERSION = 1.7.2d1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -2913,7 +2913,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOI2CSMUSat</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOI2CSMUSat version 1.7.3, Copyright 2002-2008 Apple Inc.</string>
+	<string>IOI2CSMUSat version 1.7.2, Copyright 2002-2008 Apple Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -2925,11 +2925,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.3</string>
+	<string>1.7.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.3d0</string>
+	<string>1.7.2d1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOI2CSMUSat</key>
@@ -3123,7 +3123,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleSMUMonitor;
-				MODULE_VERSION = 1.7.3d0;
+				MODULE_VERSION = 1.7.2d1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -3150,7 +3150,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleSMUMonitor</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleSMUMonitor version 1.7.3, Copyright 2002-2008 Apple Inc.</string>
+	<string>AppleSMUMonitor version 1.7.2, Copyright 2002-2008 Apple Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -3162,11 +3162,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.3</string>
+	<string>1.7.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.3d0</string>
+	<string>1.7.2d1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>SMUFans</key>
@@ -3364,7 +3364,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleLM7x;
-				MODULE_VERSION = 1.7.3d0;
+				MODULE_VERSION = 1.7.2d1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -3391,7 +3391,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleLM7x</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleLM7x version 1.7.3, Copyright 2002-2008 Apple Inc.</string>
+	<string>AppleLM7x version 1.7.2, Copyright 2002-2008 Apple Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -3403,11 +3403,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.3</string>
+	<string>1.7.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.3d0</string>
+	<string>1.7.2d1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleLM7x-k2dev-ds1775</key>

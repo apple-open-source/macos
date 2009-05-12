@@ -268,6 +268,11 @@ SOURCE=.\dbd\apr_dbd_mysql.c
 # End Source File
 # Begin Source File
 
+SOURCE=.\dbd\apr_dbd_odbc.c
+# PROP Exclude_From_Build 1
+# End Source File
+# Begin Source File
+
 SOURCE=.\dbd\apr_dbd_oracle.c
 # PROP Exclude_From_Build 1
 # End Source File

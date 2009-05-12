@@ -12,11 +12,6 @@ if [ -z ${SECCERTDIR} ] ; then
         SECCERTDIR=${DEFAULT_SECCERTDIR}
 fi
 
-if [ -z ${LOCAL_BUILD_DIR} ] ; then
-	/bin/echo "{LOCAL_BUILD_DIR} not set"
-	exit 2
-fi
-
 #
 #Look for the directory with the sources for SecurityTests
 #This will often be different from the directory for the current branch

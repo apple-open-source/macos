@@ -18,7 +18,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: simplexml.c,v 1.151.2.22.2.39 2008/03/20 16:48:45 rrichards Exp $ */
+/* $Id: simplexml.c,v 1.151.2.22.2.45 2008/10/20 19:29:40 rrichards Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -695,11 +695,12 @@ static zval** sxe_property_get_adr(zval *object, zval *member TSRMLS_DC) /* {{{ 
 	convert_to_string(member);
 	name = Z_STRVAL_P(member);
 	node = sxe_get_element_by_name(sxe, node, &name, &type TSRMLS_CC);
-	if (!node) {
-		sxe_prop_dim_write(object, member, NULL, 1, 0, &node TSRMLS_CC);
-		type = SXE_ITER_NONE;
-		name = NULL;
+	if (node) {
+		return NULL;
 	}
+	sxe_prop_dim_write(object, member, NULL, 1, 0, &node TSRMLS_CC);
+	type = SXE_ITER_NONE;
+	name = NULL;
 	MAKE_STD_ZVAL(return_value);
 	_node_as_zval(sxe, node, return_value, type, name, sxe->iter.nsprefix, sxe->iter.isprefix TSRMLS_CC);
 
@@ -799,7 +800,7 @@ static int sxe_prop_dim_exists(zval *object, zval *member, int check_empty, zend
 				while (node) {
 					xmlNodePtr nnext;
 					nnext = node->next;
-					if (!xmlStrcmp(node->name, (xmlChar *)Z_STRVAL_P(member))) {
+					if ((node->type == XML_ELEMENT_NODE) && !xmlStrcmp(node->name, (xmlChar *)Z_STRVAL_P(member))) {
 						break;
 					}
 					node = nnext;
@@ -1100,9 +1101,13 @@ static HashTable * sxe_properties_get(zval *object TSRMLS_DC)
 				SKIP_TEXT(node);
 			} else {
 				if (node->type == XML_TEXT_NODE) {
-					MAKE_STD_ZVAL(value);
-					ZVAL_STRING(value, sxe_xmlNodeListGetString(node->doc, node, 1), 0);
-					zend_hash_next_index_insert(rv, &value, sizeof(zval *), NULL);
+					const xmlChar *cur = node->content;
+					
+					if (*cur != 0) {
+						MAKE_STD_ZVAL(value);
+						ZVAL_STRING(value, sxe_xmlNodeListGetString(node->doc, node, 1), 0);
+						zend_hash_next_index_insert(rv, &value, sizeof(zval *), NULL);
+					}
 					goto next_iter;
 				}
 			}
@@ -1228,7 +1233,7 @@ SXE_METHOD(xpath)
 			if (nodeptr->type == XML_TEXT_NODE) {
 				_node_as_zval(sxe, nodeptr->parent, value, SXE_ITER_NONE, NULL, NULL, 0 TSRMLS_CC);
 			} else if (nodeptr->type == XML_ATTRIBUTE_NODE) {
-				_node_as_zval(sxe, nodeptr->parent, value, SXE_ITER_ATTRLIST, (char*)nodeptr->name, NULL, 0 TSRMLS_CC);
+				_node_as_zval(sxe, nodeptr->parent, value, SXE_ITER_ATTRLIST, (char*)nodeptr->name, nodeptr->ns ? (xmlChar *)nodeptr->ns->href : NULL, 0 TSRMLS_CC);
 			} else {
 				_node_as_zval(sxe, nodeptr, value, SXE_ITER_NONE, NULL, NULL, 0 TSRMLS_CC);
 			}
@@ -1322,7 +1327,7 @@ SXE_METHOD(asXML)
 
 	if (node) {
 		if (node->parent && (XML_DOCUMENT_NODE == node->parent->type)) {
-			xmlDocDumpMemory((xmlDocPtr) sxe->document->ptr, &strval, &strval_len);
+			xmlDocDumpMemoryEnc((xmlDocPtr) sxe->document->ptr, &strval, &strval_len, ((xmlDocPtr) sxe->document->ptr)->encoding);
 			RETVAL_STRINGL((char *)strval, strval_len, 1);
 			xmlFree(strval);
 		} else {
@@ -2445,7 +2450,7 @@ PHP_MINFO_FUNCTION(simplexml)
 {
 	php_info_print_table_start();
 	php_info_print_table_header(2, "Simplexml support", "enabled");
-	php_info_print_table_row(2, "Revision", "$Revision: 1.151.2.22.2.39 $");
+	php_info_print_table_row(2, "Revision", "$Revision: 1.151.2.22.2.45 $");
 	php_info_print_table_row(2, "Schema support",
 #ifdef LIBXML_SCHEMAS_ENABLED
 		"enabled");

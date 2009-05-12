@@ -958,8 +958,8 @@ includes:: x-hash.h
 
 depend:: x-hash.h
 
-     DRI_SRCS = dri_glx.c dri_driver.c dri_dispatch.c x-hash.c x-list.c
-     DRI_OBJS = dri_glx.o dri_driver.o dri_dispatch.o x-hash.o x-list.o
+     DRI_SRCS = dri_glx.c dri_driver.c dri_dispatch.c patch_dispatch.c x-hash.c x-list.c
+     DRI_OBJS = dri_glx.o dri_driver.o dri_dispatch.o patch_dispatch.o x-hash.o x-list.o
      DRI_INCS = -I. -I.. -I../glx -I../GL -I../mesa
 
 AS := /System/Library/Frameworks/ApplicationServices.framework

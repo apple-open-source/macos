@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_language_scanner.l,v 1.131.2.11.2.15 2008/04/09 21:40:13 scottmac Exp $ */
+/* $Id: zend_language_scanner.l,v 1.131.2.11.2.17 2008/05/10 09:18:27 mattwil Exp $ */
 
 #define yyleng SCNG(yy_leng)
 #define yytext SCNG(yy_text)
@@ -792,9 +792,11 @@ static void zend_scan_escape_string(zval *zendlval, char *str, int len, char quo
 	while (s<end) {
 		if (*s=='\\') {
 			s++;
-			if (s>=end) {
-				continue;
+			if (s >= end) {
+				*t++ = '\\';
+				break;
 			}
+
 			switch(*s) {
 				case 'n':
 					*t++ = '\n';
@@ -1808,9 +1810,7 @@ HEREDOC_CHARS       ("{"*([^$\n\r\\{]|("\\"[^\n\r]))|{HEREDOC_LITERAL_DOLLAR}|({
 	while (s<end) {
 		if (*s=='\\') {
 			s++;
-			if (s>=end) {
-				continue;
-			}
+
 			switch(*s) {
 				case '\\':
 				case '\'':

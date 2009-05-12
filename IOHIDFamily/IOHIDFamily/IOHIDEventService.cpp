@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2009 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -1744,6 +1744,11 @@ void IOHIDEventService::dispatchTabletProximityEvent(
     
     NUB_UNLOCK;
 #endif /* TARGET_OS_EMBEDDED */
+}
+
+bool IOHIDEventService::readyForReports() 
+{
+    return _readyForInputReports;
 }
 
 #if TARGET_OS_EMBEDDED

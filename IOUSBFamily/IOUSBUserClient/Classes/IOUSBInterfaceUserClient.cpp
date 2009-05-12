@@ -26,7 +26,7 @@
 //
 //================================================================================================
 //
-#include <IOKit/usb/IOUSBController.h>
+#include <IOKit/usb/IOUSBControllerV3.h>
 #include <IOKit/IOKitKeys.h>
 
 #include "IOUSBInterfaceUserClient.h"
@@ -456,7 +456,8 @@ IOUSBInterfaceUserClientV2::start( IOService * provider )
 
     USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::start(%p)",  this, provider);
     
-    IncrementOutstandingIO();		// make sure we don't close until start is done
+	// retain ourselves so we don't go away while start()'ing
+	retain();
 	
     fOwner = OSDynamicCast(IOUSBInterface, provider);
 	
@@ -466,6 +467,9 @@ IOUSBInterfaceUserClientV2::start( IOService * provider )
         goto ErrorExit;
     }
     
+	// Now, retain our provider since we will not open() it until our user-space client open()'s it
+	fOwner->retain();
+	
     if(!super::start(provider))
     {
         USBError(1, "IOUSBInterfaceUserClientV2[%p]::start - super::start returned false!",  this);
@@ -508,17 +512,20 @@ IOUSBInterfaceUserClientV2::start( IOService * provider )
 	
 	// If our IOUSBDevice has a "Need contiguous memory for isoch" property, set a flag indicating so
 	//
-	propertyObj = fOwner->GetDevice()->copyProperty(kUSBControllerNeedsContiguousMemoryForIsoch);
-    boolObj = OSDynamicCast( OSBoolean, propertyObj);
-    if ( boolObj )
+	fNeedContiguousMemoryForLowLatencyIsoch = false;
+	if ( fOwner->GetDevice() )
 	{
-		if ( boolObj->isTrue() )
-			fNeedContiguousMemoryForLowLatencyIsoch = true;
-		else
-			fNeedContiguousMemoryForLowLatencyIsoch = false;
+		propertyObj = fOwner->GetDevice()->copyProperty(kUSBControllerNeedsContiguousMemoryForIsoch);
+		if (propertyObj)
+		{
+			boolObj = OSDynamicCast( OSBoolean, propertyObj);
+			if ( boolObj )
+			{
+				fNeedContiguousMemoryForLowLatencyIsoch = boolObj->isTrue();
+			}
+			propertyObj->release();
+		}
 	}
-	if (propertyObj)
-		propertyObj->release();
 	
     // Now that we have succesfully added our gate to the workloop, set our member variables
     //
@@ -527,12 +534,12 @@ IOUSBInterfaceUserClientV2::start( IOService * provider )
 	
     
     USBLog(7, "-IOUSBInterfaceUserClientV2[%p]::start",  this);
-    
-    DecrementOutstandingIO();
+		
     return true;
     
 ErrorExit:
 		
+	// Clean up
 	if ( commandGate != NULL )
 	{
 		commandGate->release();
@@ -545,7 +552,11 @@ ErrorExit:
         workLoop = NULL;
     }
 	
-    DecrementOutstandingIO();
+	if ( fOwner )
+		fOwner->release();
+	
+	release();
+	
     return false;
 }
 
@@ -2891,12 +2902,16 @@ IOUSBInterfaceUserClientV2::LowLatencyPrepareBuffer(LowLatencyUserBufferInfoV2 *
 	IOMemoryMap *							uhciMap = NULL;
 	void *									uhciMappedData = NULL;
 	bool									preparedUHCIDescriptor = false;
-    
+	IOUSBDevice *							device = NULL;
+	IOUSBControllerV2 *						controller = NULL;
+    IOOptionBits							optionBits;
+	mach_vm_address_t						physicalMask;
+	
     IncrementOutstandingIO();
     
     if (fOwner && !isInactive())
     {
-		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::LowLatencyPrepareBuffer cookie: %d, buffer: %p, size: %d, type %d, isPrepared: %d, next: %p",  this,
+		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::LowLatencyPrepareBuffer  cookie: %d, buffer: %p, size: %d, type %d, isPrepared: %d, next: %p",  this,
 			   (uint32_t)bufferData->cookie,
 			   bufferData->bufferAddress,
 			   (uint32_t)bufferData->bufferSize,
@@ -2922,16 +2937,46 @@ IOUSBInterfaceUserClientV2::LowLatencyPrepareBuffer(LowLatencyUserBufferInfoV2 *
         kernelDataBuffer->cookie = bufferData->cookie;
         kernelDataBuffer->bufferType = bufferData->bufferType;
         
+		// Get the low latency options for our IOBMD from the controller
+		device = fOwner->GetDevice();
+		if ( !device )
+		{
+			USBLog(3,"IOUSBInterfaceUserClientV2[%p]::LowLatencyPrepareBuffer  could not find our IOUSBDevice",  this );
+			ret = kIOReturnNoDevice;
+			goto ErrorExit;
+		}
+		
+		// This method only available for v2 controllers
+		//
+		controller = OSDynamicCast(IOUSBControllerV2, device->GetBus());
+		
+		if ( !controller )
+		{
+			USBLog(3,"IOUSBInterfaceUserClientV2[%p]::LowLatencyPrepareBuffer  could not find our V2 USB controller",  this );
+			ret = kIOReturnNotAttached;
+			goto ErrorExit;
+		}
+		
         // If we are on a UHCI controller and this is a low latency buffer, we need to allocate the data here and share it with user space, as UHCI requires
 		// contiguous memory   
         //
-        if ( fNeedContiguousMemoryForLowLatencyIsoch and ((bufferData->bufferType == kUSBLowLatencyWriteBuffer) or (bufferData->bufferType == kUSBLowLatencyReadBuffer)) )
+        if ( (bufferData->bufferType == kUSBLowLatencyWriteBuffer) or (bufferData->bufferType == kUSBLowLatencyReadBuffer) )
 		{
-			USBLog(1,"IOUSBInterfaceUserClientV2[%p]::LowLatencyPrepareBuffer  About to call to get a contiguous bufferMemoryDescriptor( %qd)!",  this, (uint64_t)bufferData->bufferSize );
-            direction = ( bufferData->bufferType == kUSBLowLatencyWriteBuffer ? kIODirectionOut : kIODirectionIn );
-			uhciDescriptor = IOBufferMemoryDescriptor::withOptions( direction | kIOMemoryPhysicallyContiguous | kIOMemoryKernelUserShared, bufferData->bufferSize, PAGE_SIZE);
-			USBLog(1,"IOUSBInterfaceUserClientV2[%p]::LowLatencyPrepareBuffer  Returned %p",  this, uhciDescriptor );
+
+			ret = controller->GetLowLatencyOptionsAndPhysicalMask(&optionBits,&physicalMask);
+			if ( kIOReturnSuccess != ret )
+			{
+				USBLog(3,"IOUSBInterfaceUserClientV2[%p]::LowLatencyPrepareBuffer  GetLowLatencyOptionsAndPhysicalMask returned 0x%x",  this, (uint32_t)ret );
+				ret = kIOReturnBadArgument;
+				goto ErrorExit;
+			}
 			
+			USBLog(7,"IOUSBInterfaceUserClientV2[%p]::LowLatencyPrepareBuffer  GetLowLatencyOptionsAndPhysicalMask IOOptionBits: %p, physicalMask: %p",  this, (void *)optionBits, (void *)physicalMask );
+			
+            direction = ( bufferData->bufferType == kUSBLowLatencyWriteBuffer ? kIODirectionOut : kIODirectionIn );
+			
+			uhciDescriptor = IOBufferMemoryDescriptor::inTaskWithPhysicalMask( kernel_task, optionBits | direction | kIOMemoryKernelUserShared, bufferData->bufferSize, physicalMask);
+	
 			if ( uhciDescriptor == NULL)
 			{
 				USBLog(1,"IOUSBInterfaceUserClientV2[%p]::LowLatencyPrepareBuffer  Could not create a physically contiguous IOBMD (size %qd)!",  this, (uint64_t)bufferData->bufferSize );
@@ -2962,7 +3007,7 @@ IOUSBInterfaceUserClientV2::LowLatencyPrepareBuffer(LowLatencyUserBufferInfoV2 *
                 goto ErrorExit;
 			}
 			
-			USBLog(1,"IOUSBInterfaceUserClientV2[%p]::LowLatencyPrepareBuffer  mapped virtual address = %p",  this, uhciMappedData );
+			USBLog(7,"IOUSBInterfaceUserClientV2[%p]::LowLatencyPrepareBuffer  mapped virtual address = %p",  this, uhciMappedData );
 			
 			UInt32 * theAddr = (UInt32 *) uhciMappedData;
 			
@@ -2973,37 +3018,11 @@ IOUSBInterfaceUserClientV2::LowLatencyPrepareBuffer(LowLatencyUserBufferInfoV2 *
 			kernelDataBuffer->writeMapForUHCI= uhciMap;
 			
 			*addrOut = (uintptr_t)uhciMappedData;
+ 
+			USBLog(6, "IOUSBInterfaceUserClientV2[%p]::LowLatencyPrepareBuffer  finished preparing data buffer: size %d, desc: %p, map %p, virtual address: %p, cookie: %d",  this,
+				   (uint32_t)kernelDataBuffer->bufferSize, kernelDataBuffer->writeDescritporForUHCI, kernelDataBuffer->writeMapForUHCI,
+				   (void *)uhciMappedData,  (uint32_t)kernelDataBuffer->cookie);
 		}
-        else if ( (bufferData->bufferType == kUSBLowLatencyWriteBuffer) or ( bufferData->bufferType == kUSBLowLatencyReadBuffer) )
-        {
-            // We have a data buffer, so create a IOMD and prepare it
-            //
-            direction = ( bufferData->bufferType == kUSBLowLatencyWriteBuffer ? kIODirectionOut : kIODirectionIn );
-            aDescriptor = IOMemoryDescriptor::withAddress((uintptr_t)bufferData->bufferAddress, bufferData->bufferSize, direction, fTask);
-            if(!aDescriptor) 
-            {
-                USBLog(1,"IOUSBInterfaceUserClientV2[%p]::LowLatencyPrepareBuffer  Could not create a data buffer memory descriptor (addr: %p, size %qd)!",  this, bufferData->bufferAddress, (uint64_t)bufferData->bufferSize );
-                ret = kIOReturnNoMemory;
-                goto ErrorExit;
-            }
-			
-            ret = aDescriptor->prepare();
-            if (ret != kIOReturnSuccess)
-            {
-                USBLog(1,"IOUSBInterfaceUserClientV2[%p]::LowLatencyPrepareBuffer  Could not prepare the data buffer memory descriptor (0x%x)!",  this, ret );
-                goto ErrorExit;
-            }
-			
-            
-            // OK, now save this in our user client structure
-            // 
-            kernelDataBuffer->bufferAddress = bufferData->bufferAddress;
-            kernelDataBuffer->bufferSize = bufferData->bufferSize;
-            kernelDataBuffer->bufferDescriptor = aDescriptor;
-            
-            USBLog(3, "IOUSBInterfaceUserClientV2[%p]::LowLatencyPrepareBuffer  finished preparing data buffer: %p, size %d, desc: %p, cookie: %d",  this,
-				   kernelDataBuffer->bufferAddress, (uint32_t)kernelDataBuffer->bufferSize, kernelDataBuffer->bufferDescriptor, (uint32_t)kernelDataBuffer->cookie);
-        }
         else if ( bufferData->bufferType == kUSBLowLatencyFrameListBuffer )
         {
             // We have a frame list that we need to map to the kernel's memory space
@@ -3048,7 +3067,7 @@ IOUSBInterfaceUserClientV2::LowLatencyPrepareBuffer(LowLatencyUserBufferInfoV2 *
             kernelDataBuffer->frameListDescriptor = aDescriptor;
             kernelDataBuffer->frameListMap = frameListMap;
 			
-            USBLog(3, "IOUSBInterfaceUserClientV2[%p]::LowLatencyPrepareBuffer  finished preparing frame list buffer: %p, size %d, desc: %p, map %p, kernel address: %p, cookie: %d",  this,
+            USBLog(6, "IOUSBInterfaceUserClientV2[%p]::LowLatencyPrepareBuffer  finished preparing frame list buffer: %p, size %d, desc: %p, map %p, kernel address: %p, cookie: %d",  this,
 				   kernelDataBuffer->bufferAddress, (uint32_t)kernelDataBuffer->bufferSize, kernelDataBuffer->bufferDescriptor, kernelDataBuffer->frameListMap,
 				   (void *)kernelDataBuffer->frameListKernelAddress,  (uint32_t)kernelDataBuffer->cookie);
         }
@@ -3675,6 +3694,12 @@ IOUSBInterfaceUserClientV2::stop(IOService * provider)
 	if (fWorkLoop && fGate)
 		fWorkLoop->removeEventSource(fGate);
 	
+	// Undo the retain() that we issued on ourselves and our provider from start()
+	if ( fOwner )
+		fOwner->release();
+	
+	release();
+		
     super::stop(provider);
 	
     USBLog(7, "-IOUSBInterfaceUserClientV2[%p]::stop(%p)",  this, provider);

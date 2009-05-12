@@ -391,9 +391,7 @@ plog( "    freeNodes     = %d \n", header->freeNodes );
 			if ( result ) 
 			{
 				/* node already allocated can be fixed if it is an index node */
-				if ( nodeDescP->kind == kBTIndexNode )
-					goto RebuildBTreeExit;	
-				goto exit;
+				goto RebuildBTreeExit;	
 			}
 				
 			/* Check keys in the node */
@@ -412,10 +410,7 @@ plog( "    freeNodes     = %d \n", header->freeNodes );
 			{
 				result = E_SibLk;
 				RcdError( GPtr, E_SibLk );
-				/* bad sibling link can be fixed if it is an index node */
-				if ( nodeDescP->kind == kBTIndexNode )
-					goto RebuildBTreeExit;	
-				goto exit;
+				goto RebuildBTreeExit;	
 			}	
 			if ( tprP->TPRRtSib == -1 )
 			{
@@ -428,10 +423,7 @@ plog( "    freeNodes     = %d \n", header->freeNodes );
 				{				
 					result = E_SibLk;
 					RcdError( GPtr, E_SibLk );
-					/* bad sibling link can be fixed if it is an index node */
-					if ( nodeDescP->kind == kBTIndexNode )
-						goto RebuildBTreeExit;	
-					goto exit;
+					goto RebuildBTreeExit;	
 				}
 			}
 			
@@ -449,10 +441,7 @@ plog( "    freeNodes     = %d \n", header->freeNodes );
 			{
 				result = E_NHeight;
 				RcdError( GPtr, E_NHeight );
-				/* node height can be fixed if it is an index node */
-				if ( nodeDescP->kind == kBTIndexNode )
-					goto RebuildBTreeExit;	
-				goto exit;
+				goto RebuildBTreeExit;	
 			}
 				
 			/* If we saved the first key in the parent (index) node in past, use it to compare 

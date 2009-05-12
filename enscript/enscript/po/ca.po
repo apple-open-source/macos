@@ -1,0 +1,1307 @@
+# Catalan translation of GNU enscript.
+# Copyright (C) 2002 Free Software Foundation, Inc.
+# Ernest Adrogué Calveras <eadrogue@gmx.net>, 2002.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: enscript 1.6.2\n"
+"POT-Creation-Date: 2003-03-05 09:41+0200\n"
+"PO-Revision-Date: 2002-08-14 12:24+0200\n"
+"Last-Translator: Ernest Adrogué Calveras <eadrogue@gmx.net>\n"
+"Language-Team: Catalan <ca@dodds.net>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=iso-8859-1\n"
+"Content-Transfer-Encoding: 8-bit\n"
+
+#: compat/getopt.c:628
+#, c-format
+msgid "%s: option `%s' is ambiguous\n"
+msgstr "%s: l'opció `%s' és ambigua\n"
+
+#: compat/getopt.c:652
+#, c-format
+msgid "%s: option `--%s' doesn't allow an argument\n"
+msgstr "%s: l'opció `--%s' no admet arguments\n"
+
+#: compat/getopt.c:657
+#, c-format
+msgid "%s: option `%c%s' doesn't allow an argument\n"
+msgstr "%s: l'opció `%c%s' no admet arguments\n"
+
+#: compat/getopt.c:674 compat/getopt.c:847
+#, c-format
+msgid "%s: option `%s' requires an argument\n"
+msgstr "%s: l'opció `%s' requereix un argument\n"
+
+#: compat/getopt.c:703
+#, c-format
+msgid "%s: unrecognized option `--%s'\n"
+msgstr "%s: opció no reconeguda `--%s'\n"
+
+#: compat/getopt.c:707
+#, c-format
+msgid "%s: unrecognized option `%c%s'\n"
+msgstr "%s: opció no reconeguda `%c%s'\n"
+
+#: compat/getopt.c:733
+#, c-format
+msgid "%s: illegal option -- %c\n"
+msgstr "%s: opció il·legal -- %c\n"
+
+#: compat/getopt.c:736
+#, c-format
+msgid "%s: invalid option -- %c\n"
+msgstr "%s: opció no vàlida -- %c\n"
+
+#: compat/getopt.c:766 compat/getopt.c:896
+#, c-format
+msgid "%s: option requires an argument -- %c\n"
+msgstr "%s: l'opció requereix un argument -- %c\n"
+
+#: compat/getopt.c:813
+#, c-format
+msgid "%s: option `-W %s' is ambiguous\n"
+msgstr "%s: l'opció `-W %s' és ambigua\n"
+
+#: compat/getopt.c:831
+#, c-format
+msgid "%s: option `-W %s' doesn't allow an argument\n"
+msgstr "%s: l'opció `-W %s' no admet arguments\n"
+
+#: compat/xalloc.c:70
+#, c-format
+msgid "xmalloc(): couldn't allocate %d bytes\n"
+msgstr "xmalloc(): no s'han pogut assignar %d octets\n"
+
+#: compat/xalloc.c:88
+#, c-format
+msgid "xcalloc(): couldn't allocate %d bytes\n"
+msgstr "xcalloc(): no s'han pogut assignar %d octets\n"
+
+#: compat/xalloc.c:109
+#, c-format
+msgid "xrealloc(): couldn't reallocate %d bytes\n"
+msgstr "xrealloc(): no s'han pogut reassignar %d octets\n"
+
+#: compat/regex.c:996
+msgid "Success"
+msgstr "Succés"
+
+#: compat/regex.c:997
+msgid "No match"
+msgstr "Cap cas"
+
+#: compat/regex.c:998
+msgid "Invalid regular expression"
+msgstr "Expressió regular no vàlida"
+
+#: compat/regex.c:999
+msgid "Invalid collation character"
+msgstr "Caràcter de col·lació no vàlid"
+
+#: compat/regex.c:1000
+msgid "Invalid character class name"
+msgstr "Classe de caràcter no vàlida"
+
+#: compat/regex.c:1001
+msgid "Trailing backslash"
+msgstr "Barra invertida arrossegada"
+
+#: compat/regex.c:1002
+msgid "Invalid back reference"
+msgstr "Referència enrera no vàlida"
+
+#: compat/regex.c:1003
+msgid "Unmatched [ or [^"
+msgstr "Signe [ o [^ no correspost"
+
+#: compat/regex.c:1004
+msgid "Unmatched ( or \\("
+msgstr "Signe ( o \\( no correspost"
+
+#: compat/regex.c:1005
+msgid "Unmatched \\{"
+msgstr "Signe \\{ no correspost"
+
+#: compat/regex.c:1006
+msgid "Invalid content of \\{\\}"
+msgstr "Contingut de \\{\\} no vàlid"
+
+#: compat/regex.c:1007
+msgid "Invalid range end"
+msgstr "Final d'interval no vàlid"
+
+#: compat/regex.c:1008
+msgid "Memory exhausted"
+msgstr "Memòria esgotada"
+
+#: compat/regex.c:1009
+msgid "Invalid preceding regular expression"
+msgstr "Operador de repetició incorrecte"
+
+#: compat/regex.c:1010
+msgid "Premature end of regular expression"
+msgstr "Final prematur de l'expressió regular"
+
+#: compat/regex.c:1011
+msgid "Regular expression too big"
+msgstr "Expressió regular massa gran"
+
+#: compat/regex.c:1012
+msgid "Unmatched ) or \\)"
+msgstr "Signe ) o \\) no correspost"
+
+#: compat/regex.c:5458
+msgid "No previous regular expression"
+msgstr "Cap expressió regular prèvia"
+
+# Comprovar si aquesta cadena és adequada.
+#: src/main.c:966
+#, no-c-format
+msgid "$3v $-40N $3% pages $4L lines  $E $C"
+msgstr "$3v $-40N pàgina $3% de $3=  %D{%d/%m/%Y} %T"
+
+# buscar una manera resumida
+#: src/main.c:996
+#, c-format
+msgid "couldn't get passwd entry for uid=%d: %s"
+msgstr ""
+"no s'ha pogut obtenir l'entrada de l'usuari uid=%d en el fitxer passwd: %s"
+
+#: src/main.c:1088
+#, fuzzy, c-format
+msgid "couldn't read config file \"%s/%s\": %s"
+msgstr "no s'ha pogut obrir el fitxer de configuració \"%s/%s\": %s"
+
+#: src/main.c:1092
+msgid "I did also try the following directories:"
+msgstr ""
+
+#: src/main.c:1093 src/main.c:1094 src/main.c:1095
+#, c-format
+msgid "\t%s"
+msgstr ""
+
+#: src/main.c:1096
+msgid "\t../lib"
+msgstr ""
+
+#: src/main.c:1097
+msgid "\t../../lib"
+msgstr ""
+
+#: src/main.c:1099
+msgid "This is probably an installation error.  Please, try to rebuild:"
+msgstr ""
+
+#: src/main.c:1100
+msgid "\tmake distclean"
+msgstr ""
+
+#: src/main.c:1101
+msgid "\t./configure --prefix=PREFIX"
+msgstr ""
+
+#: src/main.c:1102
+msgid "\tmake"
+msgstr ""
+
+#: src/main.c:1103
+msgid "\tmake check"
+msgstr ""
+
+#: src/main.c:1104
+msgid "\tmake install"
+msgstr ""
+
+#: src/main.c:1106
+msgid "or set the environment variable `ENSCRIPT_LIBRARY' to point to your"
+msgstr ""
+
+#: src/main.c:1108
+msgid "library directory."
+msgstr ""
+
+#: src/main.c:1180
+#, c-format
+msgid "unknown encoding: %s"
+msgstr "codificació desconeguda: %s"
+
+#: src/main.c:1199
+#, c-format
+msgid "couldn't open AFM library: %s"
+msgstr "no s'ha pogut obrir la biblioteca AFM: %s"
+
+# els paràmetres llx, llx, urx i ury són els quatre extrems que defineixen
+# la zona imprimible dins del paper, deuen ser l'abreviació d'alguna cosa
+# però de moment no ho tradueixo.
+#: src/main.c:1228
+msgid ""
+"known media:\n"
+"name             width\theight\tllx\tlly\turx\tury\n"
+"------------------------------------------------------------\n"
+msgstr ""
+"suports coneguts:\n"
+"nom              ample\talçada\tllx\tlly\turx\tury\n"
+"------------------------------------------------------------\n"
+
+#: src/main.c:1247
+#, c-format
+msgid "do not know anything about media \"%s\""
+msgstr "el suport \"%s\" és desconegut"
+
+#: src/main.c:1291
+#, c-format
+msgid ""
+"set new marginals for media `%s' (%dx%d): llx=%d, lly=%d, urx=%d, ury=%d\n"
+msgstr ""
+"nous valors marginals pel suport `%s' (%dx%d): llx=%d, lly=%d, urx=%d, ury=%"
+"d\n"
+
+#: src/main.c:1302
+#, c-format
+msgid "illegal page label format \"%s\""
+msgstr "el format d'etiqueta de pàgina \"%s\" és il·legal"
+
+#: src/main.c:1314
+#, c-format
+msgid "illegal non-printable format \"%s\""
+msgstr "el format de caràcters no-imprimibles \"%s\" és il·legal"
+
+#: src/main.c:1328
+#, c-format
+msgid "illegal style for wrapped line marker: \"%s\""
+msgstr "l'estil de marca d'ajutstament de línia \"%s\" és il·legal"
+
+#: src/main.c:1338
+#, c-format
+msgid "illegal N-up argument: %d"
+msgstr "nombre de pàgines lògiques il·legal: %d"
+
+#: src/main.c:1343
+#, c-format
+msgid "N-up argument must be power of 2: %d"
+msgstr "el nombre de pàgines lògiques ha de ser una potència de 2: %d"
+
+#: src/main.c:1420
+#, c-format
+msgid "malformed underlay position: %s"
+msgstr "la posició del peu de pàgina és incorrecta: %s"
+
+#: src/main.c:1443
+#, c-format
+msgid "illegal underlay style: %s"
+msgstr "l'estil del peu de pàgina és incorrecte: %s"
+
+#: src/main.c:1470
+msgid ""
+"Highlighting is supported for the following languages and file formats:\n"
+"\n"
+msgstr ""
+"Els següents llenguatges i formats suporten ressalt:\n"
+"\n"
+
+#: src/main.c:1641
+#, fuzzy, c-format
+msgid "couldn't create temporary toc file: %s"
+msgstr "no s'ha pogut crear el nom del fitxer índex: %s"
+
+#: src/main.c:1688
+#, c-format
+msgid "couldn't stat input file \"%s\": %s"
+msgstr "no s'ha pogut obtenir l'estat del fitxer \"%s\": %s"
+
+#: src/main.c:1708
+#, c-format
+msgid "couldn't rewind toc file: %s"
+msgstr "no s'ha pogut localitzar l'inici del fitxer índex: %s"
+
+# o «Taula de Continguts»
+#: src/main.c:1714
+msgid "Table of Contents"
+msgstr "Índex"
+
+#: src/main.c:1743
+msgid "no output generated\n"
+msgstr "no s'ha generat res\n"
+
+#: src/main.c:1748
+#, c-format
+msgid "output sent to %s\n"
+msgstr "la sortida s'ha enviat a %s\n"
+
+#: src/main.c:1749 src/main.c:1773
+msgid "printer"
+msgstr "l'impressora"
+
+#: src/main.c:1751
+#, c-format
+msgid "output left in %s\n"
+msgstr "la sortida s'ha deixat a %s\n"
+
+#: src/main.c:1769
+#, c-format
+msgid "[ %d pages * %d copy ]"
+msgstr "[ %d pàgines * %d còpies ]"
+
+#: src/main.c:1772
+#, c-format
+msgid " sent to %s\n"
+msgstr " enviades a %s\n"
+
+#: src/main.c:1775
+#, c-format
+msgid " left in %s\n"
+msgstr " deixades a %s\n"
+
+#: src/main.c:1780
+#, c-format
+msgid "%d lines were %s\n"
+msgstr "%d línies han estat %s\n"
+
+#: src/main.c:1782
+msgid "truncated"
+msgstr "tallades"
+
+#: src/main.c:1782
+msgid "wrapped"
+msgstr "ajustades"
+
+#: src/main.c:1788
+#, c-format
+msgid "%d characters were missing\n"
+msgstr "s'han perdut %d caràcters\n"
+
+#: src/main.c:1792
+msgid "missing character codes (decimal):\n"
+msgstr "codis dels càracters que s'han perdut (en decimal):\n"
+
+#: src/main.c:1800
+#, c-format
+msgid "%d non-printable characters\n"
+msgstr "%d caràcters no imprimibles\n"
+
+#: src/main.c:1805
+msgid "non-printable character codes (decimal):\n"
+msgstr "codis dels caràcters no imprimibles (en decimal):\n"
+
+#: src/main.c:1854
+#, c-format
+msgid "couldn't open printer `%s': %s"
+msgstr "no s'ha pogut obrir l'impressora `%s': %s"
+
+#: src/main.c:1863
+#, c-format
+msgid "couldn't create output file \"%s\": %s"
+msgstr "no s'ha pogut crear el fitxer de sortida \"%s\": %s"
+
+#: src/main.c:1880
+#, fuzzy, c-format
+msgid "couldn't close output file \"%s\": %s"
+msgstr "no s'ha pogut crear el fitxer de sortida \"%s\": %s"
+
+#: src/main.c:1938
+#, c-format
+msgid ""
+"syntax error in option string %s=\"%s\":\n"
+"missing end of quotation: %c"
+msgstr ""
+"error de sintaxi a la cadena %s=\"%s\":\n"
+"falta l'acabament de la cita: %c"
+
+#: src/main.c:1970
+#, c-format
+msgid ""
+"warning: didn't process following options from environment variable %s:\n"
+msgstr "atenció: no es processaran les següents opcions de la variable d'entorn %s:\n"
+
+#: src/main.c:1974
+#, c-format
+msgid "  option %d = \"%s\"\n"
+msgstr "  opció %d = \"%s\"\n"
+
+#: src/main.c:2020
+#, fuzzy
+msgid "number of columns must be larger than zero"
+msgstr "l'aliniació de fitxer ha de ser un nombre positiu"
+
+#: src/main.c:2078
+msgid "file alignment must be larger than zero"
+msgstr "l'aliniació de fitxer ha de ser un nombre positiu"
+
+#: src/main.c:2133 src/main.c:2139 src/main.c:2350 src/util.c:415
+#, c-format
+msgid "malformed font spec: %s"
+msgstr "tipus de lletra incorrecte: %s"
+
+#: src/main.c:2155
+#, c-format
+msgid "couldn't find header definition file \"%s.hdr\""
+msgstr "no s'ha trobat el fitxer de definicions \"%s.hdr\""
+
+#: src/main.c:2199
+#, c-format
+msgid "must print at least one line per each page: %s"
+msgstr "s'ha d'imprimir almenys una línia per pàgina: %s"
+
+#: src/main.c:2219
+#, c-format
+msgid "%s: illegal newline character specifier: '%s': expected 'n' or 'r'\n"
+msgstr "%s: el caràcter de salt-de-línia és il·legal: '%s': s'esperava 'n' o 'r'\n"
+
+#: src/main.c:2308
+#, c-format
+msgid "malformed argument `%s' for option -W, --option: no comma found"
+msgstr ""
+
+#: src/main.c:2313
+#, c-format
+msgid "helper application specification must be single character: %s"
+msgstr ""
+
+#: src/main.c:2409
+msgid "slice must be greater than zero"
+msgstr "el punt d'inici de la secció vertical ha de ser un nombre positiu"
+
+#: src/main.c:2490 states/main.c:320
+#, c-format
+msgid "Try `%s --help' for more information.\n"
+msgstr "Proveu `%s --help' per obtenir més informació.\n"
+
+#: src/main.c:2510
+#, c-format
+msgid ""
+"Usage: %s [OPTION]... [FILE]...\n"
+"Mandatory arguments to long options are mandatory for short options too.\n"
+"  -#                         an alias for option -n, --copies\n"
+"  -1                         same as --columns=1\n"
+"  -2                         same as --columns=2\n"
+"      --columns=NUM          specify the number of columns per page\n"
+"  -a, --pages=PAGES          specify which pages are printed\n"
+"  -A, --file-align=ALIGN     align separate input files to ALIGN\n"
+"  -b, --header=HEADER        set page header\n"
+"  -B, --no-header            no page headers\n"
+"  -c, --truncate-lines       cut long lines (default is to wrap)\n"
+"  -C, --line-numbers[=START]\n"
+"                             precede each line with its line number\n"
+"  -d                         an alias for option --printer\n"
+"  -D, --setpagedevice=KEY[:VALUE]\n"
+"                             pass a page device definition to output\n"
+"  -e, --escapes[=CHAR]       enable special escape interpretation\n"
+msgstr ""
+"Sintaxi: %s [OPCIÓ]... [FITXER]...\n"
+"Els arguments obligatoris per les opcions llargues també ho són per les curtes.\n"
+"  -#                         un àlies de l'opció -n, --copies\n"
+"  -1                         el mateix que --columns=1\n"
+"  -2                         el mateix que --columns=2\n"
+"      --columns=NÚM          especifica el nombre de columnes per pàgina\n"
+"  -a, --pages=PÀG            especifica quines pàgines imprimir\n"
+"  -A, --file-align=ALINEACIÓ alinea diversos fitxers a ALINEACIÓ\n"
+"  -b, --header=ENCAPÇALAMENT defineix l'encapçalament\n"
+"  -B, --no-header            omet l'encapçalament\n"
+"  -c, --truncate-lines       talla les línies llargues (per defecte les ajusta)\n"
+"  -C, --line-numbers[=INICI]\n"
+"                             enumera cada una de les línies\n"
+"  -d                         un àlies de l'opció --printer\n"
+"  -D, --setpagedevice=NOM[:VALOR]\n"
+"                             passa una definició de dispositiu de pàgina al\n"
+"                             codi PostScript generat\n"
+"  -e, --escapes[=CARÀCTER]   interpreta les seqüències especials d'escapada\n"
+
+#: src/main.c:2530
+#, fuzzy
+msgid "  -E, --highlight[=LANG]     highlight source code\n"
+msgstr ""
+"  -E, --pretty-print[=LLENGUATGE]\n"
+"                             imprimeix codi font de manera vistosa\n"
+
+#: src/main.c:2533
+msgid ""
+"  -f, --font=NAME            use font NAME for body text\n"
+"  -F, --header-font=NAME     use font NAME for header texts\n"
+"  -g, --print-anyway         nothing (compatibility option)\n"
+"  -G                         same as --fancy-header\n"
+"      --fancy-header[=NAME]  select fancy page header\n"
+"  -h, --no-job-header        suppress the job header page\n"
+"  -H, --highlight-bars=NUM   specify how high highlight bars are\n"
+"  -i, --indent=NUM           set line indent to NUM characters\n"
+"  -I, --filter=CMD           read input files through input filter CMD\n"
+"  -j, --borders              print borders around columns\n"
+"  -J,                        an alias for option --title\n"
+"  -k, --page-prefeed         enable page prefeed\n"
+"  -K, --no-page-prefeed      disable page prefeed\n"
+"  -l, --lineprinter          simulate lineprinter, this is an alias for:\n"
+"                               --lines-per-page=66, --no-header, --"
+"portrait,\n"
+"                               --columns=1\n"
+msgstr ""
+"  -f, --font=NOM             usa NOM com a tipus de lletra pel document\n"
+"  -F, --header-font=NOM      usa NOM com a tipus de lletra per l'encapçalament\n"
+"  -g, --print-anyway         res (opció de compatibilitat)\n"
+"  -G                         el mateix que --fancy-header\n"
+"      --fancy-header[=NOM]   fa un encapçalament de pàgina gràfic\n"
+"  -h, --no-job-header        omet la pàgina de tasca d'impressió\n"
+"  -H, --highlight-bars=NÚM   especifica l'alçada de les barres de ressalt\n"
+"  -i, --indent=NÚM           entra les línies NÚM caràcters\n"
+"  -I, --filter=ORDRE         llegeix l'entrada a través del filtre ORDRE\n"
+"  -j, --borders              imprimeix un marge al voltant de les columnes\n"
+"  -J                         un àlies de l'opció --title\n"
+"  -k, --page-prefeed         activa la prealimentació de paper\n"
+"  -K, --no-page-prefeed      desactiva la prealimentació de paper\n"
+"  -l, --lineprinter          simula una impressora de línies; un àlies de:\n"
+"                               --lines-per-page=66, --no-header, --"
+"portrait,\n"
+"                               --columns=1\n"
+
+#: src/main.c:2551
+msgid ""
+"  -L, --lines-per-page=NUM   specify how many lines are printed on each "
+"page\n"
+"  -m, --mail                 send mail upon completion\n"
+"  -M, --media=NAME           use output media NAME\n"
+"  -n, --copies=NUM           print NUM copies of each page\n"
+"  -N, --newline=NL           select the newline character.  Possible\n"
+"                             values for NL are: n (`\\n') and r (`\\r').\n"
+"  -o                         an alias for option --output\n"
+"  -O, --missing-characters   list missing characters\n"
+"  -p, --output=FILE          leave output to file FILE.  If FILE is `-',\n"
+"                             leave output to stdout.\n"
+"  -P, --printer=NAME         print output to printer NAME\n"
+"  -q, --quiet, --silent      be really quiet\n"
+"  -r, --landscape            print in landscape mode\n"
+"  -R, --portrait             print in portrait mode\n"
+msgstr ""
+"  -L, --lines-per-page=NÚM   especifica quantes línies imprimir a cada pàgina\n"
+"  -m, --mail                 envia un missatge electrònic en finalitzar\n"
+"  -M, --media=NOM            usa el suport de sortida NOM\n"
+"  -n, --copies=NÚM           imprimeix NÚM còpies de cada pàgina\n"
+"  -N, --newline=SL           selecciona el caràcter de salt-de-línia. Els\n"
+"                             valors possibles de SL són: n (`\\n') i r (`\\r').\n"
+"  -o                         un àlies de l'opció --output\n"
+"  -O, --missing-characters   fa una llista amb els caràcters que s'han perdut\n"
+"  -p, --output=FITXER        deixa la sortida a FITXER. Si FITXER és `-',\n"
+"                             l'envia a la sortida estàndard.\n"
+"  -P, --printer=NOM          envia la sortida a l'impressora NOM\n"
+"  -q, --quiet, --silent      informa amb discreció\n"
+"  -r, --landscape            imprimeix en sentit apaïsat\n"
+"  -R, --portrait             imprimeix en sentit normal\n"
+
+#: src/main.c:2567
+#, fuzzy
+msgid ""
+"  -s, --baselineskip=NUM     set baselineskip to NUM\n"
+"  -S, --statusdict=KEY[:VALUE]\n"
+"                             pass a statusdict definition to the output\n"
+"  -t, --title=TITLE          set banner page's job title to TITLE.  Option\n"
+"                             sets also the name of the input file stdin.\n"
+"  -T, --tabsize=NUM          set tabulator size to NUM\n"
+"  -u, --underlay[=TEXT]      print TEXT under every page\n"
+"  -U, --nup=NUM              print NUM logical pages on each output page\n"
+"  -v, --verbose              tell what we are doing\n"
+"  -V, --version              print version number\n"
+"  -w, --language=LANG        set output language to LANG\n"
+"  -W, --options=APP,OPTION   pass option OPTION to helper application APP\n"
+"  -X, --encoding=NAME        use input encoding NAME\n"
+"  -z, --no-formfeed          do not interpret form feed characters\n"
+"  -Z, --pass-through         pass through PostScript and PCL files\n"
+"                             without any modifications\n"
+msgstr ""
+"  -s, --baselineskip=NÚM     fixa la distància entre línies en NÚM\n"
+"  -S, --statusdict=NOM[:VALOR]\n"
+"                             passa una definició `statusdict' al codi generat.\n"
+"  -t, --title=TÍTOL          defineix el títol de la tasca d'impressió. També\n"
+"                             defineix el nom del fitxer d'entrada stdin.\n"
+"  -T, --tabsize=NÚM          fixa la distància de tabulació en NÚM\n"
+"  -u, --underlay[=TEXT]      imprimeix TEXT al peu de cada pàgina\n"
+"  -U, --nup=NÚM              imprimeix NÚM pàgines lògiques a cada pàgina\n"
+"  -v, --verbose              informa amb loquacitat\n"
+"  -V, --version              mostra la versió del programa\n"
+"  -W, --language=LLENGUATGE  especifica quin llenguatge generar\n"
+"  -X, --encoding=NOM         especifica la codificació de l'entrada\n"
+"  -z, --no-formfeed          no interpreta els caràcters de salt-de-pàgina\n"
+"  -Z, --pass-through         passa fitxers PostScript i PCL sense alterar-"
+"los\n"
+
+#: src/main.c:2585
+msgid ""
+"Long-only options:\n"
+"  --color[=bool]             create color outputs with states\n"
+"  --continuous-page-numbers  count page numbers across input files.  Don't\n"
+"                             restart numbering at beginning of each file.\n"
+"  --download-font=NAME       download font NAME\n"
+"  --extended-return-values   enable extended return values\n"
+"  --filter-stdin=NAME        specify how stdin is shown to the input filter\n"
+"  --footer=FOOTER            set page footer\n"
+"  --h-column-height=HEIGHT   set the horizontal column height to HEIGHT\n"
+"  --help                     print this help and exit\n"
+msgstr ""
+
+#: src/main.c:2596
+#, fuzzy
+msgid ""
+"  --help-highlight           describe all supported --highlight languages\n"
+"                             and file formats\n"
+"  --highlight-bar-gray=NUM   print highlight bars with gray NUM (0 - 1)\n"
+"  --list-media               list names of all known media\n"
+"  --margins=LEFT:RIGHT:TOP:BOTTOM\n"
+"                             adjust page marginals\n"
+"  --mark-wrapped-lines[STYLE]\n"
+"                             mark wrapped lines in the output with STYLE\n"
+"  --non-printable-format=FMT specify how non-printable chars are printed\n"
+msgstr ""
+"Opcions només llargues:\n"
+"  --color[=bool]             imprimeix en color\n"
+"  --download-font=NOM        inclou la descripció del tipus de lletra NOM\n"
+"  --filter-stdin=NOM         especifica com indicar stdin al filtre "
+"d'entrada\n"
+"  --h-column-height=AMPLADA  defineix l'amplada de les columnes\n"
+"  --help                     mostra aquesta ajuda i surt\n"
+"  --help-pretty-print        descriu tots els llenguatges i formats "
+"suportats\n"
+"                             per l'opció --pretty-print\n"
+"  --highlight-bar-gray=NÚM   usa un gris NÚM (0 - 1) per les barres de ressalt\n"
+"  --list-media               mostra tots els suports coneguts\n"
+"  --list-options             mostra totes les opcions i els respectius "
+"valors\n"
+"  --margins=ESQUERRA:DRETA:DALT:BAIX\n"
+"                             ajusta els marges\n"
+"  --mark-wrapped-lines[ESTIL]\n"
+"                             marca les línies ajustades amb ESTIL\n"
+"  --non-printable-format=FMT especifica quin format utilitzar per "
+"representar\n"
+"                             els caràcters no imprimibles\n"
+
+#: src/main.c:2607
+#, fuzzy
+msgid ""
+"  --nup-columnwise           layout pages in the N-up printing columnwise\n"
+"  --nup-xpad=NUM             set the page x-padding of N-up printing to NUM\n"
+"  --nup-ypad=NUM             set the page y-padding of N-up printing to NUM\n"
+"  --page-label-format=FMT    set page label format to FMT\n"
+"  --ps-level=LEVEL           set the PostScript language level that "
+"enscript\n"
+"                             should use\n"
+"  --printer-options=OPTIONS  pass extra options to the printer command\n"
+"  --rotate-even-pages        rotate even-numbered pages 180 degrees\n"
+msgstr ""
+"  --nup-xpad=NÚM             fixa el marge x entre pàgines lògiques en NÚM\n"
+"  --nup-ypad=NÚM             fixa el marge y entre pàgiens lògiques en NÚM\n"
+"  --page-label-format=FMT    defineix el format de l'etiqueta de pàgina\n"
+"  --ps-level=NIVELL          indica quin nivell del llenguatge PostScript "
+"ha\n"
+"                             d'utilitzar l'enscript\n"
+"  --printer-options=OPCIONS  passa opcions addicionals a l'ordre d'impressió\n"
+"  --rotate-even-pages        gira les pàgines parell 180 graus\n"
+
+#: src/main.c:2617
+#, fuzzy
+msgid ""
+"  --slice=NUM                print vertical slice NUM\n"
+"  --style=STYLE              use highlight style STYLE\n"
+"  --swap-even-page-margins   swap left and right side margins for each even\n"
+"                             numbered page\n"
+"  --toc                      print table of contents\n"
+"  --ul-angle=ANGLE           set underlay text's angle to ANGLE\n"
+"  --ul-font=NAME             print underlays with font NAME\n"
+"  --ul-gray=NUM              print underlays with gray value NUM\n"
+"  --ul-position=POS          set underlay's starting position to POS\n"
+"  --ul-style=STYLE           print underlays with style STYLE\n"
+"  --word-wrap                wrap long lines from word boundaries\n"
+msgstr ""
+"  --slice=NÚM                imprimeix la secció vertical definida per NÚM\n"
+"  --style=ESTIL              usa l'estil de ressalt ESTIL\n"
+"  --toc                      imprimeix un índex\n"
+"  --ul-angle=ANGLE           defineix l'inclinació del text del peu de pàgina\n"
+"  --ul-font=NOM              usa el tipus de lletra NOM pel peu de pàgina\n"
+"  --ul-gray=NÚM              imprimeix el peu de pàgina en gris de valor NÚM\n"
+"  --ul-position=POSICIÓ      defineix la posició inicial del peu de pàgina\n"
+"  --ul-style=ESTIL           imprimeix el peu de pàgina amb l'estil ESTIL\n"
+"  --word-wrap                ajusta les línies llargues a nivell de paraula\n"
+
+#: src/main.c:2631
+msgid ""
+"\n"
+"Report bugs to mtr@iki.fi.\n"
+msgstr ""
+"\n"
+"Comuniqueu bugs a mtr@iki.fi.\n"
+
+#: src/psgen.c:324
+#, c-format
+msgid "couldn't find prolog \"%s\": %s\n"
+msgstr "no s'ha trobat el prolog \"%s\": %s\n"
+
+#: src/psgen.c:332
+#, c-format
+msgid "couldn't find encoding file \"%s.enc\": %s\n"
+msgstr "no s'ha trobat el fitxer de codificació \"%s.enc\": %s\n"
+
+#: src/psgen.c:464
+#, c-format
+msgid "couldn't find header definition file \"%s.hdr\": %s\n"
+msgstr "no s'ha trobat el fitxer de definicions \"%s.hdr\": %s\n"
+
+#: src/psgen.c:608
+#, c-format
+msgid "processing file \"%s\"...\n"
+msgstr "processant el fitxer \"%s\"...\n"
+
+#: src/psgen.c:906
+#, c-format
+msgid "EPS file \"%s\" is too large for page\n"
+msgstr "el fitxer EPS \"%s\" no cap a la pàgina\n"
+
+#: src/psgen.c:979
+msgid "user font encoding can be only the system's default or `ps'"
+msgstr "la codificació del tipus de lletra només pot ser la predeterminada o `ps'"
+
+#: src/psgen.c:1220
+#, c-format
+msgid "unknown special escape: %s"
+msgstr "seqüència especial d'escapada desconeguda: %s"
+
+#: src/psgen.c:1346
+#, c-format
+msgid "illegal option %c for ^@epsf escape"
+msgstr "l'opció %c a la seqüència ^@epsf és il·legal"
+
+#: src/psgen.c:1352
+msgid "malformed ^@epsf escape: no ']' after options"
+msgstr "seqüència ^@epsf incorrecta: falta un ']' després de les opcions"
+
+#: src/psgen.c:1364
+#, c-format
+msgid ""
+"too long file name for ^@epsf escape:\n"
+"%.*s"
+msgstr ""
+"la seqüència ^@epsf conté un nom de fitxer massa llarg:\n"
+"%.*s"
+
+#: src/psgen.c:1368
+msgid "unexpected EOF while scanning ^@epsf escape"
+msgstr "final de fitxer inesperat quan s'analitzava la seqüència ^@epsf"
+
+#: src/psgen.c:1374
+msgid "malformed ^@epsf escape: no '{' found"
+msgstr "seqüència ^@epsf incorrecta: no s'ha trobat cap '{'"
+
+#: src/psgen.c:1432
+#, c-format
+msgid "malformed %s escape: no '{' found"
+msgstr "seqüència d'escapada %s incorrecta: no s'ha trobat cap '{'"
+
+#: src/psgen.c:1446
+#, c-format
+msgid ""
+"too long argument for %s escape:\n"
+"%.*s"
+msgstr ""
+"la seqüència d'escapada %s conté un argument massa llarg:\n"
+"%.*s"
+
+#: src/psgen.c:1465
+#, c-format
+msgid "malformed font spec for ^@font escape: %s"
+msgstr "especificació de tipus de lletra incorrecta a la seqüència ^@font: %s"
+
+#: src/psgen.c:1501
+#, c-format
+msgid "malformed color spec for ^@%s escape: %s"
+msgstr "especificació de color incorrecta a la seqüència ^@%s: %s"
+
+#: src/psgen.c:1525
+#, c-format
+msgid "invalid value for ^@shade escape: %s"
+msgstr "valor invàlid a la seqüència ^@shade: %s"
+
+#: src/psgen.c:1533
+#, c-format
+msgid "invalid value for ^@bggray escape: %s"
+msgstr "valor invàlid a la seqüència ^@bggray: %s"
+
+# buscar alterncatives per `open pipe'
+#: src/psgen.c:2397
+#, c-format
+msgid "epsf: couldn't open pipe to command \"%s\": %s\n"
+msgstr "epsf: no s'ha pogut reconduir a l'ordre \"%s\": %s\n"
+
+#: src/psgen.c:2430
+#, c-format
+msgid "couldn't open EPS file \"%s\": %s\n"
+msgstr "no s'ha pogut obrir el fitxer EPS \"%s\": %s\n"
+
+#: src/psgen.c:2467
+#, c-format
+msgid "EPS file \"%s\" does not start with \"%%!\" magic\n"
+msgstr "el fitxer EPS \"%s\" no comença amb la combinació màgica \"%%!\"\n"
+
+#: src/psgen.c:2492
+#, c-format
+msgid ""
+"EPS file \"%s\" contains malformed %%%%BoundingBox row:\n"
+"\"%.*s\"\n"
+msgstr ""
+"el fitxer EPS \"%s\" conté una línia %%%%BoundingBox incorrecta:\n"
+"\"%.*s\"\n"
+
+#: src/psgen.c:2517
+#, c-format
+msgid "EPS file \"%s\" is not a valid EPS file\n"
+msgstr "el fitxer EPS \"%s\" no és un fitxer EPS vàlid\n"
+
+# estudiar detalladament l'opció -Z
+#: src/psgen.c:2659
+#, c-format
+msgid "passing through all input files for output language `%s'\n"
+msgstr "passant tots els fitxers de l'entrada al llenguatge `%s'\n"
+
+# estudiar l'opció -Z
+#: src/psgen.c:2711
+#, c-format
+msgid "passing through %s file \"%s\"\n"
+msgstr "passant el fitxer %s \"%s\"\n"
+
+#: src/psgen.c:2814
+#, fuzzy, c-format
+msgid "couldn't create temporary divert file: %s"
+msgstr "no s'ha pogut crear el nom del fitxer temporal: %s"
+
+#: src/psgen.c:2831
+#, c-format
+msgid "couldn't rewind divert file: %s"
+msgstr "no s'ha pogut localitzar l'inici del fitxer temporal: %s"
+
+#: src/util.c:95
+#, fuzzy, c-format
+msgid "missing argument: %s"
+msgstr "nombre de pàgines lògiques il·legal: %d"
+
+#: src/util.c:185 src/util.c:213
+#, c-format
+msgid "illegal value \"%s\" for option %s"
+msgstr "el valor \"%s\" de l'opció %s és il·legal"
+
+#: src/util.c:201
+#, c-format
+msgid "invalid value \"%s\" for option %s"
+msgstr "el valor \"%s\" de l'opció %s no és vàlid"
+
+#: src/util.c:439
+#, c-format
+msgid "illegal option: %s"
+msgstr "opció il·legal: %s"
+
+#: src/util.c:616
+#, c-format
+msgid "%s:%d: %%Format: no name"
+msgstr "%s:%d: %%Format: cap nom"
+
+#: src/util.c:627
+#, c-format
+msgid "%s:%d: %%Format: too long name, maxlen=%d"
+msgstr "%s:%d: %%Format: nom massa llarg, llargada màxima: %d caràcters"
+
+#: src/util.c:650
+#, c-format
+msgid "%s:%d: %%Format: name \"%s\" is already defined"
+msgstr "%s:%d: %%Format: el nom \"%s\" ja estava definit"
+
+#: src/util.c:671
+#, c-format
+msgid "%s:%d: %%HeaderHeight: no argument"
+msgstr "%s:%d: %%HeaderHeight: cap argument"
+
+#: src/util.c:693
+#, c-format
+msgid "%s:%d: %%FooterHeight: no argument"
+msgstr "%s:%d: %%FooterHeight: cap argument"
+
+# sona estrany
+#: src/util.c:840
+#, c-format
+msgid "%s: warning: font size is negative\n"
+msgstr "%s: atenció: la mida de lletra és un nombre negatiu\n"
+
+#: src/util.c:842
+#, c-format
+msgid "%s: warning: font width is negative\n"
+msgstr "%s: atenció: l'amplada de lletra és un nombre negatiu\n"
+
+#: src/util.c:844
+#, c-format
+msgid "%s: warning: font height is negative\n"
+msgstr "%s: atenció: l'alçada de lletra és un nombre negatiu\n"
+
+#: src/util.c:863
+#, c-format
+msgid "reading AFM info for font \"%s\"\n"
+msgstr "llegint l'informació AFM pel tipus de lletra \"%s\"\n"
+
+#: src/util.c:896
+#, c-format
+msgid "couldn't open AFM file for font \"%s\", using default\n"
+msgstr ""
+"no s'ha pogut obrir el fitxer AFM pel tipus de lletra \"%s\", s'usen els "
+"valors per defecte\n"
+
+#: src/util.c:903
+#, c-format
+msgid "couldn't open AFM file for the default font: %s"
+msgstr "no s'ha pogut obrir el fitxer AFM pel tipus de lletra per defecte: %s"
+
+#: src/util.c:1092
+#, c-format
+msgid "downloading font \"%s\"\n"
+msgstr "carregant el tipus de lletra \"%s\"\n"
+
+#: src/util.c:1097
+#, c-format
+msgid "couldn't open font description file \"%s\": %s\n"
+msgstr "no s'ha pogut obrir la descripció de tipus de lletra \"%s\": %s\n"
+
+#: src/util.c:1387
+#, c-format
+msgid "%s: too long format for %%D{} escape"
+msgstr "%s: format massa llarg a la seqüència d'escapada %%D{}"
+
+#: src/util.c:1472
+#, c-format
+msgid "%s: unknown `%%' escape `%c' (%d)"
+msgstr "%s: seqüència d'escapada `%%' desconeguda `%c' (%d)"
+
+#: src/util.c:1510
+#, c-format
+msgid "%s: no closing ')' for $() escape"
+msgstr "%s: falta el ')' final a la seqüència $()"
+
+#: src/util.c:1513
+#, c-format
+msgid "%s: too long variable name for $() escape"
+msgstr "%s: nom de variable massa llarg a la seqüència $()"
+
+#: src/util.c:1540
+#, c-format
+msgid "%s: too long format for $D{} escape"
+msgstr "%s: format massa llarg a la seqüència $D{}"
+
+#: src/util.c:1628
+#, c-format
+msgid "%s: unknown `$' escape `%c' (%d)"
+msgstr "%s: seqüència d'escapada `$' desconeguda `%c' (%d)"
+
+#: src/util.c:1819
+#, c-format
+msgid "malformed float dimension: \"%s\""
+msgstr "dimensió de nombres reals incorrecta: \"%s\""
+
+#: src/util.c:1936
+#, c-format
+msgid "couldn't open input filter \"%s\" for file \"%s\": %s"
+msgstr "no s'ha pogut obrir el filtre d'entrada \"%s\" pel fitxer \"%s\": %s"
+
+#: src/util.c:1953
+#, c-format
+msgid "couldn't open input file \"%s\": %s"
+msgstr "no s'ha pogut obrir el fitxer d'entrada \"%s\": %s"
+
+#: src/mkafmmap.c:173
+#, c-format
+msgid "file=%s\n"
+msgstr "fitxer=%s\n"
+
+#: src/mkafmmap.c:173
+msgid "stdout"
+msgstr "stdout (sortida estàndard)"
+
+#: src/mkafmmap.c:181
+#, c-format
+msgid "%s: couldn't open output file \"%s\""
+msgstr "%s: no s'ha pogut obrir el fitxer de sortida \"%s\""
+
+#: src/mkafmmap.c:195
+msgid "couldn't create AFM library"
+msgstr "no s'ha pogut crear la biblioteca AFM"
+
+#: src/mkafmmap.c:244
+#, c-format
+msgid ""
+"Usage: %s [OPTION]... FILE...\n"
+"Mandatory arguments to long options are mandatory for short options too.\n"
+"  -h, --help              print this help and exit\n"
+"  -p, --output-file=NAME  print output to file NAME (default file is\n"
+"                          font.map).  If FILE is `-', leavy output to\n"
+"                          stdout.\n"
+"  -V, --version           print version number\n"
+msgstr ""
+"Sintaxi: %s [OPCIÓ]... FITXER...\n"
+"Els arguments obligatoris per les opcions llargues també ho són per les curtes.\n"
+"  -h, --help              mostra aquesta ajuda i surt\n"
+"  -p, --output-file=NOM   escriu la sortida al fitxer NOM (el fitxer per\n"
+"                          defecte és font.map). Si NOM és `-', l'envia a la\n"
+"                          sortida estàndard.\n"
+"  -V, --version           mostra la versió del programa\n"
+
+#: states/lex.l:169 states/lex.l:175
+msgid "error: EOF in comment"
+msgstr "error: final de fitxer en un comentari"
+
+#: states/lex.l:206
+msgid "error: EOF in string constant"
+msgstr "error: final de fitxer en una cadena constant"
+
+#: states/lex.l:313
+msgid "error: EOF in regular expression"
+msgstr "error: final de fitxer en una expressió regular"
+
+#: states/main.c:199
+#, c-format
+msgid "states for GNU %s %s"
+msgstr "states pel GNU %s %s"
+
+#: states/main.c:254
+#, c-format
+msgid "%s: malformed variable definition \"%s\"\n"
+msgstr "%s: definició de variable incorrecta \"%s\"\n"
+
+#: states/main.c:282
+#, c-format
+msgid "%s: couldn't create output file \"%s\": %s\n"
+msgstr "%s: no s'ha pogut crear el fitxer de sortida \"%s\": %s\n"
+
+#: states/main.c:313
+#, c-format
+msgid "%s: unknown warning level `%s'\n"
+msgstr "%s: nivell d'alerta desconegut `%s'\n"
+
+#: states/main.c:362 states/main.c:398 states/prims.c:1377 states/utils.c:229
+#, c-format
+msgid "%s: out of memory\n"
+msgstr "%s: memòria esgotada\n"
+
+#: states/main.c:423
+#, c-format
+msgid "%s: couldn't open input file `%s': %s\n"
+msgstr "%s: no s'ha pogut obrir el fitxer d'entrada `%s': %s\n"
+
+#: states/main.c:447
+#, c-format
+msgid ""
+"Usage: %s [OPTION]... [FILE]...\n"
+"Mandatory arguments to long options are mandatory for short options too.\n"
+msgstr ""
+"Sintaxi: %s [OPCIÓ]... [FITXER]...\n"
+"Els arguments obligatoris per les opcions llargues també ho són per les curtes.\n"
+
+# path
+#: states/main.c:451
+msgid ""
+"  -D, --define=VAR=VAL       define variable VAR to have value VAR\n"
+"  -f, --file=NAME            read state definitions from file NAME\n"
+"  -h, --help                 print this help and exit\n"
+"  -o, --output=NAME          save output to file NAME\n"
+"  -p, --path=PATH            set the load path to PATH\n"
+"  -s, --state=NAME           start from state NAME\n"
+"  -v, --verbose              increase the program verbosity\n"
+"  -V, --version              print version number\n"
+"  -W, --warning=LEVEL        set the warning level to LEVEL\n"
+msgstr ""
+"  -D, --define=VAR=VAL       fixa el valor de la variable VAR en VAL\n"
+"  -f, --file=NOM             llegeix definicions d'estat del fitxer NOM\n"
+"  -h, --help                 mostra aquesta ajuda i surt\n"
+"  -o, --output=NOM           desa la sortida al fitxer NOM\n"
+"  -p, --path=CAMÍ            defineix el camí d'accés\n"
+"  -s, --state=NOM            comença l'execució en estat NOM\n"
+"  -v, --verbose              incrementa la loquacitat\n"
+"  -V, --version              mostra la versió del programa\n"
+"  -W, --warning=NIVELL       fixa el nivell d'alerta en NIVELL\n"
+
+#: states/prims.c:46
+#, fuzzy, c-format
+msgid "%s:%d: %s: too few arguments\n"
+msgstr "%s:%d: %s: argument il·legal\n"
+
+#: states/prims.c:56
+#, fuzzy, c-format
+msgid "%s:%d: %s: too many arguments\n"
+msgstr "%s:%d: %s: argument il·legal\n"
+
+#: states/prims.c:109 states/prims.c:129 states/prims.c:255 states/prims.c:428
+#: states/prims.c:903
+#, c-format
+msgid "%s:%d: %s: illegal argument type\n"
+msgstr "%s:%d: %s: l'argument de tipus és il·legal\n"
+
+#: states/prims.c:470
+#, c-format
+msgid "%s: panic: "
+msgstr "%s: pànic: "
+
+#: states/prims.c:504
+#, c-format
+msgid "%s:%d: %s: malformed version string `%s'\n"
+msgstr "%s:%d: %s: la cadena de versió `%s' és incorrecta\n"
+
+#: states/prims.c:519
+#, c-format
+msgid ""
+"%s: FATAL ERROR: States version %s or higher is required for this script\n"
+msgstr "%s: ERROR FATAL: Aquest script requereix la versió d'states %s o superior\n"
+
+#: states/prims.c:610 states/prims.c:1276
+#, c-format
+msgid "%s:%d: %s: start offset is bigger than end offset\n"
+msgstr "%s:%d: %s: el desplaçamant inicial és major que el final\n"
+
+#: states/prims.c:619 states/prims.c:635 states/prims.c:1282
+#, c-format
+msgid "%s:%d: %s: offset out of range\n"
+msgstr "%s:%d: %s: desplaçament fora d'abast\n"
+
+#: states/prims.c:653
+#, c-format
+msgid "%s:%d: %s: illegal argument\n"
+msgstr "%s:%d: %s: argument il·legal\n"
+
+#: states/prims.c:700
+#, c-format
+msgid "%s:%d: %s: illegal regexp character syntax: %c\n"
+msgstr "%s:%d: %s: la sintaxi del caràcter de l'expressió regular és il·legal: %c\n"
+
+#: states/prims.c:915
+#, c-format
+msgid "%s:%d: %s: couldn't define state `%s'\n"
+msgstr "%s:%d: %s: no s'ha pogut definir l'estat `%s'\n"
+
+#: states/prims.c:1012
+#, c-format
+msgid "%s: primitive `%s': too few arguments for format\n"
+msgstr "%s: primitiu `%s': falten arguments de format\n"
+
+#: states/prims.c:1040
+#, c-format
+msgid "%s:%d: %s: argument %d doesn't match format\n"
+msgstr "%s:%d: %s: l'argument %d no lliga amb cap format\n"
+
+#: states/prims.c:1080
+#, c-format
+msgid "%s:%d: %s: no extra options can be specified for %%s\n"
+msgstr "%s:%d: %s: no es poden definir opcions addicionals per %%s\n"
+
+#: states/prims.c:1089
+#, c-format
+msgid "%s:%d: %s: illegal type specifier `%c'\n"
+msgstr "%s:%d: %s: l'especificació de tipus `%c' és il·legal\n"
+
+#: states/process.c:117
+#, c-format
+msgid "%s: undefined state `%s'\n"
+msgstr "%s: estat indefinit `%s'\n"
+
+#: states/process.c:198
+#, c-format
+msgid "%s: error: undefined variable `%s'\n"
+msgstr "%s: error: variable indefinida `%s'\n"
+
+#: states/process.c:292
+#, c-format
+msgid "%s: undefined super state `%s'\n"
+msgstr "%s: superestat indefinit `%s'\n"
+
+#: states/utils.c:262
+#, c-format
+msgid "%s:%d: couldn't compile regular expression \"%s\": %s\n"
+msgstr "%s:%d: no s'ha pogut compilar l'expressió regular \"%s\": %s\n"
+
+#: states/utils.c:451 states/utils.c:479
+#, c-format
+msgid "%s: ouf of memory"
+msgstr "%s: memòria esgotada"
+
+#: states/utils.c:456
+#, c-format
+msgid "warning: redefining state `%s'"
+msgstr "atenció: redefinint l'estat `%s'"
+
+#: states/utils.c:483
+#, c-format
+msgid "%s:%d: warning: redefining subroutine `%s'\n"
+msgstr "%s:%d: atenció: redefinint la subrutina `%s'\n"
+
+#: states/utils.c:580
+#, c-format
+msgid "%s:%d: error: undefined variable `%s'\n"
+msgstr "%s:%d: error: variable indefinida `%s'\n"
+
+#: states/utils.c:618
+#, c-format
+msgid "%s:%d: error: couldn't set variable `%s'\n"
+msgstr "%s:%d: error: no s'ha pogut definir la variable `%s'\n"
+
+#: states/utils.c:769
+#, c-format
+msgid "%s:%d: error: expression between illegal types\n"
+msgstr "%s:%d: error: expressió entre tipus il·legals\n"
+
+#: states/utils.c:867
+#, fuzzy, c-format
+msgid "%s:%d: error: too few arguments for subroutine\n"
+msgstr "%s: falten arguments a la subrutina\n"
+
+#: states/utils.c:874
+#, fuzzy, c-format
+msgid "%s:%d: error: too many arguments for subroutine\n"
+msgstr "%s: sobren arguments a la subrutina\n"
+
+#: states/utils.c:928
+#, fuzzy, c-format
+msgid "%s:%d: error: undefined procedure `%s'\n"
+msgstr "%s: procediment indefinit `%s'\n"
+
+#: states/utils.c:1020
+#, c-format
+msgid "%s:%d: error: illegal lvalue for assignment\n"
+msgstr ""
+"%s:%d: error: valor de l'esquerra il·legal a l'assignació\n"
+"\n"
+
+#: states/utils.c:1028 states/utils.c:1112
+#, c-format
+msgid "%s:%d: error: array reference index is not integer\n"
+msgstr "%s:%d: error: l'índex de referència de la matriu no és un enter\n"
+
+#: states/utils.c:1034
+#, c-format
+msgid "%s:%d: error: negative array reference index\n"
+msgstr "%s:%d: error: l'índex de referència de la matriu és un nombre negatiu\n"
+
+#: states/utils.c:1085
+#, c-format
+msgid "%s:%d: error: illegal rvalue for string assignment\n"
+msgstr "%s:%d: error: valor de la dreta il·legal a l'assignació de cadena\n"
+
+#: states/utils.c:1104
+#, c-format
+msgid "%s:%d: error: illegal type for array reference\n"
+msgstr "%s:%d: error: el tipus en la referència de la matriu és il·legal\n"
+
+#: states/utils.c:1121
+#, c-format
+msgid "%s:%d: error: array reference index out of rance\n"
+msgstr "%s:%d: error l'índex de referència de la matriu està fora d'abast\n"
+
+#: states/utils.c:1347
+#, c-format
+msgid "%s: couldn't open definition file `%s': %s\n"
+msgstr "%s: no s'ha pogut obrir el fitxer de definicions `%s': %s\n"
+
+#: states/utils.c:1403
+#, c-format
+msgid "%s: autoloading `%s' from `%s'\n"
+msgstr "%s: carregant `%s' de `%s'\n"
+
+#~ msgid "couldn't create toc file \"%s\": %s"
+#~ msgstr "no s'ha pogut crear el fitxer índex \"%s\": %s"
+
+#~ msgid "couldn't create divert file \"%s\": %s"
+#~ msgstr "no s'ha pogut crear el fitxer temporal \"%s\": %s"

@@ -460,7 +460,7 @@ namespace WTF {
         template<typename U> void append(const U*, size_t);
         template<typename U> void append(const U&);
         template<typename U> void uncheckedAppend(const U& val);
-        template<typename U, size_t c> void append(const Vector<U, c>&);
+        template<size_t otherCapacity> void append(const Vector<T, otherCapacity>&);
 
         template<typename U> void insert(size_t position, const U*, size_t);
         template<typename U> void insert(size_t position, const U&);
@@ -471,6 +471,7 @@ namespace WTF {
         template<typename U, size_t c> void prepend(const Vector<U, c>&);
 
         void remove(size_t position);
+        void remove(size_t position, size_t length);
 
         void removeLast() 
         {
@@ -706,8 +707,11 @@ namespace WTF {
         ++m_size;
     }
 
-    template<typename T, size_t inlineCapacity> template<typename U, size_t c>
-    inline void Vector<T, inlineCapacity>::append(const Vector<U, c>& val)
+    // This method should not be called append, a better name would be appendElements.
+    // It could also be eliminated entirely, and call sites could just use
+    // appendRange(val.begin(), val.end()).
+    template<typename T, size_t inlineCapacity> template<size_t otherCapacity>
+    inline void Vector<T, inlineCapacity>::append(const Vector<T, otherCapacity>& val)
     {
         append(val.begin(), val.size());
     }
@@ -771,6 +775,18 @@ namespace WTF {
         spot->~T();
         TypeOperations::moveOverlapping(spot + 1, end(), spot);
         --m_size;
+    }
+
+    template<typename T, size_t inlineCapacity>
+    inline void Vector<T, inlineCapacity>::remove(size_t position, size_t length)
+    {
+        ASSERT(position < size());
+        ASSERT(position + length < size());
+        T* beginSpot = begin() + position;
+        T* endSpot = beginSpot + length;
+        TypeOperations::destruct(beginSpot, endSpot); 
+        TypeOperations::moveOverlapping(endSpot, end(), beginSpot);
+        m_size -= length;
     }
 
     template<typename T, size_t inlineCapacity>

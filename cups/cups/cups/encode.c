@@ -3,7 +3,7 @@
  *
  *   Option encoding routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2009 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -51,6 +51,7 @@ static const _ipp_option_t ipp_options[] =
   { 0, "brightness-default",	IPP_TAG_INTEGER,	IPP_TAG_PRINTER },
   { 0, "columns",		IPP_TAG_INTEGER,	IPP_TAG_JOB },
   { 0, "columns-default",	IPP_TAG_INTEGER,	IPP_TAG_PRINTER },
+  { 0, "compression",		IPP_TAG_KEYWORD,	IPP_TAG_OPERATION },
   { 0, "copies",		IPP_TAG_INTEGER,	IPP_TAG_JOB },
   { 0, "copies-default",	IPP_TAG_INTEGER,	IPP_TAG_PRINTER },
   { 0, "document-format",	IPP_TAG_MIMETYPE,	IPP_TAG_OPERATION },
@@ -63,10 +64,10 @@ static const _ipp_option_t ipp_options[] =
   { 0, "gamma-default",		IPP_TAG_INTEGER,	IPP_TAG_PRINTER },
   { 0, "hue",			IPP_TAG_INTEGER,	IPP_TAG_JOB },
   { 0, "hue-default",		IPP_TAG_INTEGER,	IPP_TAG_PRINTER },
-  { 0, "job-k-limit",		IPP_TAG_INTEGER,	IPP_TAG_JOB },
-  { 0, "job-page-limit",	IPP_TAG_INTEGER,	IPP_TAG_JOB },
+  { 0, "job-k-limit",		IPP_TAG_INTEGER,	IPP_TAG_PRINTER },
+  { 0, "job-page-limit",	IPP_TAG_INTEGER,	IPP_TAG_PRINTER },
   { 0, "job-priority",		IPP_TAG_INTEGER,	IPP_TAG_JOB },
-  { 0, "job-quota-period",	IPP_TAG_INTEGER,	IPP_TAG_JOB },
+  { 0, "job-quota-period",	IPP_TAG_INTEGER,	IPP_TAG_PRINTER },
   { 1, "job-sheets",		IPP_TAG_NAME,		IPP_TAG_JOB },
   { 1, "job-sheets-default",	IPP_TAG_NAME,		IPP_TAG_PRINTER },
   { 0, "job-uuid",		IPP_TAG_URI,		IPP_TAG_JOB },
