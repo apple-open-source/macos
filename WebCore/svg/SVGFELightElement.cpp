@@ -24,40 +24,31 @@
 #if ENABLE(SVG) && ENABLE(SVG_FILTERS)
 #include "SVGFELightElement.h"
 
+#include "MappedAttribute.h"
 #include "SVGNames.h"
 
 namespace WebCore {
 
+char SVGFELightElementIdentifier[] = "SVGFELightElement";
+
 SVGFELightElement::SVGFELightElement(const QualifiedName& tagName, Document* doc)
     : SVGElement(tagName, doc)
-    , m_azimuth(0.0f)
-    , m_elevation(0.0f)
-    , m_x(0.0f)
-    , m_y(0.0f)
-    , m_z(0.0f)
-    , m_pointsAtX(0.0f)
-    , m_pointsAtY(0.0f)
-    , m_pointsAtZ(0.0f)
-    , m_specularExponent(1.0f)
-    , m_limitingConeAngle(0.0f)
+    , m_azimuth(this, SVGNames::azimuthAttr)
+    , m_elevation(this, SVGNames::elevationAttr)
+    , m_x(this, SVGNames::xAttr)
+    , m_y(this, SVGNames::yAttr)
+    , m_z(this, SVGNames::zAttr)
+    , m_pointsAtX(this, SVGNames::pointsAtXAttr)
+    , m_pointsAtY(this, SVGNames::pointsAtYAttr)
+    , m_pointsAtZ(this, SVGNames::pointsAtZAttr)
+    , m_specularExponent(this, SVGNames::specularExponentAttr, 1.0f)
+    , m_limitingConeAngle(this, SVGNames::limitingConeAngleAttr)
 {
 }
 
 SVGFELightElement::~SVGFELightElement()
 {
 }
-
-ANIMATED_PROPERTY_DEFINITIONS(SVGFELightElement, float, Number, number, Azimuth, azimuth, SVGNames::azimuthAttr, m_azimuth)
-ANIMATED_PROPERTY_DEFINITIONS(SVGFELightElement, float, Number, number, Elevation, elevation, SVGNames::elevationAttr, m_elevation)
-ANIMATED_PROPERTY_DEFINITIONS(SVGFELightElement, float, Number, number, X, x, SVGNames::xAttr, m_x)
-ANIMATED_PROPERTY_DEFINITIONS(SVGFELightElement, float, Number, number, Y, y, SVGNames::yAttr, m_y)
-
-ANIMATED_PROPERTY_DEFINITIONS(SVGFELightElement, float, Number, number, Z, z, SVGNames::zAttr, m_z)
-ANIMATED_PROPERTY_DEFINITIONS(SVGFELightElement, float, Number, number, PointsAtX, pointsAtX, SVGNames::pointsAtXAttr, m_pointsAtX)
-ANIMATED_PROPERTY_DEFINITIONS(SVGFELightElement, float, Number, number, PointsAtY, pointsAtY, SVGNames::pointsAtYAttr, m_pointsAtY)
-ANIMATED_PROPERTY_DEFINITIONS(SVGFELightElement, float, Number, number, PointsAtZ, pointsAtZ, SVGNames::pointsAtZAttr, m_pointsAtZ)
-ANIMATED_PROPERTY_DEFINITIONS(SVGFELightElement, float, Number, number, SpecularExponent, specularExponent, SVGNames::specularExponentAttr, m_specularExponent)
-ANIMATED_PROPERTY_DEFINITIONS(SVGFELightElement, float, Number, number, LimitingConeAngle, limitingConeAngle, SVGNames::limitingConeAngleAttr, m_limitingConeAngle)
 
 void SVGFELightElement::parseMappedAttribute(MappedAttribute* attr)
 {

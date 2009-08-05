@@ -1,6 +1,4 @@
 /**
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
@@ -22,28 +20,31 @@
  * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301, USA.
  */
+
 #include "config.h"
 #include "HTMLStyleElement.h"
 
 #include "Document.h"
 #include "HTMLNames.h"
+#include "MappedAttribute.h"
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLStyleElement::HTMLStyleElement(Document* doc)
-    : HTMLElement(styleTag, doc)
+HTMLStyleElement::HTMLStyleElement(const QualifiedName& tagName, Document* doc, bool createdByParser)
+    : HTMLElement(tagName, doc)
     , m_loading(false)
-    , m_createdByParser(false)
+    , m_createdByParser(createdByParser)
 {
+    ASSERT(hasTagName(styleTag));
 }
 
 // other stuff...
 void HTMLStyleElement::parseMappedAttribute(MappedAttribute *attr)
 {
     if (attr->name() == mediaAttr)
-        m_media = attr->value().domString().lower();
+        m_media = attr->value().string().lower();
     else if (attr->name() == titleAttr && m_sheet)
         m_sheet->setTitle(attr->value());
      else
@@ -52,6 +53,7 @@ void HTMLStyleElement::parseMappedAttribute(MappedAttribute *attr)
 
 void HTMLStyleElement::finishParsingChildren()
 {
+    StyleElement::process(this);
     StyleElement::sheet(this);
     m_createdByParser = false;
     HTMLElement::finishParsingChildren();
@@ -61,6 +63,7 @@ void HTMLStyleElement::insertedIntoDocument()
 {
     HTMLElement::insertedIntoDocument();
 
+    document()->addStyleSheetCandidateNode(this, m_createdByParser);
     if (!m_createdByParser)
         StyleElement::insertedIntoDocument(document(), this);
 }
@@ -68,13 +71,16 @@ void HTMLStyleElement::insertedIntoDocument()
 void HTMLStyleElement::removedFromDocument()
 {
     HTMLElement::removedFromDocument();
+    if (document()->renderer())
+        document()->removeStyleSheetCandidateNode(this);
     StyleElement::removedFromDocument(document());
 }
 
-void HTMLStyleElement::childrenChanged(bool changedByParser)
+void HTMLStyleElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
 {
-    StyleElement::process(this);
-    HTMLElement::childrenChanged(changedByParser);
+    if (!changedByParser)
+        StyleElement::process(this);
+    HTMLElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
 }
 
 StyleSheet* HTMLStyleElement::sheet()
@@ -128,6 +134,14 @@ const AtomicString& HTMLStyleElement::type() const
 void HTMLStyleElement::setType(const AtomicString &value)
 {
     setAttribute(typeAttr, value);
+}
+
+void HTMLStyleElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const
+{    
+    HTMLElement::addSubresourceAttributeURLs(urls);
+
+    if (StyleSheet* styleSheet = const_cast<HTMLStyleElement*>(this)->sheet())
+        styleSheet->addSubresourceStyleURLs(urls);
 }
 
 }

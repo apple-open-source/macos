@@ -30,17 +30,23 @@
 #include "config.h"
 #include "SimpleFontData.h"
 
+#include "Font.h"
+#include "FontCache.h"
+
 #if ENABLE(SVG_FONTS)
 #include "SVGFontData.h"
 #include "SVGFontFaceElement.h"
+#include "SVGGlyphElement.h"
 #endif
 
 #include <wtf/MathExtras.h>
+#include <wtf/UnusedParam.h>
 
 namespace WebCore {
 
 SimpleFontData::SimpleFontData(const FontPlatformData& f, bool customFont, bool loading, SVGFontData* svgFontData)
-    : m_font(f)
+    : m_unitsPerEm(defaultUnitsPerEm)
+    , m_font(f)
     , m_treatAsFixedPitch(false)
 #if ENABLE(SVG_FONTS)
     , m_svgFontData(svgFontData)
@@ -49,20 +55,22 @@ SimpleFontData::SimpleFontData(const FontPlatformData& f, bool customFont, bool 
     , m_isLoading(loading)
     , m_smallCapsFontData(0)
 {
-#if ENABLE(SVG_FONTS) && !PLATFORM(QT)
+#if !ENABLE(SVG_FONTS)
+    UNUSED_PARAM(svgFontData);
+#else
     if (SVGFontFaceElement* svgFontFaceElement = svgFontData ? svgFontData->svgFontFaceElement() : 0) {
-       m_unitsPerEm = svgFontFaceElement->unitsPerEm();
+        m_unitsPerEm = svgFontFaceElement->unitsPerEm();
 
-       double scale = f.size();
-       if (m_unitsPerEm)
-           scale /= m_unitsPerEm;
+        double scale = f.size();
+        if (m_unitsPerEm)
+            scale /= m_unitsPerEm;
 
         m_ascent = static_cast<int>(svgFontFaceElement->ascent() * scale);
         m_descent = static_cast<int>(svgFontFaceElement->descent() * scale);
         m_xHeight = static_cast<int>(svgFontFaceElement->xHeight() * scale);
         m_lineGap = 0.1f * f.size();
         m_lineSpacing = m_ascent + m_descent + m_lineGap;
-    
+
         m_spaceGlyph = 0;
         m_spaceWidth = 0;
         m_adjustedSpaceWidth = 0;
@@ -74,7 +82,12 @@ SimpleFontData::SimpleFontData(const FontPlatformData& f, bool customFont, bool 
 #endif
 
     platformInit();
+    platformGlyphInit();
+}
 
+#if !PLATFORM(QT)
+void SimpleFontData::platformGlyphInit()
+{
     GlyphPage* glyphPageZero = GlyphPageTreeNode::getRootChild(this, 0)->page();
     if (!glyphPageZero) {
         LOG_ERROR("Failed to get glyph page zero.");
@@ -112,28 +125,20 @@ SimpleFontData::SimpleFontData(const FontPlatformData& f, bool customFont, bool 
     m_missingGlyphData.fontData = this;
     m_missingGlyphData.glyph = 0;
 }
+#endif
 
 SimpleFontData::~SimpleFontData()
 {
-#if ENABLE(SVG_FONTS) && !PLATFORM(QT)
+#if ENABLE(SVG_FONTS)
     if (!m_svgFontData || !m_svgFontData->svgFontFaceElement())
 #endif
         platformDestroy();
 
-    // We only get deleted when the cache gets cleared.  Since the smallCapsRenderer is also in that cache,
-    // it will be deleted then, so we don't need to do anything here.
-}
-
-float SimpleFontData::widthForGlyph(Glyph glyph) const
-{
-    float width = m_glyphToWidthMap.widthForGlyph(glyph);
-    if (width != cGlyphWidthUnknown)
-        return width;
-    
-    width = platformWidthForGlyph(glyph);
-    m_glyphToWidthMap.setWidthForGlyph(glyph, width);
-    
-    return width;
+    if (!isCustomFont()) {
+        if (m_smallCapsFontData)
+            fontCache()->releaseFontData(m_smallCapsFontData);
+        GlyphPageTreeNode::pruneTreeFontData(this);
+    }
 }
 
 const SimpleFontData* SimpleFontData::fontDataForCharacter(UChar32) const

@@ -41,8 +41,9 @@ const int cAllFamiliesScanned = -1;
 
 class FontFallbackList : public RefCounted<FontFallbackList> {
 public:
-    FontFallbackList();
+    static PassRefPtr<FontFallbackList> create() { return adoptRef(new FontFallbackList()); }
 
+    ~FontFallbackList() { releaseFontData(); }
     void invalidate(PassRefPtr<FontSelector>);
     
     bool isFixedPitch(const Font* f) const { if (m_pitch == UnknownPitch) determinePitch(f); return m_pitch == FixedPitch; };
@@ -51,19 +52,25 @@ public:
     bool loadingCustomFonts() const { return m_loadingCustomFonts; }
 
     FontSelector* fontSelector() const { return m_fontSelector.get(); }
+    unsigned generation() const { return m_generation; }
 
 private:
+    FontFallbackList();
+
     const FontData* primaryFont(const Font* f) const { return fontDataAt(f, 0); }
     const FontData* fontDataAt(const Font*, unsigned index) const;
     const FontData* fontDataForCharacters(const Font*, const UChar*, int length) const;
     
     void setPlatformFont(const FontPlatformData&);
 
-    mutable Vector<const FontData*, 1> m_fontList;
+    void releaseFontData();
+
+    mutable Vector<pair<const FontData*, bool>, 1> m_fontList;
+    RefPtr<FontSelector> m_fontSelector;
     mutable int m_familyIndex;
     mutable Pitch m_pitch;
     mutable bool m_loadingCustomFonts;
-    RefPtr<FontSelector> m_fontSelector;
+    unsigned m_generation;
 
     friend class Font;
 };

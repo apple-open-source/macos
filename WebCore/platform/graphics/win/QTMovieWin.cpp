@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2007, 2008, 2009 Apple, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,6 +30,7 @@
 
 // Put Movies.h first so build failures here point clearly to QuickTime
 #include <Movies.h>
+#include <QuickTimeComponents.h>
 #include <GXMath.h>
 #include <QTML.h>
 
@@ -59,6 +60,7 @@ union UppParam {
 static MovieDrawingCompleteUPP gMovieDrawingCompleteUPP = 0;
 static HashSet<QTMovieWinPrivate*>* gTaskList;
 static Vector<CFStringRef>* gSupportedTypes = 0;
+static SInt32 quickTimeVersion = 0;
 
 static void updateTaskTimer(int maxInterval = 1000)
 {
@@ -82,16 +84,20 @@ public:
     void startTask();
     void endTask();
 
+    void createMovieController();
     void registerDrawingCallback();
     void drawingComplete();
     void updateGWorld();
     void createGWorld();
     void deleteGWorld();
+    void clearGWorld();
+    void cacheMovieScale();
 
     void setSize(int, int);
 
     QTMovieWin* m_movieWin;
     Movie m_movie;
+    MovieController m_movieController;
     bool m_tasking;
     QTMovieWinClient* m_client;
     long m_loadState;
@@ -107,11 +113,17 @@ public:
     int m_gWorldHeight;
     GWorldPtr m_savedGWorld;
     long m_loadError;
+    float m_widthScaleFactor;
+    float m_heightScaleFactor;
+#if !ASSERT_DISABLED
+    bool m_scaleCached;
+#endif
 };
 
 QTMovieWinPrivate::QTMovieWinPrivate()
     : m_movieWin(0)
     , m_movie(0)
+    , m_movieController(0)
     , m_tasking(false)
     , m_client(0)
     , m_loadState(0)
@@ -127,6 +139,11 @@ QTMovieWinPrivate::QTMovieWinPrivate()
     , m_gWorldHeight(0)
     , m_savedGWorld(0)
     , m_loadError(0)
+    , m_widthScaleFactor(1)
+    , m_heightScaleFactor(1)
+#if !ASSERT_DISABLED
+    , m_scaleCached(false)
+#endif
 {
 }
 
@@ -135,6 +152,8 @@ QTMovieWinPrivate::~QTMovieWinPrivate()
     endTask();
     if (m_gWorld)
         deleteGWorld();
+    if (m_movieController)
+        DisposeMovieController(m_movieController);
     if (m_movie)
         DisposeMovie(m_movie);
 }
@@ -171,21 +190,60 @@ void QTMovieWinPrivate::endTask()
     updateTaskTimer();
 }
 
+void QTMovieWinPrivate::cacheMovieScale()
+{
+    Rect naturalRect;
+    Rect initialRect;
+
+    GetMovieNaturalBoundsRect(m_movie, &naturalRect);
+    GetMovieBox(m_movie, &initialRect);
+
+    int naturalWidth = naturalRect.right - naturalRect.left;
+    int naturalHeight = naturalRect.bottom - naturalRect.top;
+
+    if (naturalWidth)
+        m_widthScaleFactor = (initialRect.right - initialRect.left) / naturalWidth;
+    if (naturalHeight)
+        m_heightScaleFactor = (initialRect.bottom - initialRect.top) / naturalHeight;
+#if !ASSERT_DISABLED
+    m_scaleCached = true;;
+#endif
+}
+
 void QTMovieWinPrivate::task() 
 {
     ASSERT(m_tasking);
 
-    if (!m_loadError)
-        MoviesTask(m_movie, 0);
+    if (!m_loadError) {
+        if (m_movieController)
+            MCIdle(m_movieController);
+        else
+            MoviesTask(m_movie, 0);
+    }
 
     // GetMovieLoadState documentation says that you should not call it more often than every quarter of a second.
     if (systemTime() >= m_lastLoadStateCheckTime + 0.25 || m_loadError) { 
-        // If load fails QT's load state is kMovieLoadStateComplete.
+        // If load fails QT's load state is QTMovieLoadStateComplete.
         // This is different from QTKit API and seems strange.
-        long loadState = m_loadError ? kMovieLoadStateError : GetMovieLoadState(m_movie);
+        long loadState = m_loadError ? QTMovieLoadStateError : GetMovieLoadState(m_movie);
         if (loadState != m_loadState) {
+
+            // we only need to erase the movie gworld when the load state changes to loaded while it
+            //  is visible as the gworld is destroyed/created when visibility changes
+            if (loadState >= QTMovieLoadStateLoaded && m_loadState < QTMovieLoadStateLoaded) {
+                if (m_visible)
+                    clearGWorld();
+                cacheMovieScale();
+            }
+
             m_loadState = loadState;
+            if (!m_movieController && m_loadState >= QTMovieLoadStateLoaded)
+                createMovieController();
             m_client->movieLoadStateChanged(m_movieWin);
+            if (m_movieWin->m_disabled) {
+                endTask();
+                return;
+            }
         }
         m_lastLoadStateCheckTime = systemTime();
     }
@@ -209,6 +267,27 @@ void QTMovieWinPrivate::task()
         endTask();
 }
 
+void QTMovieWinPrivate::createMovieController()
+{
+    Rect bounds;
+    long flags;
+
+    if (!m_movie)
+        return;
+
+    if (m_movieController)
+        DisposeMovieController(m_movieController);
+
+    GetMovieBox(m_movie, &bounds);
+    flags = mcTopLeftMovie | mcNotVisible;
+    m_movieController = NewMovieController(m_movie, &bounds, flags);
+    if (!m_movieController)
+        return;
+
+    MCSetControllerPort(m_movieController, m_gWorld);
+    MCSetControllerAttached(m_movieController, false);
+}
+
 void QTMovieWinPrivate::registerDrawingCallback()
 {
     UppParam param;
@@ -218,7 +297,7 @@ void QTMovieWinPrivate::registerDrawingCallback()
 
 void QTMovieWinPrivate::drawingComplete()
 {
-    if (!m_gWorld)
+    if (!m_gWorld || m_movieWin->m_disabled || m_loadState < QTMovieLoadStateLoaded)
         return;
     m_client->movieNewImageAvailable(m_movieWin);
 }
@@ -243,7 +322,7 @@ void QTMovieWinPrivate::updateGWorld()
 void QTMovieWinPrivate::createGWorld()
 {
     ASSERT(!m_gWorld);
-    if (!m_movie)
+    if (!m_movie || m_loadState < QTMovieLoadStateLoaded)
         return;
 
     m_gWorldWidth = max(cGWorldMinWidth, m_width);
@@ -257,11 +336,35 @@ void QTMovieWinPrivate::createGWorld()
     if (err) 
         return;
     GetMovieGWorld(m_movie, &m_savedGWorld, 0);
+    if (m_movieController)
+        MCSetControllerPort(m_movieController, m_gWorld);
     SetMovieGWorld(m_movie, m_gWorld, 0);
     bounds.right = m_width;
     bounds.bottom = m_height;
+    if (m_movieController)
+        MCSetControllerBoundsRect(m_movieController, &bounds);
     SetMovieBox(m_movie, &bounds);
 }
+
+void QTMovieWinPrivate::clearGWorld()
+{
+    if (!m_movie||!m_gWorld)
+        return;
+
+    GrafPtr savePort;
+    GetPort(&savePort); 
+    MacSetPort((GrafPtr)m_gWorld);
+
+    Rect bounds; 
+    bounds.top = 0;
+    bounds.left = 0; 
+    bounds.right = m_gWorldWidth;
+    bounds.bottom = m_gWorldHeight;
+    EraseRect(&bounds);
+
+    MacSetPort(savePort);
+}
+
 
 void QTMovieWinPrivate::setSize(int width, int height)
 {
@@ -269,13 +372,24 @@ void QTMovieWinPrivate::setSize(int width, int height)
         return;
     m_width = width;
     m_height = height;
-    if (!m_movie)
+
+    // Do not change movie box before reaching load state loaded as we grab
+    // the initial size when task() sees that state for the first time, and
+    // we need the initial size to be able to scale movie properly. 
+    if (!m_movie || m_loadState < QTMovieLoadStateLoaded)
         return;
+
+#if !ASSERT_DISABLED
+    ASSERT(m_scaleCached);
+#endif
+
     Rect bounds; 
     bounds.top = 0;
     bounds.left = 0; 
     bounds.right = width;
     bounds.bottom = height;
+    if (m_movieController)
+        MCSetControllerBoundsRect(m_movieController, &bounds);
     SetMovieBox(m_movie, &bounds);
     updateGWorld();
 }
@@ -283,6 +397,8 @@ void QTMovieWinPrivate::setSize(int width, int height)
 void QTMovieWinPrivate::deleteGWorld()
 {
     ASSERT(m_gWorld);
+    if (m_movieController)
+        MCSetControllerPort(m_movieController, m_savedGWorld);
     if (m_movie)
         SetMovieGWorld(m_movie, m_savedGWorld, 0);
     m_savedGWorld = 0;
@@ -295,6 +411,7 @@ void QTMovieWinPrivate::deleteGWorld()
 
 QTMovieWin::QTMovieWin(QTMovieWinClient* client)
     : m_private(new QTMovieWinPrivate())
+    , m_disabled(false)
 {
     m_private->m_movieWin = this;
     m_private->m_client = client;
@@ -308,24 +425,37 @@ QTMovieWin::~QTMovieWin()
 
 void QTMovieWin::play()
 {
-    StartMovie(m_private->m_movie);
+    if (m_private->m_movieController)
+        MCDoAction(m_private->m_movieController, mcActionPrerollAndPlay, (void *)GetMoviePreferredRate(m_private->m_movie));
+    else
+        StartMovie(m_private->m_movie);
     m_private->startTask();
 }
 
 void QTMovieWin::pause()
 {
-    StopMovie(m_private->m_movie);
+    if (m_private->m_movieController)
+        MCDoAction(m_private->m_movieController, mcActionPlay, 0);
+    else
+        StopMovie(m_private->m_movie);
     updateTaskTimer();
 }
 
 float QTMovieWin::rate() const
 {
+    if (!m_private->m_movie)
+        return 0;
     return FixedToFloat(GetMovieRate(m_private->m_movie));
 }
 
 void QTMovieWin::setRate(float rate)
 {
-    SetMovieRate(m_private->m_movie, FloatToFixed(rate));
+    if (!m_private->m_movie)
+        return;
+    if (m_private->m_movieController)
+        MCDoAction(m_private->m_movieController, mcActionPrerollAndPlay, (void *)FloatToFixed(rate));
+    else
+        SetMovieRate(m_private->m_movie, FloatToFixed(rate));
     updateTaskTimer();
 }
 
@@ -353,19 +483,26 @@ void QTMovieWin::setCurrentTime(float time) const
         return;
     m_private->m_seeking = true;
     TimeScale scale = GetMovieTimeScale(m_private->m_movie);
-    SetMovieTimeValue(m_private->m_movie, TimeValue(time * scale));
+    if (m_private->m_movieController){
+        QTRestartAtTimeRecord restart = { time * scale , 0 };
+        MCDoAction(m_private->m_movieController, mcActionRestartAtTime, (void *)&restart);
+    } else
+        SetMovieTimeValue(m_private->m_movie, TimeValue(time * scale));
     updateTaskTimer();
 }
 
 void QTMovieWin::setVolume(float volume)
 {
+    if (!m_private->m_movie)
+        return;
     SetMovieVolume(m_private->m_movie, static_cast<short>(volume * 256));
 }
 
 unsigned QTMovieWin::dataSize() const
 {
-    // FIXME: How to get this?
-    return 1000;
+    if (!m_private->m_movie)
+        return 0;
+    return GetMovieDataSize(m_private->m_movie, 0, GetMovieDuration(m_private->m_movie));
 }
 
 float QTMovieWin::maxTimeLoaded() const
@@ -385,10 +522,12 @@ long QTMovieWin::loadState() const
 
 void QTMovieWin::getNaturalSize(int& width, int& height)
 {
-    Rect rect;
-    GetMovieNaturalBoundsRect(m_private->m_movie, &rect);
-    width = rect.right;
-    height = rect.bottom;
+    Rect rect = { 0, };
+
+    if (m_private->m_movie)
+        GetMovieNaturalBoundsRect(m_private->m_movie, &rect);
+    width = (rect.right - rect.left) * m_private->m_widthScaleFactor;
+    height = (rect.bottom - rect.top) * m_private->m_heightScaleFactor;
 }
 
 void QTMovieWin::setSize(int width, int height)
@@ -428,6 +567,9 @@ void QTMovieWin::load(const UChar* url, int len)
         m_private->endTask();
         if (m_private->m_gWorld)
             m_private->deleteGWorld();
+        if (m_private->m_movieController)
+            DisposeMovieController(m_private->m_movieController);
+        m_private->m_movieController = 0;
         DisposeMovie(m_private->m_movie);
         m_private->m_movie = 0;
     }  
@@ -499,6 +641,7 @@ void QTMovieWin::load(const UChar* url, int len)
     movieProps[moviePropCount].propStatus = 0; 
     moviePropCount++; 
 
+    ASSERT(moviePropCount <= sizeof(movieProps)/sizeof(movieProps[0]));
     m_private->m_loadError = NewMovieFromProperties(moviePropCount, movieProps, 0, NULL, &m_private->m_movie);
 
     CFRelease(urlRef);
@@ -507,15 +650,24 @@ end:
     // get the load fail callback quickly 
     if (m_private->m_loadError)
         updateTaskTimer(0);
-    else
+    else {
+        OSType mode = kQTApertureMode_CleanAperture;
+
+        // Set the aperture mode property on a movie to signal that we want aspect ratio
+        // and clean aperture dimensions. Don't worry about errors, we can't do anything if
+        // the installed version of QT doesn't support it and it isn't serious enough to 
+        // warrant failing.
+        QTSetMovieProperty(m_private->m_movie, kQTPropertyClass_Visual, kQTVisualPropertyID_ApertureMode, sizeof(mode), &mode);
         m_private->registerDrawingCallback();
+    }
 
     CFRelease(urlStringRef);
 }
 
-void QTMovieWin::disableUnsupportedTracks(unsigned& enabledTrackCount)
+void QTMovieWin::disableUnsupportedTracks(unsigned& enabledTrackCount, unsigned& totalTrackCount)
 {
     if (!m_private->m_movie) {
+        totalTrackCount = 0;
         enabledTrackCount = 0;
         return;
     }
@@ -529,11 +681,16 @@ void QTMovieWin::disableUnsupportedTracks(unsigned& enabledTrackCount)
         allowedTrackTypes->add(BaseMediaType);
         allowedTrackTypes->add('clcp'); // Closed caption
         allowedTrackTypes->add('sbtl'); // Subtitle
+        allowedTrackTypes->add('odsm'); // MPEG-4 object descriptor stream
+        allowedTrackTypes->add('sdsm'); // MPEG-4 scene description stream
+        allowedTrackTypes->add(TimeCodeMediaType);
+        allowedTrackTypes->add(TimeCode64MediaType);
     }
 
     long trackCount = GetMovieTrackCount(m_private->m_movie);
     enabledTrackCount = trackCount;
-    
+    totalTrackCount = trackCount;
+
     // Track indexes are 1-based. yuck. These things must descend from old-
     // school mac resources or something.
     for (long trackIndex = 1; trackIndex <= trackCount; trackIndex++) {
@@ -564,6 +721,12 @@ void QTMovieWin::disableUnsupportedTracks(unsigned& enabledTrackCount)
             continue;
         
         if (!allowedTrackTypes->contains(mediaType)) {
+
+            // Different mpeg variants import as different track types so check for the "mpeg 
+            // characteristic" instead of hard coding the (current) list of mpeg media types.
+            if (GetMovieIndTrackType(m_private->m_movie, 1, 'mpeg', movieTrackCharacteristic | movieTrackEnabledOnly))
+                continue;
+
             SetTrackEnabled(currentTrack, false);
             --enabledTrackCount;
         }
@@ -616,6 +779,19 @@ void QTMovieWin::disableUnsupportedTracks(unsigned& enabledTrackCount)
     }
 }
 
+void QTMovieWin::setDisabled(bool b)
+{
+    m_disabled = b;
+}
+
+
+bool QTMovieWin::hasVideo() const
+{
+    if (!m_private->m_movie)
+        return false;
+    return (GetMovieIndTrackType(m_private->m_movie, 1, VisualMediaCharacteristic, movieTrackCharacteristic | movieTrackEnabledOnly));
+}
+
 pascal OSErr movieDrawingCompleteProc(Movie movie, long data)
 {
     UppParam param;
@@ -630,18 +806,89 @@ static void initializeSupportedTypes()
 {
     if (gSupportedTypes)
         return;
-    // FIXME: This list might not be complete. 
-    // There must be some way to get it out from QuickTime.
+
     gSupportedTypes = new Vector<CFStringRef>;
-    gSupportedTypes->append(CFSTR("video/3gpp"));
-    gSupportedTypes->append(CFSTR("video/3gpp2"));
-    gSupportedTypes->append(CFSTR("video/mp4"));
-    gSupportedTypes->append(CFSTR("video/mpeg"));
+    if (quickTimeVersion < minimumQuickTimeVersion) {
+        LOG_ERROR("QuickTime version %x detected, at least %x required. Returning empty list of supported media MIME types.", quickTimeVersion, minimumQuickTimeVersion);
+        return;
+    }
+
+    // QuickTime doesn't have an importer for video/quicktime. Add it manually.
     gSupportedTypes->append(CFSTR("video/quicktime"));
-    gSupportedTypes->append(CFSTR("audio/ac3"));
-    gSupportedTypes->append(CFSTR("audio/aiff"));
-    gSupportedTypes->append(CFSTR("audio/basic"));
-    gSupportedTypes->append(CFSTR("audio/mpeg"));
+
+    for (int index = 0; index < 2; index++) {
+        ComponentDescription findCD;
+
+        // look at all movie importers that can import in place and are installed. 
+        findCD.componentType = MovieImportType;
+        findCD.componentSubType = 0;
+        findCD.componentManufacturer = 0;
+        findCD.componentFlagsMask = cmpIsMissing | movieImportSubTypeIsFileExtension | canMovieImportInPlace | dontAutoFileMovieImport;
+
+        // look at those registered by HFS file types the first time through, by file extension the second time
+        findCD.componentFlags = canMovieImportInPlace | (index ? movieImportSubTypeIsFileExtension : 0);
+        
+        long componentCount = CountComponents(&findCD);
+        if (!componentCount)
+            continue;
+
+        Component comp = 0;
+        while (comp = FindNextComponent(comp, &findCD)) {
+            // Does this component have a MIME type container?
+            ComponentDescription infoCD;
+            OSErr err = GetComponentInfo(comp, &infoCD, nil /*name*/, nil /*info*/, nil /*icon*/);
+            if (err)
+                continue;
+            if (!(infoCD.componentFlags & hasMovieImportMIMEList))
+                continue;
+            QTAtomContainer mimeList = NULL;
+            err = MovieImportGetMIMETypeList((ComponentInstance)comp, &mimeList);
+            if (err || !mimeList)
+                continue;
+
+            // Grab every type from the container.
+            QTLockContainer(mimeList);
+            int typeCount = QTCountChildrenOfType(mimeList, kParentAtomIsContainer, kMimeInfoMimeTypeTag);
+            for (int typeIndex = 1; typeIndex <= typeCount; typeIndex++) {
+                QTAtom mimeTag = QTFindChildByIndex(mimeList, 0, kMimeInfoMimeTypeTag, typeIndex, NULL);
+                if (!mimeTag)
+                    continue;
+                char* atomData;
+                long typeLength;
+                if (noErr != QTGetAtomDataPtr(mimeList, mimeTag, &typeLength, &atomData))
+                    continue;
+
+                char typeBuffer[256];
+                if (typeLength >= sizeof(typeBuffer))
+                    continue;
+                memcpy(typeBuffer, atomData, typeLength);
+                typeBuffer[typeLength] = 0;
+
+                // Only add "audio/..." and "video/..." types.
+                if (strncmp(typeBuffer, "audio/", 6) && strncmp(typeBuffer, "video/", 6))
+                    continue;
+
+                CFStringRef cfMimeType = CFStringCreateWithCString(NULL, typeBuffer, kCFStringEncodingUTF8);
+                if (!cfMimeType)
+                    continue;
+
+                // Only add each type once.
+                bool alreadyAdded = false;
+                for (int addedIndex = 0; addedIndex < gSupportedTypes->size(); addedIndex++) {
+                    CFStringRef type = gSupportedTypes->at(addedIndex);
+                    if (kCFCompareEqualTo == CFStringCompare(cfMimeType, type, kCFCompareCaseInsensitive)) {
+                        alreadyAdded = true;
+                        break;
+                    }
+                }
+                if (!alreadyAdded)
+                    gSupportedTypes->append(cfMimeType);
+                else
+                    CFRelease(cfMimeType);
+            }
+            DisposeHandle(mimeList);
+        }
+    }
 }
 
 unsigned QTMovieWin::countSupportedTypes()
@@ -676,15 +923,14 @@ bool QTMovieWin::initializeQuickTime()
         initialized = true;
         // Initialize and check QuickTime version
         OSErr result = InitializeQTML(0);
-        SInt32 version = 0;
         if (result == noErr)
-            result = Gestalt(gestaltQuickTime, &version);
+            result = Gestalt(gestaltQuickTime, &quickTimeVersion);
         if (result != noErr) {
             LOG_ERROR("No QuickTime available. Disabling <video> and <audio> support.");
             return false;
         }
-        if (version < minimumQuickTimeVersion) {
-            LOG_ERROR("QuickTime version %x detected, at least %x required. Disabling <video> and <audio> support.", version, minimumQuickTimeVersion);
+        if (quickTimeVersion < minimumQuickTimeVersion) {
+            LOG_ERROR("QuickTime version %x detected, at least %x required. Disabling <video> and <audio> support.", quickTimeVersion, minimumQuickTimeVersion);
             return false;
         }
         EnterMovies();

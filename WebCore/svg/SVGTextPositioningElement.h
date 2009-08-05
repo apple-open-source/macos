@@ -1,6 +1,6 @@
 /*
     Copyright (C) 2004, 2005, 2008 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005, 2006 Rob Buis <buis@kde.org>
+                  2004, 2005, 2006, 2008 Rob Buis <buis@kde.org>
 
     This file is part of the KDE project
 
@@ -25,11 +25,12 @@
 
 #if ENABLE(SVG)
 #include "SVGTextContentElement.h"
+#include "SVGLengthList.h"
+#include "SVGNumberList.h"
 
 namespace WebCore {
 
-    class SVGLengthList;
-    class SVGNumberList;
+    extern char SVGTextPositioningElementIdentifier[];
 
     class SVGTextPositioningElement : public SVGTextContentElement {
     public:
@@ -38,12 +39,14 @@ namespace WebCore {
 
         virtual void parseMappedAttribute(MappedAttribute*);
 
+        bool isKnownAttribute(const QualifiedName&);
+
     private:
-        ANIMATED_PROPERTY_DECLARATIONS(SVGTextPositioningElement, SVGLengthList*, RefPtr<SVGLengthList>, X, x)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGTextPositioningElement, SVGLengthList*, RefPtr<SVGLengthList>, Y, y)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGTextPositioningElement, SVGLengthList*, RefPtr<SVGLengthList>, Dx, dx)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGTextPositioningElement, SVGLengthList*, RefPtr<SVGLengthList>, Dy, dy)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGTextPositioningElement, SVGNumberList*, RefPtr<SVGNumberList>, Rotate, rotate)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGTextPositioningElement, SVGTextPositioningElementIdentifier, SVGNames::xAttrString, SVGLengthList, X, x)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGTextPositioningElement, SVGTextPositioningElementIdentifier, SVGNames::yAttrString, SVGLengthList, Y, y)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGTextPositioningElement, SVGTextPositioningElementIdentifier, SVGNames::dxAttrString, SVGLengthList, Dx, dx)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGTextPositioningElement, SVGTextPositioningElementIdentifier, SVGNames::dyAttrString, SVGLengthList, Dy, dy)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGTextPositioningElement, SVGTextPositioningElementIdentifier, SVGNames::rotateAttrString, SVGNumberList, Rotate, rotate)
     };
 
 } // namespace WebCore

@@ -39,6 +39,8 @@ public:
     GIFImageDecoder();
     ~GIFImageDecoder();
 
+    virtual String filenameExtension() const { return "gif"; }
+
     // Take the data and store it.
     virtual void setData(SharedBuffer* data, bool allDataReceived);
 
@@ -53,6 +55,8 @@ public:
     virtual int repetitionCount() const;
 
     virtual RGBA32Buffer* frameBufferAtIndex(size_t index);
+
+    virtual void clearFrameBufferCache(size_t clearBeforeFrame);
 
     virtual unsigned frameDurationAtIndex(size_t index) { return 0; }
 
@@ -79,6 +83,7 @@ private:
 
     bool m_frameCountValid;
     bool m_currentBufferSawAlpha;
+    mutable int m_repetitionCount;
     mutable GIFImageDecoderPrivate* m_reader;
 };
 

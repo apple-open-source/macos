@@ -18,6 +18,7 @@
  * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301, USA.
  */
+
 #include "config.h"
 #include "HTMLMapElement.h"
 
@@ -25,8 +26,9 @@
 #include "HTMLAreaElement.h"
 #include "HTMLCollection.h"
 #include "HTMLNames.h"
-#include "IntSize.h"
 #include "HitTestResult.h"
+#include "IntSize.h"
+#include "MappedAttribute.h"
 
 using namespace std;
 
@@ -34,9 +36,10 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLMapElement::HTMLMapElement(Document *doc)
-    : HTMLElement(mapTag, doc)
+HTMLMapElement::HTMLMapElement(const QualifiedName& tagName, Document* doc)
+    : HTMLElement(tagName, doc)
 {
+    ASSERT(hasTagName(mapTag));
 }
 
 HTMLMapElement::~HTMLMapElement()
@@ -80,14 +83,14 @@ void HTMLMapElement::parseMappedAttribute(MappedAttribute* attr)
         if (attrName == idAttr) {
             // Call base class so that hasID bit gets set.
             HTMLElement::parseMappedAttribute(attr);
-            if (doc->htmlMode() != Document::XHtml)
+            if (doc->isHTMLDocument())
                 return;
         }
         doc->removeImageMap(this);
         String mapName = attr->value();
         if (mapName[0] == '#')
             mapName = mapName.substring(1);
-        m_name = doc->htmlMode() == Document::XHtml ? mapName : mapName.lower();
+        m_name = doc->isHTMLDocument() ? mapName.lower() : mapName;
         doc->addImageMap(this);
     } else
         HTMLElement::parseMappedAttribute(attr);
@@ -95,7 +98,7 @@ void HTMLMapElement::parseMappedAttribute(MappedAttribute* attr)
 
 PassRefPtr<HTMLCollection> HTMLMapElement::areas()
 {
-    return new HTMLCollection(this, HTMLCollection::MapAreas);
+    return HTMLCollection::create(this, MapAreas);
 }
 
 String HTMLMapElement::name() const

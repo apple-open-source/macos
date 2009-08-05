@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,12 +28,13 @@
 
 #include "config.h"
 #include "JSUtils.h"
+
 #include "JSBase.h"
 #include "JSObject.h"
 #include "JSRun.h"
-#include "UserObjectImp.h"
 #include "JSValueWrapper.h"
-#include "JSObject.h"
+#include "UserObjectImp.h"
+#include <JavaScriptCore/JSString.h>
 #include <JavaScriptCore/PropertyNameArray.h>
 
 struct ObjectImpList {
@@ -42,8 +43,8 @@ struct ObjectImpList {
     CFTypeRef data;
 };
 
-static CFTypeRef KJSValueToCFTypeInternal(JSValue *inValue, ExecState *exec, ObjectImpList* inImps);
-
+static CFTypeRef KJSValueToCFTypeInternal(JSValue inValue, ExecState *exec, ObjectImpList* inImps);
+static JSGlueGlobalObject* getThreadGlobalObject();
 
 //--------------------------------------------------------------------------
 // CFStringToUString
@@ -80,9 +81,9 @@ CFStringRef UStringToCFString(const UString& inUString)
 // CFStringToIdentifier
 //--------------------------------------------------------------------------
 
-Identifier CFStringToIdentifier(CFStringRef inCFString)
+Identifier CFStringToIdentifier(CFStringRef inCFString, ExecState* exec)
 {
-    return Identifier(CFStringToUString(inCFString));
+    return Identifier(exec, CFStringToUString(inCFString));
 }
 
 
@@ -99,12 +100,12 @@ CFStringRef IdentifierToCFString(const Identifier& inIdentifier)
 //--------------------------------------------------------------------------
 // KJSValueToJSObject
 //--------------------------------------------------------------------------
-JSUserObject* KJSValueToJSObject(JSValue *inValue, ExecState *exec)
+JSUserObject* KJSValueToJSObject(JSValue inValue, ExecState *exec)
 {
     JSUserObject* result = 0;
 
-    if (inValue->isObject(&UserObjectImp::info)) {
-        UserObjectImp* userObjectImp = static_cast<UserObjectImp *>(inValue);
+    if (inValue.isObject(&UserObjectImp::info)) {
+        UserObjectImp* userObjectImp = static_cast<UserObjectImp *>(asObject(inValue));
         result = userObjectImp->GetJSUserObject();
         if (result)
             result->Retain();
@@ -125,11 +126,11 @@ JSUserObject* KJSValueToJSObject(JSValue *inValue, ExecState *exec)
 //--------------------------------------------------------------------------
 // JSObjectKJSValue
 //--------------------------------------------------------------------------
-JSValue *JSObjectKJSValue(JSUserObject* ptr)
+JSValue JSObjectKJSValue(JSUserObject* ptr)
 {
-    JSLock lock;
+    JSLock lock(true);
 
-    JSValue *result = jsUndefined();
+    JSValue result = jsUndefined();
     if (ptr)
     {
         bool handled = false;
@@ -155,14 +156,14 @@ JSValue *JSObjectKJSValue(JSUserObject* ptr)
                     CFTypeID typeID = CFGetTypeID(cfType);
                     if (typeID == CFStringGetTypeID())
                     {
-                        result = jsString(CFStringToUString((CFStringRef)cfType));
+                        result = jsString(getThreadGlobalExecState(), CFStringToUString((CFStringRef)cfType));
                         handled = true;
                     }
                     else if (typeID == CFNumberGetTypeID())
                     {
                         double num;
                         CFNumberGetValue((CFNumberRef)cfType, kCFNumberDoubleType, &num);
-                        result = jsNumber(num);
+                        result = jsNumber(getThreadGlobalExecState(), num);
                         handled = true;
                     }
                     else if (typeID == CFBooleanGetTypeID())
@@ -181,7 +182,8 @@ JSValue *JSObjectKJSValue(JSUserObject* ptr)
         }
         if (!handled)
         {
-            result = new UserObjectImp(ptr);
+            ExecState* exec = getThreadGlobalExecState();
+            result = new (exec) UserObjectImp(getThreadGlobalObject()->userObjectStructure(), ptr);
         }
     }
     return result;
@@ -194,35 +196,33 @@ JSValue *JSObjectKJSValue(JSUserObject* ptr)
 // KJSValueToCFTypeInternal
 //--------------------------------------------------------------------------
 // Caller is responsible for releasing the returned CFTypeRef
-CFTypeRef KJSValueToCFTypeInternal(JSValue *inValue, ExecState *exec, ObjectImpList* inImps)
+CFTypeRef KJSValueToCFTypeInternal(JSValue inValue, ExecState *exec, ObjectImpList* inImps)
 {
     if (!inValue)
         return 0;
 
     CFTypeRef result = 0;
 
-    JSLock lock;
+    JSLock lock(true);
 
-    switch (inValue->type())
-    {
-        case BooleanType:
+        if (inValue.isBoolean())
             {
-                result = inValue->toBoolean(exec) ? kCFBooleanTrue : kCFBooleanFalse;
+                result = inValue.toBoolean(exec) ? kCFBooleanTrue : kCFBooleanFalse;
                 RetainCFType(result);
+                return result;
             }
-            break;
 
-        case StringType:
+        if (inValue.isString())
             {
-                UString uString = inValue->toString(exec);
+                UString uString = inValue.toString(exec);
                 result = UStringToCFString(uString);
+                return result;
             }
-            break;
 
-        case NumberType:
+        if (inValue.isNumber())
             {
-                double number1 = inValue->toNumber(exec);
-                double number2 = (double)inValue->toInteger(exec);
+                double number1 = inValue.toNumber(exec);
+                double number2 = (double)inValue.toInteger(exec);
                 if (number1 ==  number2)
                 {
                     int intValue = (int)number2;
@@ -232,13 +232,13 @@ CFTypeRef KJSValueToCFTypeInternal(JSValue *inValue, ExecState *exec, ObjectImpL
                 {
                     result = CFNumberCreate(0, kCFNumberDoubleType, &number1);
                 }
+                return result;
             }
-            break;
 
-        case ObjectType:
+        if (inValue.isObject())
             {
-                            if (inValue->isObject(&UserObjectImp::info)) {
-                                UserObjectImp* userObjectImp = static_cast<UserObjectImp *>(inValue);
+                            if (inValue.isObject(&UserObjectImp::info)) {
+                                UserObjectImp* userObjectImp = static_cast<UserObjectImp *>(asObject(inValue));
                     JSUserObject* ptr = userObjectImp->GetJSUserObject();
                     if (ptr)
                     {
@@ -247,7 +247,7 @@ CFTypeRef KJSValueToCFTypeInternal(JSValue *inValue, ExecState *exec, ObjectImpL
                 }
                 else
                 {
-                    JSObject *object = inValue->toObject(exec);
+                    JSObject *object = inValue.toObject(exec);
                     UInt8 isArray = false;
 
                     // if two objects reference each
@@ -275,7 +275,7 @@ CFTypeRef KJSValueToCFTypeInternal(JSValue *inValue, ExecState *exec, ObjectImpL
                         isArray = true;
                         JSGlueGlobalObject* globalObject = static_cast<JSGlueGlobalObject*>(exec->dynamicGlobalObject());
                         if (globalObject && (globalObject->Flags() & kJSFlagConvertAssociativeArray)) {
-                            PropertyNameArray propNames;
+                            PropertyNameArray propNames(exec);
                             object->getPropertyNames(exec, propNames);
                             PropertyNameArray::const_iterator iter = propNames.begin();
                             PropertyNameArray::const_iterator end = propNames.end();
@@ -299,7 +299,7 @@ CFTypeRef KJSValueToCFTypeInternal(JSValue *inValue, ExecState *exec, ObjectImpL
                     if (isArray)
                     {
                         // This is an KJS array
-                        unsigned int length = object->get(exec, "length")->toUInt32(exec);
+                        unsigned int length = object->get(exec, Identifier(exec, "length")).toUInt32(exec);
                         result = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
                         if (result)
                         {
@@ -314,7 +314,7 @@ CFTypeRef KJSValueToCFTypeInternal(JSValue *inValue, ExecState *exec, ObjectImpL
                     else
                     {
                         // Not an array, just treat it like a dictionary which contains (property name, property value) pairs
-                        PropertyNameArray propNames;
+                        PropertyNameArray propNames(exec);
                         object->getPropertyNames(exec, propNames);
                         {
                             result = CFDictionaryCreateMutable(0,
@@ -345,24 +345,20 @@ CFTypeRef KJSValueToCFTypeInternal(JSValue *inValue, ExecState *exec, ObjectImpL
                         }
                     }
                 }
+                return result;
             }
-            break;
 
-        case NullType:
-        case UndefinedType:
-        case UnspecifiedType:
+    if (inValue.isUndefinedOrNull())
+        {
             result = RetainCFType(GetCFNull());
-            break;
+            return result;
+        }
 
-        default:
-            fprintf(stderr, "KJSValueToCFType: wrong value type %d\n", inValue->type());
-            break;
-    }
-
-    return result;
+    ASSERT_NOT_REACHED();
+    return 0;
 }
 
-CFTypeRef KJSValueToCFType(JSValue *inValue, ExecState *exec)
+CFTypeRef KJSValueToCFType(JSValue inValue, ExecState *exec)
 {
     return KJSValueToCFTypeInternal(inValue, exec, 0);
 }
@@ -378,3 +374,53 @@ CFTypeRef GetCFNull(void)
     return result;
 }
 
+/*
+ * This is a slight hack. The JSGlue API has no concept of execution state.
+ * However, execution state is an inherent part of JS, and JSCore requires it.
+ * So, we keep a single execution state for the whole thread and supply it
+ * where necessary.
+
+ * The execution state holds two things: (1) exceptions; (2) the global object. 
+ * JSGlue has no API for accessing exceptions, so we just discard them. As for
+ * the global object, JSGlue includes no calls that depend on it. Its property
+ * getters and setters are per-object; they don't walk up the enclosing scope. 
+ * Functions called by JSObjectCallFunction may reference values in the enclosing 
+ * scope, but they do so through an internally stored scope chain, so we don't 
+ * need to supply the global scope.
+ */      
+
+static pthread_key_t globalObjectKey;
+static pthread_once_t globalObjectKeyOnce = PTHREAD_ONCE_INIT;
+
+static void unprotectGlobalObject(void* data) 
+{
+    JSLock lock(true);
+    gcUnprotect(static_cast<JSGlueGlobalObject*>(data));
+}
+
+static void initializeGlobalObjectKey()
+{
+    pthread_key_create(&globalObjectKey, unprotectGlobalObject);
+}
+
+static JSGlueGlobalObject* getThreadGlobalObject()
+{
+    pthread_once(&globalObjectKeyOnce, initializeGlobalObjectKey);
+    JSGlueGlobalObject* globalObject = static_cast<JSGlueGlobalObject*>(pthread_getspecific(globalObjectKey));
+    if (!globalObject) {
+        globalObject = new (&JSGlobalData::sharedInstance()) JSGlueGlobalObject(JSGlueGlobalObject::createStructure(jsNull()));
+        gcProtect(globalObject);
+        pthread_setspecific(globalObjectKey, globalObject);
+    }
+    return globalObject;
+}
+
+ExecState* getThreadGlobalExecState()
+{
+    ExecState* exec = getThreadGlobalObject()->globalExec();
+
+    // Discard exceptions -- otherwise an exception would forestall JS 
+    // evaluation throughout the thread
+    exec->clearException();
+    return exec;
+}

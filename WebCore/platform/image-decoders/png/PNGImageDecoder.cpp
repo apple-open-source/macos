@@ -35,11 +35,17 @@
  * version of this file under any of the LGPL, the MPL or the GPL.
  */
 
+#include "config.h"
 #include "PNGImageDecoder.h"
 #include "png.h"
 #include "assert.h"
 
 #if PLATFORM(CAIRO) || PLATFORM(QT) || PLATFORM(WX)
+
+#if COMPILER(MSVC)
+// Remove warnings from warning level 4.
+#pragma warning(disable : 4611) // warning C4611: interaction between '_setjmp' and C++ object destruction is non-portable
+#endif
 
 namespace WebCore {
 

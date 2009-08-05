@@ -1,6 +1,6 @@
 /*
     Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
+                  2004, 2005, 2006, 2007, 2008 Rob Buis <buis@kde.org>
                   2006 Alexander Kellett <lypanov@kde.org>
 
     This file is part of the KDE project
@@ -27,10 +27,10 @@
 #include "SVGImageElement.h"
 
 #include "CSSPropertyNames.h"
+#include "MappedAttribute.h"
 #include "RenderSVGImage.h"
 #include "SVGDocument.h"
 #include "SVGLength.h"
-#include "SVGNames.h"
 #include "SVGPreserveAspectRatio.h"
 #include "SVGSVGElement.h"
 #include "XLinkNames.h"
@@ -43,11 +43,11 @@ SVGImageElement::SVGImageElement(const QualifiedName& tagName, Document* doc)
     , SVGLangSpace()
     , SVGExternalResourcesRequired()
     , SVGURIReference()
-    , m_x(this, LengthModeWidth)
-    , m_y(this, LengthModeHeight)
-    , m_width(this, LengthModeWidth)
-    , m_height(this, LengthModeHeight)
-    , m_preserveAspectRatio(new SVGPreserveAspectRatio())
+    , m_x(this, SVGNames::xAttr, LengthModeWidth)
+    , m_y(this, SVGNames::yAttr, LengthModeHeight)
+    , m_width(this, SVGNames::widthAttr, LengthModeWidth)
+    , m_height(this, SVGNames::heightAttr, LengthModeHeight)
+    , m_preserveAspectRatio(this, SVGNames::preserveAspectRatioAttr, SVGPreserveAspectRatio::create())
     , m_imageLoader(this)
 {
 }
@@ -56,31 +56,25 @@ SVGImageElement::~SVGImageElement()
 {
 }
 
-ANIMATED_PROPERTY_DEFINITIONS(SVGImageElement, SVGLength, Length, length, X, x, SVGNames::xAttr, m_x)
-ANIMATED_PROPERTY_DEFINITIONS(SVGImageElement, SVGLength, Length, length, Y, y, SVGNames::yAttr, m_y)
-ANIMATED_PROPERTY_DEFINITIONS(SVGImageElement, SVGLength, Length, length, Width, width, SVGNames::widthAttr, m_width)
-ANIMATED_PROPERTY_DEFINITIONS(SVGImageElement, SVGLength, Length, length, Height, height, SVGNames::heightAttr, m_height)
-ANIMATED_PROPERTY_DEFINITIONS(SVGImageElement, SVGPreserveAspectRatio*, PreserveAspectRatio, preserveAspectRatio, PreserveAspectRatio, preserveAspectRatio, SVGNames::preserveAspectRatioAttr, m_preserveAspectRatio.get())
-
 void SVGImageElement::parseMappedAttribute(MappedAttribute *attr)
 {
     if (attr->name() == SVGNames::xAttr)
-        setXBaseValue(SVGLength(this, LengthModeWidth, attr->value()));
+        setXBaseValue(SVGLength(LengthModeWidth, attr->value()));
     else if (attr->name() == SVGNames::yAttr)
-        setYBaseValue(SVGLength(this, LengthModeHeight, attr->value()));
+        setYBaseValue(SVGLength(LengthModeHeight, attr->value()));
     else if (attr->name() == SVGNames::preserveAspectRatioAttr) {
         const UChar* c = attr->value().characters();
         const UChar* end = c + attr->value().length();
         preserveAspectRatioBaseValue()->parsePreserveAspectRatio(c, end);
     } else if (attr->name() == SVGNames::widthAttr) {
-        setWidthBaseValue(SVGLength(this, LengthModeWidth, attr->value()));
-        addCSSProperty(attr, CSS_PROP_WIDTH, attr->value());
-        if (width().value() < 0.0)
+        setWidthBaseValue(SVGLength(LengthModeWidth, attr->value()));
+        addCSSProperty(attr, CSSPropertyWidth, attr->value());
+        if (widthBaseValue().value(this) < 0.0)
             document()->accessSVGExtensions()->reportError("A negative value for image attribute <width> is not allowed");
     } else if (attr->name() == SVGNames::heightAttr) {
-        setHeightBaseValue(SVGLength(this, LengthModeHeight, attr->value()));
-        addCSSProperty(attr, CSS_PROP_HEIGHT, attr->value());
-        if (height().value() < 0.0)
+        setHeightBaseValue(SVGLength(LengthModeHeight, attr->value()));
+        addCSSProperty(attr, CSSPropertyHeight, attr->value());
+        if (heightBaseValue().value(this) < 0.0)
             document()->accessSVGExtensions()->reportError("A negative value for image attribute <height> is not allowed");
     } else {
         if (SVGTests::parseMappedAttribute(attr))
@@ -106,6 +100,7 @@ void SVGImageElement::svgAttributeChanged(const QualifiedName& attrName)
 
     if (attrName == SVGNames::xAttr || attrName == SVGNames::yAttr ||
         attrName == SVGNames::widthAttr || attrName == SVGNames::heightAttr ||
+        attrName == SVGNames::preserveAspectRatioAttr ||
         SVGTests::isKnownAttribute(attrName) ||
         SVGLangSpace::isKnownAttribute(attrName) ||
         SVGExternalResourcesRequired::isKnownAttribute(attrName) ||
@@ -114,7 +109,7 @@ void SVGImageElement::svgAttributeChanged(const QualifiedName& attrName)
         renderer()->setNeedsLayout(true);
 
         if (isURIAttribute)
-            m_imageLoader.updateFromElement();
+            m_imageLoader.updateFromElementIgnoringPreviousError();
     }
 }
 
@@ -124,22 +119,47 @@ bool SVGImageElement::hasRelativeValues() const
             y().isRelative() || height().isRelative());
 }
 
-RenderObject* SVGImageElement::createRenderer(RenderArena* arena, RenderStyle* style)
+RenderObject* SVGImageElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
     return new (arena) RenderSVGImage(this);
 }
 
 bool SVGImageElement::haveLoadedRequiredResources()
 {
-    return (!externalResourcesRequiredBaseValue() || m_imageLoader.imageComplete());
+    return !externalResourcesRequiredBaseValue() || m_imageLoader.haveFiredLoadEvent();
 }
 
 void SVGImageElement::attach()
 {
     SVGStyledTransformableElement::attach();
-    m_imageLoader.updateFromElement();
-    if (RenderSVGImage* imageObj = static_cast<RenderSVGImage*>(renderer()))
+
+    if (RenderSVGImage* imageObj = static_cast<RenderSVGImage*>(renderer())) {
+        if (imageObj->hasImage())
+            return;
+
         imageObj->setCachedImage(m_imageLoader.image());
+    }
+}
+
+void SVGImageElement::insertedIntoDocument()
+{
+    SVGStyledTransformableElement::insertedIntoDocument();
+
+    // Update image loader, as soon as we're living in the tree.
+    // We can only resolve base URIs properly, after that!
+    m_imageLoader.updateFromElement();
+}
+
+const QualifiedName& SVGImageElement::imageSourceAttributeName() const
+{
+    return XLinkNames::hrefAttr;
+}
+
+void SVGImageElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const
+{
+    SVGStyledTransformableElement::addSubresourceAttributeURLs(urls);
+
+    addSubresourceURL(urls, document()->completeURL(href()));
 }
 
 }

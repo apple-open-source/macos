@@ -323,29 +323,43 @@ bool IOHIKeyboardMapper::init( IOHIKeyboard * delegate,
 
 void IOHIKeyboardMapper::free()
 {
-  if (!_parsedMapping.mapping || !_parsedMapping.mappingLen)
-    return;
-
-  stickyKeysfree();
-  
-  if (_ejectTimerEventSource) {
-    _ejectTimerEventSource->release();
-    _ejectTimerEventSource = 0; 
-  }
-  
-  if (_slowKeysTimerEventSource) {
-    _slowKeysTimerEventSource->release();
-    _slowKeysTimerEventSource = 0; 
-  }
-
-  if (_reserved) {
-    IODelete(_reserved, ExpansionData, 1);
-  }
-  
-  if (_mappingShouldBeFreed)
-    IOFree((void *)_parsedMapping.mapping, _parsedMapping.mappingLen);
-
-  super::free();
+    if (!_parsedMapping.mapping || !_parsedMapping.mappingLen)
+        return;
+        
+    stickyKeysfree();
+    
+    if (_ejectTimerEventSource) {
+        _ejectTimerEventSource->cancelTimeout();
+        
+        IOWorkLoop * workLoop = _hidSystem->getWorkLoop();
+        
+        if( workLoop )
+            workLoop->removeEventSource( _ejectTimerEventSource );
+        
+        _ejectTimerEventSource->release();
+        _ejectTimerEventSource = 0;
+    }
+    
+    if (_slowKeysTimerEventSource) {
+        _slowKeysTimerEventSource->cancelTimeout();
+        
+        IOWorkLoop * workLoop = _hidSystem->getWorkLoop();
+        
+        if( workLoop )
+            workLoop->removeEventSource( _slowKeysTimerEventSource );
+        
+        _slowKeysTimerEventSource->release();
+        _slowKeysTimerEventSource = 0;
+    }
+    
+    if (_reserved) {
+        IODelete(_reserved, ExpansionData, 1);
+    }
+    
+    if (_mappingShouldBeFreed)
+        IOFree((void *)_parsedMapping.mapping, _parsedMapping.mappingLen);
+        
+    super::free();
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

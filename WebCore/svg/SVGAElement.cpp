@@ -34,17 +34,17 @@
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "KeyboardEvent.h"
+#include "MappedAttribute.h"
 #include "MouseEvent.h"
 #include "PlatformMouseEvent.h"
-#include "RenderSVGTransformableContainer.h"
 #include "RenderSVGInline.h"
+#include "RenderSVGTransformableContainer.h"
 #include "ResourceRequest.h"
 #include "SVGNames.h"
+#include "SVGSMILElement.h"
 #include "XLinkNames.h"
 
 namespace WebCore {
-
-using namespace EventNames;
 
 SVGAElement::SVGAElement(const QualifiedName& tagName, Document *doc)
     : SVGStyledTransformableElement(tagName, doc)
@@ -52,6 +52,7 @@ SVGAElement::SVGAElement(const QualifiedName& tagName, Document *doc)
     , SVGTests()
     , SVGLangSpace()
     , SVGExternalResourcesRequired()
+    , m_target(this, SVGNames::targetAttr)
 {
 }
 
@@ -63,8 +64,6 @@ String SVGAElement::title() const
 {
     return getAttribute(XLinkNames::titleAttr);
 }
-
-ANIMATED_PROPERTY_DEFINITIONS(SVGAElement, String, String, string, Target, target, SVGNames::targetAttr, m_target)
 
 void SVGAElement::parseMappedAttribute(MappedAttribute* attr)
 {
@@ -90,15 +89,15 @@ void SVGAElement::svgAttributeChanged(const QualifiedName& attrName)
     // Unlike other SVG*Element classes, SVGAElement only listens to SVGURIReference changes
     // as none of the other properties changes the linking behaviour for our <a> element.
     if (SVGURIReference::isKnownAttribute(attrName)) {
-        bool wasLink = m_isLink;
-        m_isLink = !href().isNull();
+        bool wasLink = isLink();
+        setIsLink(!href().isNull());
 
-        if (wasLink != m_isLink)
-            setChanged();
+        if (wasLink != isLink())
+            setNeedsStyleRecalc();
     }
 }
 
-RenderObject* SVGAElement::createRenderer(RenderArena* arena, RenderStyle* style)
+RenderObject* SVGAElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
     if (static_cast<SVGElement*>(parent())->isTextContent())
         return new (arena) RenderSVGInline(this);
@@ -108,13 +107,13 @@ RenderObject* SVGAElement::createRenderer(RenderArena* arena, RenderStyle* style
 
 void SVGAElement::defaultEventHandler(Event* evt)
 {
-    if (m_isLink && (evt->type() == clickEvent || (evt->type() == keydownEvent && m_focused))) {
+    if (isLink() && (evt->type() == eventNames().clickEvent || (evt->type() == eventNames().keydownEvent && focused()))) {
         MouseEvent* e = 0;
-        if (evt->type() == clickEvent && evt->isMouseEvent())
+        if (evt->type() == eventNames().clickEvent && evt->isMouseEvent())
             e = static_cast<MouseEvent*>(evt);
         
         KeyboardEvent* k = 0;
-        if (evt->type() == keydownEvent && evt->isKeyboardEvent())
+        if (evt->type() == eventNames().keydownEvent && evt->isKeyboardEvent())
             k = static_cast<KeyboardEvent*>(evt);
         
         if (e && e->button() == RightButton) {
@@ -138,10 +137,23 @@ void SVGAElement::defaultEventHandler(Event* evt)
         else if (target.isEmpty()) // if target is empty, default to "_self" or use xlink:target if set
             target = (getAttribute(XLinkNames::showAttr) == "new") ? "_blank" : "_self";
 
-        String url = parseURL(href());
-        if (!evt->defaultPrevented())
+        if (!evt->defaultPrevented()) {
+            String url = parseURL(href());
+#if ENABLE(SVG_ANIMATION)
+            if (url.startsWith("#")) {
+                Element* targetElement = document()->getElementById(url.substring(1));
+                if (SVGSMILElement::isSMILElement(targetElement)) {
+                    SVGSMILElement* timed = static_cast<SVGSMILElement*>(targetElement);
+                    timed->beginByLinkActivation();
+                    evt->setDefaultHandled();
+                    SVGStyledTransformableElement::defaultEventHandler(evt);
+                    return;
+                }
+            }
+#endif
             if (document()->frame())
-                document()->frame()->loader()->urlSelected(document()->completeURL(url), target, evt, false, true);
+                document()->frame()->loader()->urlSelected(document()->completeURL(url), target, evt, false, false, true);
+        }
 
         evt->setDefaultHandled();
     }
@@ -187,8 +199,12 @@ bool SVGAElement::isKeyboardFocusable(KeyboardEvent* event) const
 
 bool SVGAElement::childShouldCreateRenderer(Node* child) const
 {
-    if (static_cast<SVGElement*>(parent())->isTextContent())
-        return child->isTextNode();
+    // http://www.w3.org/2003/01/REC-SVG11-20030114-errata#linking-text-environment
+    // The 'a' element may contain any element that its parent may contain, except itself.
+    if (child->hasTagName(SVGNames::aTag))
+        return false;
+    if (parent() && parent()->isSVGElement())
+        return static_cast<SVGElement*>(parent())->childShouldCreateRenderer(child);
 
     return SVGElement::childShouldCreateRenderer(child);
 }

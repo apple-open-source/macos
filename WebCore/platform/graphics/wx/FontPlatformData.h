@@ -30,43 +30,59 @@
 #define FontPlatformData_H
 
 #include "FontDescription.h"
-#include "CString.h"
 #include "AtomicString.h"
+#include "CString.h"
 #include "StringImpl.h"
+#include <wtf/RefPtr.h>
 
 #include <wx/defs.h>
 #include <wx/font.h>
 
 namespace WebCore {
 
+class FontHolder: public WTF::RefCounted<FontHolder>
+{
+public:
+    FontHolder()
+        : m_font(0)
+    {}
+
+    FontHolder(wxFont* font)
+        : m_font(font)
+    {}
+
+    wxFont* font() { return m_font; }
+
+private:
+    wxFont* m_font;
+};
+
 class FontPlatformData {
 public:
-    class Deleted {};
-
     enum FontState { UNINITIALIZED, DELETED, VALID };
 
-    FontPlatformData(Deleted)
-    : m_fontState(DELETED)
+    FontPlatformData(WTF::HashTableDeletedValueType)
+    : m_fontState(DELETED),
+      m_font(0)
     { }
 
     ~FontPlatformData();
 
-    FontPlatformData(wxFont f) 
-    : m_font(f)
-    , m_fontState(VALID)
-    {
-        m_fontHash = computeHash();        
-    }
-    
     FontPlatformData(const FontDescription&, const AtomicString&);
+    FontPlatformData(float size, bool bold, bool italic)
+    : m_fontState(UNINITIALIZED)
+    , m_font(0)
+    {
+    }
     
     FontPlatformData() 
     : m_fontState(UNINITIALIZED)
+    , m_font(0)
     {
     }
     
-    wxFont font() const {
-        return m_font;
+    wxFont* font() const {
+        return m_font->font();
     }
     
     unsigned hash() const {
@@ -76,28 +92,30 @@ public:
         case UNINITIALIZED:
             return 0;
         case VALID:
-            return m_fontHash;              
+            return computeHash();              
         }
     }
 
+    unsigned computeHash() const;
+
     bool operator==(const FontPlatformData& other) const
     { 
-        if (m_fontState == VALID)
-            return other.m_fontState == VALID && m_font.Ok() && other.m_font.Ok() && m_font.IsSameAs(other.m_font);
+        if (m_font && m_fontState == VALID && other.m_fontState == VALID && other.m_font) {
+            wxFont* thisFont = m_font->font();
+            wxFont* otherFont = other.m_font->font();
+            return thisFont->IsOk() && otherFont->IsOk() && thisFont->IsSameAs(*otherFont);
+        }
         else
             return m_fontState == other.m_fontState;
     }
+
+    bool isHashTableDeletedValue() const { return m_fontState == DELETED; }
     
-    unsigned computeHash() const {
-        wxCharBuffer charBuffer(m_font.GetNativeFontInfoDesc().mb_str(wxConvUTF8));
-        const char* contents = charBuffer;        
-        return StringImpl::computeHash( (UChar*)contents, strlen(contents));
-    }
+    
 
 private:
-    wxFont m_font;
-    FontState m_fontState;    
-    unsigned m_fontHash;
+    WTF::RefPtr<FontHolder> m_font;
+    FontState m_fontState;
 };
 
 }

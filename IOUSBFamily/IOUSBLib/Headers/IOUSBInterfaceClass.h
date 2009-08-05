@@ -67,7 +67,7 @@ protected:
     UInt8								fNumConfigurations;
     // Support for low latency buffers
     UInt32								fNextCookie;
-    LowLatencyUserBufferInfoV2			*fUserBufferInfoListHead;
+    LowLatencyUserBufferInfoV3			*fUserBufferInfoListHead;
     UInt32								fConfigLength;
     IOUSBInterfaceDescriptorPtr			fInterfaceDescriptor;
     IOUSBConfigurationDescriptorPtr		*fConfigurations;
@@ -136,10 +136,10 @@ public:
     virtual IOUSBDescriptorHeader		*FindNextAltInterface( const void * currentDescriptor, IOUSBFindInterfaceRequest *request);
     
 
-    virtual void						AddDataBufferToList( LowLatencyUserBufferInfoV2 * insertBuffer );
-    virtual bool						RemoveDataBufferFromList( LowLatencyUserBufferInfoV2 * removeBuffer );
-    virtual LowLatencyUserBufferInfoV2	*FindBufferAddressInList( void * address );
-    virtual LowLatencyUserBufferInfoV2	*FindBufferAddressRangeInList( void * address, UInt32 size );
+    virtual void						AddDataBufferToList( LowLatencyUserBufferInfoV3 * insertBuffer );
+    virtual bool						RemoveDataBufferFromList( LowLatencyUserBufferInfoV3 * removeBuffer );
+    virtual LowLatencyUserBufferInfoV3	*FindBufferAddressInList( void * address );
+    virtual LowLatencyUserBufferInfoV3	*FindBufferAddressRangeInList( void * address, UInt32 size );
 
     virtual IOReturn					GetInterfaceStringIndex(UInt8 *intfSI);
     virtual IOReturn					CacheConfigDescriptor();

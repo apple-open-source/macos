@@ -1,9 +1,7 @@
 /*
-    This file is part of the KDE libraries
-
     Copyright (C) 1999 Lars Knoll (knoll@mpi-hd.mpg.de)
     Copyright (C) 2006 Alexey Proskuryakov (ap@nypop.com)
-    Copyright (C) 2006 Apple Computer, Inc.
+    Copyright (C) 2006, 2008 Apple Inc. All rights reserved.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -25,10 +23,7 @@
 #ifndef TextResourceDecoder_h
 #define TextResourceDecoder_h
 
-#include "PlatformString.h"
-#include <wtf/RefCounted.h>
-#include "TextDecoder.h"
-#include <wtf/Vector.h>
+#include "TextEncoding.h"
 
 namespace WebCore {
 
@@ -41,35 +36,59 @@ public:
         EncodingFromMetaTag,
         EncodingFromCSSCharset,
         EncodingFromHTTPHeader,
-        UserChosenEncoding
+        UserChosenEncoding,
+        EncodingFromParentFrame
     };
 
-    TextResourceDecoder(const String& mimeType, const TextEncoding& defaultEncoding = TextEncoding());
+    static PassRefPtr<TextResourceDecoder> create(const String& mimeType, const TextEncoding& defaultEncoding = TextEncoding(), bool usesEncodingDetector = false)
+    {
+        return adoptRef(new TextResourceDecoder(mimeType, defaultEncoding, usesEncodingDetector));
+    }
     ~TextResourceDecoder();
 
     void setEncoding(const TextEncoding&, EncodingSource);
-    const TextEncoding& encoding() const { return m_decoder.encoding(); }
+    const TextEncoding& encoding() const { return m_encoding; }
 
     String decode(const char* data, size_t length);
     String flush();
 
+    void setHintEncoding(const TextResourceDecoder* hintDecoder)
+    {
+        // hintEncoding is for use with autodetection, which should be 
+        // only invoked when hintEncoding comes from auto-detection.
+        if (hintDecoder && hintDecoder->m_source == AutoDetectedEncoding)
+            m_hintEncoding = hintDecoder->encoding().name();
+    }
+   
+    void useLenientXMLDecoding() { m_useLenientXMLDecoding = true; }
+    bool sawError() const { return m_sawError; }
+
 private:
-    enum ContentType { PlainText, HTML, XML, CSS }; // PlainText is equivalent to directly using TextDecoder.
+    TextResourceDecoder(const String& mimeType, const TextEncoding& defaultEncoding,
+                        bool usesEncodingDetector);
+
+    enum ContentType { PlainText, HTML, XML, CSS }; // PlainText only checks for BOM.
     static ContentType determineContentType(const String& mimeType);
     static const TextEncoding& defaultEncoding(ContentType, const TextEncoding& defaultEncoding);
 
-    void checkForBOM(const char*, size_t);
+    size_t checkForBOM(const char*, size_t);
     bool checkForCSSCharset(const char*, size_t, bool& movedDataToBuffer);
     bool checkForHeadCharset(const char*, size_t, bool& movedDataToBuffer);
     void detectJapaneseEncoding(const char*, size_t);
+    bool shouldAutoDetect() const;
 
     ContentType m_contentType;
-    TextDecoder m_decoder;
+    TextEncoding m_encoding;
+    OwnPtr<TextCodec> m_codec;
     EncodingSource m_source;
+    const char* m_hintEncoding;
     Vector<char> m_buffer;
     bool m_checkedForBOM;
     bool m_checkedForCSSCharset;
     bool m_checkedForHeadCharset;
+    bool m_useLenientXMLDecoding; // Don't stop on XML decoding errors.
+    bool m_sawError;
+    bool m_usesEncodingDetector;
 };
 
 }

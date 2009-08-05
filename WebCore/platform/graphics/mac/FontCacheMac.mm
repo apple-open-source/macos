@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2007 Nicholas Shanks <webkit@nickshanks.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,6 +35,8 @@
 #import "FontPlatformData.h"
 #import "WebCoreSystemInterface.h"
 #import "WebFontCache.h"
+#import <AppKit/AppKit.h>
+#import <wtf/StdLibExtras.h>
 
 #ifdef BUILDING_ON_TIGER
 typedef int NSInteger;
@@ -41,84 +44,37 @@ typedef int NSInteger;
 
 namespace WebCore {
 
-static bool getAppDefaultValue(CFStringRef key, int *v)
+static void fontCacheATSNotificationCallback(ATSFontNotificationInfoRef, void*)
 {
-    CFPropertyListRef value;
-
-    value = CFPreferencesCopyValue(key, kCFPreferencesCurrentApplication,
-                                   kCFPreferencesAnyUser,
-                                   kCFPreferencesAnyHost);
-    if (value == 0) {
-        value = CFPreferencesCopyValue(key, kCFPreferencesCurrentApplication,
-                                       kCFPreferencesCurrentUser,
-                                       kCFPreferencesAnyHost);
-        if (value == 0)
-            return false;
-    }
-
-    if (CFGetTypeID(value) == CFNumberGetTypeID()) {
-        if (v != 0)
-            CFNumberGetValue((const CFNumberRef)value, kCFNumberIntType, v);
-    } else if (CFGetTypeID(value) == CFStringGetTypeID()) {
-        if (v != 0)
-            *v = CFStringGetIntValue((const CFStringRef)value);
-    } else {
-        CFRelease(value);
-        return false;
-    }
-
-    CFRelease(value);
-    return true;
+    fontCache()->invalidate();
 }
-
-static bool getUserDefaultValue(CFStringRef key, int *v)
-{
-    CFPropertyListRef value;
-
-    value = CFPreferencesCopyValue(key, kCFPreferencesAnyApplication,
-                                   kCFPreferencesCurrentUser,
-                                   kCFPreferencesCurrentHost);
-    if (value == 0)
-        return false;
-
-    if (CFGetTypeID(value) == CFNumberGetTypeID()) {
-        if (v != 0)
-            CFNumberGetValue((const CFNumberRef)value, kCFNumberIntType, v);
-    } else if (CFGetTypeID(value) == CFStringGetTypeID()) {
-        if (v != 0)
-            *v = CFStringGetIntValue((const CFStringRef)value);
-    } else {
-        CFRelease(value);
-        return false;
-    }
-
-    CFRelease(value);
-    return true;
-}
-
-static int getLCDScaleParameters(void)
-{
-    int mode;
-    CFStringRef key;
-
-    key = CFSTR("AppleFontSmoothing");
-    if (!getAppDefaultValue(key, &mode)) {
-        if (!getUserDefaultValue(key, &mode))
-            return 1;
-    }
-
-    if (wkFontSmoothingModeIsLCD(mode))
-        return 4;
-    return 1;
-}
-
-#define MINIMUM_GLYPH_CACHE_SIZE 1536 * 1024
 
 void FontCache::platformInit()
 {
-    size_t s = MINIMUM_GLYPH_CACHE_SIZE*getLCDScaleParameters();
+    wkSetUpFontCache();
+    // FIXME: Passing kATSFontNotifyOptionReceiveWhileSuspended may be an overkill and does not seem to work anyway.
+    ATSFontNotificationSubscribe(fontCacheATSNotificationCallback, kATSFontNotifyOptionReceiveWhileSuspended, 0, 0);
+}
 
-    wkSetUpFontCache(s);
+static int toAppKitFontWeight(FontWeight fontWeight)
+{
+    static int appKitFontWeights[] = {
+        2,  // FontWeight100
+        3,  // FontWeight200
+        4,  // FontWeight300
+        5,  // FontWeight400
+        6,  // FontWeight500
+        8,  // FontWeight600
+        9,  // FontWeight700
+        10, // FontWeight800
+        12, // FontWeight900
+    };
+    return appKitFontWeights[fontWeight];
+}
+
+static inline bool isAppKitFontWeightBold(NSInteger appKitFontWeight)
+{
+    return appKitFontWeight >= 7;
 }
 
 const SimpleFontData* FontCache::getFontDataForCharacters(const Font& font, const UChar* characters, int length)
@@ -126,8 +82,7 @@ const SimpleFontData* FontCache::getFontDataForCharacters(const Font& font, cons
     const FontPlatformData& platformData = font.fontDataAt(0)->fontDataForCharacter(characters[0])->platformData();
     NSFont *nsFont = platformData.font();
 
-    NSString *string = [[NSString alloc] initWithCharactersNoCopy:const_cast<UChar*>(characters)
-        length:length freeWhenDone:NO];
+    NSString *string = [[NSString alloc] initWithCharactersNoCopy:const_cast<UChar*>(characters) length:length freeWhenDone:NO];
     NSFont *substituteFont = wkGetFontInLanguageForRange(nsFont, string, NSMakeRange(0, length));
     [string release];
 
@@ -135,49 +90,45 @@ const SimpleFontData* FontCache::getFontDataForCharacters(const Font& font, cons
         substituteFont = wkGetFontInLanguageForCharacter(nsFont, characters[0]);
     if (!substituteFont)
         return 0;
-    
+
     // Use the family name from the AppKit-supplied substitute font, requesting the
     // traits, weight, and size we want. One way this does better than the original
     // AppKit request is that it takes synthetic bold and oblique into account.
     // But it does create the possibility that we could end up with a font that
     // doesn't actually cover the characters we need.
 
-    NSFontManager *manager = [NSFontManager sharedFontManager];
+    NSFontManager *fontManager = [NSFontManager sharedFontManager];
 
     NSFontTraitMask traits;
     NSInteger weight;
     CGFloat size;
 
     if (nsFont) {
-        traits = [manager traitsOfFont:nsFont];
+        traits = [fontManager traitsOfFont:nsFont];
         if (platformData.m_syntheticBold)
             traits |= NSBoldFontMask;
         if (platformData.m_syntheticOblique)
-            traits |= NSItalicFontMask;
-        weight = [manager weightOfFont:nsFont];
+            traits |= NSFontItalicTrait;
+        weight = [fontManager weightOfFont:nsFont];
         size = [nsFont pointSize];
     } else {
         // For custom fonts nsFont is nil.
-        traits = (font.bold() ? NSBoldFontMask : 0) | (font.italic() ? NSItalicFontMask : 0);
-        weight = 5;
+        traits = font.italic() ? NSFontItalicTrait : 0;
+        weight = toAppKitFontWeight(font.weight());
         size = font.pixelSize();
     }
 
-    NSFont *bestVariation = [manager fontWithFamily:[substituteFont familyName]
-        traits:traits
-        weight:weight
-        size:size];
-    if (bestVariation)
+    if (NSFont *bestVariation = [fontManager fontWithFamily:[substituteFont familyName] traits:traits weight:weight size:size])
         substituteFont = bestVariation;
 
-    substituteFont = font.fontDescription().usePrinterFont()
-        ? [substituteFont printerFont] : [substituteFont screenFont];
+    substituteFont = font.fontDescription().usePrinterFont() ? [substituteFont printerFont] : [substituteFont screenFont];
 
-    NSFontTraitMask substituteFontTraits = [manager traitsOfFont:substituteFont];
+    NSFontTraitMask substituteFontTraits = [fontManager traitsOfFont:substituteFont];
+    NSInteger substituteFontWeight = [fontManager weightOfFont:substituteFont];
 
     FontPlatformData alternateFont(substituteFont, 
-        !font.isPlatformFont() && (traits & NSBoldFontMask) && !(substituteFontTraits & NSBoldFontMask),
-        !font.isPlatformFont() && (traits & NSItalicFontMask) && !(substituteFontTraits & NSItalicFontMask));
+        !font.isPlatformFont() && isAppKitFontWeightBold(weight) && !isAppKitFontWeightBold(substituteFontWeight),
+        !font.isPlatformFont() && (traits & NSFontItalicTrait) && !(substituteFontTraits & NSFontItalicTrait));
     return getCachedFontData(&alternateFont);
 }
 
@@ -190,10 +141,10 @@ FontPlatformData* FontCache::getSimilarFontPlatformData(const Font& font)
     const FontFamily* currFamily = &font.fontDescription().family();
     while (currFamily && !platformData) {
         if (currFamily->family().length()) {
-            static String matchWords[3] = { String("Arabic"), String("Pashto"), String("Urdu") };
-            static AtomicString geezaStr("Geeza Pro");
+            static String* matchWords[3] = { new String("Arabic"), new String("Pashto"), new String("Urdu") };
+            DEFINE_STATIC_LOCAL(AtomicString, geezaStr, ("Geeza Pro"));
             for (int j = 0; j < 3 && !platformData; ++j)
-                if (currFamily->family().contains(matchWords[j], false))
+                if (currFamily->family().contains(*matchWords[j], false))
                     platformData = getCachedFontPlatformData(font.fontDescription(), geezaStr);
         }
         currFamily = currFamily->next();
@@ -204,8 +155,8 @@ FontPlatformData* FontCache::getSimilarFontPlatformData(const Font& font)
 
 FontPlatformData* FontCache::getLastResortFallbackFont(const FontDescription& fontDescription)
 {
-    static AtomicString timesStr("Times");
-    static AtomicString lucidaGrandeStr("Lucida Grande");
+    DEFINE_STATIC_LOCAL(AtomicString, timesStr, ("Times"));
+    DEFINE_STATIC_LOCAL(AtomicString, lucidaGrandeStr, ("Lucida Grande"));
 
     // FIXME: Would be even better to somehow get the user's default font here.  For now we'll pick
     // the default that the user would get without changing any prefs.
@@ -220,43 +171,32 @@ FontPlatformData* FontCache::getLastResortFallbackFont(const FontDescription& fo
     return platformFont;
 }
 
-bool FontCache::fontExists(const FontDescription& fontDescription, const AtomicString& family)
+void FontCache::getTraitsInFamily(const AtomicString& familyName, Vector<unsigned>& traitsMasks)
 {
-    NSFontTraitMask traits = 0;
-    if (fontDescription.italic())
-        traits |= NSItalicFontMask;
-    if (fontDescription.bold())
-        traits |= NSBoldFontMask;
-    float size = fontDescription.computedPixelSize();
-    
-    NSFont* nsFont = [WebFontCache fontWithFamily:family traits:traits size:size];
-    return nsFont != 0;
+    [WebFontCache getTraits:traitsMasks inFamily:familyName];
 }
 
 FontPlatformData* FontCache::createFontPlatformData(const FontDescription& fontDescription, const AtomicString& family)
 {
-    NSFontTraitMask traits = 0;
-    if (fontDescription.italic())
-        traits |= NSItalicFontMask;
-    if (fontDescription.bold())
-        traits |= NSBoldFontMask;
+    NSFontTraitMask traits = fontDescription.italic() ? NSFontItalicTrait : 0;
+    NSInteger weight = toAppKitFontWeight(fontDescription.weight());
     float size = fontDescription.computedPixelSize();
-    
-    NSFont* nsFont = [WebFontCache fontWithFamily:family traits:traits size:size];
+
+    NSFont *nsFont = [WebFontCache fontWithFamily:family traits:traits weight:weight size:size];
     if (!nsFont)
         return 0;
 
+    NSFontManager *fontManager = [NSFontManager sharedFontManager];
     NSFontTraitMask actualTraits = 0;
-    if (fontDescription.bold() || fontDescription.italic())
-        actualTraits = [[NSFontManager sharedFontManager] traitsOfFont:nsFont];
-    
-    FontPlatformData* result = new FontPlatformData;
-    
-    // Use the correct font for print vs. screen.
-    result->setFont(fontDescription.usePrinterFont() ? [nsFont printerFont] : [nsFont screenFont]);
-    result->m_syntheticBold = (traits & NSBoldFontMask) && !(actualTraits & NSBoldFontMask);
-    result->m_syntheticOblique = (traits & NSItalicFontMask) && !(actualTraits & NSItalicFontMask);
-    return result;
+    if (fontDescription.italic())
+        actualTraits = [fontManager traitsOfFont:nsFont];
+    NSInteger actualWeight = [fontManager weightOfFont:nsFont];
+
+    NSFont *platformFont = fontDescription.usePrinterFont() ? [nsFont printerFont] : [nsFont screenFont];
+    bool syntheticBold = isAppKitFontWeightBold(weight) && !isAppKitFontWeightBold(actualWeight);
+    bool syntheticOblique = (traits & NSFontItalicTrait) && !(actualTraits & NSFontItalicTrait);
+
+    return new FontPlatformData(platformFont, syntheticBold, syntheticOblique);
 }
 
 } // namespace WebCore

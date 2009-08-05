@@ -26,6 +26,7 @@
 #include "SVGStopElement.h"
 
 #include "Document.h"
+#include "MappedAttribute.h"
 #include "RenderSVGGradientStop.h"
 #include "SVGGradientElement.h"
 #include "SVGNames.h"
@@ -34,15 +35,13 @@ namespace WebCore {
 
 SVGStopElement::SVGStopElement(const QualifiedName& tagName, Document* doc)
     : SVGStyledElement(tagName, doc)
-    , m_offset(0.0f)
+    , m_offset(this, SVGNames::offsetAttr, 0.0f)
 {
 }
 
 SVGStopElement::~SVGStopElement()
 {
 }
-
-ANIMATED_PROPERTY_DEFINITIONS(SVGStopElement, float, Number, number, Offset, offset, SVGNames::offsetAttr, m_offset)
 
 void SVGStopElement::parseMappedAttribute(MappedAttribute* attr)
 {
@@ -53,7 +52,7 @@ void SVGStopElement::parseMappedAttribute(MappedAttribute* attr)
         else
             setOffsetBaseValue(value.toFloat());
 
-        setChanged();
+        setNeedsStyleRecalc();
     } else
         SVGStyledElement::parseMappedAttribute(attr);
 }

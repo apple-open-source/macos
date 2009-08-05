@@ -68,8 +68,8 @@ using namespace XPath;
 
 %{
 
-int xpathyylex(YYSTYPE* yylval) { return Parser::current()->lex(yylval); }
-void xpathyyerror(const char* str) { }
+static int xpathyylex(YYSTYPE* yylval) { return Parser::current()->lex(yylval); }
+static void xpathyyerror(const char*) { }
     
 %}
 
@@ -82,7 +82,7 @@ void xpathyyerror(const char* str) { }
 %token <str> VARIABLEREFERENCE NUMBER
 %token DOTDOT SLASHSLASH
 %token <str> NAMETEST
-%token ERROR
+%token XPATH_ERROR
 
 %type <locationPath> LocationPath
 %type <locationPath> AbsoluteLocationPath

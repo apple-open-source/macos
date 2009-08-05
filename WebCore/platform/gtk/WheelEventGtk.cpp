@@ -27,11 +27,13 @@
 
 #include "config.h"
 #include "PlatformWheelEvent.h"
+#include "Scrollbar.h"
 
 #include <gdk/gdk.h>
 
 namespace WebCore {
 
+// Keep this in sync with the other platform event constructors
 PlatformWheelEvent::PlatformWheelEvent(GdkEventScroll* event)
 {
     static const float delta = 1;
@@ -48,21 +50,27 @@ PlatformWheelEvent::PlatformWheelEvent(GdkEventScroll* event)
             m_deltaY = -delta;
             break;
         case GDK_SCROLL_LEFT:
-            m_deltaX = -delta;
-            break;
-        case GDK_SCROLL_RIGHT:
             m_deltaX = delta;
             break;
+        case GDK_SCROLL_RIGHT:
+            m_deltaX = -delta;
+            break;
     }
+    m_wheelTicksX = m_deltaX;
+    m_wheelTicksY = m_deltaY;
 
-    m_position = IntPoint((int)event->x, (int)event->y);
-    m_globalPosition = IntPoint((int)event->x_root, (int)event->y_root);
+    m_position = IntPoint(static_cast<int>(event->x), static_cast<int>(event->y));
+    m_globalPosition = IntPoint(static_cast<int>(event->x_root), static_cast<int>(event->y_root));
+    m_granularity = ScrollByPixelWheelEvent;
     m_isAccepted = false;
     m_shiftKey = event->state & GDK_SHIFT_MASK;
     m_ctrlKey = event->state & GDK_CONTROL_MASK;
     m_altKey = event->state & GDK_MOD1_MASK;
-    m_metaKey = event->state & GDK_MOD2_MASK;
-    m_isContinuous = false;
+    m_metaKey = event->state & GDK_META_MASK;
+
+    // FIXME: retrieve the user setting for the number of lines to scroll on each wheel event
+    m_deltaX *= static_cast<float>(cScrollbarPixelsPerLineStep);
+    m_deltaY *= static_cast<float>(cScrollbarPixelsPerLineStep);
 }
 
 }

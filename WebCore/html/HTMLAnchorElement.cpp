@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Simon Hausmann <hausmann@kde.org>
- * Copyright (C) 2003, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *           (C) 2006 Graham Dennis (graham.dennis@gmail.com)
  *
  * This library is free software; you can redistribute it and/or
@@ -25,19 +25,22 @@
 #include "HTMLAnchorElement.h"
 
 #include "CSSHelper.h"
+#include "DNS.h"
 #include "Document.h"
 #include "Event.h"
 #include "EventHandler.h"
 #include "EventNames.h"
 #include "Frame.h"
 #include "FrameLoader.h"
+#include "FrameLoaderClient.h"
 #include "HTMLImageElement.h"
 #include "HTMLNames.h"
 #include "KeyboardEvent.h"
+#include "MappedAttribute.h"
 #include "MouseEvent.h"
 #include "MutationEvent.h"
 #include "Page.h"
-#include "RenderFlow.h"
+#include "RenderBox.h"
 #include "RenderImage.h"
 #include "ResourceRequest.h"
 #include "SelectionController.h"
@@ -47,7 +50,6 @@
 namespace WebCore {
 
 using namespace HTMLNames;
-using namespace EventNames;
 
 HTMLAnchorElement::HTMLAnchorElement(Document* doc)
     : HTMLElement(aTag, doc)
@@ -71,7 +73,7 @@ bool HTMLAnchorElement::supportsFocus() const
 {
     if (isContentEditable())
         return HTMLElement::supportsFocus();
-    return isFocusable() || (m_isLink && document() && !document()->haveStylesheetsLoaded());
+    return isFocusable() || (isLink() && document() && !document()->haveStylesheetsLoaded());
 }
 
 bool HTMLAnchorElement::isFocusable() const
@@ -81,31 +83,19 @@ bool HTMLAnchorElement::isFocusable() const
 
     // FIXME: Even if we are not visible, we might have a child that is visible.
     // Dave wants to fix that some day with a "has visible content" flag or the like.
-    if (!(m_isLink && renderer() && renderer()->style()->visibility() == VISIBLE))
+    if (!(isLink() && renderer() && renderer()->style()->visibility() == VISIBLE))
         return false;
 
-    // Before calling absoluteRects, check for the common case where the renderer
-    // or one of the continuations is non-empty, since this is a faster check and
-    // almost always returns true.
-    for (RenderObject* r = renderer(); r; r = r->continuation())
-        if (r->width() > 0 && r->height() > 0)
-            return true;
-
-    Vector<IntRect> rects;
-    int x, y;
-    renderer()->absolutePosition(x, y);
-    renderer()->absoluteRects(rects, x, y);
-    size_t n = rects.size();
-    for (size_t i = 0; i < n; ++i)
-        if (!rects[i].isEmpty())
-            return true;
-
-    return false;
+    return true;
 }
 
 bool HTMLAnchorElement::isMouseFocusable() const
 {
+#if PLATFORM(GTK)
+    return HTMLElement::isMouseFocusable();
+#else
     return false;
+#endif
 }
 
 bool HTMLAnchorElement::isKeyboardFocusable(KeyboardEvent* event) const
@@ -116,7 +106,27 @@ bool HTMLAnchorElement::isKeyboardFocusable(KeyboardEvent* event) const
     if (!document()->frame())
         return false;
 
-    return document()->frame()->eventHandler()->tabsToLinks(event);
+    if (!document()->frame()->eventHandler()->tabsToLinks(event))
+        return false;
+
+    if (!renderer() || !renderer()->isBoxModelObject())
+        return false;
+    
+    // Before calling absoluteRects, check for the common case where the renderer
+    // is non-empty, since this is a faster check and almost always returns true.
+    RenderBoxModelObject* box = toRenderBoxModelObject(renderer());
+    if (!box->borderBoundingBox().isEmpty())
+        return true;
+
+    Vector<IntRect> rects;
+    FloatPoint absPos = renderer()->localToAbsolute();
+    renderer()->absoluteRects(rects, absPos.x(), absPos.y());
+    size_t n = rects.size();
+    for (size_t i = 0; i < n; ++i)
+        if (!rects[i].isEmpty())
+            return true;
+
+    return false;
 }
 
 void HTMLAnchorElement::defaultEventHandler(Event* evt)
@@ -124,13 +134,13 @@ void HTMLAnchorElement::defaultEventHandler(Event* evt)
     // React on clicks and on keypresses.
     // Don't make this KEYUP_EVENT again, it makes khtml follow links it shouldn't,
     // when pressing Enter in the combo.
-    if (m_isLink && (evt->type() == clickEvent || (evt->type() == keydownEvent && m_focused))) {
+    if (isLink() && (evt->type() == eventNames().clickEvent || (evt->type() == eventNames().keydownEvent && focused()))) {
         MouseEvent* e = 0;
-        if (evt->type() == clickEvent && evt->isMouseEvent())
+        if (evt->type() == eventNames().clickEvent && evt->isMouseEvent())
             e = static_cast<MouseEvent*>(evt);
 
         KeyboardEvent* k = 0;
-        if (evt->type() == keydownEvent && evt->isKeyboardEvent())
+        if (evt->type() == eventNames().keydownEvent && evt->isKeyboardEvent())
             k = static_cast<KeyboardEvent*>(evt);
 
         if (e && e->button() == RightButton) {
@@ -191,16 +201,16 @@ void HTMLAnchorElement::defaultEventHandler(Event* evt)
         if (evt->target()->toNode()->hasTagName(imgTag)) {
             HTMLImageElement* img = static_cast<HTMLImageElement*>(evt->target()->toNode());
             if (img && img->isServerMap()) {
-                RenderImage* r = static_cast<RenderImage*>(img->renderer());
+                RenderImage* r = toRenderImage(img->renderer());
                 if (r && e) {
-                    int absx, absy;
-                    r->absolutePosition(absx, absy);
-                    int x = e->pageX() - absx;
-                    int y = e->pageY() - absy;
+                    // FIXME: broken with transforms
+                    FloatPoint absPos = r->localToAbsolute();
+                    int x = e->pageX() - absPos.x();
+                    int y = e->pageY() - absPos.y();
                     url += "?";
-                    url += DeprecatedString::number(x);
+                    url += String::number(x);
                     url += ",";
-                    url += DeprecatedString::number(y);
+                    url += String::number(y);
                 } else {
                     evt->setDefaultHandled();
                     HTMLElement::defaultEventHandler(evt);
@@ -210,20 +220,20 @@ void HTMLAnchorElement::defaultEventHandler(Event* evt)
         }
 
         if (!evt->defaultPrevented() && document()->frame())
-            document()->frame()->loader()->urlSelected(document()->completeURL(url), getAttribute(targetAttr), evt, false, true);
+            document()->frame()->loader()->urlSelected(document()->completeURL(url), getAttribute(targetAttr), evt, false, false, true);
 
         evt->setDefaultHandled();
-    } else if (m_isLink && isContentEditable()) {
-    // This keeps track of the editable block that the selection was in (if it was in one) just before the link was clicked
-    // for the LiveWhenNotFocused editable link behavior
-        if (evt->type() == mousedownEvent && evt->isMouseEvent() && static_cast<MouseEvent*>(evt)->button() != RightButton && document()->frame() && document()->frame()->selectionController()) {
+    } else if (isLink() && isContentEditable()) {
+        // This keeps track of the editable block that the selection was in (if it was in one) just before the link was clicked
+        // for the LiveWhenNotFocused editable link behavior
+        if (evt->type() == eventNames().mousedownEvent && evt->isMouseEvent() && static_cast<MouseEvent*>(evt)->button() != RightButton && document()->frame() && document()->frame()->selection()) {
             MouseEvent* e = static_cast<MouseEvent*>(evt);
 
-            m_rootEditableElementForSelectionOnMouseDown = document()->frame()->selectionController()->rootEditableElement();
+            m_rootEditableElementForSelectionOnMouseDown = document()->frame()->selection()->rootEditableElement();
             m_wasShiftKeyDownOnMouseDown = e && e->shiftKey();
-        } else if (evt->type() == mouseoverEvent) {
-        // These are cleared on mouseover and not mouseout because their values are needed for drag events, but these happen
-        // after mouse out events.
+        } else if (evt->type() == eventNames().mouseoverEvent) {
+            // These are cleared on mouseover and not mouseout because their values are needed for drag events, but these happen
+            // after mouse out events.
             m_rootEditableElementForSelectionOnMouseDown = 0;
             m_wasShiftKeyDownOnMouseDown = false;
         }
@@ -251,8 +261,8 @@ void HTMLAnchorElement::setActive(bool down, bool pause)
             // Don't set the link to be active if the current selection is in the same editable block as
             // this link
             case EditableLinkLiveWhenNotFocused:
-                if (down && document()->frame() && document()->frame()->selectionController() &&
-                    document()->frame()->selectionController()->rootEditableElement() == rootEditableElement())
+                if (down && document()->frame() && document()->frame()->selection() &&
+                    document()->frame()->selection()->rootEditableElement() == rootEditableElement())
                     return;
                 break;
             
@@ -268,13 +278,20 @@ void HTMLAnchorElement::setActive(bool down, bool pause)
 void HTMLAnchorElement::parseMappedAttribute(MappedAttribute *attr)
 {
     if (attr->name() == hrefAttr) {
-        bool wasLink = m_isLink;
-        m_isLink = !attr->isNull();
-        if (wasLink != m_isLink)
-            setChanged();
-        if (m_isLink && document()->page() && !document()->page()->javaScriptURLsAreAllowed() && parseURL(attr->value()).startsWith("javascript:", false)) {
-            m_isLink = false;
-            attr->setValue(nullAtom);
+        bool wasLink = isLink();
+        setIsLink(!attr->isNull());
+        if (wasLink != isLink())
+            setNeedsStyleRecalc();
+        if (isLink()) {
+            String parsedURL = parseURL(attr->value());
+            if (document()->isDNSPrefetchEnabled()) {
+                if (protocolIs(parsedURL, "http") || protocolIs(parsedURL, "https") || parsedURL.startsWith("//"))
+                    prefetchDNS(document()->completeURL(parsedURL).host());
+            }
+            if (document()->page() && !document()->page()->javaScriptURLsAreAllowed() && protocolIsJavaScript(parsedURL)) {
+                setIsLink(false);
+                attr->setValue(nullAtom);
+            }
         }
     } else if (attr->name() == nameAttr ||
              attr->name() == titleAttr ||
@@ -303,99 +320,100 @@ bool HTMLAnchorElement::canStartSelection() const
     return isContentEditable();
 }
 
-String HTMLAnchorElement::accessKey() const
+const AtomicString& HTMLAnchorElement::accessKey() const
 {
     return getAttribute(accesskeyAttr);
 }
 
-void HTMLAnchorElement::setAccessKey(const String &value)
+void HTMLAnchorElement::setAccessKey(const AtomicString& value)
 {
     setAttribute(accesskeyAttr, value);
 }
 
-String HTMLAnchorElement::charset() const
+const AtomicString& HTMLAnchorElement::charset() const
 {
     return getAttribute(charsetAttr);
 }
 
-void HTMLAnchorElement::setCharset(const String &value)
+void HTMLAnchorElement::setCharset(const AtomicString& value)
 {
     setAttribute(charsetAttr, value);
 }
 
-String HTMLAnchorElement::coords() const
+const AtomicString& HTMLAnchorElement::coords() const
 {
     return getAttribute(coordsAttr);
 }
 
-void HTMLAnchorElement::setCoords(const String &value)
+void HTMLAnchorElement::setCoords(const AtomicString& value)
 {
     setAttribute(coordsAttr, value);
 }
 
-String HTMLAnchorElement::href() const
+KURL HTMLAnchorElement::href() const
 {
     return document()->completeURL(getAttribute(hrefAttr));
 }
 
-void HTMLAnchorElement::setHref(const String &value)
+void HTMLAnchorElement::setHref(const AtomicString& value)
 {
     setAttribute(hrefAttr, value);
 }
 
-String HTMLAnchorElement::hreflang() const
+const AtomicString& HTMLAnchorElement::hreflang() const
 {
     return getAttribute(hreflangAttr);
 }
 
-void HTMLAnchorElement::setHreflang(const String &value)
+void HTMLAnchorElement::setHreflang(const AtomicString& value)
 {
     setAttribute(hreflangAttr, value);
 }
 
-String HTMLAnchorElement::name() const
+const AtomicString& HTMLAnchorElement::name() const
 {
     return getAttribute(nameAttr);
 }
 
-void HTMLAnchorElement::setName(const String &value)
+void HTMLAnchorElement::setName(const AtomicString& value)
 {
     setAttribute(nameAttr, value);
 }
 
-String HTMLAnchorElement::rel() const
+const AtomicString& HTMLAnchorElement::rel() const
 {
     return getAttribute(relAttr);
 }
 
-void HTMLAnchorElement::setRel(const String &value)
+void HTMLAnchorElement::setRel(const AtomicString& value)
 {
     setAttribute(relAttr, value);
 }
 
-String HTMLAnchorElement::rev() const
+const AtomicString& HTMLAnchorElement::rev() const
 {
     return getAttribute(revAttr);
 }
 
-void HTMLAnchorElement::setRev(const String &value)
+void HTMLAnchorElement::setRev(const AtomicString& value)
 {
     setAttribute(revAttr, value);
 }
 
-String HTMLAnchorElement::shape() const
+const AtomicString& HTMLAnchorElement::shape() const
 {
     return getAttribute(shapeAttr);
 }
 
-void HTMLAnchorElement::setShape(const String &value)
+void HTMLAnchorElement::setShape(const AtomicString& value)
 {
     setAttribute(shapeAttr, value);
 }
 
-void HTMLAnchorElement::setTabIndex(int tabIndex)
+short HTMLAnchorElement::tabIndex() const
 {
-    setAttribute(tabindexAttr, String::number(tabIndex));
+    // Skip the supportsFocus check in HTMLElement.
+    return Element::tabIndex();
 }
 
 String HTMLAnchorElement::target() const
@@ -403,58 +421,59 @@ String HTMLAnchorElement::target() const
     return getAttribute(targetAttr);
 }
 
-void HTMLAnchorElement::setTarget(const String &value)
+void HTMLAnchorElement::setTarget(const AtomicString& value)
 {
     setAttribute(targetAttr, value);
 }
 
-String HTMLAnchorElement::type() const
+const AtomicString& HTMLAnchorElement::type() const
 {
     return getAttribute(typeAttr);
 }
 
-void HTMLAnchorElement::setType(const String &value)
+void HTMLAnchorElement::setType(const AtomicString& value)
 {
     setAttribute(typeAttr, value);
 }
 
 String HTMLAnchorElement::hash() const
 {
-    return '#' + KURL(href().deprecatedString()).ref();
+    String ref = href().ref();
+    return ref.isEmpty() ? "" : "#" + ref;
 }
 
 String HTMLAnchorElement::host() const
 {
-    return KURL(href().deprecatedString()).host();
+    return href().host();
 }
 
 String HTMLAnchorElement::hostname() const
 {
-    KURL url(href().deprecatedString());
-    if (url.port()==0)
+    const KURL& url = href();
+    if (url.port() == 0)
         return url.host();
-    else
-        return url.host() + ":" + String::number(url.port());
+    return url.host() + ":" + String::number(url.port());
 }
 
 String HTMLAnchorElement::pathname() const
 {
-    return KURL(href().deprecatedString()).path();
+    return href().path();
 }
 
 String HTMLAnchorElement::port() const
 {
-    return DeprecatedString::number(KURL(href().deprecatedString()).port());
+    return String::number(href().port());
 }
 
 String HTMLAnchorElement::protocol() const
 {
-    return KURL(href().deprecatedString()).protocol() + ":";
+    return href().protocol() + ":";
 }
 
 String HTMLAnchorElement::search() const
 {
-    return KURL(href().deprecatedString()).query();
+    String query = href().query();
+    return query.isEmpty() ? "" : "?" + query;
 }
 
 String HTMLAnchorElement::text() const
@@ -464,12 +483,12 @@ String HTMLAnchorElement::text() const
 
 String HTMLAnchorElement::toString() const
 {
-    return href();
+    return href().string();
 }
 
 bool HTMLAnchorElement::isLiveLink() const
 {
-    if (!m_isLink)
+    if (!isLink())
         return false;
     if (!isContentEditable())
         return true;

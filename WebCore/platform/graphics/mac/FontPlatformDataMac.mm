@@ -1,7 +1,7 @@
 /*
  * This file is part of the internal font implementation.
  *
- * Copyright (C) 2006-7 Apple Computer, Inc.
+ * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -24,22 +24,30 @@
 #import "FontPlatformData.h"
 
 #import "WebCoreSystemInterface.h"
+#import <AppKit/NSFont.h>
 
 namespace WebCore {
 
-FontPlatformData::FontPlatformData(NSFont* f, bool b , bool o)
-: m_syntheticBold(b), m_syntheticOblique(o), m_font(f)
+FontPlatformData::FontPlatformData(NSFont *nsFont, bool syntheticBold, bool syntheticOblique)
+    : m_syntheticBold(syntheticBold)
+    , m_syntheticOblique(syntheticOblique)
+    , m_font(nsFont)
 {
-    if (f)
-        CFRetain(f);
-    m_size = f ? [f pointSize] : 0.0f;
-    m_cgFont = wkGetCGFontFromNSFont(f);
-    m_atsuFontID = wkGetNSFontATSUFontId(f);
+    if (nsFont)
+        CFRetain(nsFont);
+    m_size = nsFont ? [nsFont pointSize] : 0.0f;
+#ifndef BUILDING_ON_TIGER
+    m_cgFont.adoptCF(CTFontCopyGraphicsFont(toCTFontRef(nsFont), 0));
+    m_atsuFontID = CTFontGetPlatformFont(toCTFontRef(nsFont), 0);
+#else
+    m_cgFont = wkGetCGFontFromNSFont(nsFont);
+    m_atsuFontID = wkGetNSFontATSUFontId(nsFont);
+#endif
 }
 
 FontPlatformData::FontPlatformData(const FontPlatformData& f)
 {
-    m_font = (f.m_font && f.m_font != (NSFont*)-1) ? (NSFont*)CFRetain(f.m_font) : f.m_font;
+    m_font = f.m_font && f.m_font != reinterpret_cast<NSFont *>(-1) ? static_cast<const NSFont *>(CFRetain(f.m_font)) : f.m_font;
     m_syntheticBold = f.m_syntheticBold;
     m_syntheticOblique = f.m_syntheticOblique;
     m_size = f.m_size;
@@ -49,22 +57,54 @@ FontPlatformData::FontPlatformData(const FontPlatformData& f)
 
 FontPlatformData:: ~FontPlatformData()
 {
-    if (m_font && m_font != (NSFont*)-1)
+    if (m_font && m_font != reinterpret_cast<NSFont *>(-1))
         CFRelease(m_font);
 }
 
-void FontPlatformData::setFont(NSFont* font) {
+const FontPlatformData& FontPlatformData::operator=(const FontPlatformData& f)
+{
+    m_syntheticBold = f.m_syntheticBold;
+    m_syntheticOblique = f.m_syntheticOblique;
+    m_size = f.m_size;
+    m_cgFont = f.m_cgFont;
+    m_atsuFontID = f.m_atsuFontID;
+    if (m_font == f.m_font)
+        return *this;
+    if (f.m_font && f.m_font != reinterpret_cast<NSFont *>(-1))
+        CFRetain(f.m_font);
+    if (m_font && m_font != reinterpret_cast<NSFont *>(-1))
+        CFRelease(m_font);
+    m_font = f.m_font;
+    return *this;
+}
+
+void FontPlatformData::setFont(NSFont *font)
+{
     if (m_font == font)
         return;
     if (font)
         CFRetain(font);
-    if (m_font && m_font != (NSFont*)-1)
+    if (m_font && m_font != reinterpret_cast<NSFont *>(-1))
         CFRelease(m_font);
     m_font = font;
     m_size = font ? [font pointSize] : 0.0f;
+#ifndef BUILDING_ON_TIGER
+    m_cgFont.adoptCF(CTFontCopyGraphicsFont(toCTFontRef(font), 0));
+    m_atsuFontID = CTFontGetPlatformFont(toCTFontRef(font), 0);
+#else
     m_cgFont = wkGetCGFontFromNSFont(font);
     m_atsuFontID = wkGetNSFontATSUFontId(font);
+#endif
 }
 
+bool FontPlatformData::roundsGlyphAdvances() const
+{
+    return [m_font renderingMode] == NSFontAntialiasedIntegerAdvancementsRenderingMode;
 }
 
+bool FontPlatformData::allowsLigatures() const
+{
+    return ![[m_font coveredCharacterSet] characterIsMember:'a'];
+}
+
+} // namespace WebCore

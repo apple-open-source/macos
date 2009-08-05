@@ -1,6 +1,4 @@
 /*
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  * Copyright (C) 2007 Apple Inc. All rights reserved.
@@ -25,13 +23,14 @@
 #ifndef HTMLMarqueeElement_h
 #define HTMLMarqueeElement_h
 
+#include "ActiveDOMObject.h"
 #include "HTMLElement.h"
 
 namespace WebCore {
 
-class HTMLMarqueeElement : public HTMLElement {
+class HTMLMarqueeElement : public HTMLElement, private ActiveDOMObject {
 public:
-    HTMLMarqueeElement(Document*);
+    HTMLMarqueeElement(const QualifiedName&, Document*);
     
     virtual HTMLTagStatus endTagRequirement() const { return TagStatusRequired; }
     virtual int tagPriority() const { return 3; }
@@ -47,6 +46,11 @@ public:
     void stop();
     
 private:
+    // ActiveDOMObject
+    virtual bool canSuspend() const;
+    virtual void suspend();
+    virtual void resume();
+
     int m_minimumDelay;
 };
 

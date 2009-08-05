@@ -30,9 +30,10 @@
 
 #if ENABLE(XPATH)
 
+#include "Attr.h"
 #include "Document.h"
 #include "Element.h"
-#include "NamedAttrMap.h"
+#include "NamedNodeMap.h"
 #include "XPathNSResolver.h"
 #include "XPathParser.h"
 #include "XPathUtil.h"
@@ -187,14 +188,14 @@ void Step::nodesInAxis(Node* context, NodeSet& nodes) const
                 return;
             }
             
-            NamedAttrMap* attrs = context->attributes();
+            NamedNodeMap* attrs = context->attributes();
             if (!attrs)
                 return;
 
-            for (unsigned long i = 0; i < attrs->length(); ++i) {
-                RefPtr<Node> n = attrs->item(i);
-                if (nodeMatches(n.get()))
-                    nodes.append(n.release());
+            for (unsigned i = 0; i < attrs->length(); ++i) {
+                RefPtr<Attr> attr = attrs->attributeItem(i)->createAttrIfNeeded(static_cast<Element*>(context));
+                if (nodeMatches(attr.get()))
+                    nodes.append(attr.release());
             }
             return;
         }

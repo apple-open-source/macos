@@ -26,6 +26,7 @@
 #include "SVGGradientElement.h"
 
 #include "CSSStyleSelector.h"
+#include "MappedAttribute.h"
 #include "RenderPath.h"
 #include "RenderSVGHiddenContainer.h"
 #include "SVGNames.h"
@@ -38,23 +39,21 @@
 
 namespace WebCore {
 
+char SVGGradientElementIdentifier[] = "SVGGradientElement";
+
 SVGGradientElement::SVGGradientElement(const QualifiedName& tagName, Document* doc)
     : SVGStyledElement(tagName, doc)
     , SVGURIReference()
     , SVGExternalResourcesRequired()
-    , m_spreadMethod(0)
-    , m_gradientUnits(SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX)
-    , m_gradientTransform(new SVGTransformList(SVGNames::gradientTransformAttr))
+    , m_spreadMethod(this, SVGNames::spreadMethodAttr)
+    , m_gradientUnits(this, SVGNames::gradientUnitsAttr, SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX)
+    , m_gradientTransform(this, SVGNames::gradientTransformAttr, SVGTransformList::create(SVGNames::gradientTransformAttr))
 {
 }
 
 SVGGradientElement::~SVGGradientElement()
 {
 }
-
-ANIMATED_PROPERTY_DEFINITIONS(SVGGradientElement, int, Enumeration, enumeration, GradientUnits, gradientUnits, SVGNames::gradientUnitsAttr, m_gradientUnits)
-ANIMATED_PROPERTY_DEFINITIONS(SVGGradientElement, SVGTransformList*, TransformList, transformList, GradientTransform, gradientTransform, SVGNames::gradientTransformAttr, m_gradientTransform.get())
-ANIMATED_PROPERTY_DEFINITIONS(SVGGradientElement, int, Enumeration, enumeration, SpreadMethod, spreadMethod, SVGNames::spreadMethodAttr, m_spreadMethod)
 
 void SVGGradientElement::parseMappedAttribute(MappedAttribute* attr)
 {
@@ -71,11 +70,11 @@ void SVGGradientElement::parseMappedAttribute(MappedAttribute* attr)
         }
     } else if (attr->name() == SVGNames::spreadMethodAttr) {
         if (attr->value() == "reflect")
-            setSpreadMethodBaseValue(SVG_SPREADMETHOD_REFLECT);
+            setSpreadMethodBaseValue(SpreadMethodReflect);
         else if (attr->value() == "repeat")
-            setSpreadMethodBaseValue(SVG_SPREADMETHOD_REPEAT);
+            setSpreadMethodBaseValue(SpreadMethodRepeat);
         else if (attr->value() == "pad")
-            setSpreadMethodBaseValue(SVG_SPREADMETHOD_PAD);
+            setSpreadMethodBaseValue(SpreadMethodPad);
     } else {
         if (SVGURIReference::parseMappedAttribute(attr))
             return;
@@ -102,9 +101,9 @@ void SVGGradientElement::svgAttributeChanged(const QualifiedName& attrName)
         m_resource->invalidate();
 }
 
-void SVGGradientElement::childrenChanged(bool changedByParser)
+void SVGGradientElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
 {
-    SVGStyledElement::childrenChanged(changedByParser);
+    SVGStyledElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
 
     if (m_resource)
         m_resource->invalidate();
@@ -119,9 +118,9 @@ SVGResource* SVGGradientElement::canvasResource()
 {
     if (!m_resource) {
         if (gradientType() == LinearGradientPaintServer)
-            m_resource = new SVGPaintServerLinearGradient(this);
+            m_resource = SVGPaintServerLinearGradient::create(this);
         else
-            m_resource = new SVGPaintServerRadialGradient(this);
+            m_resource = SVGPaintServerRadialGradient::create(this);
     }
 
     return m_resource.get();
@@ -130,7 +129,7 @@ SVGResource* SVGGradientElement::canvasResource()
 Vector<SVGGradientStop> SVGGradientElement::buildStops() const
 {
     Vector<SVGGradientStop> stops;
-    RenderStyle* gradientStyle = 0;
+    RefPtr<RenderStyle> gradientStyle;
 
     for (Node* n = firstChild(); n; n = n->nextSibling()) {
         SVGElement* element = n->isSVGElement() ? static_cast<SVGElement*>(n) : 0;
@@ -151,22 +150,17 @@ Vector<SVGGradientStop> SVGGradientElement::buildStops() const
                 // set display="none" - ie. <g display="none"><linearGradient><stop>..
                 // Unfortunately we have to manually rebuild the stop style. See pservers-grad-19-b.svg
                 if (!gradientStyle)
-                    gradientStyle = const_cast<SVGGradientElement*>(this)->styleForRenderer(parent()->renderer());
+                    gradientStyle = const_cast<SVGGradientElement*>(this)->styleForRenderer();
 
-                RenderStyle* stopStyle = stop->resolveStyle(gradientStyle);
+                RefPtr<RenderStyle> stopStyle = stop->resolveStyle(gradientStyle.get());
 
                 color = stopStyle->svgStyle()->stopColor();
                 opacity = stopStyle->svgStyle()->stopOpacity();
-
-                stopStyle->deref(document()->renderArena());
             }
 
             stops.append(makeGradientStop(stopOffset, makeRGBA(color.red(), color.green(), color.blue(), int(opacity * 255.))));
         }
     }
-
-    if (gradientStyle)
-        gradientStyle->deref(document()->renderArena());
 
     return stops;
 }

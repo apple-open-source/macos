@@ -8,7 +8,7 @@ Extra_CC_Flags      = -no-cpp-precomp -D_FILE_OFFSET_BITS=64
 Extra_Install_Flags = PREFIX=$(RC_Install_Prefix)
 GnuAfterInstall     = strip-binaries fix-manpages install-plist
 
-BZIP2_VERSION = 1.0.4
+BZIP2_VERSION = 1.0.5
 Extra_Environment = BZIP2_VERSION=$(BZIP2_VERSION)
 
 install:: shadow_source

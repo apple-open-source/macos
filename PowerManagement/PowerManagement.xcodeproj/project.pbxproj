@@ -373,7 +373,7 @@
 		72D0ECFE08F73FB600CCEA2F /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; name = Info.plist; path = AppleSmartBatteryManager/Info.plist; sourceTree = "<group>"; };
 		72D984480B20BE7800D66087 /* TTYKeepAwake.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = TTYKeepAwake.c; sourceTree = "<group>"; };
 		72D984490B20BE7800D66087 /* TTYKeepAwake.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = TTYKeepAwake.h; sourceTree = "<group>"; };
-		72E815720CFE470B00CF547E /* PowerManagement.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PowerManagement.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		72E815720CFE470B00CF547E /* PowerManagement.bundle */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = PowerManagement.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
 		72E815730CFE470B00CF547E /* Power Management Bundle-Info copy.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "Power Management Bundle-Info copy.plist"; sourceTree = "<group>"; };
 		72FE21330A0179A300885E24 /* BatteryFaker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BatteryFaker.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		72FE21400A0179F400885E24 /* BatteryFaker.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BatteryFaker.kext; sourceTree = BUILT_PRODUCTS_DIR; };

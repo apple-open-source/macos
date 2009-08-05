@@ -29,8 +29,10 @@
 #ifndef SQLResultSet_h
 #define SQLResultSet_h
 
+#if ENABLE(DATABASE)
+
 #include "SQLResultSetRowList.h"
-#include "Threading.h"
+#include <wtf/Threading.h>
 
 namespace WebCore {
 
@@ -38,7 +40,7 @@ typedef int ExceptionCode;
 
 class SQLResultSet : public ThreadSafeShared<SQLResultSet> {
 public:
-    SQLResultSet();
+    static PassRefPtr<SQLResultSet> create() { return adoptRef(new SQLResultSet); }
 
     SQLResultSetRowList* rows() const;
 
@@ -50,6 +52,8 @@ public:
     void setRowsAffected(int);
 
 private:
+    SQLResultSet();
+
     RefPtr<SQLResultSetRowList> m_rows;
     int64_t m_insertId;
     bool m_insertIdSet;
@@ -57,5 +61,7 @@ private:
 };
 
 } // namespace WebCore
+
+#endif
 
 #endif // SQLResultSet_h

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.
+ * Copyright (C) 2003, 2009 Apple Inc. All rights reserved.
  *
  * Portions are Copyright (C) 1998 Netscape Communications Corporation.
  *
@@ -44,29 +44,42 @@
 #ifndef RenderLayer_h
 #define RenderLayer_h
 
-#include "RenderObject.h"
-#include "ScrollBar.h"
+#include "RenderBox.h"
+#include "ScrollBehavior.h"
+#include "ScrollbarClient.h"
 #include "Timer.h"
 #include <wtf/OwnPtr.h>
 
 namespace WebCore {
 
-class AffineTransform;
 class CachedResource;
+class HitTestRequest;
 class HitTestResult;
-class PlatformScrollbar;
+class HitTestingTransformState;
 class RenderFrameSet;
-class RenderObject;
+class RenderMarquee;
+class RenderReplica;
+class RenderScrollbarPart;
 class RenderStyle;
 class RenderTable;
 class RenderText;
 class RenderView;
 class Scrollbar;
+class TransformationMatrix;
 
-struct HitTestRequest;
+#if USE(ACCELERATED_COMPOSITING)
+class RenderLayerBacking;
+class RenderLayerCompositor;
+#endif
 
 class ClipRects {
 public:
+    ClipRects()
+        : m_refCnt(0)
+        , m_fixed(false)
+    {
+    }
+
     ClipRects(const IntRect& r)
         : m_overflowClipRect(r)
         , m_fixedClipRect(r)
@@ -76,19 +89,34 @@ public:
     {
     }
 
-    ClipRects(const IntRect& overflowRect, const IntRect& fixedRect, const IntRect& posRect, bool fixed)
-        : m_overflowClipRect(overflowRect)
-        , m_fixedClipRect(fixedRect)
-        , m_posClipRect(posRect)
+    ClipRects(const ClipRects& other)
+        : m_overflowClipRect(other.overflowClipRect())
+        , m_fixedClipRect(other.fixedClipRect())
+        , m_posClipRect(other.posClipRect())
         , m_refCnt(0)
-        , m_fixed(fixed)
+        , m_fixed(other.fixed())
     {
     }
 
-    const IntRect& overflowClipRect() { return m_overflowClipRect; }
-    const IntRect& fixedClipRect() { return m_fixedClipRect; }
-    const IntRect& posClipRect() { return m_posClipRect; }
+    void reset(const IntRect& r)
+    {
+        m_overflowClipRect = r;
+        m_fixedClipRect = r;
+        m_posClipRect = r;
+        m_fixed = false;
+    }
+    
+    const IntRect& overflowClipRect() const { return m_overflowClipRect; }
+    void setOverflowClipRect(const IntRect& r) { m_overflowClipRect = r; }
+
+    const IntRect& fixedClipRect() const { return m_fixedClipRect; }
+    void setFixedClipRect(const IntRect&r) { m_fixedClipRect = r; }
+
+    const IntRect& posClipRect() const { return m_posClipRect; }
+    void setPosClipRect(const IntRect& r) { m_posClipRect = r; }
+
     bool fixed() const { return m_fixed; }
+    void setFixed(bool fixed) { m_fixed = fixed; }
 
     void ref() { m_refCnt++; }
     void deref(RenderArena* renderArena) { if (--m_refCnt == 0) destroy(renderArena); }
@@ -100,7 +128,26 @@ public:
 
     // Overridden to prevent the normal delete from being called.
     void operator delete(void*, size_t);
-        
+
+    bool operator==(const ClipRects& other) const
+    {
+        return m_overflowClipRect == other.overflowClipRect() &&
+               m_fixedClipRect == other.fixedClipRect() &&
+               m_posClipRect == other.posClipRect() &&
+               m_fixed == other.fixed();
+    }
+
+    ClipRects& operator=(const ClipRects& other)
+    {
+        m_overflowClipRect = other.overflowClipRect();
+        m_fixedClipRect = other.fixedClipRect();
+        m_posClipRect = other.posClipRect();
+        m_fixed = other.fixed();
+        return *this;
+    }
+    
+    static IntRect infiniteRect() { return IntRect(INT_MIN/2, INT_MIN/2, INT_MAX, INT_MAX); }
+
 private:
     // The normal operator new is disallowed on all render objects.
     void* operator new(size_t) throw();
@@ -113,81 +160,15 @@ private:
     bool m_fixed : 1;
 };
 
-
-// FIXME: move this to its own file
-// This class handles the auto-scrolling of layers with overflow: marquee.
-class Marquee {
-public:
-    Marquee(RenderLayer*);
-
-    int speed() const { return m_speed; }
-    int marqueeSpeed() const;
-
-    EMarqueeDirection reverseDirection() const { return static_cast<EMarqueeDirection>(-direction()); }
-    EMarqueeDirection direction() const;
-
-    bool isHorizontal() const;
-
-    int computePosition(EMarqueeDirection, bool stopAtClientEdge);
-
-    void setEnd(int end) { m_end = end; }
-    
-    void start();
-    void suspend();
-    void stop();
-
-    void updateMarqueeStyle();
-    void updateMarqueePosition();
-
-private:
-    void timerFired(Timer<Marquee>*);
-
-    RenderLayer* m_layer;
-    int m_currentLoop;
-    int m_totalLoops;
-    Timer<Marquee> m_timer;
-    int m_start;
-    int m_end;
-    int m_speed;
-    Length m_height;
-    bool m_reset: 1;
-    bool m_suspended : 1;
-    bool m_stopped : 1;
-    EMarqueeDirection m_direction : 4;
-};
-
 class RenderLayer : public ScrollbarClient {
 public:
-    enum ScrollBehavior {
-        noScroll,
-        alignCenter,
-        alignTop,
-        alignBottom, 
-        alignLeft,
-        alignRight,
-        alignToClosestEdge
-    };
+    friend class RenderReplica;
 
-    struct ScrollAlignment {
-        ScrollBehavior m_rectVisible;
-        ScrollBehavior m_rectHidden;
-        ScrollBehavior m_rectPartial;
-    };
-
-    static const ScrollAlignment gAlignCenterIfNeeded;
-    static const ScrollAlignment gAlignToEdgeIfNeeded;
-    static const ScrollAlignment gAlignCenterAlways;
-    static const ScrollAlignment gAlignTopAlways;
-    static const ScrollAlignment gAlignBottomAlways;
-
-    static ScrollBehavior getVisibleBehavior(const ScrollAlignment& s) { return s.m_rectVisible; }
-    static ScrollBehavior getPartialBehavior(const ScrollAlignment& s) { return s.m_rectPartial; }
-    static ScrollBehavior getHiddenBehavior(const ScrollAlignment& s) { return s.m_rectHidden; }
-
-    RenderLayer(RenderObject*);
+    RenderLayer(RenderBoxModelObject*);
     ~RenderLayer();
 
-    RenderObject* renderer() const { return m_object; }
+    RenderBoxModelObject* renderer() const { return m_renderer; }
+    RenderBox* renderBox() const { return m_renderer && m_renderer->isBox() ? toRenderBox(m_renderer) : 0; }
     RenderLayer* parent() const { return m_parent; }
     RenderLayer* previousSibling() const { return m_previous; }
     RenderLayer* nextSibling() const { return m_next; }
@@ -202,16 +183,30 @@ public:
 
     void repaintIncludingDescendants();
 
-    void styleChanged();
+#if USE(ACCELERATED_COMPOSITING)
+    // Indicate that the layer contents need to be repainted. Only has an effect
+    // if layer compositing is being used,
+    void setBackingNeedsRepaint();
+    void setBackingNeedsRepaintInRect(const IntRect& r); // r is in the coordinate space of the layer's render object
+    void repaintIncludingNonCompositingDescendants(RenderBoxModelObject* repaintContainer);
+#endif
 
-    Marquee* marquee() const { return m_marquee; }
-    void suspendMarquees();
+    void styleChanged(StyleDifference, const RenderStyle*);
 
-    bool isOverflowOnly() const { return m_isOverflowOnly; }
+    RenderMarquee* marquee() const { return m_marquee; }
+
+    bool isNormalFlowOnly() const { return m_isNormalFlowOnly; }
+    bool isSelfPaintingLayer() const;
+
+    bool requiresSlowRepaints() const;
 
     bool isTransparent() const;
-    RenderLayer* transparentAncestor();
+    RenderLayer* transparentPaintingAncestor();
     void beginTransparencyLayers(GraphicsContext*, const RenderLayer* rootLayer);
+
+    bool hasReflection() const { return renderer()->hasReflection(); }
+    RenderReplica* reflection() const { return m_reflection; }
+    RenderLayer* reflectionLayer() const;
 
     const RenderLayer* root() const
     {
@@ -221,12 +216,12 @@ public:
         return curr;
     }
     
-    int xPos() const { return m_x; }
-    int yPos() const { return m_y; }
-    void setPos(int xPos, int yPos)
+    int x() const { return m_x; }
+    int y() const { return m_y; }
+    void setLocation(int x, int y)
     {
-        m_x = xPos;
-        m_y = yPos;
+        m_x = x;
+        m_y = y;
     }
 
     int width() const { return m_width; }
@@ -237,17 +232,23 @@ public:
     int scrollWidth();
     int scrollHeight();
 
+    void panScrollFromPoint(const IntPoint&);
+
     // Scrolling methods for layers that can scroll their overflow.
-    void scrollOffset(int& x, int& y);
-    void subtractScrollOffset(int& x, int& y);
+    void scrollByRecursively(int xDelta, int yDelta);
+    void addScrolledContentOffset(int& x, int& y) const;
+    void subtractScrolledContentOffset(int& x, int& y) const;
+    IntSize scrolledContentOffset() const { return IntSize(scrollXOffset() + m_scrollLeftOverflow, scrollYOffset()); }
+
     int scrollXOffset() const { return m_scrollX + m_scrollOriginX; }
     int scrollYOffset() const { return m_scrollY; }
+
     void scrollToOffset(int x, int y, bool updateScrollbars = true, bool repaint = true);
     void scrollToXOffset(int x) { scrollToOffset(x, m_scrollY); }
     void scrollToYOffset(int y) { scrollToOffset(m_scrollX + m_scrollOriginX, y); }
-    void scrollRectToVisible(const IntRect&, const ScrollAlignment& alignX = gAlignCenterIfNeeded, const ScrollAlignment& alignY = gAlignCenterIfNeeded);
+    void scrollRectToVisible(const IntRect&, bool scrollToAnchor = false, const ScrollAlignment& alignX = ScrollAlignment::alignCenterIfNeeded, const ScrollAlignment& alignY = ScrollAlignment::alignCenterIfNeeded);
 
-    IntRect getRectToExpose(const IntRect& visibleRect, const IntRect& exposeRect, const ScrollAlignment& alignX, const ScrollAlignment& alignY);    
+    IntRect getRectToExpose(const IntRect& visibleRect, const IntRect& exposeRect, const ScrollAlignment& alignX, const ScrollAlignment& alignY);
 
     void setHasHorizontalScrollbar(bool);
     void setHasVerticalScrollbar(bool);
@@ -255,21 +256,20 @@ public:
     PassRefPtr<Scrollbar> createScrollbar(ScrollbarOrientation);
     void destroyScrollbar(ScrollbarOrientation);
 
-    Scrollbar* horizontalScrollbar() { return m_hBar.get(); }
-    Scrollbar* verticalScrollbar() { return m_vBar.get(); }
-
-    PlatformScrollbar* horizontalScrollbarWidget() const;
-    PlatformScrollbar* verticalScrollbarWidget() const;
+    Scrollbar* horizontalScrollbar() const { return m_hBar.get(); }
+    Scrollbar* verticalScrollbar() const { return m_vBar.get(); }
 
     int verticalScrollbarWidth() const;
     int horizontalScrollbarHeight() const;
 
-    void positionOverflowControls();
-    bool isPointInResizeControl(const IntPoint&);
+    void positionOverflowControls(int tx, int ty);
+    bool isPointInResizeControl(const IntPoint& absolutePoint) const;
     bool hitTestOverflowControls(HitTestResult&);
-    IntSize offsetFromResizeCorner(const IntPoint&) const;
+    IntSize offsetFromResizeCorner(const IntPoint& absolutePoint) const;
 
     void paintOverflowControls(GraphicsContext*, int tx, int ty, const IntRect& damageRect);
+    void paintScrollCorner(GraphicsContext*, int tx, int ty, const IntRect& damageRect);
+    void paintResizer(GraphicsContext*, int tx, int ty, const IntRect& damageRect);
 
     void updateScrollInfoAfterLayout();
 
@@ -279,16 +279,27 @@ public:
     void resize(const PlatformMouseEvent&, const IntSize&);
     bool inResizeMode() const { return m_inResizeMode; }
     void setInResizeMode(bool b) { m_inResizeMode = b; }
+
+    bool isRootLayer() const { return renderer()->isRenderView(); }
+    
+#if USE(ACCELERATED_COMPOSITING)
+    RenderLayerCompositor* compositor() const;
+    
+    // Notification from the renderer that its content changed (e.g. current frame of image changed).
+    // Allows updates of layer content without repainting.
+    void rendererContentChanged();
+#endif
     
     void updateLayerPosition();
     void updateLayerPositions(bool doFullRepaint = false, bool checkForRepaint = true);
 
     void updateTransform();
 
-    void relativePositionOffset(int& relX, int& relY) { relX += m_relX; relY += m_relY; }
+    void relativePositionOffset(int& relX, int& relY) const { relX += m_relX; relY += m_relY; }
+    IntSize relativePositionOffset() const { return IntSize(m_relX, m_relY); }
 
+    void clearClipRectsIncludingDescendants();
     void clearClipRects();
-    void clearClipRect();
 
     // Get the enclosing stacking context for this layer.  A stacking context is a layer
     // that has a non-auto z-index.
@@ -296,13 +307,14 @@ public:
     bool isStackingContext() const { return !hasAutoZIndex() || renderer()->isRenderView(); }
 
     void dirtyZOrderLists();
+    void dirtyStackingContextZOrderLists();
     void updateZOrderLists();
     Vector<RenderLayer*>* posZOrderList() const { return m_posZOrderList; }
     Vector<RenderLayer*>* negZOrderList() const { return m_negZOrderList; }
 
-    void dirtyOverflowList();
-    void updateOverflowList();
-    Vector<RenderLayer*>* overflowList() const { return m_overflowList; }
+    void dirtyNormalFlowList();
+    void updateNormalFlowList();
+    Vector<RenderLayer*>* normalFlowList() const { return m_normalFlowList; }
 
     bool hasVisibleContent() const { return m_hasVisibleContent; }
     void setHasVisibleContent(bool);
@@ -311,6 +323,13 @@ public:
     // Gets the nearest enclosing positioned ancestor layer (also includes
     // the <html> layer and the root layer).
     RenderLayer* enclosingPositionedAncestor() const;
+
+#if USE(ACCELERATED_COMPOSITING)
+    // Enclosing compositing layer; if includeSelf is true, may return this.
+    RenderLayer* enclosingCompositingLayer(bool includeSelf = true) const;
+    // Ancestor compositing layer, excluding this.
+    RenderLayer* ancestorCompositingLayer() const { return enclosingCompositingLayer(false); }
+#endif
 
     void convertToLayerCoords(const RenderLayer* ancestorLayer, int& x, int& y) const;
 
@@ -328,30 +347,53 @@ public:
     // |rootLayer}.  It also computes our background and foreground clip rects
     // for painting/event handling.
     void calculateRects(const RenderLayer* rootLayer, const IntRect& paintDirtyRect, IntRect& layerBounds,
-                        IntRect& backgroundRect, IntRect& foregroundRect, IntRect& outlineRect) const;
-    void calculateClipRects(const RenderLayer* rootLayer);
+                        IntRect& backgroundRect, IntRect& foregroundRect, IntRect& outlineRect, bool temporaryClipRects = false) const;
+
+    // Compute and cache clip rects computed with the given layer as the root
+    void updateClipRects(const RenderLayer* rootLayer);
+    // Compute and return the clip rects. If useCached is true, will used previously computed clip rects on ancestors
+    // (rather than computing them all from scratch up the parent chain).
+    void calculateClipRects(const RenderLayer* rootLayer, ClipRects&, bool useCached = false) const;
     ClipRects* clipRects() const { return m_clipRects; }
+
     IntRect childrenClipRect() const; // Returns the foreground clip rect of the layer in the document's coordinate space.
     IntRect selfClipRect() const; // Returns the background clip rect of the layer in the document's coordinate space.
 
     bool intersectsDamageRect(const IntRect& layerBounds, const IntRect& damageRect, const RenderLayer* rootLayer) const;
 
-    // Returns a bounding box for this layer only.
+    // Bounding box relative to some ancestor layer.
     IntRect boundingBox(const RenderLayer* rootLayer) const;
+    // Bounding box in the coordinates of this layer.
+    IntRect localBoundingBox() const;
+    // Bounding box relative to the root.
+    IntRect absoluteBoundingBox() const;
 
     void updateHoverActiveState(const HitTestRequest&, HitTestResult&);
 
+    // Return a cached repaint rect, computed relative to the layer renderer's containerForRepaint.
     IntRect repaintRect() const { return m_repaintRect; }
     void setNeedsFullRepaint(bool f = true) { m_needsFullRepaint = f; }
     
     int staticX() const { return m_staticX; }
     int staticY() const { return m_staticY; }
     void setStaticX(int staticX) { m_staticX = staticX; }
-    void setStaticY(int staticY) { m_staticY = staticY; }
+    void setStaticY(int staticY);
 
-    AffineTransform* transform() const { return m_transform.get(); }
-
-    void destroy(RenderArena*);
+    bool hasTransform() const { return renderer()->hasTransform(); }
+    // Note that this transform has the transform-origin baked in.
+    TransformationMatrix* transform() const { return m_transform.get(); }
+    // currentTransform computes a transform which takes accelerated animations into account. The
+    // resulting transform has transform-origin baked in. If the layer does not have a transform,
+    // returns the identity matrix.
+    TransformationMatrix currentTransform() const;
+    
+    // Get the perspective transform, which is applied to transformed sublayers.
+    // Returns true if the layer has a -webkit-perspective.
+    // Note that this transform has the perspective-origin baked in.
+    TransformationMatrix perspectiveTransform() const;
+    FloatPoint perspectiveOrigin() const;
+    bool preserves3D() const { return renderer()->style()->transformStyle3D() == TransformStyle3DPreserve3D; }
+    bool has3DTransform() const { return m_transform && !m_transform->isAffine(); }
 
      // Overloaded new operator.  Derived classes must override operator new
     // in order to allocate out of the RenderArena.
@@ -360,6 +402,25 @@ public:
     // Overridden to prevent the normal delete from being called.
     void operator delete(void*, size_t);
 
+#if USE(ACCELERATED_COMPOSITING)
+    bool isComposited() const { return m_backing != 0; }
+    RenderLayerBacking* backing() const { return m_backing.get(); }
+    RenderLayerBacking* ensureBacking();
+    void clearBacking();
+#else
+    bool isComposited() const { return false; }
+#endif
+
+    bool paintsWithTransparency() const
+    {
+        return isTransparent() && !isComposited();
+    }
+
+    bool paintsWithTransform() const
+    {
+        return transform() && !isComposited();
+    }
+
 private:
     // The normal operator new is disallowed on all render objects.
     void* operator new(size_t) throw();
@@ -367,22 +428,40 @@ private:
 private:
     void setNextSibling(RenderLayer* next) { m_next = next; }
     void setPreviousSibling(RenderLayer* prev) { m_previous = prev; }
-    void setParent(RenderLayer* parent) { m_parent = parent; }
+    void setParent(RenderLayer* parent);
     void setFirstChild(RenderLayer* first) { m_first = first; }
     void setLastChild(RenderLayer* last) { m_last = last; }
 
+    int renderBoxX() const { return renderer()->isBox() ? toRenderBox(renderer())->x() : 0; }
+    int renderBoxY() const { return renderer()->isBox() ? toRenderBox(renderer())->y() : 0; }
+
     void collectLayers(Vector<RenderLayer*>*&, Vector<RenderLayer*>*&);
 
+    void updateLayerListsIfNeeded();
+    
     void paintLayer(RenderLayer* rootLayer, GraphicsContext*, const IntRect& paintDirtyRect,
-                    bool haveTransparency, PaintRestriction, RenderObject* paintingRoot);
-    RenderLayer* hitTestLayer(RenderLayer* rootLayer, const HitTestRequest&, HitTestResult&, const IntRect& hitTestRect, const IntPoint& hitTestPoint);
+                    bool haveTransparency, PaintRestriction, RenderObject* paintingRoot,
+                    RenderObject::OverlapTestRequestMap* = 0,
+                    bool appliedTransform = false, bool temporaryClipRects = false);
+
+    RenderLayer* hitTestLayer(RenderLayer* rootLayer, RenderLayer* containerLayer, const HitTestRequest& request, HitTestResult& result,
+                            const IntRect& hitTestRect, const IntPoint& hitTestPoint, bool appliedTransform,
+                            const HitTestingTransformState* transformState = 0, double* zOffset = 0);
+
+    PassRefPtr<HitTestingTransformState> createLocalTransformState(RenderLayer* rootLayer, RenderLayer* containerLayer,
+                            const IntRect& hitTestRect, const IntPoint& hitTestPoint,
+                            const HitTestingTransformState* containerTransformState) const;
+    
+    bool hitTestContents(const HitTestRequest&, HitTestResult&, const IntRect& layerBounds, const IntPoint& hitTestPoint, HitTestFilter) const;
+    
     void computeScrollDimensions(bool* needHBar = 0, bool* needVBar = 0);
 
-    bool shouldBeOverflowOnly() const;
+    bool shouldBeNormalFlowOnly() const; 
 
     virtual void valueChanged(Scrollbar*);
-    virtual IntRect windowClipRect() const;
+    virtual void invalidateScrollbarRect(Scrollbar*, const IntRect&);
     virtual bool isActive() const;
+    virtual bool scrollbarCornerPresent() const;
 
     void updateOverflowStatus(bool horizontalOverflow, bool verticalOverflow);
 
@@ -390,10 +469,48 @@ private:
     void dirtyVisibleDescendantStatus();
     void updateVisibilityStatus();
 
+    // This flag is computed by RenderLayerCompositor, which knows more about 3d hierarchies than we do.
+    void setHas3DTransformedDescendant(bool b) { m_has3DTransformedDescendant = b; }
+    bool has3DTransformedDescendant() const { return m_has3DTransformedDescendant; }
+    
+    void dirty3DTransformedDescendantStatus();
+    // Both updates the status, and returns true if descendants of this have 3d.
+    bool update3DTransformedDescendantStatus();
+
     Node* enclosingElement() const;
 
-protected:   
-    RenderObject* m_object;
+    void createReflection();
+    void updateReflectionStyle();
+    bool paintingInsideReflection() const { return m_paintingInsideReflection; }
+    
+    void parentClipRects(const RenderLayer* rootLayer, ClipRects&, bool temporaryClipRects = false) const;
+
+    RenderLayer* enclosingTransformedAncestor() const;
+
+    // Convert a point in absolute coords into layer coords, taking transforms into account
+    IntPoint absoluteToContents(const IntPoint&) const;
+
+    void updateScrollCornerStyle();
+    void updateResizerStyle();
+
+#if USE(ACCELERATED_COMPOSITING)    
+    bool hasCompositingDescendant() const { return m_hasCompositingDescendant; }
+    void setHasCompositingDescendant(bool b)  { m_hasCompositingDescendant = b; }
+    
+    bool mustOverlayCompositedLayers() const { return m_mustOverlayCompositedLayers; }
+    void setMustOverlayCompositedLayers(bool b) { m_mustOverlayCompositedLayers = b; }
+#endif
+
+private:
+    friend class RenderLayerBacking;
+    friend class RenderLayerCompositor;
+    friend class RenderBoxModelObject;
+
+    // Only safe to call from RenderBoxModelObject::destroyLayer(RenderArena*)
+    void destroy(RenderArena*);
+
+protected:
+    RenderBoxModelObject* m_renderer;
 
     RenderLayer* m_parent;
     RenderLayer* m_previous;
@@ -419,8 +536,8 @@ protected:
     // Our scroll offsets if the view is scrolled.
     int m_scrollX;
     int m_scrollY;
-    int m_scrollOriginX;
-    int m_scrollLeftOverflow;
+    int m_scrollOriginX;        // only non-zero for rtl content
+    int m_scrollLeftOverflow;   // only non-zero for rtl content
 
     // The width/height of our scrolled area.
     int m_scrollWidth;
@@ -440,19 +557,24 @@ protected:
     Vector<RenderLayer*>* m_posZOrderList;
     Vector<RenderLayer*>* m_negZOrderList;
 
-    // This list contains our overflow child layers.
-    Vector<RenderLayer*>* m_overflowList;
+    // This list contains child layers that cannot create stacking contexts.  For now it is just
+    // overflow layers, but that may change in the future.
+    Vector<RenderLayer*>* m_normalFlowList;
 
     ClipRects* m_clipRects;      // Cached clip rects used when painting and hit testing.
+#ifndef NDEBUG
+    const RenderLayer* m_clipRectsRoot;   // Root layer used to compute clip rects.
+#endif
 
     bool m_scrollDimensionsDirty : 1;
     bool m_zOrderListsDirty : 1;
-    bool m_overflowListDirty: 1;
-    bool m_isOverflowOnly: 1;
+    bool m_normalFlowListDirty: 1;
+    bool m_isNormalFlowOnly : 1;
 
     bool m_usedTransparency : 1; // Tracks whether we need to close a transparent layer, i.e., whether
                                  // we ended up painting this layer or any descendants (and therefore need to
                                  // blend).
+    bool m_paintingInsideReflection : 1;  // A state bit tracking if we are painting inside a replica.
     bool m_inOverflowRelayout : 1;
     bool m_needsFullRepaint : 1;
 
@@ -464,13 +586,32 @@ protected:
     bool m_visibleDescendantStatusDirty : 1;
     bool m_hasVisibleDescendant : 1;
 
-    Marquee* m_marquee; // Used by layers with overflow:marquee
+    bool m_3DTransformedDescendantStatusDirty : 1;
+    bool m_has3DTransformedDescendant : 1;  // Set on a stacking context layer that has 3D descendants anywhere
+                                            // in a preserves3D hierarchy. Hint to do 3D-aware hit testing.
+#if USE(ACCELERATED_COMPOSITING)
+    bool m_hasCompositingDescendant : 1;
+    bool m_mustOverlayCompositedLayers : 1;
+#endif
+
+    RenderMarquee* m_marquee; // Used by layers with overflow:marquee
     
     // Cached normal flow values for absolute positioned elements with static left/top values.
     int m_staticX;
     int m_staticY;
     
-    OwnPtr<AffineTransform> m_transform;
+    OwnPtr<TransformationMatrix> m_transform;
+    
+    // May ultimately be extended to many replicas (with their own paint order).
+    RenderReplica* m_reflection;
+    
+    // Renderers to hold our custom scroll corner and resizer.
+    RenderScrollbarPart* m_scrollCorner;
+    RenderScrollbarPart* m_resizer;
+
+#if USE(ACCELERATED_COMPOSITING)
+    OwnPtr<RenderLayerBacking> m_backing;
+#endif
 };
 
 } // namespace WebCore

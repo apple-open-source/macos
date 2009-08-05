@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -51,10 +51,11 @@
 #define kIOUSBMassStoragePreferredProtocol		"Preferred Protocol"
 #define kIOUSBMassStorageResetOnResume			"Reset On Resume"
 #define kIOUSBMassStorageDoNotOperate			"Do Not Operate"
-#define kIOUSBMassStorageUseStandardUSBReset    "Use Standard USB Reset"
-#define kIOUSBKnownCSWTagIssues                 "Known CSW Tag Issues"
+#define kIOUSBMassStorageUseStandardUSBReset	"Use Standard USB Reset"
+#define kIOUSBKnownCSWTagIssues					"Known CSW Tag Issues"
 #define kIOUSBMassStorageMaxLogicalUnitNumber	"Max Logical Unit Number"
-#define kIOPropertyIOUnitKey                    "IOUnit"
+#define kIOPropertyIOUnitKey					"IOUnit"
+#define kIOUSBMassStorageDoNotMatch				"Do Not Match MSC"
 
 
 #pragma mark -
@@ -173,6 +174,7 @@ protected:
 		bool                    fWaitingForReconfigurationMessage;
 		bool					fTerminating;
         bool                    fKnownCSWTagMismatchIssues;
+		UInt8					fConsecutiveResetCount;
 	};
     ExpansionData *				reserved;
 	
@@ -188,6 +190,7 @@ protected:
 	#define fWaitingForReconfigurationMessage	reserved->fWaitingForReconfigurationMessage
 	#define fTerminating						reserved->fTerminating
     #define fKnownCSWTagMismatchIssues          reserved->fKnownCSWTagMismatchIssues
+    #define fConsecutiveResetCount          	reserved->fConsecutiveResetCount
 	
 	// Enumerated constants used to control various aspects of this
 	// driver.
@@ -335,7 +338,7 @@ protected:
 		kByteCountOfCBW					= 31,
 
 		// CBW LUN related definitions
-		kCBWLUNMask						= 0x07,
+		kCBWLUNMask						= 0x0F,
 
 		kCBWFlagsDataOut				= 0x00,
 		kCBWFlagsDataIn					= 0x80

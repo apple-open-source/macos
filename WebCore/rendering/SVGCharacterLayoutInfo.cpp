@@ -274,7 +274,7 @@ void SVGCharacterLayoutInfo::addLayoutInformation(InlineFlowBox* flowBox, float 
                            angleStack.isEmpty() && baselineShiftStack.isEmpty() &&
                            curx == 0.0f && cury == 0.0f;
 
-    RenderSVGTextPath* textPath = static_cast<RenderSVGTextPath*>(flowBox->object());
+    RenderSVGTextPath* textPath = static_cast<RenderSVGTextPath*>(flowBox->renderer());
     Path path = textPath->layoutPath();
 
     float baselineShift = calculateBaselineShift(textPath);
@@ -315,10 +315,10 @@ void SVGCharacterLayoutInfo::addLayoutInformation(SVGTextPositioningElement* ele
 
     float baselineShift = calculateBaselineShift(element->renderer());
 
-    addStackContent(XStack, element->x());
-    addStackContent(YStack, element->y());
-    addStackContent(DxStack, element->dx());
-    addStackContent(DyStack, element->dy());
+    addStackContent(XStack, element->x(), element);
+    addStackContent(YStack, element->y(), element);
+    addStackContent(DxStack, element->dx(), element);
+    addStackContent(DyStack, element->dy(), element);
     addStackContent(AngleStack, element->rotate());
     addStackContent(BaselineShiftStack, baselineShift);
 
@@ -352,7 +352,7 @@ void SVGCharacterLayoutInfo::addStackContent(StackType type, SVGNumberList* list
     addStackContent(type, newLayoutInfo);
 }
 
-void SVGCharacterLayoutInfo::addStackContent(StackType type, SVGLengthList* list)
+void SVGCharacterLayoutInfo::addStackContent(StackType type, SVGLengthList* list, const SVGElement* context)
 {
     unsigned length = list->numberOfItems();
     if (!length)
@@ -362,7 +362,7 @@ void SVGCharacterLayoutInfo::addStackContent(StackType type, SVGLengthList* list
 
     ExceptionCode ec = 0;
     for (unsigned i = 0; i < length; ++i) {
-        float value = list->getItem(i, ec).value();
+        float value = list->getItem(i, ec).value(context);
         ASSERT(ec == 0);
 
         newLayoutInfo.append(value);
@@ -512,16 +512,16 @@ bool SVGChar::isHidden() const
     return pathData && pathData->hidden;
 }
 
-AffineTransform SVGChar::characterTransform() const
+TransformationMatrix SVGChar::characterTransform() const
 {
-    AffineTransform ctm;
+    TransformationMatrix ctm;
 
     // Rotate character around angle, and possibly scale.
     ctm.translate(x, y);
     ctm.rotate(angle);
 
     if (pathData) {
-        ctm.scale(pathData->xScale, pathData->yScale);
+        ctm.scaleNonUniform(pathData->xScale, pathData->yScale);
         ctm.translate(pathData->xShift, pathData->yShift);
         ctm.rotate(pathData->orientationAngle);
     }

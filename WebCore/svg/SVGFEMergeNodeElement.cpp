@@ -25,18 +25,19 @@
 #if ENABLE(SVG) && ENABLE(SVG_FILTERS)
 #include "SVGFEMergeNodeElement.h"
 
+#include "MappedAttribute.h"
+
 namespace WebCore {
 
 SVGFEMergeNodeElement::SVGFEMergeNodeElement(const QualifiedName& tagName, Document* doc)
     : SVGElement(tagName, doc)
+    , m_in1(this, SVGNames::inAttr)
 {
 }
 
 SVGFEMergeNodeElement::~SVGFEMergeNodeElement()
 {
 }
-
-ANIMATED_PROPERTY_DEFINITIONS(SVGFEMergeNodeElement, String, String, string, In1, in1, SVGNames::inAttr, m_in1)
 
 void SVGFEMergeNodeElement::parseMappedAttribute(MappedAttribute* attr)
 {
@@ -50,5 +51,3 @@ void SVGFEMergeNodeElement::parseMappedAttribute(MappedAttribute* attr)
 }
 
 #endif // ENABLE(SVG)
-
-// vim:ts=4:noet

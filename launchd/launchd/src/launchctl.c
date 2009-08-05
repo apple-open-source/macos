@@ -18,8 +18,9 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-static const char *const __rcs_file_version__ = "$Revision: 23792 $";
+static const char *const __rcs_file_version__ = "$Revision: 23887 $";
 
+#include "config.h"
 #include "launch.h"
 #include "launch_priv.h"
 #include "bootstrap.h"

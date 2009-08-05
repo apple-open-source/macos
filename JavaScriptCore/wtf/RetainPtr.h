@@ -1,7 +1,5 @@
-// -*- mode: c++; c-basic-offset: 4 -*-
 /*
- *  This file is part of the KDE libraries
- *  Copyright (C) 2005, 2006 Apple Computer, Inc.
+ *  Copyright (C) 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -23,6 +21,7 @@
 #ifndef RetainPtr_h
 #define RetainPtr_h
 
+#include "TypeTraits.h"
 #include <algorithm>
 #include <CoreFoundation/CoreFoundation.h>
 
@@ -31,14 +30,6 @@
 #endif
 
 namespace WTF {
-
-    template <typename T> struct RemovePointer {
-        typedef T type;
-    };
-
-    template <typename T> struct RemovePointer<T*> {
-        typedef T type;
-    };
 
     // Unlike most most of our smart pointers, RetainPtr can take either the pointer type or the pointed-to type,
     // so both RetainPtr<NSDictionary> and RetainPtr<CFDictionaryRef> will work.
@@ -58,7 +49,7 @@ namespace WTF {
 
     template <typename T> class RetainPtr {
     public:
-        typedef typename RemovePointer<T>::type ValueType;
+        typedef typename RemovePointer<T>::Type ValueType;
         typedef ValueType* PtrType;
 
         RetainPtr() : m_ptr(0) {}

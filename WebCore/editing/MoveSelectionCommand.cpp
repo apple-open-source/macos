@@ -37,13 +37,9 @@ MoveSelectionCommand::MoveSelectionCommand(PassRefPtr<DocumentFragment> fragment
     ASSERT(m_fragment);
 }
 
-MoveSelectionCommand::~MoveSelectionCommand()
-{
-}
-
 void MoveSelectionCommand::doApply()
 {
-    Selection selection = endingSelection();
+    VisibleSelection selection = endingSelection();
     ASSERT(selection.isRange());
 
     Position pos = m_position;
@@ -52,14 +48,14 @@ void MoveSelectionCommand::doApply()
         
     // Update the position otherwise it may become invalid after the selection is deleted.
     Node *positionNode = m_position.node();
-    int positionOffset = m_position.offset();
+    int positionOffset = m_position.deprecatedEditingOffset();
     Position selectionEnd = selection.end();
-    int selectionEndOffset = selectionEnd.offset();    
+    int selectionEndOffset = selectionEnd.deprecatedEditingOffset();
     if (selectionEnd.node() == positionNode && selectionEndOffset < positionOffset) {
         positionOffset -= selectionEndOffset;
         Position selectionStart = selection.start();
         if (selectionStart.node() == positionNode) {
-            positionOffset += selectionStart.offset();
+            positionOffset += selectionStart.deprecatedEditingOffset();
         }
         pos = Position(positionNode, positionOffset);
     }
@@ -73,8 +69,12 @@ void MoveSelectionCommand::doApply()
     if (!pos.node()->inDocument())
         pos = endingSelection().start();
 
-    setEndingSelection(Selection(pos, endingSelection().affinity()));
-    applyCommandToComposite(new ReplaceSelectionCommand(positionNode->document(), m_fragment.get(), true, m_smartMove));
+    setEndingSelection(VisibleSelection(pos, endingSelection().affinity()));
+    if (!positionNode->inDocument()) {
+        // Document was modified out from under us.
+        return;
+    }
+    applyCommandToComposite(ReplaceSelectionCommand::create(positionNode->document(), m_fragment, true, m_smartMove));
 }
 
 EditAction MoveSelectionCommand::editingAction() const

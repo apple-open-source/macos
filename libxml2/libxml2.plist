@@ -19,6 +19,10 @@
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>CVE-2007-6284</string>
+		<string>CVE-2008-3281</string>
+		<string>CVE-2008-4225</string>
+		<string>CVE-2008-4226</string>
+		<string>CVE-2008-4409</string>
 		<string>rdar://problem/3871639</string>
 		<string>rdar://problem/3874282</string>
 		<string>rdar://problem/3949744</string>
@@ -27,7 +31,10 @@
 		<string>rdar://problem/4924865</string>
 		<string>rdar://problem/5205305</string>
 		<string>rdar://problem/5354321</string>
+		<string>rdar://problem/5928399</string>
+		<string>rdar://problem/6134405</string>
 		<string>rdar://problem/6194101</string>
+		<string>rdar://problem/6329244</string>
 	</array>
 </dict>
 </plist>

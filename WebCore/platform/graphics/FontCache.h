@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006, 2008 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +29,8 @@
 #ifndef FontCache_h
 #define FontCache_h
 
+#include <limits.h>
+#include <wtf/Vector.h>
 #include <wtf/unicode/Unicode.h>
 
 #if PLATFORM(WIN)
@@ -49,33 +51,51 @@ class SimpleFontData;
 
 class FontCache {
 public:
-    static const FontData* getFontData(const Font&, int& familyIndex, FontSelector*);
+    friend FontCache* fontCache();
+
+    const FontData* getFontData(const Font&, int& familyIndex, FontSelector*);
+    void releaseFontData(const SimpleFontData*);
     
     // This method is implemented by the platform.
-    static const SimpleFontData* getFontDataForCharacters(const Font&, const UChar* characters, int length);
+    // FIXME: Font data returned by this method never go inactive because callers don't track and release them.
+    const SimpleFontData* getFontDataForCharacters(const Font&, const UChar* characters, int length);
     
     // Also implemented by the platform.
-    static void platformInit();
+    void platformInit();
 
 #if PLATFORM(WIN)
-    static IMLangFontLink2* getFontLinkInterface();
+    IMLangFontLink2* getFontLinkInterface();
 #endif
 
-    static bool fontExists(const FontDescription&, const AtomicString& family);
+    void getTraitsInFamily(const AtomicString&, Vector<unsigned>&);
 
-    static FontPlatformData* getCachedFontPlatformData(const FontDescription&, const AtomicString& family, bool checkingAlternateName = false);
-    static SimpleFontData* getCachedFontData(const FontPlatformData*);
-    static FontPlatformData* getLastResortFallbackFont(const FontDescription&);
-    
+    FontPlatformData* getCachedFontPlatformData(const FontDescription&, const AtomicString& family, bool checkingAlternateName = false);
+    SimpleFontData* getCachedFontData(const FontPlatformData*);
+    FontPlatformData* getLastResortFallbackFont(const FontDescription&);
+
+    void addClient(FontSelector*);
+    void removeClient(FontSelector*);
+
+    unsigned generation();
+    void invalidate();
+
+    size_t fontDataCount();
+    size_t inactiveFontDataCount();
+    void purgeInactiveFontData(int count = INT_MAX);
+
 private:
+    FontCache();
+
     // These methods are implemented by each platform.
-    static FontPlatformData* getSimilarFontPlatformData(const Font&);
-    static FontPlatformData* createFontPlatformData(const FontDescription&, const AtomicString& family);
+    FontPlatformData* getSimilarFontPlatformData(const Font&);
+    FontPlatformData* createFontPlatformData(const FontDescription&, const AtomicString& family);
 
     friend class SimpleFontData;
     friend class FontFallbackList;
 };
 
+// Get the global fontCache.
+FontCache* fontCache();
 }
 
 #endif

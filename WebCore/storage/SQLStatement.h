@@ -25,11 +25,12 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef SQLStatment_h
-#define SQLStatment_h
+#ifndef SQLStatement_h
+#define SQLStatement_h
+
+#if ENABLE(DATABASE)
 
 #include "PlatformString.h"
-#include "Threading.h"
 
 #include "SQLError.h"
 #include "SQLResultSet.h"
@@ -39,6 +40,7 @@
 
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
+#include <wtf/Threading.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
@@ -49,7 +51,7 @@ class String;
 
 class SQLStatement : public ThreadSafeShared<SQLStatement> {
 public:
-    SQLStatement(const String& statement, const Vector<SQLValue>& arguments, PassRefPtr<SQLStatementCallback> callback, PassRefPtr<SQLStatementErrorCallback> errorCallback);
+    static PassRefPtr<SQLStatement> create(const String&, const Vector<SQLValue>&, PassRefPtr<SQLStatementCallback>, PassRefPtr<SQLStatementErrorCallback>, bool readOnly);
     
     bool execute(Database*);
     bool lastExecutionFailedDueToQuota() const;
@@ -64,6 +66,8 @@ public:
     
     SQLError* sqlError() const { return m_error.get(); }
 private:
+    SQLStatement(const String& statement, const Vector<SQLValue>& arguments, PassRefPtr<SQLStatementCallback> callback, PassRefPtr<SQLStatementErrorCallback> errorCallback, bool readOnly);
+
     void setFailureDueToQuota();
     void clearFailureDueToQuota();
     
@@ -74,8 +78,12 @@ private:
     
     RefPtr<SQLError> m_error;
     RefPtr<SQLResultSet> m_resultSet;
+    
+    bool m_readOnly;
 };
 
 } // namespace WebCore
 
-#endif // SQLStatment_h
+#endif // ENABLE(DATABASE)
+
+#endif // SQLStatement_h

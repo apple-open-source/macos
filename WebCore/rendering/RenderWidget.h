@@ -24,20 +24,19 @@
 #ifndef RenderWidget_h
 #define RenderWidget_h
 
+#include "OverlapTestRequestClient.h"
 #include "RenderReplaced.h"
 
 namespace WebCore {
 
 class Widget;
 
-class RenderWidget : public RenderReplaced {
+class RenderWidget : public RenderReplaced, private OverlapTestRequestClient {
 public:
     RenderWidget(Node*);
     virtual ~RenderWidget();
 
     virtual bool isWidget() const { return true; }
-
-    virtual void setStyle(RenderStyle*);
 
     virtual void paint(PaintInfo&, int tx, int ty);
 
@@ -52,14 +51,22 @@ public:
 
     virtual void setSelectionState(SelectionState);
 
-    virtual void updateWidgetPosition();
+    void updateWidgetPosition();
 
     virtual void setWidget(Widget*);
 
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
+
+protected:
+    virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
+
 private:
-    void resizeWidget(Widget*, int w, int h);
+    void setWidgetGeometry(const IntRect&);
 
     virtual void deleteWidget();
+
+    // OverlapTestRequestClient
+    virtual void setOverlapTestResult(bool);
 
 protected:
     Widget* m_widget;

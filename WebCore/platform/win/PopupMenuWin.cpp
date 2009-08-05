@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -31,9 +31,10 @@
 #include "Page.h"
 #include "PlatformMouseEvent.h"
 #include "PlatformScreen.h"
-#include "PlatformScrollBar.h"
 #include "RenderTheme.h"
 #include "RenderView.h"
+#include "Scrollbar.h"
+#include "ScrollbarTheme.h"
 #include "SimpleFontData.h"
 #include <tchar.h>
 #include <windows.h>
@@ -48,8 +49,6 @@ using namespace HTMLNames;
 static const int defaultAnimationDuration = 200;
 // Maximum height of a popup window
 static const int maxPopupHeight = 320;
-
-static const int popupWindowAlphaPercent = 95;
 
 const int optionSpacingMiddle = 1;
 const int popupWindowBorderWidth = 1;
@@ -66,7 +65,7 @@ static inline bool isASCIIPrintable(unsigned c)
 
 PopupMenu::PopupMenu(PopupMenuClient* client)
     : m_popupClient(client)
-    , m_scrollBar(0)
+    , m_scrollbar(0)
     , m_popup(0)
     , m_DC(0)
     , m_bmp(0)
@@ -98,27 +97,25 @@ void PopupMenu::show(const IntRect& r, FrameView* v, int index)
     if (!m_popup) {
         registerPopup();
 
-        DWORD exStyle = WS_EX_LAYERED | WS_EX_LTRREADING;
+        DWORD exStyle = WS_EX_LTRREADING;
 
         // Even though we already know our size and location at this point, we pass (0,0,0,0) as our size/location here.
         // We need to wait until after the call to ::SetWindowLongPtr to set our size so that in our WM_SIZE handler we can get access to the PopupMenu object
         m_popup = ::CreateWindowEx(exStyle, kPopupWindowClassName, _T("PopupMenu"),
             WS_POPUP | WS_BORDER,
             0, 0, 0, 0,
-            v->containingWindow(), 0, 0, 0);
+            v->hostWindow()->platformWindow(), 0, 0, 0);
 
         if (!m_popup)
             return;
 
         ::SetWindowLongPtr(m_popup, 0, (LONG_PTR)this);
-        ::SetLayeredWindowAttributes(m_popup, 0, (255 * popupWindowAlphaPercent) / 100, LWA_ALPHA);
     }
 
-    if (!m_scrollBar)
+    if (!m_scrollbar)
         if (visibleItems() < client()->listSize()) {
             // We need a scroll bar
-            m_scrollBar = new PlatformScrollbar(this, VerticalScrollbar, SmallScrollbar);
-            m_scrollBar->setContainingWindow(m_popup);
+            m_scrollbar = client()->createScrollbar(this, VerticalScrollbar, SmallScrollbar);
         }
 
     ::SetWindowPos(m_popup, HWND_TOP, m_windowRect.x(), m_windowRect.y(), m_windowRect.width(), m_windowRect.height(), 0);
@@ -126,13 +123,11 @@ void PopupMenu::show(const IntRect& r, FrameView* v, int index)
     // Determine whether we should animate our popups
     // Note: Must use 'BOOL' and 'FALSE' instead of 'bool' and 'false' to avoid stack corruption with SystemParametersInfo
     BOOL shouldAnimate = FALSE;
-#ifdef CAN_ANIMATE_TRANSPARENT_WINDOWS_SMOOTHLY
     ::SystemParametersInfo(SPI_GETCOMBOBOXANIMATION, 0, &shouldAnimate, 0);
-#endif
 
     if (shouldAnimate) {
         RECT viewRect = {0};
-        ::GetWindowRect(v->containingWindow(), &viewRect);
+        ::GetWindowRect(v->hostWindow()->platformWindow(), &viewRect);
 
         if (!::IsRectEmpty(&viewRect)) {
             // Popups should slide into view away from the <select> box
@@ -167,14 +162,14 @@ void PopupMenu::calculatePositionAndSize(const IntRect& r, FrameView* v)
 
     // Then, translate to screen coordinates
     POINT location(rScreenCoords.location());
-    if (!::ClientToScreen(v->containingWindow(), &location))
+    if (!::ClientToScreen(v->hostWindow()->platformWindow(), &location))
         return;
 
     rScreenCoords.setLocation(location);
 
     // First, determine the popup's height
     int itemCount = client()->listSize();
-    m_itemHeight = client()->clientStyle()->font().height() + optionSpacingMiddle;
+    m_itemHeight = client()->menuStyle().font().height() + optionSpacingMiddle;
     int naturalHeight = m_itemHeight * itemCount;
     int popupHeight = min(maxPopupHeight, naturalHeight);
     // The popup should show an integral number of items (i.e. no partial items should be visible)
@@ -187,12 +182,20 @@ void PopupMenu::calculatePositionAndSize(const IntRect& r, FrameView* v)
         if (text.isEmpty())
             continue;
 
-        popupWidth = max(popupWidth, client()->clientStyle()->font().width(TextRun(text.characters(), text.length())));
+        Font itemFont = client()->menuStyle().font();
+        if (client()->itemIsLabel(i)) {
+            FontDescription d = itemFont.fontDescription();
+            d.setWeight(d.bolderWeight());
+            itemFont = Font(d, itemFont.letterSpacing(), itemFont.wordSpacing());
+            itemFont.update(m_popupClient->fontSelector());
+        }
+
+        popupWidth = max(popupWidth, itemFont.width(TextRun(text.characters(), text.length())));
     }
 
     if (naturalHeight > maxPopupHeight)
         // We need room for a scrollbar
-        popupWidth += PlatformScrollbar::verticalScrollbarWidth(SmallScrollbar);
+        popupWidth += ScrollbarTheme::nativeTheme()->scrollbarThickness(SmallScrollbar);
 
     // Add padding to align the popup text with the <select> text
     // Note: We can't add paddingRight() because that value includes the width
@@ -353,8 +356,8 @@ void PopupMenu::invalidateItem(int index)
     IntRect damageRect(clientRect());
     damageRect.setY(m_itemHeight * (index - m_scrollOffset));
     damageRect.setHeight(m_itemHeight);
-    if (m_scrollBar)
-        damageRect.setWidth(damageRect.width() - m_scrollBar->frameGeometry().width());
+    if (m_scrollbar)
+        damageRect.setWidth(damageRect.width() - m_scrollbar->frameRect().width());
 
     RECT r = damageRect;
     ::InvalidateRect(m_popup, &r, TRUE);
@@ -388,18 +391,18 @@ void PopupMenu::reduceWheelDelta(int delta)
 
 bool PopupMenu::scrollToRevealSelection()
 {
-    if (!m_scrollBar)
+    if (!m_scrollbar)
         return false;
 
     int index = focusedIndex();
 
     if (index < m_scrollOffset) {
-        m_scrollBar->setValue(index);
+        m_scrollbar->setValue(index);
         return true;
     }
 
     if (index >= m_scrollOffset + visibleItems()) {
-        m_scrollBar->setValue(index - visibleItems() + 1);
+        m_scrollbar->setValue(index - visibleItems() + 1);
         return true;
     }
 
@@ -477,26 +480,24 @@ void PopupMenu::paint(const IntRect& damageRect, HDC hdc)
     IntRect listRect = damageRect;
     listRect.move(IntSize(0, m_scrollOffset * m_itemHeight));
 
-    RenderStyle* clientStyle = client()->clientStyle();
-
     for (int y = listRect.y(); y < listRect.bottom(); y += m_itemHeight) {
         int index = y / m_itemHeight;
 
         Color optionBackgroundColor, optionTextColor;
-        RenderStyle* itemStyle = client()->itemStyle(index);
+        PopupMenuStyle itemStyle = client()->itemStyle(index);
         if (index == focusedIndex()) {
             optionBackgroundColor = theme()->activeListBoxSelectionBackgroundColor();
             optionTextColor = theme()->activeListBoxSelectionForegroundColor();
         } else {
-            optionBackgroundColor = client()->itemBackgroundColor(index);
-            optionTextColor = itemStyle->color();
+            optionBackgroundColor = itemStyle.backgroundColor();
+            optionTextColor = itemStyle.foregroundColor();
         }
 
         // itemRect is in client coordinates
         IntRect itemRect(0, (index - m_scrollOffset) * m_itemHeight, damageRect.width(), m_itemHeight);
 
         // Draw the background for this menu item
-        if (itemStyle->visibility() != HIDDEN)
+        if (itemStyle.isVisible())
             context.fillRect(itemRect, optionBackgroundColor);
 
         if (client()->itemIsSeparator(index)) {
@@ -513,25 +514,26 @@ void PopupMenu::paint(const IntRect& damageRect, HDC hdc)
 
         context.setFillColor(optionTextColor);
         
-        Font itemFont = client()->clientStyle()->font();
+        Font itemFont = client()->menuStyle().font();
         if (client()->itemIsLabel(index)) {
             FontDescription d = itemFont.fontDescription();
-            d.setBold(true);
+            d.setWeight(d.bolderWeight());
             itemFont = Font(d, itemFont.letterSpacing(), itemFont.wordSpacing());
             itemFont.update(m_popupClient->fontSelector());
         }
-        context.setFont(itemFont);
         
         // Draw the item text
-        if (itemStyle->visibility() != HIDDEN) {
+        if (itemStyle.isVisible()) {
             int textX = max(0, client()->clientPaddingLeft() - client()->clientInsetLeft());
+            if (theme()->popupOptionSupportsTextIndent() && itemStyle.textDirection() == LTR)
+                textX += itemStyle.textIndent().calcMinValue(itemRect.width());
             int textY = itemRect.y() + itemFont.ascent() + (itemRect.height() - itemFont.height()) / 2;
-            context.drawBidiText(textRun, IntPoint(textX, textY));
+            context.drawBidiText(itemFont, textRun, IntPoint(textX, textY));
         }
     }
 
-    if (m_scrollBar)
-        m_scrollBar->paint(&context, damageRect);
+    if (m_scrollbar)
+        m_scrollbar->paint(&context, damageRect);
 
     if (!hdc)
         hdc = ::GetDC(m_popup);
@@ -541,7 +543,7 @@ void PopupMenu::paint(const IntRect& damageRect, HDC hdc)
 
 void PopupMenu::valueChanged(Scrollbar* scrollBar)
 {
-    ASSERT(m_scrollBar);
+    ASSERT(m_scrollbar);
 
     if (!m_popup)
         return;
@@ -564,20 +566,23 @@ void PopupMenu::valueChanged(Scrollbar* scrollBar)
 #endif
 
     IntRect listRect = clientRect();
-    if (m_scrollBar)
-        listRect.setWidth(listRect.width() - m_scrollBar->frameGeometry().width());
+    if (m_scrollbar)
+        listRect.setWidth(listRect.width() - m_scrollbar->frameRect().width());
     RECT r = listRect;
     ::ScrollWindowEx(m_popup, 0, scrolledLines * m_itemHeight, &r, 0, 0, 0, flags);
-    if (m_scrollBar) {
-        r = m_scrollBar->frameGeometry();
+    if (m_scrollbar) {
+        r = m_scrollbar->frameRect();
         ::InvalidateRect(m_popup, &r, TRUE);
     }
     ::UpdateWindow(m_popup);
 }
 
-IntRect PopupMenu::windowClipRect() const
+void PopupMenu::invalidateScrollbarRect(Scrollbar* scrollbar, const IntRect& rect)
 {
-    return m_windowRect;
+    IntRect scrollRect = rect;
+    scrollRect.move(scrollbar->x(), scrollbar->y());
+    RECT r = scrollRect;
+    ::InvalidateRect(m_popup, &r, false);
 }
 
 static ATOM registerPopup()
@@ -591,7 +596,7 @@ static ATOM registerPopup()
 
     wcex.cbSize = sizeof(WNDCLASSEX);
 
-    wcex.style          = 0;
+    wcex.style          = CS_DROPSHADOW;
     wcex.lpfnWndProc    = PopupWndProc;
     wcex.cbClsExtra     = 0;
     wcex.cbWndExtra     = sizeof(PopupMenu*); // For the PopupMenu pointer
@@ -617,14 +622,14 @@ static LRESULT CALLBACK PopupWndProc(HWND hWnd, UINT message, WPARAM wParam, LPA
 
     switch (message) {
         case WM_SIZE:
-            if (popup && popup->scrollBar()) {
+            if (popup && popup->scrollbar()) {
                 IntSize size(LOWORD(lParam), HIWORD(lParam));
-                popup->scrollBar()->setRect(IntRect(size.width() - popup->scrollBar()->width(), 0, popup->scrollBar()->width(), size.height()));
+                popup->scrollbar()->setFrameRect(IntRect(size.width() - popup->scrollbar()->width(), 0, popup->scrollbar()->width(), size.height()));
 
                 int visibleItems = popup->visibleItems();
-                popup->scrollBar()->setEnabled(visibleItems < popup->client()->listSize());
-                popup->scrollBar()->setSteps(1, max(1, visibleItems - 1));
-                popup->scrollBar()->setProportion(visibleItems, popup->client()->listSize());
+                popup->scrollbar()->setEnabled(visibleItems < popup->client()->listSize());
+                popup->scrollbar()->setSteps(1, max(1, visibleItems - 1));
+                popup->scrollbar()->setProportion(visibleItems, popup->client()->listSize());
             }
             break;
         case WM_ACTIVATE:
@@ -675,13 +680,16 @@ static LRESULT CALLBACK PopupWndProc(HWND hWnd, UINT message, WPARAM wParam, LPA
                         }
                         break;
                     case VK_TAB:
-                        ::SendMessage(popup->client()->clientDocument()->view()->containingWindow(), message, wParam, lParam);
+                        ::SendMessage(popup->client()->hostWindow()->platformWindow(), message, wParam, lParam);
+                        popup->client()->hidePopup();
+                        break;
+                    case VK_ESCAPE:
                         popup->client()->hidePopup();
                         break;
                     default:
                         if (isASCIIPrintable(wParam))
                             // Send the keydown to the WebView so it can be used for type-to-select.
-                            ::PostMessage(popup->client()->clientDocument()->view()->containingWindow(), message, wParam, lParam);
+                            ::PostMessage(popup->client()->hostWindow()->platformWindow(), message, wParam, lParam);
                         else
                             lResult = 1;
                         break;
@@ -714,13 +722,13 @@ static LRESULT CALLBACK PopupWndProc(HWND hWnd, UINT message, WPARAM wParam, LPA
         case WM_MOUSEMOVE:
             if (popup) {
                 IntPoint mousePoint(MAKEPOINTS(lParam));
-                if (popup->scrollBar()) {
-                    IntRect scrollBarRect = popup->scrollBar()->frameGeometry();
+                if (popup->scrollbar()) {
+                    IntRect scrollBarRect = popup->scrollbar()->frameRect();
                     if (popup->scrollbarCapturingMouse() || scrollBarRect.contains(mousePoint)) {
                         // Put the point into coordinates relative to the scroll bar
                         mousePoint.move(-scrollBarRect.x(), -scrollBarRect.y());
                         PlatformMouseEvent event(hWnd, message, wParam, MAKELPARAM(mousePoint.x(), mousePoint.y()));
-                        popup->scrollBar()->handleMouseMoveEvent(event);
+                        popup->scrollbar()->mouseMoved(event);
                         break;
                     }
                 }
@@ -745,13 +753,13 @@ static LRESULT CALLBACK PopupWndProc(HWND hWnd, UINT message, WPARAM wParam, LPA
             if (popup) {
                 ::SetCapture(popup->popupHandle());
                 IntPoint mousePoint(MAKEPOINTS(lParam));
-                if (popup->scrollBar()) {
-                    IntRect scrollBarRect = popup->scrollBar()->frameGeometry();
+                if (popup->scrollbar()) {
+                    IntRect scrollBarRect = popup->scrollbar()->frameRect();
                     if (scrollBarRect.contains(mousePoint)) {
                         // Put the point into coordinates relative to the scroll bar
                         mousePoint.move(-scrollBarRect.x(), -scrollBarRect.y());
                         PlatformMouseEvent event(hWnd, message, wParam, MAKELPARAM(mousePoint.x(), mousePoint.y()));
-                        popup->scrollBar()->handleMousePressEvent(event);
+                        popup->scrollbar()->mouseDown(event);
                         popup->setScrollbarCapturingMouse(true);
                         break;
                     }
@@ -763,16 +771,16 @@ static LRESULT CALLBACK PopupWndProc(HWND hWnd, UINT message, WPARAM wParam, LPA
         case WM_LBUTTONUP:
             if (popup) {
                 IntPoint mousePoint(MAKEPOINTS(lParam));
-                if (popup->scrollBar()) {
+                if (popup->scrollbar()) {
                     ::ReleaseCapture();
-                    IntRect scrollBarRect = popup->scrollBar()->frameGeometry();
+                    IntRect scrollBarRect = popup->scrollbar()->frameRect();
                     if (popup->scrollbarCapturingMouse() || scrollBarRect.contains(mousePoint)) {
                         popup->setScrollbarCapturingMouse(false);
                         // Put the point into coordinates relative to the scroll bar
                         mousePoint.move(-scrollBarRect.x(), -scrollBarRect.y());
                         PlatformMouseEvent event(hWnd, message, wParam, MAKELPARAM(mousePoint.x(), mousePoint.y()));
-                        popup->scrollBar()->handleMouseReleaseEvent(event);
-                        // FIXME: This is a hack to work around PlatformScrollbar not invalidating correctly when it doesn't have a parent widget
+                        popup->scrollbar()->mouseUp();
+                        // FIXME: This is a hack to work around Scrollbar not invalidating correctly when it doesn't have a parent widget
                         RECT r = scrollBarRect;
                         ::InvalidateRect(popup->popupHandle(), &r, TRUE);
                         break;
@@ -791,7 +799,7 @@ static LRESULT CALLBACK PopupWndProc(HWND hWnd, UINT message, WPARAM wParam, LPA
             }
             break;
         case WM_MOUSEWHEEL:
-            if (popup && popup->scrollBar()) {
+            if (popup && popup->scrollbar()) {
                 int i = 0;
                 for (popup->incrementWheelDelta(GET_WHEEL_DELTA_WPARAM(wParam)); abs(popup->wheelDelta()) >= WHEEL_DELTA; popup->reduceWheelDelta(WHEEL_DELTA))
                     if (popup->wheelDelta() > 0)
@@ -799,7 +807,7 @@ static LRESULT CALLBACK PopupWndProc(HWND hWnd, UINT message, WPARAM wParam, LPA
                     else
                         --i;
 
-                popup->scrollBar()->scroll(i > 0 ? ScrollUp : ScrollDown, ScrollByLine, abs(i));
+                popup->scrollbar()->scroll(i > 0 ? ScrollUp : ScrollDown, ScrollByLine, abs(i));
             }
             break;
         case WM_PAINT:

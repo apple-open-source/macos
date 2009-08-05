@@ -1,6 +1,7 @@
 /*
    Copyright (C) 2007 Eric Seidel <eric@webkit.org>
    Copyright (C) 2007, 2008 Nikolas Zimmermann <zimmermann@kde.org>
+   Copyright (C) 2008 Rob Buis <buis@kde.org>
 
    This library is free software; you can redistribute it and/or
    modify it under the terms of the GNU Library General Public
@@ -23,9 +24,10 @@
 #if ENABLE(SVG_FONTS)
 #include "SVGGlyphElement.h"
 
+#include "MappedAttribute.h"
+#include "SVGFontData.h"
 #include "SVGFontElement.h"
 #include "SVGFontFaceElement.h"
-#include "SVGFontData.h"
 #include "SVGNames.h"
 #include "SVGParserUtilities.h"
 #include "SimpleFontData.h"
@@ -44,22 +46,33 @@ SVGGlyphElement::~SVGGlyphElement()
 {
 }
 
-void SVGGlyphElement::insertedIntoDocument()
+void SVGGlyphElement::invalidateGlyphCache()
 {
     Node* fontNode = parentNode();
     if (fontNode && fontNode->hasTagName(fontTag)) {
         if (SVGFontElement* element = static_cast<SVGFontElement*>(fontNode))
-            element->addGlyphToCache(this);
+            element->invalidateGlyphCache();
     }
+}
+
+void SVGGlyphElement::parseMappedAttribute(MappedAttribute* attr)
+{
+    if (attr->name() == SVGNames::dAttr)
+        invalidateGlyphCache();
+    else
+        SVGStyledElement::parseMappedAttribute(attr);
+}
+
+void SVGGlyphElement::insertedIntoDocument()
+{
+    invalidateGlyphCache();
+    SVGStyledElement::insertedIntoDocument();
 }
 
 void SVGGlyphElement::removedFromDocument()
 {
-    Node* fontNode = parentNode();
-    if (fontNode && fontNode->hasTagName(fontTag)) {
-        if (SVGFontElement* element = static_cast<SVGFontElement*>(fontNode))
-            element->removeGlyphFromCache(this);
-    }
+    invalidateGlyphCache();
+    SVGStyledElement::removedFromDocument();
 }
 
 static inline SVGGlyphIdentifier::ArabicForm parseArabicForm(const AtomicString& value)

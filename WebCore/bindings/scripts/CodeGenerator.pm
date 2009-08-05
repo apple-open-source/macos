@@ -1,6 +1,6 @@
 #
 # WebKit IDL parser
-#
+# 
 # Copyright (C) 2005 Nikolas Zimmermann <wildfox@kde.org>
 # Copyright (C) 2006 Samuel Weinig <sam.weinig@gmail.com>
 # Copyright (C) 2007 Apple Inc. All rights reserved.
@@ -34,13 +34,14 @@ my $codeGenerator = 0;
 
 my $verbose = 0;
 
-my %primitiveTypeHash = ("int" => 1, "short" => 1, "long" => 1, 
+my %primitiveTypeHash = ("int" => 1, "short" => 1, "long" => 1, "long long" => 1, 
                          "unsigned int" => 1, "unsigned short" => 1,
-                         "unsigned long" => 1, "float" => 1,
-                         "double" => 1, "boolean" => 1, "void" => 1);
+                         "unsigned long" => 1, "unsigned long long" => 1, 
+                         "float" => 1, "double" => 1, 
+                         "boolean" => 1, "void" => 1);
 
-my %podTypeHash = ("RGBColor" => 1, "SVGLength" => 1, "SVGPoint" => 1, "SVGRect" => 1, "SVGNumber" => 1, "SVGMatrix" => 1, "SVGTransform" => 1);
- 
+my %podTypeHash = ("RGBColor" => 1, "SVGNumber" => 1, "SVGTransform" => 1);
+my %podTypesWithWritablePropertiesHash = ("SVGLength" => 1, "SVGMatrix" => 1, "SVGPoint" => 1, "SVGRect" => 1);
 my %stringTypeHash = ("DOMString" => 1, "AtomicString" => 1);
 
 my %nonPointerTypeHash = ("DOMTimeStamp" => 1, "CompareHow" => 1, "SVGPaintType" => 1);
@@ -130,9 +131,6 @@ sub AddMethodsConstantsAndAttributesFromParentClasses
     my $functionsRef = $dataNode->functions;
     my $attributesRef = $dataNode->attributes;
 
-    # Exception: For the DOM 'Node' is our topmost baseclass, not EventTargetNode.
-    return if $parentsMax eq 1 and $parents[0] eq "EventTargetNode";
-
     foreach (@{$dataNode->parents}) {
         if ($ignoreParent) {
             # Ignore first parent class, already handled by the generation itself.
@@ -195,9 +193,6 @@ sub GetMethodsAndAttributesFromParentClasses
 
     foreach (@{$dataNode->parents}) {
         my $interface = $object->StripModule($_);
-        if ($interface eq "EventTargetNode") {
-            $interface = "Node";
-        }
 
         # Step #1: Find the IDL file associated with 'interface'
         $endCondition = 0;
@@ -269,6 +264,16 @@ sub IsPodType
     my $type = shift;
 
     return 1 if $podTypeHash{$type};
+    return 1 if $podTypesWithWritablePropertiesHash{$type};
+    return 0;
+}
+
+sub IsPodTypeWithWriteableProperties
+{
+    my $object = shift;
+    my $type = shift;
+
+    return 1 if $podTypesWithWritablePropertiesHash{$type};
     return 0;
 }
 
@@ -376,6 +381,8 @@ sub WK_lcfirst
     my $ret = lcfirst($param);
     $ret =~ s/uRL/url/ if $ret =~ /^uRL/;
     $ret =~ s/jS/js/ if $ret =~ /^jS/;
+    $ret =~ s/xML/xml/ if $ret =~ /^xML/;
+    $ret =~ s/xSLT/xslt/ if $ret =~ /^xSLT/;
     return $ret;
 }
 

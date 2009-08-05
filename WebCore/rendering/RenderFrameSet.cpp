@@ -38,14 +38,11 @@
 #include "MouseEvent.h"
 #include "RenderFrame.h"
 #include "RenderView.h"
-#include "TextStream.h"
 
 namespace WebCore {
 
-using namespace EventNames;
-
 RenderFrameSet::RenderFrameSet(HTMLFrameSetElement* frameSet)
-    : RenderContainer(frameSet)
+    : RenderBox(frameSet)
     , m_isResizing(false)
     , m_isChildResizing(false)
 {
@@ -129,8 +126,8 @@ void RenderFrameSet::paint(PaintInfo& paintInfo, int tx, int ty)
         return;
 
     // Add in our offsets.
-    tx += m_x;
-    ty += m_y;
+    tx += x();
+    ty += y();
 
     int rows = frameSet()->totalRows();
     int cols = frameSet()->totalCols();
@@ -164,11 +161,11 @@ bool RenderFrameSet::nodeAtPoint(const HitTestRequest& request, HitTestResult& r
     if (action != HitTestForeground)
         return false;
 
-    bool inside = RenderContainer::nodeAtPoint(request, result, x, y, tx, ty, action)
-        || m_isResizing || canResize(IntPoint(x, y));
+    bool inside = RenderBox::nodeAtPoint(request, result, x, y, tx, ty, action)
+        || m_isResizing;
 
     if (inside && frameSet()->noResize()
-            && !request.readonly && !result.innerNode()) {
+            && !request.readOnly() && !result.innerNode()) {
         result.setInnerNode(node());
         result.setInnerNonSharedNode(node());
     }
@@ -329,7 +326,7 @@ void RenderFrameSet::layOutAxis(GridAxis& axis, const Length* grid, int availabl
     }
     
     // If we still have some left over space we probably ended up with a remainder of
-    // a division. We can not spread it evenly anymore. If we have any percentage 
+    // a division. We cannot spread it evenly anymore. If we have any percentage 
     // columns/rows simply spread the remainder equally over all available percentage columns, 
     // regardless of their size.
     if (remainingLen && countPercent) {
@@ -459,10 +456,9 @@ void RenderFrameSet::layout()
     if (doFullRepaint)
         oldBounds = absoluteClippedOverflowRect();
 
-    if (!parent()->isFrameSet()) {
-        FrameView* v = view()->frameView();
-        m_width = v->visibleWidth();
-        m_height = v->visibleHeight();
+    if (!parent()->isFrameSet() && !document()->printing()) {
+        setWidth(view()->viewWidth());
+        setHeight(view()->viewHeight());
     }
 
     size_t cols = frameSet()->totalCols();
@@ -474,12 +470,12 @@ void RenderFrameSet::layout()
     }
 
     int borderThickness = frameSet()->border();
-    layOutAxis(m_rows, frameSet()->rowLengths(), m_height - (rows - 1) * borderThickness);
-    layOutAxis(m_cols, frameSet()->colLengths(), m_width - (cols - 1) * borderThickness);
+    layOutAxis(m_rows, frameSet()->rowLengths(), height() - (rows - 1) * borderThickness);
+    layOutAxis(m_cols, frameSet()->colLengths(), width() - (cols - 1) * borderThickness);
 
     positionFrames();
 
-    RenderContainer::layout();
+    RenderBox::layout();
 
     computeEdgeInfo();
 
@@ -495,7 +491,7 @@ void RenderFrameSet::layout()
 
 void RenderFrameSet::positionFrames()
 {
-    RenderObject* child = firstChild();
+    RenderBox* child = firstChildBox();
     if (!child)
         return;
 
@@ -508,7 +504,7 @@ void RenderFrameSet::positionFrames()
         int xPos = 0;
         int height = m_rows.m_sizes[r];
         for (int c = 0; c < cols; c++) {
-            child->setPos(xPos, yPos);
+            child->setLocation(xPos, yPos);
             int width = m_cols.m_sizes[c];
 
             // has to be resized and itself resize its contents
@@ -521,7 +517,7 @@ void RenderFrameSet::positionFrames()
 
             xPos += width + borderThickness;
 
-            child = child->nextSibling();
+            child = child->nextSiblingBox();
             if (!child)
                 return;
         }
@@ -529,7 +525,7 @@ void RenderFrameSet::positionFrames()
     }
 
     // all the remaining frames are hidden to avoid ugly spurious unflowed frames
-    for (; child; child = child->nextSibling()) {
+    for (; child; child = child->nextSiblingBox()) {
         child->setWidth(0);
         child->setHeight(0);
         child->setNeedsLayout(false);
@@ -567,19 +563,21 @@ bool RenderFrameSet::userResize(MouseEvent* evt)
     if (!m_isResizing) {
         if (needsLayout())
             return false;
-        if (evt->type() == mousedownEvent && evt->button() == LeftButton) {
-            startResizing(m_cols, evt->pageX() - xPos());
-            startResizing(m_rows, evt->pageY() - yPos());
+        if (evt->type() == eventNames().mousedownEvent && evt->button() == LeftButton) {
+            FloatPoint pos = localToAbsolute();
+            startResizing(m_cols, evt->absoluteLocation().x() - pos.x());
+            startResizing(m_rows, evt->absoluteLocation().y() - pos.y());
             if (m_cols.m_splitBeingResized != noSplit || m_rows.m_splitBeingResized != noSplit) {
                 setIsResizing(true);
                 return true;
             }
         }
     } else {
-        if (evt->type() == mousemoveEvent || (evt->type() == mouseupEvent && evt->button() == LeftButton)) {
-            continueResizing(m_cols, evt->pageX() - xPos());
-            continueResizing(m_rows, evt->pageY() - yPos());
-            if (evt->type() == mouseupEvent && evt->button() == LeftButton) {
+        if (evt->type() == eventNames().mousemoveEvent || (evt->type() == eventNames().mouseupEvent && evt->button() == LeftButton)) {
+            FloatPoint pos = localToAbsolute();
+            continueResizing(m_cols, evt->absoluteLocation().x() - pos.x());
+            continueResizing(m_rows, evt->absoluteLocation().y() - pos.y());
+            if (evt->type() == eventNames().mouseupEvent && evt->button() == LeftButton) {
                 setIsResizing(false);
                 return true;
             }
@@ -609,20 +607,15 @@ bool RenderFrameSet::isResizingColumn() const
     return m_isResizing && m_cols.m_splitBeingResized != noSplit;
 }
 
-bool RenderFrameSet::canResize(const IntPoint& p) const
-{
-    return hitTestSplit(m_cols, p.x()) != noSplit || hitTestSplit(m_rows, p.y()) != noSplit;
-}
-
 bool RenderFrameSet::canResizeRow(const IntPoint& p) const
 {
-    int r = hitTestSplit(m_rows, p.y() - yPos());
+    int r = hitTestSplit(m_rows, p.y());
     return r != noSplit && m_rows.m_allowBorder[r] && !m_rows.m_preventResize[r];
 }
 
 bool RenderFrameSet::canResizeColumn(const IntPoint& p) const
 {
-    int c = hitTestSplit(m_cols, p.x() - xPos());
+    int c = hitTestSplit(m_cols, p.x());
     return c != noSplit && m_cols.m_allowBorder[c] && !m_cols.m_preventResize[c];
 }
 
@@ -665,25 +658,9 @@ int RenderFrameSet::hitTestSplit(const GridAxis& axis, int position) const
     return noSplit;
 }
 
-bool RenderFrameSet::isChildAllowed(RenderObject* child, RenderStyle* style) const
+bool RenderFrameSet::isChildAllowed(RenderObject* child, RenderStyle*) const
 {
     return child->isFrame() || child->isFrameSet();
 }
-
-#ifndef NDEBUG
-void RenderFrameSet::dump(TextStream* stream, DeprecatedString ind) const
-{
-    *stream << " totalrows=" << frameSet()->totalRows();
-    *stream << " totalcols=" << frameSet()->totalCols();
-
-    for (int i = 1; i <= frameSet()->totalRows(); i++)
-        *stream << " hSplitvar(" << i << ")=" << m_rows.m_preventResize[i];
-
-    for (int i = 1; i < frameSet()->totalCols(); i++)
-        *stream << " vSplitvar(" << i << ")=" << m_cols.m_preventResize[i];
-
-    RenderContainer::dump(stream,ind);
-}
-#endif
 
 } // namespace WebCore

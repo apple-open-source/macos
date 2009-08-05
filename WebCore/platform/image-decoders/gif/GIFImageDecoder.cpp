@@ -23,6 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
+#include "config.h"
 #include "GIFImageDecoder.h"
 #include "GIFImageReader.h"
 
@@ -85,7 +86,7 @@ private:
 };
 
 GIFImageDecoder::GIFImageDecoder()
-: m_frameCountValid(true), m_reader(0)
+: m_frameCountValid(true), m_repetitionCount(cAnimationLoopOnce), m_reader(0)
 {}
 
 GIFImageDecoder::~GIFImageDecoder()
@@ -149,11 +150,25 @@ int GIFImageDecoder::frameCount()
 // The number of repetitions to perform for an animation loop.
 int GIFImageDecoder::repetitionCount() const
 {
-    // We don't have to do any decoding to determine this, since the loop count was determined after
-    // the initial query for size.
-    if (m_reader)
-        return m_reader->repetitionCount();
-    return cAnimationNone;
+    // This value can arrive at any point in the image data stream.  Most GIFs
+    // in the wild declare it near the beginning of the file, so it usually is
+    // set by the time we've decoded the size, but (depending on the GIF and the
+    // packets sent back by the webserver) not always.  Our caller is
+    // responsible for waiting until image decoding has finished to ask this if
+    // it needs an authoritative answer.  In the meantime, we should default to
+    // "loop once".
+    if (m_reader) {
+        // Added wrinkle: ImageSource::clear() may destroy the reader, making
+        // the result from the reader _less_ authoritative on future calls.  To
+        // detect this, the reader returns cLoopCountNotSeen (-2) instead of
+        // cAnimationLoopOnce (-1) when its current incarnation hasn't actually
+        // seen a loop count yet; in this case we return our previously-cached
+        // value.
+        const int repetitionCount = m_reader->repetitionCount();
+        if (repetitionCount != cLoopCountNotSeen)
+            m_repetitionCount = repetitionCount;
+    }
+    return m_repetitionCount;
 }
 
 RGBA32Buffer* GIFImageDecoder::frameBufferAtIndex(size_t index)
@@ -166,6 +181,56 @@ RGBA32Buffer* GIFImageDecoder::frameBufferAtIndex(size_t index)
         // Decode this frame.
         decode(GIFFullQuery, index+1);
     return &frame;
+}
+
+void GIFImageDecoder::clearFrameBufferCache(size_t clearBeforeFrame)
+{
+    // In some cases, like if the decoder was destroyed while animating, we
+    // can be asked to clear more frames than we currently have.
+    if (m_frameBufferCache.isEmpty())
+        return; // Nothing to do.
+
+    // The "-1" here is tricky.  It does not mean that |clearBeforeFrame| is the
+    // last frame we wish to preserve, but rather that we never want to clear
+    // the very last frame in the cache: it's empty (so clearing it is
+    // pointless), it's partial (so we don't want to clear it anyway), or the
+    // cache could be enlarged with a future setData() call and it could be
+    // needed to construct the next frame (see comments below).  Callers can
+    // always use ImageSource::clear(true, ...) to completely free the memory in
+    // this case.
+    clearBeforeFrame = std::min(clearBeforeFrame, m_frameBufferCache.size() - 1);
+    const Vector<RGBA32Buffer>::iterator end(m_frameBufferCache.begin() + clearBeforeFrame);
+
+    // We need to preserve frames such that:
+    //   * We don't clear |end|
+    //   * We don't clear the frame we're currently decoding
+    //   * We don't clear any frame from which a future initFrameBuffer() call
+    //     will copy bitmap data
+    // All other frames can be cleared.  Because of the constraints on when
+    // ImageSource::clear() can be called (see ImageSource.h), we're guaranteed
+    // not to have non-empty frames after the frame we're currently decoding.
+    // So, scan backwards from |end| as follows:
+    //   * If the frame is empty, we're still past any frames we care about.
+    //   * If the frame is complete, but is DisposeOverwritePrevious, we'll
+    //     skip over it in future initFrameBuffer() calls.  We can clear it
+    //     unless it's |end|, and keep scanning.  For any other disposal method,
+    //     stop scanning, as we've found the frame initFrameBuffer() will need
+    //     next.
+    //   * If the frame is partial, we're decoding it, so don't clear it; if it
+    //     has a disposal method other than DisposeOverwritePrevious, stop
+    //     scanning, as we'll only need this frame when decoding the next one.
+    Vector<RGBA32Buffer>::iterator i(end);
+    for (; (i != m_frameBufferCache.begin()) && ((i->status() == RGBA32Buffer::FrameEmpty) || (i->disposalMethod() == RGBA32Buffer::DisposeOverwritePrevious)); --i) {
+        if ((i->status() == RGBA32Buffer::FrameComplete) && (i != end))
+            i->clear();
+    }
+
+    // Now |i| holds the last frame we need to preserve; clear prior frames.
+    for (Vector<RGBA32Buffer>::iterator j(m_frameBufferCache.begin()); j != i; ++j) {
+        ASSERT(j->status() != RGBA32Buffer::FramePartial);
+        if (j->status() != RGBA32Buffer::FrameEmpty)
+            j->clear();
+    }
 }
 
 // Feed data to the GIF reader.
@@ -222,6 +287,7 @@ void GIFImageDecoder::initFrameBuffer(unsigned frameIndex)
         // first frame specifies this method, it will get treated like
         // DisposeOverwriteBgcolor below and reset to a completely empty image.)
         const RGBA32Buffer* prevBuffer = &m_frameBufferCache[--frameIndex];
+        ASSERT(prevBuffer->status() == RGBA32Buffer::FrameComplete);
         RGBA32Buffer::FrameDisposalMethod prevMethod =
             prevBuffer->disposalMethod();
         while ((frameIndex > 0) &&
@@ -354,7 +420,12 @@ void GIFImageDecoder::haveDecodedRow(unsigned frameIndex,
 
 void GIFImageDecoder::frameComplete(unsigned frameIndex, unsigned frameDuration, RGBA32Buffer::FrameDisposalMethod disposalMethod)
 {
+    // Initialize the frame if necessary.  Some GIFs insert do-nothing frames,
+    // in which case we never reach haveDecodedRow() before getting here.
     RGBA32Buffer& buffer = m_frameBufferCache[frameIndex];
+    if (buffer.status() == RGBA32Buffer::FrameEmpty)
+        initFrameBuffer(frameIndex);
+
     buffer.ensureHeight(m_size.height());
     buffer.setStatus(RGBA32Buffer::FrameComplete);
     buffer.setDuration(frameDuration);
@@ -399,6 +470,8 @@ void GIFImageDecoder::frameComplete(unsigned frameIndex, unsigned frameDuration,
 
 void GIFImageDecoder::gifComplete()
 {
+    if (m_reader)
+        m_repetitionCount = m_reader->repetitionCount();
     delete m_reader;
     m_reader = 0;
 }

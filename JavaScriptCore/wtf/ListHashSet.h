@@ -1,6 +1,5 @@
-// -*- mode: c++; c-basic-offset: 4 -*-
 /*
- * Copyright (C) 2005, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -34,7 +33,7 @@ namespace WTF {
     // order - iterating it will always give back values in the order
     // in which they are added.
 
-    // In theory it would be possible to add prepend, insertAfter, insertBefore,
+    // In theory it would be possible to add prepend, insertAfter
     // and an append that moves the element to the end even if already present,
     // but unclear yet if these are needed.
 
@@ -61,6 +60,8 @@ namespace WTF {
         typedef ListHashSetNodeHashFunctions<ValueArg, HashArg> NodeHash;
 
         typedef HashTable<Node*, Node*, IdentityExtractor<Node*>, NodeHash, NodeTraits, NodeTraits> ImplType;
+        typedef HashTableIterator<Node*, Node*, IdentityExtractor<Node*>, NodeHash, NodeTraits, NodeTraits> ImplTypeIterator;
+        typedef HashTableConstIterator<Node*, Node*, IdentityExtractor<Node*>, NodeHash, NodeTraits, NodeTraits> ImplTypeConstIterator;
 
         typedef HashArg HashFunctions;
 
@@ -91,9 +92,12 @@ namespace WTF {
         const_iterator find(const ValueType&) const;
         bool contains(const ValueType&) const;
 
-        // the return value is a pair of an interator to the new value's location, 
+        // the return value is a pair of an iterator to the new value's location, 
         // and a bool that is true if an new entry was added
         pair<iterator, bool> add(const ValueType&);
+
+        pair<iterator, bool> insertBefore(const ValueType& beforeValue, const ValueType& newValue);
+        pair<iterator, bool> insertBefore(iterator it, const ValueType&);
 
         void remove(const ValueType&);
         void remove(iterator);
@@ -102,6 +106,7 @@ namespace WTF {
     private:
         void unlinkAndDelete(Node*);
         void appendNode(Node*);
+        void insertNodeBefore(Node* beforeNode, Node* newNode);
         void deleteAllNodes();
         iterator makeIterator(Node*);
         const_iterator makeConstIterator(Node*) const;
@@ -309,7 +314,10 @@ namespace WTF {
         const_iterator& operator--()
         {
             ASSERT(m_position != m_set->m_head);
-            m_position = m_position->m_prev;
+            if (!m_position)
+                m_position = m_set->m_tail;
+            else
+                m_position = m_position->m_prev;
             return *this;
         }
 
@@ -381,7 +389,6 @@ namespace WTF {
         std::swap(m_head, other.m_head);
         std::swap(m_tail, other.m_tail);
         m_allocator.swap(other.m_allocator);
-        return *this;
     }
 
     template<typename T, typename U>
@@ -436,7 +443,7 @@ namespace WTF {
     inline typename ListHashSet<T, U>::iterator ListHashSet<T, U>::find(const ValueType& value)
     {
         typedef ListHashSetTranslator<ValueType, HashFunctions> Translator;
-        typename ImplType::iterator it = m_impl.template find<ValueType, Translator>(value);
+        ImplTypeIterator it = m_impl.template find<ValueType, Translator>(value);
         if (it == m_impl.end())
             return end();
         return makeIterator(*it); 
@@ -446,7 +453,7 @@ namespace WTF {
     inline typename ListHashSet<T, U>::const_iterator ListHashSet<T, U>::find(const ValueType& value) const
     {
         typedef ListHashSetTranslator<ValueType, HashFunctions> Translator;
-        typename ImplType::const_iterator it = m_impl.template find<ValueType, Translator>(value);
+        ImplTypeConstIterator it = m_impl.template find<ValueType, Translator>(value);
         if (it == m_impl.end())
             return end();
         return makeConstIterator(*it);
@@ -467,6 +474,23 @@ namespace WTF {
         if (result.second)
             appendNode(*result.first);
         return std::make_pair(makeIterator(*result.first), result.second);
+    }
+
+    template<typename T, typename U>
+    pair<typename ListHashSet<T, U>::iterator, bool> ListHashSet<T, U>::insertBefore(iterator it, const ValueType& newValue)
+    {
+        typedef ListHashSetTranslator<ValueType, HashFunctions> Translator;
+        pair<typename ImplType::iterator, bool> result = m_impl.template add<ValueType, NodeAllocator*, Translator>(newValue, m_allocator.get());
+        if (result.second)
+            insertNodeBefore(it.node(), *result.first);
+        return std::make_pair(makeIterator(*result.first), result.second);
+
+    }
+
+    template<typename T, typename U>
+    pair<typename ListHashSet<T, U>::iterator, bool> ListHashSet<T, U>::insertBefore(const ValueType& beforeValue, const ValueType& newValue)
+    {
+        return insertBefore(find(beforeValue), newValue); 
     }
 
     template<typename T, typename U>
@@ -530,6 +554,22 @@ namespace WTF {
         }
 
         m_tail = node;
+    }
+
+    template<typename T, typename U>
+    void ListHashSet<T, U>::insertNodeBefore(Node* beforeNode, Node* newNode)
+    {
+        if (!beforeNode)
+            return appendNode(newNode);
+        
+        newNode->m_next = beforeNode;
+        newNode->m_prev = beforeNode->m_prev;
+        if (beforeNode->m_prev)
+            beforeNode->m_prev->m_next = newNode;
+        beforeNode->m_prev = newNode;
+
+        if (!newNode->m_prev)
+            m_head = newNode;
     }
 
     template<typename T, typename U>

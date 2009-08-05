@@ -21,7 +21,7 @@
 #ifndef RenderThemeSafari_h
 #define RenderThemeSafari_h
 
-#ifdef USE_SAFARI_THEME
+#if USE(SAFARI_THEME)
 
 #include "RenderTheme.h"
 
@@ -52,7 +52,7 @@ public:
     // A method to obtain the baseline position for a "leaf" control.  This will only be used if a baseline
     // position cannot be determined by examining child content. Checkboxes and radio buttons are examples of
     // controls that need to do this.
-    virtual short baselinePosition(const RenderObject*) const;
+    virtual int baselinePosition(const RenderObject*) const;
 
     // A method asking if the control changes its tint when the window has focus or not.
     virtual bool controlSupportsTints(const RenderObject*) const;
@@ -63,7 +63,7 @@ public:
     virtual void adjustRepaintRect(const RenderObject*, IntRect&);
 
     virtual bool isControlStyled(const RenderStyle*, const BorderData&,
-                                 const BackgroundLayer&, const Color& backgroundColor) const;
+                                 const FillLayer&, const Color& backgroundColor) const;
 
     virtual Color platformActiveSelectionBackgroundColor() const;
     virtual Color platformInactiveSelectionBackgroundColor() const;
@@ -176,6 +176,6 @@ private:
 
 } // namespace WebCore
 
-#endif // defined(USE_SAFARI_THEME)
+#endif // #if USE(SAFARI_THEME)
 
 #endif // RenderThemeSafari_h

@@ -1,55 +1,19 @@
 // !$*UTF8*$!
 {
-	016FA200FFB1F76211CA2B4D /* UniNEnet.cpp */ = {
-		uiCtxt = {
-			sepNavIntBoundsRect = "{{0, 0}, {842, 33950}}";
-			sepNavSelRange = "{47585, 26}";
-			sepNavVisRect = "{{0, 20763}, {543, 1105}}";
-			sepNavWindowFrame = "{{1217, 0}, {582, 1178}}";
-		};
-	};
-	016FA201FFB1F76211CA2B4D /* UniNEnet.h */ = {
-		uiCtxt = {
-			sepNavIntBoundsRect = "{{0, 0}, {1280, 6608}}";
-			sepNavSelRange = "{9803, 9}";
-			sepNavVisRect = "{{0, 3392}, {500, 540}}";
-		};
-	};
-	016FA203FFB1F76211CA2B4D /* UniNEnetMII.cpp */ = {
-		uiCtxt = {
-			sepNavIntBoundsRect = "{{0, 0}, {638, 2394}}";
-			sepNavSelRange = "{4425, 29}";
-			sepNavVisRect = "{{0, 1275}, {543, 1105}}";
-			sepNavWindowFrame = "{{544, 0}, {582, 1178}}";
-		};
-	};
-	016FA204FFB1F76211CA2B4D /* UniNEnetMII.h */ = {
-		uiCtxt = {
-			sepNavIntBoundsRect = "{{0, 0}, {584, 4172}}";
-			sepNavSelRange = "{2705, 19}";
-			sepNavVisRect = "{{0, 941}, {500, 540}}";
-		};
-	};
-	016FA207FFB1F76211CA2B4D /* UniNEnetRegisters.h */ = {
-		uiCtxt = {
-			sepNavIntBoundsRect = "{{0, 0}, {806, 6972}}";
-			sepNavSelRange = "{9743, 16}";
-			sepNavVisRect = "{{0, 4355}, {664, 573}}";
-		};
-	};
 	089C1669FE841209C02AAC07 /* Project object */ = {
+		activeArchitecture = i386;
 		activeBuildConfigurationName = Development;
 		activeTarget = 089C1673FE841209C02AAC07 /* AppleGMACEthernet */;
-		codeSenseManager = 72C2AAC00B975D44007B8CB2 /* Code sense */;
+		codeSenseManager = 7288B1EC0E40EF2800550CE8 /* Code sense */;
 		perUserDictionary = {
 			PBXConfiguration.PBXFileTableDataSource3.PBXFileTableDataSource = {
 				PBXFileTableDataSourceColumnSortingDirectionKey = "-1";
 				PBXFileTableDataSourceColumnSortingKey = PBXFileDataSource_Filename_ColumnID;
 				PBXFileTableDataSourceColumnWidthsKey = (
 					20,
-					302,
+					243,
 					20,
-					48,
+					48.16259765625,
 					43,
 					43,
 					20,
@@ -69,10 +33,10 @@
 				PBXFileTableDataSourceColumnSortingKey = PBXFileDataSource_Filename_ColumnID;
 				PBXFileTableDataSourceColumnWidthsKey = (
 					20,
-					200,
-					122,
+					203,
+					60,
 					20,
-					48,
+					48.16259765625,
 					43,
 					43,
 				);
@@ -86,193 +50,28 @@
 					PBXFileDataSource_Warnings_ColumnID,
 				);
 			};
-			PBXPerProjectTemplateStateSaveDate = 194548431;
-			PBXWorkspaceStateSaveDate = 194548431;
+			PBXPerProjectTemplateStateSaveDate = 239136518;
+			PBXWorkspaceStateSaveDate = 239136518;
 		};
-		perUserProjectItems = {
-			725246340B989283004B177C /* PBXTextBookmark */ = 725246340B989283004B177C /* PBXTextBookmark */;
-			725246350B989283004B177C /* PBXTextBookmark */ = 725246350B989283004B177C /* PBXTextBookmark */;
-			725246360B989283004B177C /* PBXTextBookmark */ = 725246360B989283004B177C /* PBXTextBookmark */;
-			7292E9D20B9895DD00A21EA3 /* PBXTextBookmark */ = 7292E9D20B9895DD00A21EA3 /* PBXTextBookmark */;
-			7292E9D50B9895DD00A21EA3 /* PBXTextBookmark */ = 7292E9D50B9895DD00A21EA3 /* PBXTextBookmark */;
-			7292E9D60B9895DD00A21EA3 /* PBXTextBookmark */ = 7292E9D60B9895DD00A21EA3 /* PBXTextBookmark */;
-			72C2AB0D0B978BE8007B8CB2 /* PBXTextBookmark */ = 72C2AB0D0B978BE8007B8CB2 /* PBXTextBookmark */;
-			72C2AB0E0B978BE8007B8CB2 /* PBXTextBookmark */ = 72C2AB0E0B978BE8007B8CB2 /* PBXTextBookmark */;
-			72C2AB0F0B978BE8007B8CB2 /* PBXTextBookmark */ = 72C2AB0F0B978BE8007B8CB2 /* PBXTextBookmark */;
-			72C2AB110B978BE8007B8CB2 /* PBXTextBookmark */ = 72C2AB110B978BE8007B8CB2 /* PBXTextBookmark */;
-			72C2AB120B978BE8007B8CB2 /* PBXTextBookmark */ = 72C2AB120B978BE8007B8CB2 /* PBXTextBookmark */;
-			72C2AB130B978BE8007B8CB2 /* PBXTextBookmark */ = 72C2AB130B978BE8007B8CB2 /* PBXTextBookmark */;
-			72C2AB140B978BE8007B8CB2 /* PBXTextBookmark */ = 72C2AB140B978BE8007B8CB2 /* PBXTextBookmark */;
-			72C2AB3D0B979462007B8CB2 /* PBXTextBookmark */ = 72C2AB3D0B979462007B8CB2 /* PBXTextBookmark */;
-		};
-		sourceControlManager = 72C2AABF0B975D43007B8CB2 /* Source Control */;
+		sourceControlManager = 7288B1EB0E40EF2800550CE8 /* Source Control */;
 		userBuildSettings = {
 		};
 	};
 	089C1673FE841209C02AAC07 /* AppleGMACEthernet */ = {
 		activeExec = 0;
 	};
-	175EBB20FFB2331C11CA2B4D /* UniNEnetPrivate.cpp */ = {
-		uiCtxt = {
-			sepNavIntBoundsRect = "{{0, 0}, {920, 27874}}";
-			sepNavSelRange = "{59800, 0}";
-			sepNavVisRect = "{{0, 23935}, {655, 1105}}";
-			sepNavWindowFrame = "{{863, 0}, {694, 1178}}";
-		};
-	};
-	725246340B989283004B177C /* PBXTextBookmark */ = {
-		isa = PBXTextBookmark;
-		fRef = 016FA201FFB1F76211CA2B4D /* UniNEnet.h */;
-		name = myAddress;
-		rLen = 9;
-		rLoc = 9803;
-		rType = 0;
-		vrLen = 1011;
-		vrLoc = 9274;
-	};
-	725246350B989283004B177C /* PBXTextBookmark */ = {
-		isa = PBXTextBookmark;
-		fRef = 016FA200FFB1F76211CA2B4D /* UniNEnet.cpp */;
-		name = "}/* end setMulticastList */";
-		rLen = 28;
-		rLoc = 42892;
-		rType = 0;
-		vrLen = 2137;
-		vrLoc = 41406;
-	};
-	725246360B989283004B177C /* PBXTextBookmark */ = {
-		isa = PBXTextBookmark;
-		fRef = 175EBB20FFB2331C11CA2B4D /* UniNEnetPrivate.cpp */;
-		name = "UniNEnetPrivate.cpp: 1873";
-		rLen = 0;
-		rLoc = 62669;
-		rType = 0;
-		vrLen = 1875;
-		vrLoc = 60906;
-	};
 	7272FA4C056ADD1E00E96768 /* Installer Package */ = {
 		activeExec = 0;
 	};
-	7292E9D20B9895DD00A21EA3 /* PBXTextBookmark */ = {
-		isa = PBXTextBookmark;
-		fRef = 016FA201FFB1F76211CA2B4D /* UniNEnet.h */;
-		name = myAddress;
-		rLen = 9;
-		rLoc = 9803;
-		rType = 0;
-		vrLen = 1011;
-		vrLoc = 9274;
-	};
-	7292E9D50B9895DD00A21EA3 /* PBXTextBookmark */ = {
-		isa = PBXTextBookmark;
-		fRef = 175EBB20FFB2331C11CA2B4D /* UniNEnetPrivate.cpp */;
-		name = "UniNEnetPrivate.cpp: 1766";
-		rLen = 0;
-		rLoc = 59800;
-		rType = 0;
-		vrLen = 2892;
-		vrLoc = 57752;
-	};
-	7292E9D60B9895DD00A21EA3 /* PBXTextBookmark */ = {
-		isa = PBXTextBookmark;
-		fRef = 016FA200FFB1F76211CA2B4D /* UniNEnet.cpp */;
-		name = kIOMediumOptionFlowControl;
-		rLen = 26;
-		rLoc = 47585;
-		rType = 0;
-		vrLen = 2497;
-		vrLoc = 45174;
-	};
-	72C2AABF0B975D43007B8CB2 /* Source Control */ = {
+	7288B1EB0E40EF2800550CE8 /* Source Control */ = {
 		isa = PBXSourceControlManager;
 		fallbackIsa = XCSourceControlManager;
 		isSCMEnabled = 0;
 		scmConfiguration = {
 		};
-		scmType = "";
 	};
-	72C2AAC00B975D44007B8CB2 /* Code sense */ = {
+	7288B1EC0E40EF2800550CE8 /* Code sense */ = {
 		isa = PBXCodeSenseManager;
 		indexTemplatePath = "";
-	};
-	72C2AB0D0B978BE8007B8CB2 /* PBXTextBookmark */ = {
-		isa = PBXTextBookmark;
-		fRef = 016FA203FFB1F76211CA2B4D /* UniNEnetMII.cpp */;
-		name = "UniNEnetMII.cpp: 1";
-		rLen = 0;
-		rLoc = 0;
-		rType = 0;
-		vrLen = 178;
-		vrLoc = 0;
-	};
-	72C2AB0E0B978BE8007B8CB2 /* PBXTextBookmark */ = {
-		isa = PBXTextBookmark;
-		fRef = 016FA200FFB1F76211CA2B4D /* UniNEnet.cpp */;
-		name = kIOMediumOptionLoopback;
-		rLen = 23;
-		rLoc = 44791;
-		rType = 0;
-		vrLen = 1211;
-		vrLoc = 42739;
-	};
-	72C2AB0F0B978BE8007B8CB2 /* PBXTextBookmark */ = {
-		isa = PBXTextBookmark;
-		fRef = 016FA204FFB1F76211CA2B4D /* UniNEnetMII.h */;
-		name = MII_ANAR_10BASET_FD;
-		rLen = 19;
-		rLoc = 2705;
-		rType = 0;
-		vrLen = 1303;
-		vrLoc = 1995;
-	};
-	72C2AB110B978BE8007B8CB2 /* PBXTextBookmark */ = {
-		isa = PBXTextBookmark;
-		fRef = 016FA203FFB1F76211CA2B4D /* UniNEnetMII.cpp */;
-		name = "UniNEnetMII.cpp: 1";
-		rLen = 0;
-		rLoc = 0;
-		rType = 0;
-		vrLen = 178;
-		vrLoc = 0;
-	};
-	72C2AB120B978BE8007B8CB2 /* PBXTextBookmark */ = {
-		isa = PBXTextBookmark;
-		fRef = 175EBB20FFB2331C11CA2B4D /* UniNEnetPrivate.cpp */;
-		name = Half;
-		rLen = 4;
-		rLoc = 10039;
-		rType = 0;
-		vrLen = 2258;
-		vrLoc = 9888;
-	};
-	72C2AB130B978BE8007B8CB2 /* PBXTextBookmark */ = {
-		isa = PBXTextBookmark;
-		fRef = 016FA200FFB1F76211CA2B4D /* UniNEnet.cpp */;
-		name = kIOMediumOptionLoopback;
-		rLen = 23;
-		rLoc = 44791;
-		rType = 0;
-		vrLen = 1211;
-		vrLoc = 42739;
-	};
-	72C2AB140B978BE8007B8CB2 /* PBXTextBookmark */ = {
-		isa = PBXTextBookmark;
-		fRef = 016FA204FFB1F76211CA2B4D /* UniNEnetMII.h */;
-		name = MII_ANAR_10BASET_FD;
-		rLen = 19;
-		rLoc = 2705;
-		rType = 0;
-		vrLen = 1303;
-		vrLoc = 1995;
-	};
-	72C2AB3D0B979462007B8CB2 /* PBXTextBookmark */ = {
-		isa = PBXTextBookmark;
-		fRef = 175EBB20FFB2331C11CA2B4D /* UniNEnetPrivate.cpp */;
-		name = setHardwareAddress;
-		rLen = 18;
-		rLoc = 62804;
-		rType = 0;
-		vrLen = 991;
-		vrLoc = 62124;
 	};
 }

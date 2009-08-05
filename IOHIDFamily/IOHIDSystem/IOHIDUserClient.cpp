@@ -67,10 +67,10 @@ IOReturn IOHIDUserClient::clientClose( void )
 #ifdef DEBUG
     kprintf("%s: client token invalidated\n", getName());
 #endif
-
+    
     owner->serverConnect = 0;
     detach( owner);
-
+    
     return( kIOReturnSuccess);
 }
 

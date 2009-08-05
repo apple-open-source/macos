@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,13 +36,16 @@
 #include "HitTestResult.h"
 #include "MouseEventWithHitTestResults.h"
 #include "Page.h"
-#include "PlatformScrollbar.h"
+#include "PlatformKeyboardEvent.h"
 #include "PlatformWheelEvent.h"
+#include "Scrollbar.h"
 #include "SelectionController.h"
 #include "WCDataObject.h"
 #include "NotImplemented.h"
 
 namespace WebCore {
+
+const double EventHandler::TextDragDelay = 0.0;
 
 bool EventHandler::passMousePressEventToSubframe(MouseEventWithHitTestResults& mev, Frame* subframe)
 {
@@ -72,13 +75,6 @@ bool EventHandler::passWheelEventToWidget(PlatformWheelEvent& wheelEvent, Widget
     return static_cast<FrameView*>(widget)->frame()->eventHandler()->handleWheelEvent(wheelEvent);
 }
 
-bool EventHandler::passMousePressEventToScrollbar(MouseEventWithHitTestResults& mev, PlatformScrollbar* scrollbar)
-{
-    if (!scrollbar || !scrollbar->isEnabled())
-        return false;
-    return scrollbar->handleMousePressEvent(mev.event());
-}
-
 bool EventHandler::tabsToAllControls(KeyboardEvent*) const
 {
     return true;
@@ -89,11 +85,11 @@ bool EventHandler::eventActivatedView(const PlatformMouseEvent& event) const
     return event.activatedWebView();
 }
 
-Clipboard* EventHandler::createDraggingClipboard() const
+PassRefPtr<Clipboard> EventHandler::createDraggingClipboard() const
 {
     COMPtr<WCDataObject> dataObject;
     WCDataObject::createInstance(&dataObject);
-    return new ClipboardWin(true, dataObject.get(), ClipboardWritable);
+    return ClipboardWin::create(true, dataObject.get(), ClipboardWritable);
 }
 
 void EventHandler::focusDocumentView()
@@ -108,6 +104,11 @@ bool EventHandler::passWidgetMouseDownEventToWidget(const MouseEventWithHitTestR
 {
     notImplemented();
     return false;
+}
+
+unsigned EventHandler::accessKeyModifiers()
+{
+    return PlatformKeyboardEvent::AltKey;
 }
 
 }

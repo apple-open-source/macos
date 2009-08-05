@@ -27,7 +27,9 @@
 #import "Color.h"
 #import "ColorMac.h"
 
+#import <AppKit/AppKit.h>
 #import <wtf/Assertions.h>
+#import <wtf/StdLibExtras.h>
 #import <wtf/RetainPtr.h>
 
 @interface WebCoreControlTintObserver : NSObject
@@ -39,8 +41,6 @@ namespace WebCore {
 // NSColor calls don't throw, so no need to block Cocoa exceptions in this file
 
 static RGBA32 oldAquaFocusRingColor = 0xFF7DADD9;
-static bool tintIsKnown;
-static void (*tintChangeFunction)();
 static RGBA32 systemFocusRingColor;
 static bool useOldAquaFocusRingColor;
 
@@ -61,37 +61,30 @@ NSColor* nsColor(const Color& color)
     switch (c) {
         case 0: {
             // Need this to avoid returning nil because cachedRGBAValues will default to 0.
-            static RetainPtr<NSColor> clearColor = [NSColor clearColor];
+            DEFINE_STATIC_LOCAL(RetainPtr<NSColor>, clearColor, ([NSColor colorWithDeviceRed:0.0f green:0.0f blue:0.0f alpha:0.0f]));
             return clearColor.get();
         }
         case Color::black: {
-            static RetainPtr<NSColor> blackColor = [NSColor blackColor];
+            DEFINE_STATIC_LOCAL(RetainPtr<NSColor>, blackColor, ([NSColor colorWithDeviceRed:0.0f green:0.0f blue:0.0f alpha:1.0f]));
             return blackColor.get();
         }
         case Color::white: {
-            static RetainPtr<NSColor> whiteColor = [NSColor whiteColor];
+            DEFINE_STATIC_LOCAL(RetainPtr<NSColor>, whiteColor, ([NSColor colorWithDeviceRed:1.0f green:1.0f blue:1.0f alpha:1.0f]));
             return whiteColor.get();
         }
         default: {
             const int cacheSize = 32;
             static unsigned cachedRGBAValues[cacheSize];
-            static RetainPtr<NSColor> cachedColors[cacheSize];
+            static RetainPtr<NSColor>* cachedColors = new RetainPtr<NSColor>[cacheSize];
 
             for (int i = 0; i != cacheSize; ++i)
                 if (cachedRGBAValues[i] == c)
                     return cachedColors[i].get();
 
-#ifdef COLORMATCH_EVERYTHING
-            NSColor* result = [NSColor colorWithCalibratedRed:color.red() / 255.0f
-                                                        green:color.green() / 255.0f
-                                                         blue:color.blue() / 255.0f
-                                                        alpha:color.alpha() /255.0f];
-#else
             NSColor* result = [NSColor colorWithDeviceRed:color.red() / 255.0f
                                                     green:color.green() / 255.0f
                                                      blue:color.blue() / 255.0f
                                                     alpha:color.alpha() /255.0f];
-#endif
 
             static int cursor;
             cachedRGBAValues[cursor] = c;
@@ -118,7 +111,7 @@ static CGColorRef CGColorFromNSColor(NSColor* color)
     return cgColor;
 }
 
-CGColorRef cgColor(const Color& c)
+CGColorRef createCGColor(const Color& c)
 {
     // We could directly create a CGColor here, but that would
     // skip any RGB caching the nsColor method does. A direct 
@@ -126,29 +119,17 @@ CGColorRef cgColor(const Color& c)
     return CGColorFromNSColor(nsColor(c));
 }
 
-static void observeTint()
-{
-    ASSERT(!tintIsKnown);
-    [[NSNotificationCenter defaultCenter] addObserver:[WebCoreControlTintObserver class]
-                                             selector:@selector(controlTintDidChange)
-                                                 name:NSControlTintDidChangeNotification
-                                               object:NSApp];
-    [WebCoreControlTintObserver controlTintDidChange];
-    tintIsKnown = true;
-}
-
-void setFocusRingColorChangeFunction(void (*function)())
-{
-    ASSERT(!tintChangeFunction);
-    tintChangeFunction = function;
-    if (!tintIsKnown)
-        observeTint();
-}
-
 Color focusRingColor()
 {
-    if (!tintIsKnown)
-        observeTint();
+    static bool tintIsKnown = false;
+    if (!tintIsKnown) {
+        [[NSNotificationCenter defaultCenter] addObserver:[WebCoreControlTintObserver class]
+                                                 selector:@selector(controlTintDidChange)
+                                                     name:NSControlTintDidChangeNotification
+                                                   object:NSApp];
+        [WebCoreControlTintObserver controlTintDidChange];
+        tintIsKnown = true;
+    }
     
     if (usesTestModeFocusRingColor())
         return oldAquaFocusRingColor;
@@ -172,12 +153,8 @@ void setUsesTestModeFocusRingColor(bool newValue)
 
 + (void)controlTintDidChange
 {
-#ifdef COLORMATCH_EVERYTHING
-#error Not yet implemented.
-#else
     NSColor* color = [[NSColor keyboardFocusIndicatorColor] colorUsingColorSpaceName:NSDeviceRGBColorSpace];
     WebCore::systemFocusRingColor = WebCore::makeRGBAFromNSColor(color);
-#endif
 }
 
 @end

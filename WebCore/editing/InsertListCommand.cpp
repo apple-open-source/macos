@@ -37,31 +37,31 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-PassRefPtr<Node> InsertListCommand::insertList(Document* document, Type type)
+PassRefPtr<HTMLElement> InsertListCommand::insertList(Document* document, Type type)
 {
-    RefPtr<InsertListCommand> insertCommand = new InsertListCommand(document, type, "");
+    RefPtr<InsertListCommand> insertCommand = new InsertListCommand(document, type);
     insertCommand->apply();
     return insertCommand->m_listElement;
 }
 
-Node* InsertListCommand::fixOrphanedListChild(Node* node)
+HTMLElement* InsertListCommand::fixOrphanedListChild(Node* node)
 {
-    RefPtr<Element> listElement = createUnorderedListElement(document());
-    insertNodeBefore(listElement.get(), node);
+    RefPtr<HTMLElement> listElement = createUnorderedListElement(document());
+    insertNodeBefore(listElement, node);
     removeNode(node);
-    appendNode(node, listElement.get());
+    appendNode(node, listElement);
     m_listElement = listElement;
     return listElement.get();
 }
 
-InsertListCommand::InsertListCommand(Document* document, Type type, const String& id) 
-    : CompositeEditCommand(document), m_type(type), m_id(id), m_forceCreateList(false)
+InsertListCommand::InsertListCommand(Document* document, Type type) 
+    : CompositeEditCommand(document), m_type(type), m_forceCreateList(false)
 {
 }
 
 bool InsertListCommand::modifyRange()
 {
-    Selection selection = selectionForParagraphIteration(endingSelection());
+    VisibleSelection selection = selectionForParagraphIteration(endingSelection());
     ASSERT(selection.isRange());
     VisiblePosition startOfSelection = selection.visibleStart();
     VisiblePosition endOfSelection = selection.visibleEnd();
@@ -84,6 +84,13 @@ bool InsertListCommand::modifyRange()
     startOfSelection = endingSelection().visibleStart();
     VisiblePosition startOfCurrentParagraph = startOfNextParagraph(startOfSelection);
     while (startOfCurrentParagraph != startOfLastParagraph) {
+        // doApply() may operate on and remove the last paragraph of the selection from the document 
+        // if it's in the same list item as startOfCurrentParagraph.  Return early to avoid an 
+        // infinite loop and because there is no more work to be done.
+        // FIXME(<rdar://problem/5983974>): The endingSelection() may be incorrect here.  Compute 
+        // the new location of endOfSelection and use it as the end of the new selection.
+        if (!startOfLastParagraph.deepEquivalent().node()->inDocument())
+            return true;
         setEndingSelection(startOfCurrentParagraph);
         doApply();
         startOfCurrentParagraph = startOfNextParagraph(endingSelection().visibleStart());
@@ -92,7 +99,7 @@ bool InsertListCommand::modifyRange()
     doApply();
     // Fetch the end of the selection, for the reason mentioned above.
     endOfSelection = endingSelection().visibleEnd();
-    setEndingSelection(Selection(startOfSelection, endOfSelection));
+    setEndingSelection(VisibleSelection(startOfSelection, endOfSelection));
     m_forceCreateList = false;
     return true;
 }
@@ -116,7 +123,7 @@ void InsertListCommand::doApply()
     // margin/padding, but not others.  We should make the gap painting more consistent and 
     // then use a left margin/padding rule here.
     if (visibleEnd != visibleStart && isStartOfParagraph(visibleEnd))
-        setEndingSelection(Selection(visibleStart, visibleEnd.previous(true)));
+        setEndingSelection(VisibleSelection(visibleStart, visibleEnd.previous(true)));
 
     if (endingSelection().isRange() && modifyRange())
         return;
@@ -130,7 +137,7 @@ void InsertListCommand::doApply()
     bool switchListType = false;
     if (listChildNode) {
         // Remove the list chlild.
-        Node* listNode = enclosingList(listChildNode);
+        HTMLElement* listNode = enclosingList(listChildNode);
         if (!listNode)
             listNode = fixOrphanedListChild(listChildNode);
         if (!listNode->hasTagName(listTag))
@@ -141,8 +148,8 @@ void InsertListCommand::doApply()
         VisiblePosition start;
         VisiblePosition end;
         if (listChildNode->hasTagName(liTag)) {
-            start = VisiblePosition(Position(listChildNode, 0));
-            end = VisiblePosition(Position(listChildNode, maxDeepOffset(listChildNode)));
+            start = firstDeepEditingPositionForNode(listChildNode);
+            end = lastDeepEditingPositionForNode(listChildNode);
             nextListChild = listChildNode->nextSibling();
             previousListChild = listChildNode->previousSibling();
         } else {
@@ -161,12 +168,12 @@ void InsertListCommand::doApply()
         // When removing a list, we must always create a placeholder to act as a point of insertion
         // for the list content being removed.
         RefPtr<Element> placeholder = createBreakElement(document());
-        RefPtr<Node> nodeToInsert = placeholder;
+        RefPtr<Element> nodeToInsert = placeholder;
         // If the content of the list item will be moved into another list, put it in a list item
         // so that we don't create an orphaned list child.
         if (enclosingList(listNode)) {
             nodeToInsert = createListItemElement(document());
-            appendNode(placeholder.get(), nodeToInsert.get());
+            appendNode(placeholder, nodeToInsert);
         }
         
         if (nextListChild && previousListChild) {
@@ -177,18 +184,18 @@ void InsertListCommand::doApply()
             // FIXME: We appear to split at nextListChild as opposed to listChildNode so that when we remove
             // listChildNode below in moveParagraphs, previousListChild will be removed along with it if it is 
             // unrendered. But we ought to remove nextListChild too, if it is unrendered.
-            splitElement(static_cast<Element *>(listNode), splitTreeToNode(nextListChild, listNode));
-            insertNodeBefore(nodeToInsert.get(), listNode);
+            splitElement(listNode, splitTreeToNode(nextListChild, listNode));
+            insertNodeBefore(nodeToInsert, listNode);
         } else if (nextListChild || listChildNode->parentNode() != listNode) {
             // Just because listChildNode has no previousListChild doesn't mean there isn't any content
             // in listNode that comes before listChildNode, as listChildNode could have ancestors
             // between it and listNode. So, we split up to listNode before inserting the placeholder
             // where we're about to move listChildNode to.
             if (listChildNode->parentNode() != listNode)
-                splitElement(static_cast<Element *>(listNode), splitTreeToNode(listChildNode, listNode));
-            insertNodeBefore(nodeToInsert.get(), listNode);
+                splitElement(listNode, splitTreeToNode(listChildNode, listNode).get());
+            insertNodeBefore(nodeToInsert, listNode);
         } else
-            insertNodeAfter(nodeToInsert.get(), listNode);
+            insertNodeAfter(nodeToInsert, listNode);
         
         VisiblePosition insertionPoint = VisiblePosition(Position(placeholder.get(), 0));
         moveParagraphs(start, end, insertionPoint, true);
@@ -201,11 +208,11 @@ void InsertListCommand::doApply()
         // Check for adjoining lists.
         VisiblePosition previousPosition = start.previous(true);
         VisiblePosition nextPosition = end.next(true);
-        RefPtr<Element> listItemElement = createListItemElement(document());
-        RefPtr<Element> placeholder = createBreakElement(document());
-        appendNode(placeholder.get(), listItemElement.get());
-        Node* previousList = outermostEnclosingList(previousPosition.deepEquivalent().node());
-        Node* nextList = outermostEnclosingList(nextPosition.deepEquivalent().node());
+        RefPtr<HTMLElement> listItemElement = createListItemElement(document());
+        RefPtr<HTMLElement> placeholder = createBreakElement(document());
+        appendNode(placeholder, listItemElement);
+        Element* previousList = outermostEnclosingList(previousPosition.deepEquivalent().node());
+        Element* nextList = outermostEnclosingList(nextPosition.deepEquivalent().node());
         Node* startNode = start.deepEquivalent().node();
         Node* previousCell = enclosingTableCell(previousPosition.deepEquivalent());
         Node* nextCell = enclosingTableCell(nextPosition.deepEquivalent());
@@ -216,23 +223,21 @@ void InsertListCommand::doApply()
             nextList = 0;
         // Place list item into adjoining lists.
         if (previousList)
-            appendNode(listItemElement.get(), previousList);
+            appendNode(listItemElement, previousList);
         else if (nextList)
-            insertNodeAt(listItemElement.get(), Position(nextList, 0));
+            insertNodeAt(listItemElement, Position(nextList, 0));
         else {
             // Create the list.
-            RefPtr<Element> listElement = m_type == OrderedList ? createOrderedListElement(document()) : createUnorderedListElement(document());
+            RefPtr<HTMLElement> listElement = m_type == OrderedList ? createOrderedListElement(document()) : createUnorderedListElement(document());
             m_listElement = listElement;
-            if (!m_id.isEmpty())
-                static_cast<HTMLElement*>(listElement.get())->setId(m_id);
-            appendNode(listItemElement.get(), listElement.get());
+            appendNode(listItemElement, listElement);
             
             if (start == end && isBlock(start.deepEquivalent().node())) {
                 // Inserting the list into an empty paragraph that isn't held open 
                 // by a br or a '\n', will invalidate start and end.  Insert 
                 // a placeholder and then recompute start and end.
-                Node* placeholder = insertBlockPlaceholder(start.deepEquivalent());
-                start = VisiblePosition(Position(placeholder, 0));
+                RefPtr<Node> placeholder = insertBlockPlaceholder(start.deepEquivalent());
+                start = VisiblePosition(Position(placeholder.get(), 0));
                 end = start;
             }
             
@@ -247,7 +252,7 @@ void InsertListCommand::doApply()
             if (listChild && listChild->hasTagName(liTag))
                 insertionPos = positionBeforeNode(listChild);
                 
-            insertNodeAt(listElement.get(), insertionPos);
+            insertNodeAt(listElement, insertionPos);
         }
         moveParagraph(start, end, VisiblePosition(Position(placeholder.get(), 0)), true);
         if (nextList && previousList)

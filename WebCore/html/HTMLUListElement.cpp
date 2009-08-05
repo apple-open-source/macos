@@ -1,6 +1,4 @@
 /**
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *
@@ -20,19 +18,22 @@
  * Boston, MA 02110-1301, USA.
  *
  */
+
 #include "config.h"
 #include "HTMLUListElement.h"
 
 #include "CSSPropertyNames.h"
 #include "HTMLNames.h"
+#include "MappedAttribute.h"
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLUListElement::HTMLUListElement(Document* doc)
-    : HTMLElement(HTMLNames::ulTag, doc)
+HTMLUListElement::HTMLUListElement(const QualifiedName& tagName, Document* doc)
+    : HTMLElement(tagName, doc)
 {
+    ASSERT(hasTagName(ulTag));
 }
 
 bool HTMLUListElement::mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const
@@ -48,7 +49,7 @@ bool HTMLUListElement::mapToEntry(const QualifiedName& attrName, MappedAttribute
 void HTMLUListElement::parseMappedAttribute(MappedAttribute *attr)
 {
     if (attr->name() == typeAttr)
-        addCSSProperty(attr, CSS_PROP_LIST_STYLE_TYPE, attr->value());
+        addCSSProperty(attr, CSSPropertyListStyleType, attr->value());
     else
         HTMLElement::parseMappedAttribute(attr);
 }

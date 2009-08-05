@@ -31,18 +31,18 @@
 
 #include "JavaScriptGlue.h"
 
-#include <JavaScriptCore/value.h>
-#include <JavaScriptCore/object.h>
+#include <JavaScriptCore/Collector.h>
+#include <JavaScriptCore/JSValue.h>
+#include <JavaScriptCore/Completion.h>
+#include <JavaScriptCore/JSLock.h>
+#include <JavaScriptCore/JSObject.h>
 #include <JavaScriptCore/JSGlobalObject.h>
-#include <JavaScriptCore/types.h>
-#include <JavaScriptCore/interpreter.h>
-#include <JavaScriptCore/protect.h>
-#include <JavaScriptCore/collector.h>
-#include <JavaScriptCore/ustring.h>
+#include <JavaScriptCore/Protect.h>
+#include <JavaScriptCore/UString.h>
 
 #include <wtf/RefPtr.h>
 
-using namespace KJS;
+using namespace JSC;
 
 class JSBase;
 class JSUserObject;
@@ -52,15 +52,17 @@ class JSUserObjectImp;
 
 UString CFStringToUString(CFStringRef inCFString);
 CFStringRef UStringToCFString(const UString& inUString);
-Identifier CFStringToIdentifier(CFStringRef inCFString);
+Identifier CFStringToIdentifier(CFStringRef inCFString, ExecState*);
 CFStringRef IdentifierToCFString(const Identifier& inIdentifier);
-JSUserObject *KJSValueToJSObject(JSValue *inValue, ExecState *exec);
-CFTypeRef KJSValueToCFType(JSValue *inValue, ExecState *exec);
-JSValue *JSObjectKJSValue(JSUserObject* ptr);
+JSUserObject *KJSValueToJSObject(JSValue inValue, ExecState *exec);
+CFTypeRef KJSValueToCFType(JSValue inValue, ExecState *exec);
+JSValue JSObjectKJSValue(JSUserObject* ptr);
 CFTypeRef GetCFNull(void);
 
 inline CFTypeRef RetainCFType(CFTypeRef x) { if (x) x = CFRetain(x); return x; }
 inline void ReleaseCFType(CFTypeRef x) { if (x) CFRelease(x);  }
+
+ExecState* getThreadGlobalExecState();
 
 enum {
     kJSInvalidTypeID = 0,

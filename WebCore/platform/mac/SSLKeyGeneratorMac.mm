@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2003, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,22 +31,19 @@
 
 namespace WebCore {
 
-Vector<String> supportedKeySizes()
+void getSupportedKeySizes(Vector<String>& supportedKeySizes)
 { 
     NSEnumerator *enumerator = [[[WebCoreKeyGenerator sharedGenerator] strengthMenuItemTitles] objectEnumerator];
-    Vector<String> supportedKeySizes;
     NSString *string;
-    while ((string = [enumerator nextObject]) != nil) {
+    while ((string = [enumerator nextObject]) != nil)
         supportedKeySizes.append(string);
-    }
-    return supportedKeySizes;
 }
 
 String signedPublicKeyAndChallengeString(unsigned keySizeIndex, const String& challengeString, const KURL& url)
 {   
     return [[WebCoreKeyGenerator sharedGenerator] signedPublicKeyAndChallengeStringWithStrengthIndex:keySizeIndex 
                                                                                            challenge:challengeString
-                                                                                             pageURL:url.getNSURL()];
+                                                                                             pageURL:url];
 }
 
 }

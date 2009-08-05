@@ -27,8 +27,12 @@
 #import "GraphicsContext.h"
 
 #import "../cg/GraphicsContextPlatformPrivateCG.h"
+#import <AppKit/AppKit.h>
+#import <wtf/StdLibExtras.h>
 
 #import "WebCoreSystemInterface.h"
+
+@class NSColor;
 
 // FIXME: More of this should use CoreGraphics instead of AppKit.
 // FIXME: More of this should move into GraphicsContextCG.cpp.
@@ -46,7 +50,7 @@ void GraphicsContext::drawFocusRing(const Color& color)
 
     int radius = (focusRingWidth() - 1) / 2;
     int offset = radius + focusRingOffset();
-    CGColorRef colorRef = color.isValid() ? cgColor(color) : 0;
+    CGColorRef colorRef = color.isValid() ? createCGColor(color) : 0;
 
     CGMutablePathRef focusRingPath = CGPathCreateMutable();
     const Vector<IntRect>& rects = focusRingRects();
@@ -80,53 +84,43 @@ void GraphicsContext::setCompositeOperation(CompositeOperator op)
     [pool drain];
 }
 #endif
- 
+
+static NSColor* createPatternColor(NSString* name, NSColor* defaultColor, bool& usingDot)
+{
+    NSImage *image = [NSImage imageNamed:name];
+    ASSERT(image); // if image is not available, we want to know
+    NSColor *color = (image ? [NSColor colorWithPatternImage:image] : nil);
+    if (color)
+        usingDot = true;
+    else
+        color = defaultColor;
+    return color;
+}
+
+// WebKit on Mac is a standard platform component, so it must use the standard platform artwork for underline.
 void GraphicsContext::drawLineForMisspellingOrBadGrammar(const IntPoint& point, int width, bool grammar)
 {
     if (paintingDisabled())
         return;
         
-    // Constants for spelling pattern color
-    static RetainPtr<NSColor> spellingPatternColor = nil;
-    static bool usingDotForSpelling = false;
-
-    // Constants for grammar pattern color
-    static RetainPtr<NSColor> grammarPatternColor = nil;
-    static bool usingDotForGrammar = false;
-    
-    // These are the same for misspelling or bad grammar
+    // These are the same for misspelling or bad grammar.
     int patternHeight = cMisspellingLineThickness;
     int patternWidth = cMisspellingLinePatternWidth;
  
-    // Initialize pattern color if needed
-    if (!grammar && !spellingPatternColor) {
-        NSImage *image = [NSImage imageNamed:@"SpellingDot"];
-        ASSERT(image); // if image is not available, we want to know
-        NSColor *color = (image ? [NSColor colorWithPatternImage:image] : nil);
-        if (color)
-            usingDotForSpelling = true;
-        else
-            color = [NSColor redColor];
-        spellingPatternColor = color;
-    }
-    
-    if (grammar && !grammarPatternColor) {
-        NSImage *image = [NSImage imageNamed:@"GrammarDot"];
-        ASSERT(image); // if image is not available, we want to know
-        NSColor *color = (image ? [NSColor colorWithPatternImage:image] : nil);
-        if (color)
-            usingDotForGrammar = true;
-        else
-            color = [NSColor greenColor];
-        grammarPatternColor = color;
-    }
-    
     bool usingDot;
     NSColor *patternColor;
     if (grammar) {
+        // Constants for grammar pattern color.
+        static bool usingDotForGrammar = false;
+        DEFINE_STATIC_LOCAL(RetainPtr<NSColor>, grammarPatternColor, (createPatternColor(@"GrammarDot", [NSColor greenColor], usingDotForGrammar)));
+        
         usingDot = usingDotForGrammar;
         patternColor = grammarPatternColor.get();
     } else {
+        // Constants for spelling pattern color.
+        static bool usingDotForSpelling = false;
+        DEFINE_STATIC_LOCAL(RetainPtr<NSColor>, spellingPatternColor, (createPatternColor(@"SpellingDot", [NSColor redColor], usingDotForSpelling)));
+        
         usingDot = usingDotForSpelling;
         patternColor = spellingPatternColor.get();
     }
@@ -148,7 +142,7 @@ void GraphicsContext::drawLineForMisspellingOrBadGrammar(const IntPoint& point, 
     // FIXME: This code should not be using wkSetPatternPhaseInUserSpace, as this approach is wrong
     // for transforms.
 
-    // Draw underline
+    // Draw underline.
     NSGraphicsContext *currentContext = [NSGraphicsContext currentContext];
     CGContextRef context = (CGContextRef)[currentContext graphicsPort];
     CGContextSaveGState(context);

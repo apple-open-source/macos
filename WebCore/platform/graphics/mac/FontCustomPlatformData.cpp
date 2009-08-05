@@ -29,11 +29,12 @@ namespace WebCore {
 
 FontCustomPlatformData::~FontCustomPlatformData()
 {
-    ATSFontDeactivate(m_atsContainer, NULL, kATSOptionFlagsDefault);
+    if (m_atsContainer)
+        ATSFontDeactivate(m_atsContainer, NULL, kATSOptionFlagsDefault);
     CGFontRelease(m_cgFont);
 }
 
-FontPlatformData FontCustomPlatformData::fontPlatformData(int size, bool bold, bool italic)
+FontPlatformData FontCustomPlatformData::fontPlatformData(int size, bool bold, bool italic, FontRenderingMode)
 {
     return FontPlatformData(m_cgFont, (ATSUFontID)m_atsFont, size, bold, italic);
 }
@@ -42,8 +43,18 @@ FontCustomPlatformData* createFontCustomPlatformData(SharedBuffer* buffer)
 {
     ASSERT_ARG(buffer, buffer);
 
-    // Use ATS to activate the font.
     ATSFontContainerRef containerRef = 0;
+    ATSFontRef fontRef = 0;
+
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+    RetainPtr<CFDataRef> bufferData(AdoptCF, buffer->createCFData());
+    RetainPtr<CGDataProviderRef> dataProvider(AdoptCF, CGDataProviderCreateWithCFData(bufferData.get()));
+    
+    CGFontRef cgFontRef = CGFontCreateWithDataProvider(dataProvider.get());
+    if (!cgFontRef)
+        return 0;
+#else
+    // Use ATS to activate the font.
 
     // The value "3" means that the font is private and can't be seen by anyone else.
     ATSFontActivateFromMemory((void*)buffer->data(), buffer->size(), 3, kATSFontFormatUnspecified, NULL, kATSOptionFlagsDefault, &containerRef);
@@ -58,7 +69,6 @@ FontCustomPlatformData* createFontCustomPlatformData(SharedBuffer* buffer)
         return 0;
     }
     
-    ATSFontRef fontRef = 0;
     ATSFontFindFromContainer(containerRef, kATSOptionFlagsDefault, 1, &fontRef, NULL);
     if (!fontRef) {
         ATSFontDeactivate(containerRef, NULL, kATSOptionFlagsDefault);
@@ -68,7 +78,7 @@ FontCustomPlatformData* createFontCustomPlatformData(SharedBuffer* buffer)
     CGFontRef cgFontRef = CGFontCreateWithPlatformFont(&fontRef);
 #ifndef BUILDING_ON_TIGER
     // Workaround for <rdar://problem/5675504>.
-    if (!CGFontGetNumberOfGlyphs(cgFontRef)) {
+    if (cgFontRef && !CGFontGetNumberOfGlyphs(cgFontRef)) {
         CFRelease(cgFontRef);
         cgFontRef = 0;
     }
@@ -77,6 +87,7 @@ FontCustomPlatformData* createFontCustomPlatformData(SharedBuffer* buffer)
         ATSFontDeactivate(containerRef, NULL, kATSOptionFlagsDefault);
         return 0;
     }
+#endif // !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
 
     return new FontCustomPlatformData(containerRef, fontRef, cgFontRef);
 }

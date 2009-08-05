@@ -1,5 +1,6 @@
 /*
     Copyright (C) 2005, 2005 Alexander Kellett <lypanov@kde.org>
+                  2008 Rob Buis <buis@kde.org>
 
     This file is part of the WebKit project
 
@@ -20,22 +21,18 @@
 */
 
 #include "config.h"
+
 #if ENABLE(SVG)
+#include "SVGImageLoader.h"
 
-#include "Attr.h"
-#include "DocLoader.h"
-#include "Document.h"
-
+#include "EventNames.h"
 #include "SVGImageElement.h"
-#include "SVGLength.h"
-#include "SVGNames.h"
-
 #include "RenderImage.h"
 
 namespace WebCore {
 
 SVGImageLoader::SVGImageLoader(SVGImageElement* node)
-    : HTMLImageLoader(node)
+    : ImageLoader(node)
 {
 }
 
@@ -43,44 +40,20 @@ SVGImageLoader::~SVGImageLoader()
 {
 }
 
-// FIXME - Refactor most of this code into WebCore::HTMLImageLoader or a shared WebCore::ImageLoader base class
-void SVGImageLoader::updateFromElement()
-{
-    SVGImageElement *imageElement = static_cast<SVGImageElement *>(element());
-    WebCore::Document* doc = imageElement->ownerDocument();
-    
-    CachedImage *newImage = 0;
-    if (!imageElement->href().isEmpty()) {
-        DeprecatedString uri = imageElement->baseURI().deprecatedString();
-        if (!uri.isEmpty())
-            uri = KURL(uri, imageElement->href().deprecatedString()).deprecatedString();
-        else
-            uri = imageElement->href().deprecatedString();
-        newImage = doc->docLoader()->requestImage(uri);
-    }
-
-    CachedImage *oldImage = image();
-    if (newImage != oldImage) {
-        setLoadingImage(newImage);
-        if (newImage)
-            newImage->ref(this);
-        if (oldImage)
-            oldImage->deref(this);
-    }
-
-    if (RenderImage* renderer = static_cast<RenderImage*>(imageElement->renderer()))
-        renderer->resetAnimation();
-}
-
 void SVGImageLoader::dispatchLoadEvent()
 {
-    if (!haveFiredLoadEvent() && image()) {
-        setHaveFiredLoadEvent(true);
-        if (image()->errorOccurred()) {
-            // FIXME: We're supposed to put the document in an "error state" per the spec.
-        } else
-            static_cast<SVGElement*>(element())->sendSVGLoadEventIfPossible(true);
+    if (image()->errorOccurred())
+        element()->dispatchEvent(eventNames().errorEvent, false, false);
+    else {
+        SVGImageElement* imageElement = static_cast<SVGImageElement*>(element());
+        if (imageElement->externalResourcesRequiredBaseValue())
+            imageElement->sendSVGLoadEventIfPossible(true);
     }
+}
+
+String SVGImageLoader::sourceURI(const AtomicString& attr) const
+{
+    return parseURL(KURL(element()->baseURI(), attr).string());
 }
 
 }

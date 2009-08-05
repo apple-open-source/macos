@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
- * Copyright (C) 2007 Trolltech ASA
+ * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,16 +31,6 @@
 
 namespace WebCore 
 {
-String getMIMETypeForUTI(const String & uti)
-{
-    CFStringRef utiref = uti.createCFString();
-    CFStringRef mime = UTTypeCopyPreferredTagWithClass(utiref, kUTTagClassMIMEType);
-    String mimeType = mime;
-    if (mime)
-        CFRelease(mime);
-    CFRelease(utiref);
-    return mimeType;
-}
 
 String MIMETypeRegistry::getMIMETypeForExtension(const String &ext)
 {

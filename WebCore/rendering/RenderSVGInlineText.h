@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2006 Oliver Hunt <ojh16@student.canterbury.ac.nz>
  * Copyright (C) 2006, 2008 Apple Inc. All rights reserved.
+ *           (C) 2008 Rob Buis <buis@kde.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -33,17 +34,25 @@ class RenderSVGInlineText : public RenderText {
 public:
     RenderSVGInlineText(Node*, PassRefPtr<StringImpl>);
     virtual const char* renderName() const { return "RenderSVGInlineText"; }
-    virtual void absoluteRects(Vector<IntRect>& rects, int tx, int ty, bool topLevel = true);
-    virtual bool requiresLayer() { return false; }
-    virtual IntRect selectionRect(bool clipToVisibleContent = true);
-    virtual bool isSVGText() const { return true; }
-    virtual InlineTextBox* createInlineTextBox();
+        
+    virtual void styleDidChange(StyleDifference, const RenderStyle*);
 
-    virtual IntRect caretRect(int offset, EAffinity, int* extraWidthToEndOfLine = 0);
-    virtual VisiblePosition positionForCoordinates(int x, int y);
+    virtual void absoluteRects(Vector<IntRect>& rects, int tx, int ty);
+    virtual void absoluteQuads(Vector<FloatQuad>&);
+
+    virtual bool requiresLayer() const { return false; }
+    virtual IntRect selectionRectForRepaint(RenderBoxModelObject* repaintContainer, bool clipToVisibleContent = true);
+    virtual bool isSVGText() const { return true; }
+
+    virtual IntRect localCaretRect(InlineBox*, int caretOffset, int* extraWidthToEndOfLine = 0);
+    virtual VisiblePosition positionForPoint(const IntPoint&);
+
+    virtual void destroy();
 
 private:
-    IntRect computeAbsoluteRectForRange(int startPos, int endPos);
+    virtual InlineTextBox* createTextBox();
+    IntRect computeRepaintRectForRange(RenderBoxModelObject* repaintContainer, int startPos, int endPos);
+    FloatQuad computeRepaintQuadForRange(RenderBoxModelObject* repaintContainer, int startPos, int endPos);
 };
 
 }

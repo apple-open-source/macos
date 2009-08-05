@@ -26,8 +26,7 @@
 #include "config.h"
 #include "GraphicsContext.h"
 
-#include "AffineTransform.h"
-#include "NotImplemented.h"
+#include "TransformationMatrix.h"
 #include "Path.h"
 
 #include <cairo-win32.h>
@@ -37,7 +36,7 @@ using namespace std;
 
 namespace WebCore {
 
-GraphicsContext::GraphicsContext(HDC dc)
+GraphicsContext::GraphicsContext(HDC dc, bool hasAlpha)
     : m_common(createGraphicsContextPrivate())
     , m_data(new GraphicsContextPlatformPrivate)
 {
@@ -58,8 +57,13 @@ GraphicsContext::GraphicsContext(HDC dc)
     }
 }
 
-HDC GraphicsContext::getWindowsContext(const IntRect& dstRect, bool supportAlphaBlend)
+HDC GraphicsContext::getWindowsContext(const IntRect& dstRect, bool supportAlphaBlend, bool mayCreateBitmap)
 {
+    // FIXME:  We aren't really doing anything with the 'mayCreateBitmap' flag.  This needs
+    // to be addressed.
+    if (dstRect.isEmpty())
+       return 0;
+
     // This is probably wrong, and definitely out of date.  Pulled from old SVN
     cairo_surface_t* surface = cairo_get_target(platformContext());
     HDC hdc = cairo_win32_surface_get_dc(surface);   
@@ -77,36 +81,39 @@ HDC GraphicsContext::getWindowsContext(const IntRect& dstRect, bool supportAlpha
     xform.eM22 = mat.yy;
     xform.eDx = mat.x0;
     xform.eDy = mat.y0;
-    SetWorldTransform(hdc, &xform);
+    ::SetWorldTransform(hdc, &xform);
 
     return hdc;
 }
 
-bool GraphicsContext::inTransparencyLayer() const { return m_data->m_transparencyCount; }
-
-void GraphicsContext::releaseWindowsContext(HDC hdc, const IntRect& dstRect, bool supportAlphaBlend)
+void GraphicsContext::releaseWindowsContext(HDC hdc, const IntRect& dstRect, bool supportAlphaBlend, bool mayCreateBitmap)
 {
+    // FIXME:  We aren't really doing anything with the 'mayCreateBitmap' flag.  This needs
+    // to be addressed.
+    if (dstRect.isEmpty())
+       return;
+
     cairo_surface_t* surface = cairo_get_target(platformContext());
     HDC hdc2 = cairo_win32_surface_get_dc(surface);
     RestoreDC(hdc2, -1);
     cairo_surface_mark_dirty(surface);
 }
 
-void GraphicsContext::concatCTM(const AffineTransform& transform)
+void GraphicsContextPlatformPrivate::concatCTM(const TransformationMatrix& transform)
 {
-    cairo_surface_t* surface = cairo_get_target(platformContext());
+    cairo_surface_t* surface = cairo_get_target(cr);
     HDC hdc = cairo_win32_surface_get_dc(surface);   
     SaveDC(hdc);
 
-    cairo_matrix_t mat;
-    cairo_get_matrix(platformContext(), &mat);
+    const cairo_matrix_t* matrix = reinterpret_cast<const cairo_matrix_t*>(&transform);
+
     XFORM xform;
-    xform.eM11 = mat.xx;
-    xform.eM12 = mat.xy;
-    xform.eM21 = mat.yx;
-    xform.eM22 = mat.yy;
-    xform.eDx = mat.x0;
-    xform.eDy = mat.y0;
+    xform.eM11 = matrix->xx;
+    xform.eM12 = matrix->xy;
+    xform.eM21 = matrix->yx;
+    xform.eM22 = matrix->yy;
+    xform.eDx = matrix->x0;
+    xform.eDy = matrix->y0;
 
     ModifyWorldTransform(hdc, &xform, MWT_LEFTMULTIPLY);
 }

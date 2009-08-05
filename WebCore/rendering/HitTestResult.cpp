@@ -1,7 +1,5 @@
 /*
- * This file is part of the HTML rendering engine for KDE.
- *
- * Copyright (C) 2006 Apple Computer, Inc.
+ * Copyright (C) 2006, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,24 +21,24 @@
 #include "config.h"
 #include "HitTestResult.h"
 
-#include "CSSHelper.h"
-#include "Document.h"
 #include "Frame.h"
 #include "FrameTree.h"
 #include "HTMLAnchorElement.h"
-#include "HTMLElement.h"
 #include "HTMLImageElement.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
-#include "KURL.h"
-#include "PlatformScrollBar.h"
 #include "RenderImage.h"
-#include "RenderObject.h"
+#include "Scrollbar.h"
 #include "SelectionController.h"
 
 #if ENABLE(SVG)
 #include "SVGNames.h"
 #include "XLinkNames.h"
+#endif
+
+#if ENABLE(WML)
+#include "WMLImageElement.h"
+#include "WMLNames.h"
 #endif
 
 namespace WebCore {
@@ -49,6 +47,7 @@ using namespace HTMLNames;
 
 HitTestResult::HitTestResult(const IntPoint& point)
     : m_point(point)
+    , m_isOverWidget(false)
 {
 }
 
@@ -59,6 +58,7 @@ HitTestResult::HitTestResult(const HitTestResult& other)
     , m_localPoint(other.localPoint())
     , m_innerURLElement(other.URLElement())
     , m_scrollbar(other.scrollbar())
+    , m_isOverWidget(other.isOverWidget())
 {
 }
 
@@ -74,6 +74,7 @@ HitTestResult& HitTestResult::operator=(const HitTestResult& other)
     m_localPoint = other.localPoint();
     m_innerURLElement = other.URLElement();
     m_scrollbar = other.scrollbar();
+    m_isOverWidget = other.isOverWidget();
     return *this;
 }
 
@@ -104,7 +105,7 @@ void HitTestResult::setURLElement(Element* n)
     m_innerURLElement = n; 
 }
 
-void HitTestResult::setScrollbar(PlatformScrollbar* s)
+void HitTestResult::setScrollbar(Scrollbar* s)
 {
     m_scrollbar = s;
 }
@@ -141,7 +142,7 @@ bool HitTestResult::isSelected() const
     if (!frame)
         return false;
 
-    return frame->selectionController()->contains(m_point);
+    return frame->selection()->contains(m_point);
 }
 
 String HitTestResult::spellingToolTip() const
@@ -158,6 +159,20 @@ String HitTestResult::spellingToolTip() const
     return marker->description;
 }
 
+String HitTestResult::replacedString() const
+{
+    // Return the replaced string associated with this point, if any. This marker is created when a string is autocorrected, 
+    // and is used for generating a contextual menu item that allows it to easily be changed back if desired.
+    if (!m_innerNonSharedNode)
+        return String();
+    
+    DocumentMarker* marker = m_innerNonSharedNode->document()->markerContainingPoint(m_point, DocumentMarker::Replacement);
+    if (!marker)
+        return String();
+    
+    return marker->description;
+}    
+    
 String HitTestResult::title() const
 {
     // Find the title in the nearest enclosing DOM node.
@@ -176,9 +191,7 @@ String displayString(const String& string, const Node* node)
 {
     if (!node)
         return string;
-    String copy(string);
-    copy.replace('\\', node->document()->backslashAsCurrencySymbol());
-    return copy;
+    return node->document()->displayStringModifiedByEncoding(string);
 }
 
 String HitTestResult::altDisplayString() const
@@ -196,6 +209,13 @@ String HitTestResult::altDisplayString() const
         return displayString(input->alt(), m_innerNonSharedNode.get());
     }
     
+#if ENABLE(WML)
+    if (m_innerNonSharedNode->hasTagName(WMLNames::imgTag)) {
+        WMLImageElement* image = static_cast<WMLImageElement*>(m_innerNonSharedNode.get());
+        return displayString(image->altText(), m_innerNonSharedNode.get());
+    }
+#endif
+
     return String();
 }
 
@@ -218,7 +238,7 @@ IntRect HitTestResult::imageRect() const
 {
     if (!image())
         return IntRect();
-    return m_innerNonSharedNode->renderer()->absoluteContentBox();
+    return m_innerNonSharedNode->renderBox()->absoluteContentBox();
 }
 
 KURL HitTestResult::absoluteImageURL() const
@@ -230,18 +250,23 @@ KURL HitTestResult::absoluteImageURL() const
         return KURL();
 
     AtomicString urlString;
-    if (m_innerNonSharedNode->hasTagName(imgTag) || m_innerNonSharedNode->hasTagName(inputTag))
-        urlString = static_cast<Element*>(m_innerNonSharedNode.get())->getAttribute(srcAttr);
+    if (m_innerNonSharedNode->hasTagName(embedTag)
+        || m_innerNonSharedNode->hasTagName(imgTag)
+        || m_innerNonSharedNode->hasTagName(inputTag)
+        || m_innerNonSharedNode->hasTagName(objectTag)    
 #if ENABLE(SVG)
-    else if (m_innerNonSharedNode->hasTagName(SVGNames::imageTag))
-        urlString = static_cast<Element*>(m_innerNonSharedNode.get())->getAttribute(XLinkNames::hrefAttr);
+        || m_innerNonSharedNode->hasTagName(SVGNames::imageTag)
 #endif
-    else if (m_innerNonSharedNode->hasTagName(objectTag))
-        urlString = static_cast<Element*>(m_innerNonSharedNode.get())->getAttribute(dataAttr);
-    else
+#if ENABLE(WML)
+        || m_innerNonSharedNode->hasTagName(WMLNames::imgTag)
+#endif
+       ) {
+        Element* element = static_cast<Element*>(m_innerNonSharedNode.get());
+        urlString = element->getAttribute(element->imageSourceAttributeName());
+    } else
         return KURL();
-    
-    return KURL(m_innerNonSharedNode->document()->completeURL(parseURL(urlString).deprecatedString()));
+
+    return m_innerNonSharedNode->document()->completeURL(parseURL(urlString));
 }
 
 KURL HitTestResult::absoluteLinkURL() const
@@ -256,10 +281,14 @@ KURL HitTestResult::absoluteLinkURL() const
     else if (m_innerURLElement->hasTagName(SVGNames::aTag))
         urlString = m_innerURLElement->getAttribute(XLinkNames::hrefAttr);
 #endif
+#if ENABLE(WML)
+    else if (m_innerURLElement->hasTagName(WMLNames::aTag))
+        urlString = m_innerURLElement->getAttribute(hrefAttr);
+#endif
     else
         return KURL();
 
-    return KURL(m_innerURLElement->document()->completeURL(parseURL(urlString).deprecatedString()));
+    return m_innerURLElement->document()->completeURL(parseURL(urlString));
 }
 
 bool HitTestResult::isLiveLink() const
@@ -273,7 +302,11 @@ bool HitTestResult::isLiveLink() const
     if (m_innerURLElement->hasTagName(SVGNames::aTag))
         return m_innerURLElement->isLink();
 #endif
-    
+#if ENABLE(WML)
+    if (m_innerURLElement->hasTagName(WMLNames::aTag))
+        return m_innerURLElement->isLink();
+#endif
+
     return false;
 }
 

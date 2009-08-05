@@ -44,7 +44,7 @@ Comment::~Comment()
 
 String Comment::nodeName() const
 {
-    return commentAtom.domString();
+    return commentAtom.string();
 }
 
 Node::NodeType Comment::nodeType() const
@@ -61,12 +61,6 @@ PassRefPtr<Node> Comment::cloneNode(bool /*deep*/)
 bool Comment::childTypeAllowed(NodeType)
 {
     return false;
-}
-
-String Comment::toString() const
-{
-    // FIXME: We need to substitute entity references here.
-    return "<!--" + nodeValue() + "-->";
 }
 
 } // namespace WebCore

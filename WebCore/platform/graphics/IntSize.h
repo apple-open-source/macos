@@ -43,7 +43,10 @@ typedef struct _NSSize NSSize;
 #if PLATFORM(WIN)
 typedef struct tagSIZE SIZE;
 #elif PLATFORM(QT)
+#include <qglobal.h>
+QT_BEGIN_NAMESPACE
 class QSize;
+QT_END_NAMESPACE
 #endif
 #if PLATFORM(SYMBIAN)
 class TSize;
@@ -64,6 +67,12 @@ public:
 
     bool isEmpty() const { return m_width <= 0 || m_height <= 0; }
 
+    void expand(int width, int height)
+    {
+        m_width += width;
+        m_height += height;
+    }
+    
     IntSize expandedTo(const IntSize& other) const
     {
         return IntSize(m_width > other.m_width ? m_width : other.m_width,

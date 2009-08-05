@@ -25,14 +25,14 @@
 #if ENABLE(SVG)
 #include "SVGPreserveAspectRatio.h"
 
+#include "TransformationMatrix.h"
 #include "SVGParserUtilities.h"
 #include "SVGSVGElement.h"
 
 namespace WebCore {
 
 SVGPreserveAspectRatio::SVGPreserveAspectRatio()
-    : RefCounted<SVGPreserveAspectRatio>()
-    , m_align(SVG_PRESERVEASPECTRATIO_XMIDYMID)
+    : m_align(SVG_PRESERVEASPECTRATIO_XMIDYMID)
     , m_meetOrSlice(SVG_MEETORSLICE_MEET)
 {
     // FIXME: Should the two values default to UNKNOWN instead?
@@ -164,12 +164,12 @@ bail_out:
     return ret;
 }
 
-AffineTransform SVGPreserveAspectRatio::getCTM(double logicX, double logicY,
+TransformationMatrix SVGPreserveAspectRatio::getCTM(double logicX, double logicY,
                                                double logicWidth, double logicHeight,
                                                double /*physX*/, double /*physY*/,
                                                double physWidth, double physHeight)
 {
-    AffineTransform temp;
+    TransformationMatrix temp;
 
     if (align() == SVG_PRESERVEASPECTRATIO_UNKNOWN)
         return temp;
@@ -178,10 +178,10 @@ AffineTransform SVGPreserveAspectRatio::getCTM(double logicX, double logicY,
     double svgar = physWidth / physHeight;
 
     if (align() == SVG_PRESERVEASPECTRATIO_NONE) {
-        temp.scale(physWidth / logicWidth, physHeight / logicHeight);
+        temp.scaleNonUniform(physWidth / logicWidth, physHeight / logicHeight);
         temp.translate(-logicX, -logicY);
     } else if (vpar < svgar && (meetOrSlice() == SVG_MEETORSLICE_MEET) || vpar >= svgar && (meetOrSlice() == SVG_MEETORSLICE_SLICE)) {
-        temp.scale(physHeight / logicHeight, physHeight / logicHeight);
+        temp.scaleNonUniform(physHeight / logicHeight, physHeight / logicHeight);
 
         if (align() == SVG_PRESERVEASPECTRATIO_XMINYMIN || align() == SVG_PRESERVEASPECTRATIO_XMINYMID || align() == SVG_PRESERVEASPECTRATIO_XMINYMAX)
             temp.translate(-logicX, -logicY);
@@ -190,7 +190,7 @@ AffineTransform SVGPreserveAspectRatio::getCTM(double logicX, double logicY,
         else
             temp.translate(-logicX - (logicWidth - physWidth * logicHeight / physHeight), -logicY);
     } else {
-        temp.scale(physWidth / logicWidth, physWidth / logicWidth);
+        temp.scaleNonUniform(physWidth / logicWidth, physWidth / logicWidth);
 
         if (align() == SVG_PRESERVEASPECTRATIO_XMINYMIN || align() == SVG_PRESERVEASPECTRATIO_XMIDYMIN || align() == SVG_PRESERVEASPECTRATIO_XMAXYMIN)
             temp.translate(-logicX, -logicY);
@@ -201,6 +201,59 @@ AffineTransform SVGPreserveAspectRatio::getCTM(double logicX, double logicY,
     }
 
     return temp;
+}
+
+String SVGPreserveAspectRatio::valueAsString() const
+{
+    String result;
+
+    switch ((SVGPreserveAspectRatioType) align()) {
+    default:
+    case SVG_PRESERVEASPECTRATIO_NONE:
+        result = "none";
+        break;
+    case SVG_PRESERVEASPECTRATIO_XMINYMIN:
+        result = "xMinYMin";
+        break;
+    case SVG_PRESERVEASPECTRATIO_XMIDYMIN:
+        result = "xMidYMin";
+        break;
+    case SVG_PRESERVEASPECTRATIO_XMAXYMIN:
+        result = "xMaxYMin";
+        break;
+    case SVG_PRESERVEASPECTRATIO_XMINYMID:
+        result = "xMinYMid";
+        break;
+    case SVG_PRESERVEASPECTRATIO_XMIDYMID:
+        result = "xMidYMid";
+        break;
+    case SVG_PRESERVEASPECTRATIO_XMAXYMID:
+        result = "xMaxYMid";
+        break;
+    case SVG_PRESERVEASPECTRATIO_XMINYMAX:
+        result = "xMinYMax";
+        break;
+    case SVG_PRESERVEASPECTRATIO_XMIDYMAX:
+        result = "xMidYMax";
+        break;
+    case SVG_PRESERVEASPECTRATIO_XMAXYMAX:
+        result = "xMaxYMax";
+        break;
+    };
+
+    switch ((SVGMeetOrSliceType) meetOrSlice()) {
+    default:
+    case SVG_MEETORSLICE_UNKNOWN:
+        break;
+    case SVG_MEETORSLICE_MEET:
+        result += " meet";
+        break;
+    case SVG_MEETORSLICE_SLICE:
+        result += " slice";
+        break;
+    };
+
+    return result;
 }
 
 }

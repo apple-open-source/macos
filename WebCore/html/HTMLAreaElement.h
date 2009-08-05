@@ -1,9 +1,7 @@
 /*
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2004 Apple Computer, Inc.
+ * Copyright (C) 2004, 2008, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -27,17 +25,15 @@
 
 #include "HTMLAnchorElement.h"
 #include "IntSize.h"
-#include "Path.h"
 
 namespace WebCore {
 
 class HitTestResult;
+class Path;
 
 class HTMLAreaElement : public HTMLAnchorElement {
 public:
-    enum Shape { Default, Poly, Rect, Circle, Unknown };
-
-    HTMLAreaElement(Document*);
+    HTMLAreaElement(const QualifiedName&, Document*);
     ~HTMLAreaElement();
 
     virtual HTMLTagStatus endTagRequirement() const { return TagStatusForbidden; }
@@ -51,32 +47,34 @@ public:
 
     virtual IntRect getRect(RenderObject*) const;
 
-    String accessKey() const;
-    void setAccessKey(const String&);
+    const AtomicString& accessKey() const;
+    void setAccessKey(const AtomicString&);
 
-    String alt() const;
-    void setAlt(const String&);
+    const AtomicString& alt() const;
+    void setAlt(const AtomicString&);
 
-    String coords() const;
-    void setCoords(const String&);
+    const AtomicString& coords() const;
+    void setCoords(const AtomicString&);
 
-    String href() const;
-    void setHref(const String&);
+    KURL href() const;
+    void setHref(const AtomicString&);
 
     bool noHref() const;
     void setNoHref(bool);
 
-    String shape() const;
-    void setShape(const String&);
+    const AtomicString& shape() const;
+    void setShape(const AtomicString&);
 
-    void setTabIndex(int);
+    virtual bool isFocusable() const;
 
     virtual String target() const;
-    void setTarget(const String&);
+    void setTarget(const AtomicString&);
 
-protected:
+private:
+    enum Shape { Default, Poly, Rect, Circle, Unknown };
     Path getRegion(const IntSize&) const;
-    Path region;
+
+    OwnPtr<Path> m_region;
     Length* m_coords;
     int m_coordsLen;
     IntSize m_lastSize;

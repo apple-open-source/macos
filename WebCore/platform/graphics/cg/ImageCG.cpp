@@ -28,7 +28,7 @@
 
 #if PLATFORM(CG)
 
-#include "AffineTransform.h"
+#include "TransformationMatrix.h"
 #include "FloatConversion.h"
 #include "FloatRect.h"
 #include "GraphicsContext.h"
@@ -37,7 +37,7 @@
 #include "PlatformString.h"
 #include <ApplicationServices/ApplicationServices.h>
 
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || PLATFORM(CHROMIUM)
 #include "WebCoreSystemInterface.h"
 #endif
 
@@ -47,24 +47,60 @@
 
 namespace WebCore {
 
-void FrameData::clear()
+bool FrameData::clear(bool clearMetadata)
 {
+    if (clearMetadata)
+        m_haveMetadata = false;
+
     if (m_frame) {
         CGImageRelease(m_frame);
         m_frame = 0;
-        m_duration = 0.0f;
-        m_hasAlpha = true;
+        return true;
     }
+    return false;
 }
 
 // ================================================
 // Image Class
 // ================================================
 
+BitmapImage::BitmapImage(CGImageRef cgImage, ImageObserver* observer)
+    : Image(observer)
+    , m_currentFrame(0)
+    , m_frames(0)
+    , m_frameTimer(0)
+    , m_repetitionCount(cAnimationNone)
+    , m_repetitionCountStatus(Unknown)
+    , m_repetitionsComplete(0)
+    , m_isSolidColor(false)
+    , m_checkedForSolidColor(false)
+    , m_animationFinished(true)
+    , m_allDataReceived(true)
+    , m_haveSize(true)
+    , m_sizeAvailable(true)
+    , m_decodedSize(0)
+    , m_haveFrameCount(true)
+    , m_frameCount(1)
+{
+    initPlatformData();
+    
+    CGFloat width = CGImageGetWidth(cgImage);
+    CGFloat height = CGImageGetHeight(cgImage);
+    m_decodedSize = width * height * 4;
+    m_size = IntSize(width, height);
+
+    m_frames.grow(1);
+    m_frames[0].m_frame = cgImage;
+    m_frames[0].m_hasAlpha = true;
+    m_frames[0].m_haveMetadata = true;
+    checkForSolidColor();
+}
+
 // Drawing Routines
 
 void BitmapImage::checkForSolidColor()
 {
+    m_checkedForSolidColor = true;
     if (frameCount() > 1)
         m_isSolidColor = false;
     else {
@@ -97,78 +133,73 @@ CGImageRef BitmapImage::getCGImageRef()
     return frameAtIndex(0);
 }
 
-void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& dstRect, const FloatRect& srcRect, CompositeOperator compositeOp)
+void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& destRect, const FloatRect& srcRect, CompositeOperator compositeOp)
 {
-    if (!m_source.initialized())
-        return;
-    
-    CGRect fr = ctxt->roundToDevicePixels(srcRect);
-    CGRect ir = ctxt->roundToDevicePixels(dstRect);
+    startAnimation();
 
     CGImageRef image = frameAtIndex(m_currentFrame);
     if (!image) // If it's too early we won't have an image yet.
         return;
     
     if (mayFillWithSolidColor()) {
-        fillWithSolidColor(ctxt, ir, solidColor(), compositeOp);
+        fillWithSolidColor(ctxt, destRect, solidColor(), compositeOp);
         return;
     }
 
-    // Get the height (in adjusted, i.e. scaled, coords) of the portion of the image
-    // that is currently decoded.  This could be less that the actual height.
-    CGSize selfSize = size();                          // full image size, in pixels
-    float curHeight = CGImageGetHeight(image);         // height of loaded portion, in pixels
-    
-    CGSize adjustedSize = selfSize;
-    if (curHeight < selfSize.height) {
-        adjustedSize.height *= curHeight / selfSize.height;
-
-        // Is the amount of available bands less than what we need to draw?  If so,
-        // we may have to clip 'fr' if it goes outside the available bounds.
-        if (CGRectGetMaxY(fr) > adjustedSize.height) {
-            float frHeight = adjustedSize.height - fr.origin.y; // clip fr to available bounds
-            if (frHeight <= 0)
-                return;                                             // clipped out entirely
-            ir.size.height *= (frHeight / fr.size.height);    // scale ir proportionally to fr
-            fr.size.height = frHeight;
-        }
-    }
+    float currHeight = CGImageGetHeight(image);
+    if (currHeight <= srcRect.y())
+        return;
 
     CGContextRef context = ctxt->platformContext();
     ctxt->save();
 
+    bool shouldUseSubimage = false;
+
+    // If the source rect is a subportion of the image, then we compute an inflated destination rect that will hold the entire image
+    // and then set a clip to the portion that we want to display.
+    FloatRect adjustedDestRect = destRect;
+    FloatSize selfSize = currentFrameSize();
+    if (srcRect.size() != selfSize) {
+        CGInterpolationQuality interpolationQuality = CGContextGetInterpolationQuality(context);
+        // When the image is scaled using high-quality interpolation, we create a temporary CGImage
+        // containing only the portion we want to display. We need to do this because high-quality
+        // interpolation smoothes sharp edges, causing pixels from outside the source rect to bleed
+        // into the destination rect. See <rdar://problem/6112909>.
+        shouldUseSubimage = (interpolationQuality == kCGInterpolationHigh || interpolationQuality == kCGInterpolationDefault) && srcRect.size() != destRect.size();
+        if (shouldUseSubimage) {
+            image = CGImageCreateWithImageInRect(image, srcRect);
+            if (currHeight < srcRect.bottom()) {
+                ASSERT(CGImageGetHeight(image) == currHeight - CGRectIntegral(srcRect).origin.y);
+                adjustedDestRect.setHeight(destRect.height() / srcRect.height() * CGImageGetHeight(image));
+            }
+        } else {
+            float xScale = srcRect.width() / destRect.width();
+            float yScale = srcRect.height() / destRect.height();
+
+            adjustedDestRect.setLocation(FloatPoint(destRect.x() - srcRect.x() / xScale, destRect.y() - srcRect.y() / yScale));
+            adjustedDestRect.setSize(FloatSize(selfSize.width() / xScale, selfSize.height() / yScale));
+
+            CGContextClipToRect(context, destRect);
+        }
+    }
+
+    // If the image is only partially loaded, then shrink the destination rect that we're drawing into accordingly.
+    if (!shouldUseSubimage && currHeight < selfSize.height())
+        adjustedDestRect.setHeight(adjustedDestRect.height() * currHeight / selfSize.height());
+
     // Flip the coords.
     ctxt->setCompositeOperation(compositeOp);
-    CGContextTranslateCTM(context, ir.origin.x, ir.origin.y);
+    CGContextTranslateCTM(context, adjustedDestRect.x(), adjustedDestRect.bottom());
     CGContextScaleCTM(context, 1, -1);
-    CGContextTranslateCTM(context, 0, -ir.size.height);
-    
-    // Translated to origin, now draw at 0,0.
-    ir.origin.x = ir.origin.y = 0;
-    
-    // If we're drawing a sub portion of the image then create
-    // a image for the sub portion and draw that.
-    // Test using example site at http://www.meyerweb.com/eric/css/edge/complexspiral/demo.html
-    if (fr.size.width != adjustedSize.width || fr.size.height != adjustedSize.height) {
-        // Convert ft to image pixel coords:
-        float xscale = adjustedSize.width / selfSize.width;
-        float yscale = adjustedSize.height / curHeight;     // yes, curHeight, not selfSize.height!
-        fr.origin.x /= xscale;
-        fr.origin.y /= yscale;
-        fr.size.width /= xscale;
-        fr.size.height /= yscale;
-        
-        image = CGImageCreateWithImageInRect(image, fr);
-        if (image) {
-            CGContextDrawImage(context, ir, image);
-            CFRelease(image);
-        }
-    } else // Draw the whole image.
-        CGContextDrawImage(context, ir, image);
-        
+    adjustedDestRect.setLocation(FloatPoint());
+
+    // Draw the image.
+    CGContextDrawImage(context, adjustedDestRect, image);
+
+    if (shouldUseSubimage)
+        CGImageRelease(image);
+
     ctxt->restore();
-    
-    startAnimation();
 
     if (imageObserver())
         imageObserver()->didDraw(this);
@@ -180,9 +211,12 @@ void Image::drawPatternCallback(void* info, CGContextRef context)
     CGContextDrawImage(context, GraphicsContext(context).roundToDevicePixels(FloatRect(0, 0, CGImageGetWidth(image), CGImageGetHeight(image))), image);
 }
 
-void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& tileRect, const AffineTransform& patternTransform,
+void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& tileRect, const TransformationMatrix& patternTransform,
                         const FloatPoint& phase, CompositeOperator op, const FloatRect& destRect)
 {
+    if (!nativeImageForCurrentFrame())
+        return;
+
     ASSERT(patternTransform.isInvertible());
     if (!patternTransform.isInvertible())
         // Avoid a hang under CGContextDrawTiledImage on release builds.
@@ -192,9 +226,8 @@ void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& tileRect, const 
     ctxt->save();
     CGContextClipToRect(context, destRect);
     ctxt->setCompositeOperation(op);
-    CGContextTranslateCTM(context, destRect.x(), destRect.y());
+    CGContextTranslateCTM(context, destRect.x(), destRect.y() + destRect.height());
     CGContextScaleCTM(context, 1, -1);
-    CGContextTranslateCTM(context, 0, -destRect.height());
     
     // Compute the scaled tile size.
     float scaledTileHeight = tileRect.height() * narrowPrecisionToFloat(patternTransform.d());
@@ -222,9 +255,14 @@ void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& tileRect, const 
     // its buffer is the same size as the overall image.  Because a partially decoded CGImageRef with a smaller width or height than the
     // overall image buffer needs to tile with "gaps", we can't use the optimized tiling call in that case.
     // FIXME: Could create WebKitSystemInterface SPI for CGCreatePatternWithImage2 and probably make Tiger tile faster as well.
+    // FIXME: We cannot use CGContextDrawTiledImage with scaled tiles on Leopard, because it suffers from rounding errors.  Snow Leopard is ok.
     float scaledTileWidth = tileRect.width() * narrowPrecisionToFloat(patternTransform.a());
     float w = CGImageGetWidth(tileImage);
+#ifdef BUILDING_ON_LEOPARD
+    if (w == size().width() && h == size().height() && scaledTileWidth == tileRect.width() && scaledTileHeight == tileRect.height())
+#else
     if (w == size().width() && h == size().height())
+#endif
         CGContextDrawTiledImage(context, FloatRect(adjustedX, adjustedY, scaledTileWidth, scaledTileHeight), subImage);
     else {
 #endif

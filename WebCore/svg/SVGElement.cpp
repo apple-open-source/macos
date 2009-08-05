@@ -1,8 +1,8 @@
 /*
-    Copyright (C) 2004, 2005, 2006, 2007 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005, 2006 Rob Buis <buis@kde.org>
-
-    This file is part of the KDE project
+    Copyright (C) 2004, 2005, 2006, 2007, 2008 Nikolas Zimmermann <zimmermann@kde.org>
+                  2004, 2005, 2006, 2008 Rob Buis <buis@kde.org>
+    Copyright (C) 2008 Apple Inc. All rights reserved.
+    Copyright (C) 2008 Alp Toker <alp@atoker.com>
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -25,6 +25,7 @@
 #if ENABLE(SVG)
 #include "SVGElement.h"
 
+#include "CSSCursorImageValue.h"
 #include "DOMImplementation.h"
 #include "Document.h"
 #include "Event.h"
@@ -32,37 +33,43 @@
 #include "EventNames.h"
 #include "FrameView.h"
 #include "HTMLNames.h"
-#include "PlatformString.h"
+#include "MappedAttribute.h"
+#include "RegisteredEventListener.h"
 #include "RenderObject.h"
+#include "SVGCursorElement.h"
 #include "SVGDocumentExtensions.h"
 #include "SVGElementInstance.h"
 #include "SVGNames.h"
+#include "SVGResource.h"
 #include "SVGSVGElement.h"
 #include "SVGURIReference.h"
 #include "SVGUseElement.h"
+#include "ScriptEventListener.h"
 #include "XMLNames.h"
 
 namespace WebCore {
 
 using namespace HTMLNames;
-using namespace EventNames;
 
 SVGElement::SVGElement(const QualifiedName& tagName, Document* doc)
     : StyledElement(tagName, doc)
     , m_shadowParent(0)
+    , m_cursorElement(0)
+    , m_cursorImageValue(0)
 {
 }
 
 SVGElement::~SVGElement()
 {
+    if (m_cursorElement)
+        m_cursorElement->removeClient(this);
+    if (m_cursorImageValue)
+        m_cursorImageValue->removeReferencedElement(this);
 }
 
 bool SVGElement::isSupported(StringImpl* feature, StringImpl* version) const
 {
-    if (DOMImplementation::instance()->hasFeature(feature, version))
-        return true;
-
-    return DOMImplementation::instance()->hasFeature(feature, version);
+    return DOMImplementation::hasFeature(feature, version);
 }
 
 String SVGElement::id() const
@@ -87,12 +94,12 @@ void SVGElement::setXmlbase(const String& value, ExceptionCode&)
 
 SVGSVGElement* SVGElement::ownerSVGElement() const
 {
-    Node* n = parentNode();
+    Node* n = isShadowNode() ? const_cast<SVGElement*>(this)->shadowParentNode() : parentNode();
     while (n) {
         if (n->hasTagName(SVGNames::svgTag))
             return static_cast<SVGSVGElement*>(n);
 
-        n = n->parentNode();
+        n = n->isShadowNode() ? n->shadowParentNode() : n->parentNode();
     }
 
     return 0;
@@ -113,35 +120,56 @@ SVGElement* SVGElement::viewportElement() const
     return 0;
 }
 
-void SVGElement::addSVGEventListener(const AtomicString& eventType, const Attribute* attr)
+SVGDocumentExtensions* SVGElement::accessDocumentSVGExtensions() const
 {
-    Element::setHTMLEventListener(eventType, document()->accessSVGExtensions()->
-        createSVGEventListener(attr->localName().domString(), attr->value(), this));
+
+    // This function is provided for use by SVGAnimatedProperty to avoid
+    // global inclusion of Document.h in SVG code.
+    return document() ? document()->accessSVGExtensions() : 0;
+}
+ 
+void SVGElement::mapInstanceToElement(SVGElementInstance* instance)
+{
+    ASSERT(instance);
+    ASSERT(!m_elementInstances.contains(instance));
+    m_elementInstances.add(instance);
+}
+ 
+void SVGElement::removeInstanceMapping(SVGElementInstance* instance)
+{
+    ASSERT(instance);
+    ASSERT(m_elementInstances.contains(instance));
+    m_elementInstances.remove(instance);
+}
+
+HashSet<SVGElementInstance*> SVGElement::instancesForElement() const
+{
+    return m_elementInstances;
 }
 
 void SVGElement::parseMappedAttribute(MappedAttribute* attr)
 {
     // standard events
     if (attr->name() == onloadAttr)
-        addSVGEventListener(loadEvent, attr);
+        setAttributeEventListener(eventNames().loadEvent, createAttributeEventListener(this, attr));
     else if (attr->name() == onclickAttr)
-        addSVGEventListener(clickEvent, attr);
+        setAttributeEventListener(eventNames().clickEvent, createAttributeEventListener(this, attr));
     else if (attr->name() == onmousedownAttr)
-        addSVGEventListener(mousedownEvent, attr);
+        setAttributeEventListener(eventNames().mousedownEvent, createAttributeEventListener(this, attr));
     else if (attr->name() == onmousemoveAttr)
-        addSVGEventListener(mousemoveEvent, attr);
+        setAttributeEventListener(eventNames().mousemoveEvent, createAttributeEventListener(this, attr));
     else if (attr->name() == onmouseoutAttr)
-        addSVGEventListener(mouseoutEvent, attr);
+        setAttributeEventListener(eventNames().mouseoutEvent, createAttributeEventListener(this, attr));
     else if (attr->name() == onmouseoverAttr)
-        addSVGEventListener(mouseoverEvent, attr);
+        setAttributeEventListener(eventNames().mouseoverEvent, createAttributeEventListener(this, attr));
     else if (attr->name() == onmouseupAttr)
-        addSVGEventListener(mouseupEvent, attr);
+        setAttributeEventListener(eventNames().mouseupEvent, createAttributeEventListener(this, attr));
     else if (attr->name() == SVGNames::onfocusinAttr)
-        addSVGEventListener(DOMFocusInEvent, attr);
+        setAttributeEventListener(eventNames().DOMFocusInEvent, createAttributeEventListener(this, attr));
     else if (attr->name() == SVGNames::onfocusoutAttr)
-        addSVGEventListener(DOMFocusOutEvent, attr);
+        setAttributeEventListener(eventNames().DOMFocusOutEvent, createAttributeEventListener(this, attr));
     else if (attr->name() == SVGNames::onactivateAttr)
-        addSVGEventListener(DOMActivateEvent, attr);
+        setAttributeEventListener(eventNames().DOMActivateEvent, createAttributeEventListener(this, attr));
     else
         StyledElement::parseMappedAttribute(attr);
 }
@@ -157,6 +185,23 @@ bool SVGElement::haveLoadedRequiredResources()
     return true;
 }
 
+static bool hasLoadListener(SVGElement* node)
+{
+    Node* currentNode = node;
+    while (currentNode && currentNode->isElementNode()) {
+        const RegisteredEventListenerVector& listeners = static_cast<Element*>(currentNode)->eventListeners();
+        size_t size = listeners.size();
+        for (size_t i = 0; i < size; ++i) {
+            const RegisteredEventListener& r = *listeners[i];
+            if (r.eventType() == eventNames().loadEvent && r.useCapture() || currentNode == node)
+                return true;
+        }
+        currentNode = currentNode->parentNode();
+    }
+
+    return false;
+}
+
 void SVGElement::sendSVGLoadEventIfPossible(bool sendParentLoadEvents)
 {
     RefPtr<SVGElement> currentTarget = this;
@@ -164,18 +209,19 @@ void SVGElement::sendSVGLoadEventIfPossible(bool sendParentLoadEvents)
         RefPtr<Node> parent;
         if (sendParentLoadEvents)
             parent = currentTarget->parentNode(); // save the next parent to dispatch too incase dispatching the event changes the tree
-        
-        // FIXME: This malloc could be avoided by walking the tree first to check if any listeners are present: http://bugs.webkit.org/show_bug.cgi?id=10264
-        RefPtr<Event> event = new Event(loadEvent, false, false);
-        event->setTarget(currentTarget);
-        ExceptionCode ignored = 0;
-        dispatchGenericEvent(this, event.release(), ignored, false);
+        if (hasLoadListener(currentTarget.get())) {
+            RefPtr<Event> event = Event::create(eventNames().loadEvent, false, false);
+            event->setTarget(currentTarget);
+            currentTarget->dispatchGenericEvent(event.release());
+        }
         currentTarget = (parent && parent->isSVGElement()) ? static_pointer_cast<SVGElement>(parent) : 0;
     }
 }
 
 void SVGElement::finishParsingChildren()
 {
+    StyledElement::finishParsingChildren();
+
     // finishParsingChildren() is called when the close tag is reached for an element (e.g. </svg>)
     // we send SVGLoad events here if we can, otherwise they'll be sent when any required loads finish
     sendSVGLoadEventIfPossible();
@@ -209,41 +255,6 @@ void SVGElement::insertedIntoDocument()
     }
 }
 
-static Node* shadowTreeParentElementForShadowTreeElement(Node* node)
-{
-    for (Node* n = node; n; n = n->parentNode()) {
-        if (n->isShadowNode())
-            return n->shadowParentNode();
-    }
-
-    return 0;
-}
-
-bool SVGElement::dispatchEvent(PassRefPtr<Event> e, ExceptionCode& ec, bool tempEvent)
-{
-    // TODO: This function will be removed in a follow-up patch!
-
-    EventTarget* target = this;
-    Node* useNode = shadowTreeParentElementForShadowTreeElement(this);
-
-    // If we are a hidden shadow tree element, the target must
-    // point to our corresponding SVGElementInstance object
-    if (useNode) {
-        ASSERT(useNode->hasTagName(SVGNames::useTag));
-        SVGUseElement* use = static_cast<SVGUseElement*>(useNode);
-
-        SVGElementInstance* instance = use->instanceForShadowTreeElement(this);
-
-        if (instance)
-            target = instance;
-    }
-
-    e->setTarget(target);
-
-    RefPtr<FrameView> view = document()->view();
-    return EventTargetNode::dispatchGenericEvent(this, e, ec, tempEvent);
-}
-
 void SVGElement::attributeChanged(Attribute* attr, bool preserveDecls)
 {
     ASSERT(attr);
@@ -252,6 +263,34 @@ void SVGElement::attributeChanged(Attribute* attr, bool preserveDecls)
 
     StyledElement::attributeChanged(attr, preserveDecls);
     svgAttributeChanged(attr->name());
+}
+
+void SVGElement::updateAnimatedSVGAttribute(const String& name) const
+{
+    ASSERT(!m_areSVGAttributesValid);
+
+    if (m_synchronizingSVGAttributes)
+        return;
+
+    m_synchronizingSVGAttributes = true;
+
+    if (name.isEmpty()) {
+        invokeAllSVGPropertySynchronizers();
+        setSynchronizedSVGAttributes(true);
+    } else
+        invokeSVGPropertySynchronizer(name);
+
+    m_synchronizingSVGAttributes = false;
+}
+
+void SVGElement::setSynchronizedSVGAttributes(bool value) const
+{
+    m_areSVGAttributesValid = value;
+}
+
+ContainerNode* SVGElement::eventParentNode()
+{
+    return m_shadowParent ? m_shadowParent : StyledElement::eventParentNode();
 }
 
 }

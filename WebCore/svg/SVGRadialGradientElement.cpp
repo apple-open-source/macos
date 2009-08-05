@@ -1,8 +1,8 @@
 /*
     Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
-
-    This file is part of the KDE project
+                  2008 Eric Seidel <eric@webkit.org>
+                  2008 Dirk Schulze <krit@webkit.org>
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -27,6 +27,7 @@
 
 #include "FloatConversion.h"
 #include "FloatPoint.h"
+#include "MappedAttribute.h"
 #include "RadialGradientAttributes.h"
 #include "RenderObject.h"
 #include "SVGLength.h"
@@ -41,42 +42,33 @@ namespace WebCore {
 
 SVGRadialGradientElement::SVGRadialGradientElement(const QualifiedName& tagName, Document* doc)
     : SVGGradientElement(tagName, doc)
-    , m_cx(this, LengthModeWidth)
-    , m_cy(this, LengthModeHeight)
-    , m_r(this, LengthModeOther)
-    , m_fx(this, LengthModeWidth)
-    , m_fy(this, LengthModeHeight)
+    , m_cx(this, SVGNames::cxAttr, LengthModeWidth, "50%")
+    , m_cy(this, SVGNames::cyAttr, LengthModeHeight, "50%")
+    , m_r(this, SVGNames::rAttr, LengthModeOther, "50%")
+    , m_fx(this, SVGNames::fxAttr, LengthModeWidth)
+    , m_fy(this, SVGNames::fyAttr, LengthModeHeight)
 {
-    // Spec: If the attribute is not specified, the effect is as if a value of "50%" were specified.
-    setCxBaseValue(SVGLength(this, LengthModeWidth, "50%"));
-    setCyBaseValue(SVGLength(this, LengthModeHeight, "50%"));
-    setRBaseValue(SVGLength(this, LengthModeOther, "50%"));
+    // Spec: If the cx/cy/r attribute is not specified, the effect is as if a value of "50%" were specified.
 }
 
 SVGRadialGradientElement::~SVGRadialGradientElement()
 {
 }
 
-ANIMATED_PROPERTY_DEFINITIONS(SVGRadialGradientElement, SVGLength, Length, length, Cx, cx, SVGNames::cxAttr, m_cx)
-ANIMATED_PROPERTY_DEFINITIONS(SVGRadialGradientElement, SVGLength, Length, length, Cy, cy, SVGNames::cyAttr, m_cy)
-ANIMATED_PROPERTY_DEFINITIONS(SVGRadialGradientElement, SVGLength, Length, length, Fx, fx, SVGNames::fxAttr, m_fx)
-ANIMATED_PROPERTY_DEFINITIONS(SVGRadialGradientElement, SVGLength, Length, length, Fy, fy, SVGNames::fyAttr, m_fy)
-ANIMATED_PROPERTY_DEFINITIONS(SVGRadialGradientElement, SVGLength, Length, length, R, r, SVGNames::rAttr, m_r)
-
 void SVGRadialGradientElement::parseMappedAttribute(MappedAttribute* attr)
 {
     if (attr->name() == SVGNames::cxAttr)
-        setCxBaseValue(SVGLength(this, LengthModeWidth, attr->value()));
+        setCxBaseValue(SVGLength(LengthModeWidth, attr->value()));
     else if (attr->name() == SVGNames::cyAttr)
-        setCyBaseValue(SVGLength(this, LengthModeHeight, attr->value()));
+        setCyBaseValue(SVGLength(LengthModeHeight, attr->value()));
     else if (attr->name() == SVGNames::rAttr) {
-        setRBaseValue(SVGLength(this, LengthModeOther, attr->value()));
-        if (r().value() < 0.0)
+        setRBaseValue(SVGLength(LengthModeOther, attr->value()));
+        if (rBaseValue().value(this) < 0.0)
             document()->accessSVGExtensions()->reportError("A negative value for radial gradient radius <r> is not allowed");
     } else if (attr->name() == SVGNames::fxAttr)
-        setFxBaseValue(SVGLength(this, LengthModeWidth, attr->value()));
+        setFxBaseValue(SVGLength(LengthModeWidth, attr->value()));
     else if (attr->name() == SVGNames::fyAttr)
-        setFyBaseValue(SVGLength(this, LengthModeHeight, attr->value()));
+        setFyBaseValue(SVGLength(LengthModeHeight, attr->value()));
     else
         SVGGradientElement::parseMappedAttribute(attr);
 }
@@ -89,7 +81,7 @@ void SVGRadialGradientElement::svgAttributeChanged(const QualifiedName& attrName
         return;
 
     if (attrName == SVGNames::cxAttr || attrName == SVGNames::cyAttr ||
-        attrName == SVGNames::fyAttr || attrName == SVGNames::fyAttr ||
+        attrName == SVGNames::fxAttr || attrName == SVGNames::fyAttr ||
         attrName == SVGNames::rAttr)
         m_resource->invalidate();
 }
@@ -98,19 +90,52 @@ void SVGRadialGradientElement::buildGradient() const
 {
     RadialGradientAttributes attributes = collectGradientProperties();
 
-    // If we didn't find any gradient containing stop elements, ignore the request.
+    RefPtr<SVGPaintServerRadialGradient> radialGradient = WTF::static_pointer_cast<SVGPaintServerRadialGradient>(m_resource);
+
+    double adjustedFocusX = attributes.fx();
+    double adjustedFocusY = attributes.fy();
+
+    double fdx = attributes.fx() - attributes.cx();
+    double fdy = attributes.fy() - attributes.cy();
+
+    // Spec: If (fx, fy) lies outside the circle defined by (cx, cy) and
+    // r, set (fx, fy) to the point of intersection of the line through
+    // (fx, fy) and the circle.
+    if (sqrt(fdx * fdx + fdy * fdy) > attributes.r()) {
+        double angle = atan2(attributes.fy() * 100.0, attributes.fx() * 100.0);
+        adjustedFocusX = cos(angle) * attributes.r();
+        adjustedFocusY = sin(angle) * attributes.r();
+    }
+
+    FloatPoint focalPoint = FloatPoint::narrowPrecision(attributes.fx(), attributes.fy());
+    FloatPoint centerPoint = FloatPoint::narrowPrecision(attributes.cx(), attributes.cy());
+
+    RefPtr<Gradient> gradient = Gradient::create(
+        FloatPoint::narrowPrecision(adjustedFocusX, adjustedFocusY),
+        0.f, // SVG does not support a "focus radius"
+        centerPoint,
+        narrowPrecisionToFloat(attributes.r()));
+    gradient->setSpreadMethod(attributes.spreadMethod());
+
+    Vector<SVGGradientStop> stops = attributes.stops();
+    float previousOffset = 0.0f;
+    for (unsigned i = 0; i < stops.size(); ++i) {
+         float offset = std::min(std::max(previousOffset, stops[i].first), 1.0f);
+         previousOffset = offset;
+         gradient->addColorStop(offset, stops[i].second);
+    }
+
+    radialGradient->setGradient(gradient);
+
     if (attributes.stops().isEmpty())
         return;
 
-    RefPtr<SVGPaintServerRadialGradient> radialGradient = WTF::static_pointer_cast<SVGPaintServerRadialGradient>(m_resource);
-
-    radialGradient->setGradientStops(attributes.stops());
     radialGradient->setBoundingBoxMode(attributes.boundingBoxMode());
-    radialGradient->setGradientSpreadMethod(attributes.spreadMethod()); 
     radialGradient->setGradientTransform(attributes.gradientTransform());
-    radialGradient->setGradientCenter(FloatPoint::narrowPrecision(attributes.cx(), attributes.cy()));
-    radialGradient->setGradientFocal(FloatPoint::narrowPrecision(attributes.fx(), attributes.fy()));
+    radialGradient->setGradientCenter(centerPoint);
+    radialGradient->setGradientFocal(focalPoint);
     radialGradient->setGradientRadius(narrowPrecisionToFloat(attributes.r()));
+    radialGradient->setGradientStops(attributes.stops());
 }
 
 RadialGradientAttributes SVGRadialGradientElement::collectGradientProperties() const
@@ -123,10 +148,10 @@ RadialGradientAttributes SVGRadialGradientElement::collectGradientProperties() c
 
     while (current) {
         if (!attributes.hasSpreadMethod() && current->hasAttribute(SVGNames::spreadMethodAttr))
-            attributes.setSpreadMethod((SVGGradientSpreadMethod) current->spreadMethod());
+            attributes.setSpreadMethod((GradientSpreadMethod) current->spreadMethod());
 
         if (!attributes.hasBoundingBoxMode() && current->hasAttribute(SVGNames::gradientUnitsAttr))
-            attributes.setBoundingBoxMode(current->getAttribute(SVGNames::gradientUnitsAttr) == "objectBoundingBox");
+            attributes.setBoundingBoxMode(current->gradientUnits() == SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX);
 
         if (!attributes.hasGradientTransform() && current->hasAttribute(SVGNames::gradientTransformAttr))
             attributes.setGradientTransform(current->gradientTransform()->consolidate().matrix());

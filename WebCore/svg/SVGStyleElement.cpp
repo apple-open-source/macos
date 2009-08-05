@@ -22,6 +22,7 @@
 */
 
 #include "config.h"
+
 #if ENABLE(SVG)
 #include "SVGStyleElement.h"
 
@@ -29,15 +30,17 @@
 #include "Document.h"
 #include "ExceptionCode.h"
 #include "HTMLNames.h"
+#include "MappedAttribute.h"
 #include "XMLNames.h"
+#include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-SVGStyleElement::SVGStyleElement(const QualifiedName& tagName, Document* doc)
+SVGStyleElement::SVGStyleElement(const QualifiedName& tagName, Document* doc, bool createdByParser)
      : SVGElement(tagName, doc)
-     , m_createdByParser(false)
+     , m_createdByParser(createdByParser)
 {
 }
 
@@ -53,7 +56,7 @@ void SVGStyleElement::setXmlspace(const AtomicString&, ExceptionCode& ec)
 
 const AtomicString& SVGStyleElement::type() const
 {
-    static const AtomicString defaultValue("text/css");
+    DEFINE_STATIC_LOCAL(const AtomicString, defaultValue, ("text/css"));
     const AtomicString& n = getAttribute(typeAttr);
     return n.isNull() ? defaultValue : n;
 }
@@ -65,7 +68,7 @@ void SVGStyleElement::setType(const AtomicString&, ExceptionCode& ec)
 
 const AtomicString& SVGStyleElement::media() const
 {
-    static const AtomicString defaultValue("all");
+    DEFINE_STATIC_LOCAL(const AtomicString, defaultValue, ("all"));
     const AtomicString& n = getAttribute(mediaAttr);
     return n.isNull() ? defaultValue : n;
 }
@@ -103,7 +106,7 @@ void SVGStyleElement::finishParsingChildren()
 void SVGStyleElement::insertedIntoDocument()
 {
     SVGElement::insertedIntoDocument();
-
+    document()->addStyleSheetCandidateNode(this, m_createdByParser);
     if (!m_createdByParser)
         StyleElement::insertedIntoDocument(document(), this);
 }
@@ -111,12 +114,14 @@ void SVGStyleElement::insertedIntoDocument()
 void SVGStyleElement::removedFromDocument()
 {
     SVGElement::removedFromDocument();
+    if (document()->renderer())
+        document()->removeStyleSheetCandidateNode(this);
     StyleElement::removedFromDocument(document());
 }
 
-void SVGStyleElement::childrenChanged(bool changedByParser)
+void SVGStyleElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
 {
-    SVGElement::childrenChanged(changedByParser);
+    SVGElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
     StyleElement::process(this);
 }
 

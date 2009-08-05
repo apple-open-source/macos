@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.
+ * Copyright (C) 2006, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -20,14 +20,16 @@
 #import "config.h"
 #import "PopupMenu.h"
 
+#import "ChromeClient.h"
 #import "EventHandler.h"
-#import "SimpleFontData.h"
 #import "Frame.h"
 #import "FrameView.h"
 #import "HTMLNames.h"
 #import "HTMLOptGroupElement.h"
 #import "HTMLOptionElement.h"
 #import "HTMLSelectElement.h"
+#import "Page.h"
+#import "SimpleFontData.h"
 #import "WebCoreSystemInterface.h"
 
 namespace WebCore {
@@ -76,10 +78,10 @@ void PopupMenu::populate()
         if (client()->itemIsSeparator(i))
             [[m_popup.get() menu] addItem:[NSMenuItem separatorItem]];
         else {
-            RenderStyle* style = client()->itemStyle(i);
+            PopupMenuStyle style = client()->itemStyle(i);
             NSMutableDictionary* attributes = [[NSMutableDictionary alloc] init];
-            if (style->font() != Font())
-                [attributes setObject:style->font().primaryFont()->getNSFont() forKey:NSFontAttributeName];
+            if (style.font() != Font())
+                [attributes setObject:style.font().primaryFont()->getNSFont() forKey:NSFontAttributeName];
             // FIXME: Add support for styling the foreground and background colors.
             // FIXME: Find a way to customize text color when an item is highlighted.
             NSAttributedString* string = [[NSAttributedString alloc] initWithString:client()->itemText(i) attributes:attributes];
@@ -111,7 +113,7 @@ void PopupMenu::show(const IntRect& r, FrameView* v, int index)
     if (index == -1 && numItems == 2 && !client()->shouldPopOver() && ![[m_popup.get() itemAtIndex:1] isEnabled])
         index = 0;
 
-    NSView* view = v->getDocumentView();
+    NSView* view = v->documentView();
 
     [m_popup.get() attachPopUpWithFrame:r inView:view];
     [m_popup.get() selectItemAtIndex:index];
@@ -119,7 +121,7 @@ void PopupMenu::show(const IntRect& r, FrameView* v, int index)
     NSMenu* menu = [m_popup.get() menu];
     
     NSPoint location;
-    NSFont* font = client()->clientStyle()->font().primaryFont()->getNSFont();
+    NSFont* font = client()->menuStyle().font().primaryFont()->getNSFont();
 
     // These values were borrowed from AppKit to match their placement of the menu.
     const int popOverHorizontalAdjust = -10;
@@ -150,7 +152,8 @@ void PopupMenu::show(const IntRect& r, FrameView* v, int index)
     [view addSubview:dummyView.get()];
     location = [dummyView.get() convertPoint:location fromView:view];
     
-    frame->willPopupMenu(menu);
+    if (Page* page = frame->page())
+        page->chrome()->client()->willPopUpMenu(menu);
     wkPopupMenu(menu, location, roundf(NSWidth(r)), dummyView.get(), index, font);
 
     [m_popup.get() dismissPopUp];

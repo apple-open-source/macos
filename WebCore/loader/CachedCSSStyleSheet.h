@@ -1,10 +1,8 @@
 /*
-    This file is part of the KDE libraries
-
     Copyright (C) 1998 Lars Knoll (knoll@mpi-hd.mpg.de)
     Copyright (C) 2001 Dirk Mueller <mueller@kde.org>
     Copyright (C) 2006 Samuel Weinig (sam.weinig@gmail.com)
-    Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
+    Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -39,13 +37,15 @@ namespace WebCore {
 
     class CachedCSSStyleSheet : public CachedResource {
     public:
-        CachedCSSStyleSheet(DocLoader*, const String& URL, const String& charset, bool skipCanLoadCheck = false, bool sendResourceLoadCallbacks = true);
+        CachedCSSStyleSheet(const String& URL, const String& charset);
         virtual ~CachedCSSStyleSheet();
 
-        const String& sheet() const { return m_sheet; }
+        const String sheetText(bool enforceMIMEType = true) const;
 
-        virtual void ref(CachedResourceClient*);
- 
+        virtual void didAddClient(CachedResourceClient*);
+        
+        virtual void allClientsRemoved();
+
         virtual void setEncoding(const String&);
         virtual String encoding() const;
         virtual void data(PassRefPtr<SharedBuffer> data, bool allDataReceived);
@@ -54,10 +54,13 @@ namespace WebCore {
         virtual bool schedule() const { return true; }
 
         void checkNotify();
+    
+    private:
+        bool canUseSheet(bool enforceMIMEType) const;
 
     protected:
-        String m_sheet;
         RefPtr<TextResourceDecoder> m_decoder;
+        String m_decodedSheetText;
     };
 
 }

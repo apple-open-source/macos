@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,28 +29,28 @@
 #include "config.h"
 #include "JSHTMLFrameElement.h"
 
-#include "Document.h"
 #include "CSSHelper.h"
+#include "Document.h"
 #include "HTMLFrameElement.h"
-#include "PlatformString.h"
-#include "kjs_binding.h"
-#include "kjs_dom.h"
+#include "JSDOMBinding.h"
+
+using namespace JSC;
 
 namespace WebCore {
 
-static inline bool allowSettingJavascriptURL(KJS::ExecState* exec, HTMLFrameElement* imp, String value)
+static inline bool allowSettingJavascriptURL(ExecState* exec, HTMLFrameElement* imp, const String& value)
 {
-    if (parseURL(value).startsWith("javascript:", false)) {
+    if (protocolIsJavaScript(parseURL(value))) {
         if (!checkNodeSecurity(exec, imp->contentDocument()))
             return false;
     }
     return true;
 }
 
-void JSHTMLFrameElement::setSrc(KJS::ExecState* exec, KJS::JSValue* value)
+void JSHTMLFrameElement::setSrc(ExecState* exec, JSValue value)
 {
     HTMLFrameElement* imp = static_cast<HTMLFrameElement*>(impl());
-    String srcValue = KJS::valueToStringWithNullCheck(exec, value);
+    String srcValue = valueToStringWithNullCheck(exec, value);
 
     if (!allowSettingJavascriptURL(exec, imp, srcValue))
         return;
@@ -59,10 +59,10 @@ void JSHTMLFrameElement::setSrc(KJS::ExecState* exec, KJS::JSValue* value)
     return;
 }
 
-void JSHTMLFrameElement::setLocation(KJS::ExecState* exec, KJS::JSValue* value)
+void JSHTMLFrameElement::setLocation(ExecState* exec, JSValue value)
 {
     HTMLFrameElement* imp = static_cast<HTMLFrameElement*>(impl());
-    String locationValue = KJS::valueToStringWithNullCheck(exec, value);
+    String locationValue = valueToStringWithNullCheck(exec, value);
 
     if (!allowSettingJavascriptURL(exec, imp, locationValue))
         return;

@@ -1,6 +1,6 @@
-// -*- mode: c++; c-basic-offset: 4 -*-
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2009 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,19 +30,26 @@
 #include "HTTPHeaderMap.h"
 #include "KURL.h"
 
+#include <memory>
+
 namespace WebCore {
 
 class ResourceResponse;
+struct CrossThreadResourceResponseData;
 
 // Do not use this class directly, use the class ResponseResponse instead
 class ResourceResponseBase {
- public:
+public:
+    static std::auto_ptr<ResourceResponse> adopt(std::auto_ptr<CrossThreadResourceResponseData>);
+
+    // Gets a copy of the data suitable for passing to another thread.
+    std::auto_ptr<CrossThreadResourceResponseData> copyData() const;
 
     bool isNull() const { return m_isNull; }
     bool isHTTP() const;
 
     const KURL& url() const;
-    void setUrl(const KURL& url);
+    void setURL(const KURL& url);
 
     const String& mimeType() const;
     void setMimeType(const String& mimeType);
@@ -63,8 +70,8 @@ class ResourceResponseBase {
     const String& httpStatusText() const;
     void setHTTPStatusText(const String&);
     
-    String httpHeaderField(const String& name) const;
-    void setHTTPHeaderField(const String& name, const String& value);
+    String httpHeaderField(const AtomicString& name) const;
+    void setHTTPHeaderField(const AtomicString& name, const String& value);
     const HTTPHeaderMap& httpHeaderFields() const;
 
     bool isMultipart() const { return mimeType() == "multipart/x-mixed-replace"; }
@@ -77,22 +84,36 @@ class ResourceResponseBase {
     void setLastModifiedDate(time_t);
     time_t lastModifiedDate() const;
 
-    inline const ResourceResponse& asResourceResponse() const;
-
- protected:
-    // Used when response is initialized from a platform representation
-    ResourceResponseBase(bool isNull)
-        : m_isUpToDate(false)
-        , m_isNull(isNull)
+    bool cacheControlContainsNoCache() const
     {
+        if (!m_haveParsedCacheControl)
+            parseCacheControlDirectives();
+        return m_cacheControlContainsNoCache;
+    }
+    bool cacheControlContainsMustRevalidate() const
+    {
+        if (!m_haveParsedCacheControl)
+            parseCacheControlDirectives();
+        return m_cacheControlContainsMustRevalidate;
     }
 
+    // The ResourceResponse subclass may "shadow" this method to provide platform-specific memory usage information
+    unsigned memoryUsage() const
+    {
+        // average size, mostly due to URL and Header Map strings
+        return 1280;
+    }
+
+    static bool compare(const ResourceResponse& a, const ResourceResponse& b);
+
+protected:
     ResourceResponseBase()  
         : m_expectedContentLength(0)
         , m_httpStatusCode(0)
         , m_expirationDate(0)
-        , m_isUpToDate(true)
+        , m_lastModifiedDate(0)
         , m_isNull(true)
+        , m_haveParsedCacheControl(false)
     {
     }
 
@@ -104,30 +125,58 @@ class ResourceResponseBase {
         , m_suggestedFilename(filename)
         , m_httpStatusCode(0)
         , m_expirationDate(0)
-        , m_isUpToDate(true)
+        , m_lastModifiedDate(0)
         , m_isNull(false)
+        , m_haveParsedCacheControl(false)
     {
     }
 
-    void updateResourceResponse() const;
+    void lazyInit() const;
+
+    // The ResourceResponse subclass may "shadow" this method to lazily initialize platform specific fields
+    void platformLazyInit() { }
+
+    // The ResourceResponse subclass may "shadow" this method to compare platform specific fields
+    static bool platformCompare(const ResourceResponse&, const ResourceResponse&) { return true; }
 
     KURL m_url;
     String m_mimeType;
     long long m_expectedContentLength;
     String m_textEncodingName;
     String m_suggestedFilename;
-    mutable int m_httpStatusCode;
+    int m_httpStatusCode;
     String m_httpStatusText;
     HTTPHeaderMap m_httpHeaderFields;
     time_t m_expirationDate;
     time_t m_lastModifiedDate;
-    mutable bool m_isUpToDate;
-    bool m_isNull;
+    bool m_isNull : 1;
 
+private:
+    void parseCacheControlDirectives() const;
+
+    mutable bool m_haveParsedCacheControl : 1;
+    mutable bool m_cacheControlContainsMustRevalidate : 1;
+    mutable bool m_cacheControlContainsNoCache : 1;
 };
 
-bool operator==(const ResourceResponse& a, const ResourceResponse& b);
+inline bool operator==(const ResourceResponse& a, const ResourceResponse& b) { return ResourceResponseBase::compare(a, b); }
 inline bool operator!=(const ResourceResponse& a, const ResourceResponse& b) { return !(a == b); }
+
+struct CrossThreadResourceResponseData {
+    KURL m_url;
+    String m_mimeType;
+    long long m_expectedContentLength;
+    String m_textEncodingName;
+    String m_suggestedFilename;
+    int m_httpStatusCode;
+    String m_httpStatusText;
+    OwnPtr<CrossThreadHTTPHeaderMapData> m_httpHeaders;
+    time_t m_expirationDate;
+    time_t m_lastModifiedDate;
+    bool m_haveParsedCacheControl : 1;
+    bool m_cacheControlContainsMustRevalidate : 1;
+    bool m_cacheControlContainsNoCache : 1;
+};
 
 } // namespace WebCore
 

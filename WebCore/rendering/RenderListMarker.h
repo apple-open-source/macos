@@ -42,19 +42,17 @@ public:
 
     virtual bool isListMarker() const { return true; }
 
-    virtual void setStyle(RenderStyle*);
-
     virtual void paint(PaintInfo&, int tx, int ty);
 
     virtual void layout();
     virtual void calcPrefWidths();
 
-    virtual void imageChanged(CachedImage*);
+    virtual void imageChanged(WrappedImagePtr, const IntRect* = 0);
 
-    virtual InlineBox* createInlineBox(bool, bool, bool);
+    virtual InlineBox* createInlineBox();
 
-    virtual short lineHeight(bool firstLine, bool isRootLineBox = false) const;
-    virtual short baselinePosition(bool firstLine, bool isRootLineBox = false) const;
+    virtual int lineHeight(bool firstLine, bool isRootLineBox = false) const;
+    virtual int baselinePosition(bool firstLine, bool isRootLineBox = false) const;
 
     bool isImage() const;
     bool isText() const { return !isImage(); }
@@ -62,20 +60,22 @@ public:
 
     bool isInside() const;
 
-    virtual SelectionState selectionState() const { return m_selectionState; }
     virtual void setSelectionState(SelectionState);
-    virtual IntRect selectionRect(bool clipToVisibleContent = true);
+    virtual IntRect selectionRectForRepaint(RenderBoxModelObject* repaintContainer, bool clipToVisibleContent = true);
     virtual bool canBeSelectionLeaf() const { return true; }
 
     void updateMargins();
+
+protected:
+    virtual void styleWillChange(StyleDifference, const RenderStyle* newStyle);
+    virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
 
 private:
     IntRect getRelativeMarkerRect();
 
     String m_text;
-    CachedImage* m_image;
+    RefPtr<StyleImage> m_image;
     RenderListItem* m_listItem;
-    SelectionState m_selectionState;
 };
 
 } // namespace WebCore

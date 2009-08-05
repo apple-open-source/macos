@@ -1,6 +1,4 @@
 /**
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Simon Hausmann (hausmann@kde.org)
@@ -29,26 +27,28 @@
 #include "Frame.h"
 #include "HTMLFrameSetElement.h"
 #include "HTMLNames.h"
+#include "MappedAttribute.h"
 #include "RenderFrame.h"
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLFrameElement::HTMLFrameElement(Document* doc)
-    : HTMLFrameElementBase(frameTag, doc)
+HTMLFrameElement::HTMLFrameElement(const QualifiedName& tagName, Document* document)
+    : HTMLFrameElementBase(tagName, document)
     , m_frameBorder(true)
     , m_frameBorderSet(false)
 {
+    ASSERT(hasTagName(frameTag));
 }
 
-bool HTMLFrameElement::rendererIsNeeded(RenderStyle* style)
+bool HTMLFrameElement::rendererIsNeeded(RenderStyle*)
 {
     // For compatibility, frames render even when display: none is set.
     return isURLAllowed(m_URL);
 }
 
-RenderObject* HTMLFrameElement::createRenderer(RenderArena* arena, RenderStyle* style)
+RenderObject* HTMLFrameElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
     return new (arena) RenderFrame(this);
 }

@@ -3750,16 +3750,26 @@ AppleUSBEHCI::AddIsocFramesToSchedule(AppleEHCIIsochEndpoint	*pEP)
     UInt16										nextSlot, firstOutSlot;
     AbsoluteTime								timeStamp;
 	bool										fetchNewTDFromToDoList = true;
+
     if(pEP->toDoList == NULL)
     {
 		USBLog(7, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - no frames to add fn:%d EP:%d", this, pEP->functionAddress, pEP->endpointNumber);
 		return;
     }
+	
     if(pEP->aborting)
     {
 		USBLog(1, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - EP (%p) is aborting - not adding", this, pEP);
 		return;
     }
+	
+	// rdar://6693796 Test to see if the pEP is inconsistent at this point. If so, log a message..
+	if ((pEP->doneQueue != NULL) && (pEP->doneEnd == NULL))
+	{
+		USBError(1, "AppleUSBEHCI::AddIsocFramesToSchedule - inconsistent EP queue. pEP[%p] doneQueue[%p] doneEnd[%p] doneQueue->_logicalNext[%p] onDoneQueue[%d]", pEP, pEP->doneQueue, pEP->doneEnd, pEP->doneQueue->_logicalNext, (int)pEP->onDoneQueue);
+		IOSleep(1);			// to try to flush the syslog - time is of the essence here, though, but this is an error case
+		// the inconsistency should be taken care of inside of the PutTDOnDoneQueue method
+	}
 	
 	USBLog(7, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - scheduledTDs = %d, deferredTDs = %d", this, (uint32_t)pEP->scheduledTDs, (uint32_t)pEP->deferredTDs);
 	

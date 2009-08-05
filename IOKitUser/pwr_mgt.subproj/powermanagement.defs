@@ -24,7 +24,7 @@
 #include <mach/std_types.defs>
 #include <mach/mach_types.defs>
 
-type string_t = array[] of char;
+type string_t = c_string[*:1024] ctype:string_t;
 
 import <IOKit/pwr_mgt/powermanagement_mig.h>;
 
@@ -62,3 +62,11 @@ routine io_pm_assertion_release(
         in  task_t      : mach_port_t;
         in  assertion_id: int;
         out return_code : int);
+        
+routine io_pm_new_pspowersource(
+            server      : mach_port_t;
+        in  clientport  : mach_port_t;
+        in  clienttype  : string_t;
+        out dskey       : string_t;
+        out return_code : int);
+        

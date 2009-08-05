@@ -45,19 +45,29 @@ namespace WebCore
 
 void SimpleFontData::platformInit()
 {    
-    wxFont font = m_font.font();
-    wxFontProperties props = wxFontProperties(&font);
-    m_ascent = props.GetAscent();
-    m_descent = props.GetDescent();
-    m_lineSpacing = props.GetLineSpacing();
-    m_xHeight = props.GetXHeight();
-    m_unitsPerEm = 1; // FIXME!
-    m_lineGap = props.GetLineGap();
+    wxFont *font = m_font.font();
+    if (font && font->IsOk()) {
+        wxFontProperties props = wxFontProperties(font);
+        m_ascent = props.GetAscent();
+        m_descent = props.GetDescent();
+        m_lineSpacing = props.GetLineSpacing();
+        m_xHeight = props.GetXHeight();
+        m_unitsPerEm = 1; // FIXME!
+        m_lineGap = props.GetLineGap();
+    }
+}
+
+void SimpleFontData::platformCharWidthInit()
+{
+    m_avgCharWidth = 0.f;
+    m_maxCharWidth = 0.f;
+    initCharWidths();
 }
 
 void SimpleFontData::platformDestroy()
 {
     delete m_smallCapsFontData;
+    m_smallCapsFontData = 0;
 }
 
 SimpleFontData* SimpleFontData::smallCapsFontData(const FontDescription& fontDescription) const
@@ -79,8 +89,8 @@ bool SimpleFontData::containsCharacters(const UChar* characters, int length) con
 
 void SimpleFontData::determinePitch()
 {
-    if (m_font.font().Ok())
-        m_treatAsFixedPitch = m_font.font().IsFixedWidth();
+    if (m_font.font() && m_font.font()->Ok())
+        m_treatAsFixedPitch = m_font.font()->IsFixedWidth();
     else
         m_treatAsFixedPitch = false;
 }
@@ -89,7 +99,7 @@ float SimpleFontData::platformWidthForGlyph(Glyph glyph) const
 {
     // TODO: fix this! Make GetTextExtents a method of wxFont in 2.9
     int width = 10;
-    GetTextExtent(m_font.font(), (wxChar)glyph, &width, NULL);
+    GetTextExtent(*m_font.font(), (wxChar)glyph, &width, NULL);
     return width;
 }
 

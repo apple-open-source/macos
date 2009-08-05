@@ -1,8 +1,6 @@
 /*
- * This file is part of the DOM implementation for KDE.
- *
  * (C) 1999-2003 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2004, 2006 Apple Computer, Inc.
+ * Copyright (C) 2004, 2006, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,43 +21,50 @@
 #ifndef StyleSheet_h
 #define StyleSheet_h
 
-#include "StyleList.h"
+#include "KURLHash.h"
 #include "PlatformString.h"
+#include "StyleList.h"
+#include <wtf/ListHashSet.h>
 
 namespace WebCore {
 
-class Node;
 class CachedCSSStyleSheet;
 class MediaList;
+class Node;
 
 class StyleSheet : public StyleList {
 public:
-    StyleSheet(Node* ownerNode, const String& href = String());
-    StyleSheet(StyleSheet* parentSheet, const String& href = String());
-    StyleSheet(StyleBase* owner, const String& href = String());
     virtual ~StyleSheet();
-
-    virtual bool isStyleSheet() const { return true; }
-
-    virtual String type() const { return String(); }
 
     bool disabled() const { return m_disabled; }
     void setDisabled(bool disabled) { m_disabled = disabled; styleSheetChanged(); }
 
     Node* ownerNode() const { return m_parentNode; }
     StyleSheet *parentStyleSheet() const;
-    String href() const { return m_strHref; }
+    const String& href() const { return m_strHref; }
     void setHref(const String& href) { m_strHref = href; }
-    String title() const { return m_strTitle; }
+    const String& title() const { return m_strTitle; }
     void setTitle(const String& s) { m_strTitle = s; }
     MediaList* media() const { return m_media.get(); }
-    void setMedia(MediaList*);
+    void setMedia(PassRefPtr<MediaList>);
 
-    virtual bool isLoading() { return false; }
-
+    virtual String type() const = 0;
+    virtual bool isLoading() = 0;
     virtual void styleSheetChanged() { }
-    
+
+    virtual KURL completeURL(const String& url) const;
+    virtual void addSubresourceStyleURLs(ListHashSet<KURL>&) { }
+
+    virtual bool parseString(const String&, bool strict = true) = 0;
+
 protected:
+    StyleSheet(Node* ownerNode, const String& href);
+    StyleSheet(StyleSheet* parentSheet, const String& href);
+    StyleSheet(StyleBase* owner, const String& href);
+
+private:
+    virtual bool isStyleSheet() const { return true; }
+
     Node* m_parentNode;
     String m_strHref;
     String m_strTitle;

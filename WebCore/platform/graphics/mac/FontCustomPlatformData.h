@@ -21,6 +21,8 @@
 #ifndef FontCustomPlatformData_h
 #define FontCustomPlatformData_h
 
+#include "FontRenderingMode.h"
+#include <CoreFoundation/CFBase.h>
 #include <wtf/Noncopyable.h>
 
 typedef struct CGFont* CGFontRef;
@@ -38,7 +40,7 @@ struct FontCustomPlatformData : Noncopyable {
     {}
     ~FontCustomPlatformData();
 
-    FontPlatformData fontPlatformData(int size, bool bold, bool italic);
+    FontPlatformData fontPlatformData(int size, bool bold, bool italic, FontRenderingMode = NormalRenderingMode);
 
     ATSFontContainerRef m_atsContainer;
     ATSFontRef m_atsFont;

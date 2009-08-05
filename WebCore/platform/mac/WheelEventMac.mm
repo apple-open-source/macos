@@ -27,6 +27,7 @@
 #import "PlatformWheelEvent.h"
 
 #import "PlatformMouseEvent.h"
+#import "Scrollbar.h"
 #import "WebCoreSystemInterface.h"
 
 namespace WebCore {
@@ -34,8 +35,7 @@ namespace WebCore {
 PlatformWheelEvent::PlatformWheelEvent(NSEvent* event)
     : m_position(pointForEvent(event))
     , m_globalPosition(globalPointForEvent(event))
-    , m_deltaX([event deltaX])
-    , m_deltaY([event deltaY])
+    , m_granularity(ScrollByPixelWheelEvent)
     , m_isAccepted(false)
     , m_shiftKey([event modifierFlags] & NSShiftKeyMask)
     , m_ctrlKey([event modifierFlags] & NSControlKeyMask)
@@ -43,8 +43,16 @@ PlatformWheelEvent::PlatformWheelEvent(NSEvent* event)
     , m_metaKey([event modifierFlags] & NSCommandKeyMask)
 {
     BOOL continuous;
-    wkGetWheelEventDeltas(event, &m_continuousDeltaX, &m_continuousDeltaY, &continuous);
-    m_isContinuous = continuous;
+    wkGetWheelEventDeltas(event, &m_deltaX, &m_deltaY, &continuous);
+    if (continuous) {
+        m_wheelTicksX = m_deltaX / static_cast<float>(cScrollbarPixelsPerLineStep);
+        m_wheelTicksY = m_deltaY / static_cast<float>(cScrollbarPixelsPerLineStep);
+    } else {
+        m_wheelTicksX = m_deltaX;
+        m_wheelTicksY = m_deltaY;
+        m_deltaX *= static_cast<float>(cScrollbarPixelsPerLineStep);
+        m_deltaY *= static_cast<float>(cScrollbarPixelsPerLineStep);
+    }
 }
 
 } // namespace WebCore

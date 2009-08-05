@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2009 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -1516,7 +1516,7 @@ IOReturn IOAudioEngine::pauseAudioEngine()
                 lockAllStreams();
                 setState(kIOAudioEnginePaused);
                 unlockAllStreams();
-                sendNotification(kIOAudioEnginePausedNotification);
+				sendNotification(kIOAudioEnginePausedNotification);
                 
                 clearAllSampleBuffers();
             }

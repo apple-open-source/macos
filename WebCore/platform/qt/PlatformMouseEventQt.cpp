@@ -28,7 +28,7 @@
 #include "config.h"
 #include "PlatformMouseEvent.h"
 
-#include "SystemTime.h"
+#include <wtf/CurrentTime.h>
 
 #include <QMouseEvent>
 
@@ -36,7 +36,7 @@ namespace WebCore {
 
 PlatformMouseEvent::PlatformMouseEvent(QInputEvent* event, int clickCount)
 {
-    m_timestamp = WebCore::currentTime();
+    m_timestamp = WTF::currentTime();
 
     QMouseEvent *me = 0;
 
@@ -45,6 +45,7 @@ PlatformMouseEvent::PlatformMouseEvent(QInputEvent* event, int clickCount)
         m_eventType = MouseEventMoved;
         me = static_cast<QMouseEvent *>(event);
         break;
+    case QEvent::MouseButtonDblClick:
     case QEvent::MouseButtonPress:
         m_eventType = MouseEventPressed;
         me = static_cast<QMouseEvent *>(event);
@@ -53,6 +54,7 @@ PlatformMouseEvent::PlatformMouseEvent(QInputEvent* event, int clickCount)
         m_eventType = MouseEventReleased;
         me = static_cast<QMouseEvent *>(event);
         break;
+#ifndef QT_NO_CONTEXTMENU
     case QEvent::ContextMenu: {
         m_eventType = MouseEventPressed;
         QContextMenuEvent *ce = static_cast<QContextMenuEvent *>(event);
@@ -61,6 +63,7 @@ PlatformMouseEvent::PlatformMouseEvent(QInputEvent* event, int clickCount)
         m_button = RightButton;
         break;
     }
+#endif // QT_NO_CONTEXTMENU
     default:
         m_eventType = MouseEventMoved;
     }
@@ -83,7 +86,7 @@ PlatformMouseEvent::PlatformMouseEvent(QInputEvent* event, int clickCount)
     m_shiftKey =  (event->modifiers() & Qt::ShiftModifier) != 0;
     m_ctrlKey = (event->modifiers() & Qt::ControlModifier) != 0;
     m_altKey =  (event->modifiers() & Qt::AltModifier) != 0;
-    m_metaKey = (event->modifiers() & Qt::MetaModifier) != 0;    
+    m_metaKey = (event->modifiers() & Qt::MetaModifier) != 0;
 }
 
 }

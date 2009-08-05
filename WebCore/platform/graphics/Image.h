@@ -30,6 +30,7 @@
 #include "Color.h"
 #include "GraphicsTypes.h"
 #include "ImageSource.h"
+#include "IntRect.h"
 #include <wtf/RefPtr.h>
 #include <wtf/PassRefPtr.h>
 #include "SharedBuffer.h"
@@ -47,38 +48,54 @@ struct CGContext;
 #endif
 
 #if PLATFORM(WIN)
+typedef struct tagSIZE SIZE;
+typedef SIZE* LPSIZE;
 typedef struct HBITMAP__ *HBITMAP;
+#endif
+
+#if PLATFORM(SKIA)
+class NativeImageSkia;
 #endif
 
 #if PLATFORM(QT)
 #include <QPixmap>
 #endif
 
+#if PLATFORM(GTK)
+typedef struct _GdkPixbuf GdkPixbuf;
+#endif
+
 namespace WebCore {
 
-class AffineTransform;
+class TransformationMatrix;
 class FloatPoint;
 class FloatRect;
 class FloatSize;
 class GraphicsContext;
-class IntRect;
-class IntSize;
 class SharedBuffer;
 class String;
 
 // This class gets notified when an image creates or destroys decoded frames and when it advances animation frames.
 class ImageObserver;
 
-class Image : Noncopyable {
+class Image : public RefCounted<Image> {
+    friend class GeneratedImage;
     friend class GraphicsContext;
 public:
-    Image(ImageObserver* = 0);
     virtual ~Image();
     
-    static Image* loadPlatformResource(const char* name);
+    static PassRefPtr<Image> create(ImageObserver* = 0);
+    static PassRefPtr<Image> loadPlatformResource(const char* name);
     static bool supportsType(const String&); 
 
-    bool isNull() const;
+    virtual bool isBitmapImage() const { return false; }
+
+    // Derived classes should override this if they can assure that 
+    // the image contains only resources from its own security origin.
+    virtual bool hasSingleSecurityOrigin() const { return false; }
+
+    static Image* nullImage();
+    bool isNull() const { return size().isEmpty(); }
 
     // These are only used for SVGImage right now
     virtual void setContainerSize(const IntSize&) { }
@@ -87,23 +104,23 @@ public:
     virtual bool hasRelativeHeight() const { return false; }
 
     virtual IntSize size() const = 0;
-    IntRect rect() const;
-    int width() const;
-    int height() const;
+    IntRect rect() const { return IntRect(IntPoint(), size()); }
+    int width() const { return size().width(); }
+    int height() const { return size().height(); }
 
     bool setData(PassRefPtr<SharedBuffer> data, bool allDataReceived);
-    virtual bool dataChanged(bool allDataReceived) { return false; }
+    virtual bool dataChanged(bool /*allDataReceived*/) { return false; }
     
-    // FIXME: PDF/SVG will be underreporting decoded sizes and will be unable to prune because these functions are not
-    // implemented yet for those image types.
-    virtual void destroyDecodedData(bool incremental = false) {};
-    virtual unsigned decodedSize() const { return 0; }
+    virtual String filenameExtension() const { return String(); } // null string if unknown
+
+    virtual void destroyDecodedData(bool destroyAll = true) = 0;
+    virtual unsigned decodedSize() const = 0;
 
     SharedBuffer* data() { return m_data.get(); }
 
-    // It may look unusual that there is no start animation call as public API.  This is because
-    // we start and stop animating lazily.  Animation begins whenever someone draws the image.  It will
-    // automatically pause once all observers no longer want to render the image anywhere.
+    // Animation begins whenever someone draws the image, so startAnimation() is not normally called.
+    // It will automatically pause once all observers no longer want to render the image anywhere.
+    virtual void startAnimation(bool /*catchUpIfNecessary*/ = true) { }
     virtual void stopAnimation() {}
     virtual void resetAnimation() {}
     
@@ -124,19 +141,20 @@ public:
     virtual CGImageRef getCGImageRef() { return 0; }
 #endif
 
-#if PLATFORM(QT)
-    virtual QPixmap* getPixmap() const { return 0; }
-#endif
-
 #if PLATFORM(WIN)
     virtual bool getHBITMAP(HBITMAP) { return false; }
     virtual bool getHBITMAPOfSize(HBITMAP, LPSIZE) { return false; }
 #endif
 
+#if PLATFORM(GTK)
+    virtual GdkPixbuf* getGdkPixbuf() { return 0; }
+#endif
+
 protected:
+    Image(ImageObserver* = 0);
+
     static void fillWithSolidColor(GraphicsContext* ctxt, const FloatRect& dstRect, const Color& color, CompositeOperator op);
 
-private:
 #if PLATFORM(WIN)
     virtual void drawFrameMatchingSourceSize(GraphicsContext*, const FloatRect& dstRect, const IntSize& srcSize, CompositeOperator) { }
 #endif
@@ -145,12 +163,10 @@ private:
     void drawTiled(GraphicsContext*, const FloatRect& dstRect, const FloatRect& srcRect, TileRule hRule, TileRule vRule, CompositeOperator);
 
     // Supporting tiled drawing
-    virtual bool mayFillWithSolidColor() const { return false; }
+    virtual bool mayFillWithSolidColor() { return false; }
     virtual Color solidColor() const { return Color(); }
     
-    virtual void startAnimation() { }
-    
-    virtual void drawPattern(GraphicsContext*, const FloatRect& srcRect, const AffineTransform& patternTransform,
+    virtual void drawPattern(GraphicsContext*, const FloatRect& srcRect, const TransformationMatrix& patternTransform,
                              const FloatPoint& phase, CompositeOperator, const FloatRect& destRect);
 #if PLATFORM(CG)
     // These are private to CG.  Ideally they would be only in the .cpp file, but the callback requires access

@@ -25,13 +25,22 @@
 
 #include "config.h"
 #include "ImageBuffer.h"
+
 #include "GraphicsContext.h"
+#include "ImageData.h"
+#include "NotImplemented.h"
 
 namespace WebCore {
 
-std::auto_ptr<ImageBuffer> ImageBuffer::create(const IntSize&, bool grayScale)
+ImageBufferData::ImageBufferData(const IntSize&)
 {
-    return std::auto_ptr<ImageBuffer>(new ImageBuffer());
+}
+
+ImageBuffer::ImageBuffer(const IntSize&, bool grayScale, bool& success) : 
+    m_data(IntSize())
+{
+    notImplemented();
+    success = false;
 }
 
 ImageBuffer::~ImageBuffer()
@@ -40,7 +49,31 @@ ImageBuffer::~ImageBuffer()
 
 GraphicsContext* ImageBuffer::context() const
 {
+    notImplemented();
     return 0;
 }
 
+PassRefPtr<ImageData> ImageBuffer::getImageData(const IntRect&) const
+{
+    notImplemented();
+    return 0;
 }
+
+void ImageBuffer::putImageData(ImageData*, const IntRect&, const IntPoint&)
+{
+    notImplemented();
+}
+
+String ImageBuffer::toDataURL(const String&) const
+{
+    notImplemented();
+    return String();
+}
+
+Image* ImageBuffer::image() const
+{
+    notImplemented();
+    return 0;
+}
+
+} // namespace WebCore

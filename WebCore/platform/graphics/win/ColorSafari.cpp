@@ -29,7 +29,6 @@
 #include "config.h"
 #include "Color.h"
 
-#include "NotImplemented.h"
 #include <CoreGraphics/CGColor.h>
 #include <SafariTheme/SafariTheme.h>
 #include <wtf/Assertions.h>
@@ -66,11 +65,6 @@ Color focusRingColor()
     }
 
     return focusRingColor;
-}
-
-void setFocusRingColorChangeFunction(void (*)())
-{
-    notImplemented();
 }
 
 } // namespace WebCore

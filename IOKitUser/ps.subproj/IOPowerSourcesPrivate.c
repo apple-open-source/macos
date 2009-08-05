@@ -22,10 +22,14 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include "IOSystemConfiguration.h"
-#include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 #include "IOPowerSources.h"
 #include "IOPowerSourcesPrivate.h"
 #include "IOPSKeys.h"
+#include "powermanagement.h"
+#include <IOKit/pwr_mgt/IOPMLibPrivate.h>
+#include <mach/mach_port.h>
+#include <mach/vm_map.h>
+#include <servers/bootstrap.h>
 
 /* IOPSCopyInternalBatteriesArray
  *
@@ -35,7 +39,7 @@
  * 	CFArrayRef: all the batteries we found
  *			NULL if none are found
  */
-extern CFArrayRef
+CFArrayRef
 IOPSCopyInternalBatteriesArray(CFTypeRef power_sources)
 {
     CFArrayRef			array = isA_CFArray(IOPSCopyPowerSourcesList(power_sources));
@@ -52,12 +56,10 @@ IOPSCopyInternalBatteriesArray(CFTypeRef power_sources)
     ret_arr = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
     if(!ret_arr) goto exit;
 
-    // Iterate through power_sources
     for(i=0; i<count; i++) {
         name = CFArrayGetValueAtIndex(array, i);
         ps = isA_CFDictionary(IOPSGetPowerSourceDescription(power_sources, name));
         if(ps) {
-            // Return the first power source that is an internal battery
             transport_type = isA_CFString(CFDictionaryGetValue(ps, CFSTR(kIOPSTransportTypeKey)));
             if(transport_type && CFEqual(transport_type, CFSTR(kIOPSInternalType)))
             {
@@ -85,7 +87,7 @@ exit:
  * 	CFArrayRef: all the UPS's we found
  *			NULL if none are found
  */
- extern CFArrayRef
+ CFArrayRef
 IOPSCopyUPSArray(CFTypeRef power_sources)
 {
     CFArrayRef			array = isA_CFArray(IOPSCopyPowerSourcesList(power_sources));
@@ -107,7 +109,6 @@ IOPSCopyUPSArray(CFTypeRef power_sources)
         name = CFArrayGetValueAtIndex(array, i);
         ps = isA_CFDictionary(IOPSGetPowerSourceDescription(power_sources, name));
         if(ps) {
-            // Return the first power source that is an internal battery
             transport_type = isA_CFString(CFDictionaryGetValue(ps, CFSTR(kIOPSTransportTypeKey)));
             if(transport_type && ( CFEqual(transport_type, CFSTR(kIOPSSerialTransportType)) ||
                 CFEqual(transport_type, CFSTR(kIOPSUSBTransportType)) ||
@@ -137,7 +138,7 @@ exit:
  *              support one UPS at a time.
  *			NULL if none are found
  */
-extern CFTypeRef  
+CFTypeRef  
 IOPSGetActiveUPS(CFTypeRef ps_blob)
 {
     CFTypeRef       ret_ups;
@@ -165,7 +166,7 @@ IOPSGetActiveUPS(CFTypeRef ps_blob)
  *              support one UPS at a time.
  *			NULL if none are found
  */
-extern CFTypeRef  
+CFTypeRef  
 IOPSGetActiveBattery(CFTypeRef ps_blob)
 {
     CFTypeRef       ret_ups;
@@ -197,7 +198,7 @@ static CFStringRef getPowerSourceState(CFTypeRef blob, CFTypeRef id)
  *  The current system power source.
  *  CFSTR("AC Power"), CFSTR("Battery Power"), CFSTR("UPS Power")
  */
-extern CFStringRef IOPSGetProvidingPowerSourceType(CFTypeRef ps_blob)
+CFStringRef IOPSGetProvidingPowerSourceType(CFTypeRef ps_blob)
 {
     // CFArrayRef      batt_arr = NULL;
     // CFArrayRef      ups_arr = NULL;
@@ -273,37 +274,236 @@ extern CFStringRef IOPSGetProvidingPowerSourceType(CFTypeRef ps_blob)
  * takes: CFSTR of kIOPMACPowerKey, kIOPMBatteryPowerKey, kIOPMUPSPowerKey
  * returns true if this machine supports (has) that power type.
  */
-extern CFBooleanRef IOPSPowerSourceSupported(CFTypeRef ps_blob, CFStringRef ps_type)
+CFBooleanRef IOPSPowerSourceSupported(CFTypeRef ps_blob, CFStringRef ps_type)
 {
-    CFBooleanRef       ret = kCFBooleanFalse;
-
-    if(!ps_blob) return kCFBooleanFalse;
 
     if(!isA_CFString(ps_type)) 
     {
-        ret = kCFBooleanFalse;
-    } else if(CFEqual(ps_type, CFSTR(kIOPMACPowerKey))) 
+        return kCFBooleanFalse;
+    } 
+    
+    if(CFEqual(ps_type, CFSTR(kIOPMACPowerKey))) 
     {
-        ret = kCFBooleanTrue;
-    } else if(CFEqual(ps_type, CFSTR(kIOPMBatteryPowerKey))) 
-    {
-        if(IOPSGetActiveBattery(ps_blob))
-        {
-            ret = kCFBooleanTrue;
-        } else {
-            ret = kCFBooleanFalse;
-        }
-    } else if(CFEqual(ps_type, CFSTR(kIOPMUPSPowerKey))) 
-    {
-        if(IOPSGetActiveUPS(ps_blob))
-        {
-            ret = kCFBooleanTrue;
-        } else {
-            ret = kCFBooleanFalse;
-        }
+        return kCFBooleanTrue;
     }
     
-    return ret;
+#if defined (__i386__) || defined (__x86_64__) 
+    if (CFEqual(ps_type, CFSTR(kIOPMBatteryPowerKey))) 
+    {
+        CFBooleanRef            ret = kCFBooleanFalse;
+        io_registry_entry_t     platform = IO_OBJECT_NULL;
+        CFDataRef               systemTypeData = NULL;
+        int                     *systemType = 0;
+        
+        platform = IORegistryEntryFromPath(kIOMasterPortDefault, 
+                                    kIODeviceTreePlane ":/");
+        
+        if (IO_OBJECT_NULL == platform) {
+            return kCFBooleanFalse;
+        }
+        
+        systemTypeData = (CFDataRef)IORegistryEntryCreateCFProperty(
+                                platform, CFSTR("system-type"),
+                                kCFAllocatorDefault, kNilOptions);
+        if (systemTypeData 
+            && (CFDataGetLength(systemTypeData) > 0)
+            && (systemType = (int *)CFDataGetBytePtr(systemTypeData))
+            && (2 == *systemType))
+        {
+            ret = kCFBooleanTrue;        
+        } else {
+            ret = kCFBooleanFalse;
+        }
+        if (systemTypeData)
+            CFRelease(systemTypeData);
+        IOObjectRelease(platform);
+        return ret;
+    }
+#else
+    if (ps_blob 
+       && CFEqual(ps_type, CFSTR(kIOPMBatteryPowerKey))
+       && IOPSGetActiveBattery(ps_blob))
+    {
+        return kCFBooleanTrue;
+    }
+#endif
+    
+    if (ps_blob 
+       && CFEqual(ps_type, CFSTR(kIOPMUPSPowerKey))
+       && IOPSGetActiveUPS(ps_blob))
+    {
+        return kCFBooleanTrue;
+    }
+
+    return kCFBooleanFalse;
+}
+
+/******************************************************************************
+
+    IOPSPowerSourceID - publishing a power source from user space
+
+ ******************************************************************************/
+
+
+static IOReturn _pm_connect(mach_port_t *newConnection)
+{
+    kern_return_t       kern_result = KERN_SUCCESS;
+    
+    if(!newConnection) return kIOReturnBadArgument;
+
+    // open reference to PM configd
+    kern_result = bootstrap_look_up(bootstrap_port, 
+            kIOPMServerBootstrapName, newConnection);
+    if(KERN_SUCCESS != kern_result) {
+        return kIOReturnError;
+    }
+    return kIOReturnSuccess;
+}
+
+static IOReturn _pm_disconnect(mach_port_t connection)
+{
+    if(!connection) return kIOReturnBadArgument;
+    mach_port_destroy(mach_task_self(), connection);
+    return kIOReturnSuccess;
 }
 
 
+/* OpaqueIOPSPowerSourceID
+ * As typecast in the header:
+ * typedef struct OpaqueIOPSPowerSourceID *IOPSPowerSourceID;
+ */
+struct OpaqueIOPSPowerSourceID {
+    CFMachPortRef   configdConnection;
+    CFStringRef     scdsKey;
+};
+
+#define kMaxPSTypeLength        25
+#define kMaxSCDSKeyLength       1024
+
+IOReturn IOPSCreatePowerSource(
+    IOPSPowerSourceID *outPS,
+    CFStringRef powerSourceType)
+{
+    IOPSPowerSourceID           newPS = NULL;
+    mach_port_t                 pm_server = MACH_PORT_NULL;
+
+    char                        psType[kMaxPSTypeLength];
+
+    char                        scdsKey[kMaxSCDSKeyLength];
+
+    mach_port_t                 local_port = MACH_PORT_NULL;
+    int                         return_code = kIOReturnSuccess;
+    kern_return_t               kr = KERN_SUCCESS;
+    IOReturn                    ret = kIOReturnError;
+
+    if (!powerSourceType || !outPS)
+        return kIOReturnBadArgument;
+
+    // newPS - This tracking structure must be freed by IOPSReleasePowerSource()
+
+    newPS = calloc(1, sizeof(struct OpaqueIOPSPowerSourceID));
+
+    if (!newPS)
+        return kIOReturnVMError;
+
+    // We allocate a port in our namespace, and pass it to configd. 
+    // If this process dies, configd will cleanup  our unattached power sources.
+
+    newPS->configdConnection = CFMachPortCreate(kCFAllocatorDefault, NULL, NULL, NULL);
+
+    if (newPS->configdConnection)
+        local_port = CFMachPortGetPort(newPS->configdConnection);
+
+    if (MACH_PORT_NULL == local_port) {
+        ret = kIOReturnInternalError;
+        goto fail;
+    }
+
+    if (!CFStringGetCString(powerSourceType, psType, sizeof(psType), kCFStringEncodingMacRoman)) {
+        ret = kIOReturnBadMedia;
+        goto fail;
+    }
+    
+    ret = _pm_connect(&pm_server);
+    if(kIOReturnSuccess != ret) {
+        ret = kIOReturnNotOpen;
+        goto fail;
+    }
+    
+    kr = io_pm_new_pspowersource(
+            pm_server, 
+            local_port,     // in: mach port
+            psType,         // in: type name
+            scdsKey,        // out: SCDS key
+            &return_code);  // out: Return code
+
+    if(KERN_SUCCESS != kr) {
+        ret = kIOReturnNotResponding;
+        goto fail;
+    }
+
+    _pm_disconnect(pm_server);
+
+    if (scdsKey)
+        newPS->scdsKey = CFStringCreateWithCString(0, scdsKey, kCFStringEncodingUTF8);
+
+// success:
+    *outPS = newPS;
+    return (IOReturn)return_code;
+
+fail:
+    if (newPS)
+        free(newPS);
+    if (IO_OBJECT_NULL != pm_server)
+        _pm_disconnect(pm_server);
+    *outPS = NULL;
+
+    return ret;
+}
+
+IOReturn IOPSSetPowerSourceDetails(
+    IOPSPowerSourceID whichPS, 
+    CFDictionaryRef details)
+{
+    IOReturn                ret = kIOReturnSuccess;
+    SCDynamicStoreRef       temp_store = NULL;
+
+    if (!whichPS || !isA_CFString(whichPS->scdsKey) || !isA_CFDictionary(details))
+        return kIOReturnBadArgument;
+
+    // TODO: avoid creating a store for every single transaction
+    temp_store = SCDynamicStoreCreate(0, CFSTR("IOKit PM - IOPSSetPowerSourceDetails"), NULL, NULL);
+    if (!temp_store)
+        return kIOReturnNotResponding;
+        
+    if (!SCDynamicStoreSetValue(temp_store, whichPS->scdsKey, details))
+    {
+        if(kSCStatusAccessError == SCError())
+            ret = kIOReturnNotPrivileged;
+        else
+            ret = kIOReturnError;
+    }
+    
+    CFRelease(temp_store);
+    return ret;
+}
+
+IOReturn IOPSReleasePowerSource(
+    IOPSPowerSourceID whichPS)
+{
+    if (!whichPS)
+        return kIOReturnBadArgument;
+
+    if (whichPS->configdConnection)
+    {
+//        mach_port_destroy(mach_task_self(), 
+//                          CFMachPortGetPort(whichPS->configdConnection));
+        CFRelease(whichPS->configdConnection);
+    }
+
+    if (whichPS->scdsKey)
+        CFRelease(whichPS->scdsKey);
+
+    free(whichPS);
+    return kIOReturnSuccess;
+}

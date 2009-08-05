@@ -90,8 +90,7 @@ static int CeilingLog2(unsigned int i) {
     return log2;
 }
 
-void InitArenaPool(ArenaPool *pool, const char *name, 
-                   unsigned int size, unsigned int align)
+void InitArenaPool(ArenaPool* pool, const char*, unsigned size, unsigned align)
 {
      if (align == 0)
          align = ARENA_DEFAULT_ALIGN;
@@ -180,35 +179,21 @@ void* ArenaAllocate(ArenaPool *pool, unsigned int nb)
         printf("Malloc: %d\n", i);
 #endif
         a = (Arena*)fastMalloc(sz);
-        if (a)  {
-            a->limit = (uword)a + sz;
-            a->base = a->avail = (uword)ARENA_ALIGN(pool, a + 1);
-            rp = (char *)a->avail;
-            a->avail += nb;
-            /* the newly allocated arena is linked after pool->current 
-            *  and becomes pool->current */
-            a->next = pool->current->next;
-            pool->current->next = a;
-            pool->current = a;
-            if ( !pool->first.next )
-                pool->first.next = a;
-            return(rp);
-       }
+        // fastMalloc will abort() if it fails, so we are guaranteed that a is not 0.
+        a->limit = (uword)a + sz;
+        a->base = a->avail = (uword)ARENA_ALIGN(pool, a + 1);
+        rp = (char *)a->avail;
+        a->avail += nb;
+        /* the newly allocated arena is linked after pool->current 
+        *  and becomes pool->current */
+        a->next = pool->current->next;
+        pool->current->next = a;
+        pool->current = a;
+        if ( !pool->first.next )
+            pool->first.next = a;
+        return(rp);
     }
-
-    /* we got to here, and there's no memory to allocate */
-    return(0);
 } /* --- end ArenaAllocate() --- */
-
-void* ArenaGrow(ArenaPool *pool, void *p, unsigned int size, unsigned int incr)
-{
-    void *newp;
- 
-    ARENA_ALLOCATE(newp, pool, size + incr);
-    if (newp)
-        memcpy(newp, p, size);
-    return newp;
-}
 
 /*
  * Free tail arenas linked after head, which may not be the true list head.
@@ -258,19 +243,6 @@ static void FreeArenaList(ArenaPool *pool, Arena *head, bool reallyFree)
         head->next = 0;
     }
     pool->current = head;
-}
-
-void ArenaRelease(ArenaPool *pool, char *mark)
-{
-    Arena *a;
-
-    for (a = pool->first.next; a; a = a->next) {
-        if (UPTRDIFF(mark, a->base) < UPTRDIFF(a->avail, a->base)) {
-            a->avail = (uword)ARENA_ALIGN(pool, mark);
-            FreeArenaList(pool, a, false);
-            return;
-        }
-    }
 }
 
 void FreeArenaPool(ArenaPool *pool)

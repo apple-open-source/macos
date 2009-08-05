@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,6 +28,7 @@
 
 #include "AtomicString.h"
 #include "CachedResourceClient.h"
+#include "CachedResourceHandle.h"
 #include <wtf/HashMap.h>
 
 #if ENABLE(SVG_FONTS)
@@ -61,18 +62,18 @@ public:
     void pruneTable();
 
 #if ENABLE(SVG_FONTS)
-    SVGFontFaceElement* svgFontFaceElement() const { return m_svgFontFaceElement.get(); }
+    SVGFontFaceElement* svgFontFaceElement() const { return m_svgFontFaceElement; }
     void setSVGFontFaceElement(SVGFontFaceElement* element) { m_svgFontFaceElement = element; }
 #endif
 
 private:
     AtomicString m_string; // URI for remote, built-in font name for local.
-    CachedFont* m_font; // For remote fonts, a pointer to our cached resource.
+    CachedResourceHandle<CachedFont> m_font; // For remote fonts, a pointer to our cached resource.
     CSSFontFace* m_face; // Our owning font face.
-    HashMap<int, SimpleFontData*> m_fontDataTable; // A cache of FontDatas for various pixel sizes.
+    HashMap<unsigned, SimpleFontData*> m_fontDataTable; // The hash key is composed of size synthetic styles.
 
 #if ENABLE(SVG_FONTS)
-    RefPtr<SVGFontFaceElement> m_svgFontFaceElement;
+    SVGFontFaceElement* m_svgFontFaceElement;
     RefPtr<SVGFontElement> m_externalSVGFontElement;
 #endif
 };

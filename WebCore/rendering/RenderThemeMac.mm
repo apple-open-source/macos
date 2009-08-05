@@ -25,7 +25,6 @@
 #import "CSSValueKeywords.h"
 #import "Document.h"
 #import "Element.h"
-#import "FoundationExtras.h"
 #import "FrameView.h"
 #import "GraphicsContext.h"
 #import "HTMLInputElement.h"
@@ -33,16 +32,20 @@
 #import "HTMLNames.h"
 #import "Image.h"
 #import "LocalCurrentGraphicsContext.h"
+#import "MediaControlElements.h"
 #import "RenderSlider.h"
 #import "RenderView.h"
 #import "SharedBuffer.h"
 #import "WebCoreSystemInterface.h"
+#import "UserAgentStyleSheets.h"
 #import <Carbon/Carbon.h>
 #import <Cocoa/Cocoa.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/StdLibExtras.h>
 #import <math.h>
 
 #ifdef BUILDING_ON_TIGER
+typedef int NSInteger;
 typedef unsigned NSUInteger;
 #endif
 
@@ -72,9 +75,9 @@ using std::min;
     return self;
 }
 
-- (void)systemColorsDidChange:(NSNotification *)notification
+- (void)systemColorsDidChange:(NSNotification *)unusedNotification
 {
-    ASSERT([[notification name] isEqualToString:NSSystemColorsDidChangeNotification]);
+    ASSERT_UNUSED(unusedNotification, [[unusedNotification name] isEqualToString:NSSystemColorsDidChangeNotification]);
     _theme->platformColorsDidChange();
 }
 
@@ -105,8 +108,7 @@ RenderTheme* theme()
 }
 
 RenderThemeMac::RenderThemeMac()
-    : m_resizeCornerImage(0)
-    , m_isSliderThumbHorizontalPressed(false)
+    : m_isSliderThumbHorizontalPressed(false)
     , m_isSliderThumbVerticalPressed(false)
     , m_notificationObserver(AdoptNS, [[WebCoreRenderThemeNotificationObserver alloc] initWithTheme:this])
 {
@@ -119,7 +121,6 @@ RenderThemeMac::RenderThemeMac()
 RenderThemeMac::~RenderThemeMac()
 {
     [[NSNotificationCenter defaultCenter] removeObserver:m_notificationObserver.get()];
-    delete m_resizeCornerImage;
 }
 
 Color RenderThemeMac::platformActiveSelectionBackgroundColor() const
@@ -134,51 +135,93 @@ Color RenderThemeMac::platformInactiveSelectionBackgroundColor() const
     return Color(static_cast<int>(255.0 * [color redComponent]), static_cast<int>(255.0 * [color greenComponent]), static_cast<int>(255.0 * [color blueComponent]));
 }
 
-Color RenderThemeMac::activeListBoxSelectionBackgroundColor() const
+Color RenderThemeMac::platformActiveListBoxSelectionBackgroundColor() const
 {
     NSColor* color = [[NSColor alternateSelectedControlColor] colorUsingColorSpaceName:NSDeviceRGBColorSpace];
     return Color(static_cast<int>(255.0 * [color redComponent]), static_cast<int>(255.0 * [color greenComponent]), static_cast<int>(255.0 * [color blueComponent]));
 }
 
+Color RenderThemeMac::platformActiveListBoxSelectionForegroundColor() const
+{
+    return Color::white;
+}
+
+Color RenderThemeMac::platformInactiveListBoxSelectionForegroundColor() const
+{
+    return Color::black;
+}
+
+Color RenderThemeMac::platformInactiveListBoxSelectionBackgroundColor() const
+{
+    return platformInactiveSelectionBackgroundColor();
+}
+
+static FontWeight toFontWeight(NSInteger appKitFontWeight)
+{
+    ASSERT(appKitFontWeight > 0 && appKitFontWeight < 15);
+    if (appKitFontWeight > 14)
+        appKitFontWeight = 14;
+    else if (appKitFontWeight < 1)
+        appKitFontWeight = 1;
+
+    static FontWeight fontWeights[] = {
+        FontWeight100,
+        FontWeight100,
+        FontWeight200,
+        FontWeight300,
+        FontWeight400,
+        FontWeight500,
+        FontWeight600,
+        FontWeight600,
+        FontWeight700,
+        FontWeight800,
+        FontWeight800,
+        FontWeight900,
+        FontWeight900,
+        FontWeight900
+    };
+    return fontWeights[appKitFontWeight - 1];
+}
+
 void RenderThemeMac::systemFont(int cssValueId, FontDescription& fontDescription) const
 {
-    static FontDescription systemFont;
-    static FontDescription smallSystemFont;
-    static FontDescription menuFont;
-    static FontDescription labelFont;
-    static FontDescription miniControlFont;
-    static FontDescription smallControlFont;
-    static FontDescription controlFont;
+    DEFINE_STATIC_LOCAL(FontDescription, systemFont, ());
+    DEFINE_STATIC_LOCAL(FontDescription, smallSystemFont, ());
+    DEFINE_STATIC_LOCAL(FontDescription, menuFont, ());
+    DEFINE_STATIC_LOCAL(FontDescription, labelFont, ());
+    DEFINE_STATIC_LOCAL(FontDescription, miniControlFont, ());
+    DEFINE_STATIC_LOCAL(FontDescription, smallControlFont, ());
+    DEFINE_STATIC_LOCAL(FontDescription, controlFont, ());
 
     FontDescription* cachedDesc;
     NSFont* font = nil;
     switch (cssValueId) {
-        case CSS_VAL_SMALL_CAPTION:
+        case CSSValueSmallCaption:
             cachedDesc = &smallSystemFont;
             if (!smallSystemFont.isAbsoluteSize())
                 font = [NSFont systemFontOfSize:[NSFont smallSystemFontSize]];
             break;
-        case CSS_VAL_MENU:
+        case CSSValueMenu:
             cachedDesc = &menuFont;
             if (!menuFont.isAbsoluteSize())
                 font = [NSFont menuFontOfSize:[NSFont systemFontSize]];
             break;
-        case CSS_VAL_STATUS_BAR:
+        case CSSValueStatusBar:
             cachedDesc = &labelFont;
             if (!labelFont.isAbsoluteSize())
                 font = [NSFont labelFontOfSize:[NSFont labelFontSize]];
             break;
-        case CSS_VAL__WEBKIT_MINI_CONTROL:
+        case CSSValueWebkitMiniControl:
             cachedDesc = &miniControlFont;
             if (!miniControlFont.isAbsoluteSize())
                 font = [NSFont systemFontOfSize:[NSFont systemFontSizeForControlSize:NSMiniControlSize]];
             break;
-        case CSS_VAL__WEBKIT_SMALL_CONTROL:
+        case CSSValueWebkitSmallControl:
             cachedDesc = &smallControlFont;
             if (!smallControlFont.isAbsoluteSize())
                 font = [NSFont systemFontOfSize:[NSFont systemFontSizeForControlSize:NSSmallControlSize]];
             break;
-        case CSS_VAL__WEBKIT_CONTROL:
+        case CSSValueWebkitControl:
             cachedDesc = &controlFont;
             if (!controlFont.isAbsoluteSize())
                 font = [NSFont systemFontOfSize:[NSFont systemFontSizeForControlSize:NSRegularControlSize]];
@@ -190,91 +233,284 @@ void RenderThemeMac::systemFont(int cssValueId, FontDescription& fontDescription
     }
 
     if (font) {
+        NSFontManager *fontManager = [NSFontManager sharedFontManager];
         cachedDesc->setIsAbsoluteSize(true);
         cachedDesc->setGenericFamily(FontDescription::NoFamily);
         cachedDesc->firstFamily().setFamily([font familyName]);
         cachedDesc->setSpecifiedSize([font pointSize]);
-        NSFontTraitMask traits = [[NSFontManager sharedFontManager] traitsOfFont:font];
-        cachedDesc->setBold(traits & NSBoldFontMask);
-        cachedDesc->setItalic(traits & NSItalicFontMask);
+        cachedDesc->setWeight(toFontWeight([fontManager weightOfFont:font]));
+        cachedDesc->setItalic([fontManager traitsOfFont:font] & NSItalicFontMask);
     }
     fontDescription = *cachedDesc;
 }
 
-bool RenderThemeMac::isControlStyled(const RenderStyle* style, const BorderData& border,
-                                     const BackgroundLayer& background, const Color& backgroundColor) const
+static RGBA32 convertNSColorToColor(NSColor *color)
 {
-    if (style->appearance() == TextFieldAppearance || style->appearance() == TextAreaAppearance || style->appearance() == ListboxAppearance)
-        return style->border() != border;
-    return RenderTheme::isControlStyled(style, border, background, backgroundColor);
+    NSColor *colorInColorSpace = [color colorUsingColorSpaceName:NSDeviceRGBColorSpace];
+    if (colorInColorSpace) {
+        static const double scaleFactor = nextafter(256.0, 0.0);
+        return makeRGB(static_cast<int>(scaleFactor * [colorInColorSpace redComponent]),
+            static_cast<int>(scaleFactor * [colorInColorSpace greenComponent]),
+            static_cast<int>(scaleFactor * [colorInColorSpace blueComponent]));
+    }
+
+    // This conversion above can fail if the NSColor in question is an NSPatternColor 
+    // (as many system colors are). These colors are actually a repeating pattern
+    // not just a solid color. To work around this we simply draw a 1x1 image of
+    // the color and use that pixel's color. It might be better to use an average of
+    // the colors in the pattern instead.
+    NSBitmapImageRep *offscreenRep = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:nil
+                                                                             pixelsWide:1
+                                                                             pixelsHigh:1
+                                                                          bitsPerSample:8
+                                                                        samplesPerPixel:4
+                                                                               hasAlpha:YES
+                                                                               isPlanar:NO
+                                                                         colorSpaceName:NSDeviceRGBColorSpace
+                                                                            bytesPerRow:4
+                                                                           bitsPerPixel:32];
+
+    [NSGraphicsContext saveGraphicsState];
+    [NSGraphicsContext setCurrentContext:[NSGraphicsContext graphicsContextWithBitmapImageRep:offscreenRep]];
+    NSEraseRect(NSMakeRect(0, 0, 1, 1));
+    [color drawSwatchInRect:NSMakeRect(0, 0, 1, 1)];
+    [NSGraphicsContext restoreGraphicsState];
+
+    NSUInteger pixel[4];
+    [offscreenRep getPixel:pixel atX:0 y:0];
+
+    [offscreenRep release];
+
+    return makeRGB(pixel[0], pixel[1], pixel[2]);
 }
 
-void RenderThemeMac::paintResizeControl(GraphicsContext* c, const IntRect& r)
+static RGBA32 menuBackgroundColor()
 {
-    Image* resizeCornerImage = this->resizeCornerImage();
-    IntPoint imagePoint(r.right() - resizeCornerImage->width(), r.bottom() - resizeCornerImage->height());
-    c->drawImage(resizeCornerImage, imagePoint);
+    NSBitmapImageRep *offscreenRep = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:nil
+                                                                             pixelsWide:1
+                                                                             pixelsHigh:1
+                                                                          bitsPerSample:8
+                                                                        samplesPerPixel:4
+                                                                               hasAlpha:YES
+                                                                               isPlanar:NO
+                                                                         colorSpaceName:NSDeviceRGBColorSpace
+                                                                            bytesPerRow:4
+                                                                           bitsPerPixel:32];
+
+    CGContextRef context = static_cast<CGContextRef>([[NSGraphicsContext graphicsContextWithBitmapImageRep:offscreenRep] graphicsPort]);
+    CGRect rect = CGRectMake(0, 0, 1, 1);
+    HIThemeMenuDrawInfo drawInfo;
+    drawInfo.version =  0;
+    drawInfo.menuType = kThemeMenuTypePopUp;
+    HIThemeDrawMenuBackground(&rect, &drawInfo, context, kHIThemeOrientationInverted);
+
+    NSUInteger pixel[4];
+    [offscreenRep getPixel:pixel atX:0 y:0];
+
+    [offscreenRep release];
+
+    return makeRGB(pixel[0], pixel[1], pixel[2]);
+}
+
+void RenderThemeMac::platformColorsDidChange()
+{
+    m_systemColorCache.clear();
+    RenderTheme::platformColorsDidChange();
+}
+
+Color RenderThemeMac::systemColor(int cssValueId) const
+{
+    if (m_systemColorCache.contains(cssValueId))
+        return m_systemColorCache.get(cssValueId);
+    
+    Color color;
+    switch (cssValueId) {
+        case CSSValueActiveborder:
+            color = convertNSColorToColor([NSColor keyboardFocusIndicatorColor]);
+            break;
+        case CSSValueActivecaption:
+            color = convertNSColorToColor([NSColor windowFrameTextColor]);
+            break;
+        case CSSValueAppworkspace:
+            color = convertNSColorToColor([NSColor headerColor]);
+            break;
+        case CSSValueBackground:
+            // Use theme independent default
+            break;
+        case CSSValueButtonface:
+            // We use this value instead of NSColor's controlColor to avoid website incompatibilities.
+            // We may want to change this to use the NSColor in future.
+            color = 0xFFC0C0C0;
+            break;
+        case CSSValueButtonhighlight:
+            color = convertNSColorToColor([NSColor controlHighlightColor]);
+            break;
+        case CSSValueButtonshadow:
+            color = convertNSColorToColor([NSColor controlShadowColor]);
+            break;
+        case CSSValueButtontext:
+            color = convertNSColorToColor([NSColor controlTextColor]);
+            break;
+        case CSSValueCaptiontext:
+            color = convertNSColorToColor([NSColor textColor]);
+            break;
+        case CSSValueGraytext:
+            color = convertNSColorToColor([NSColor disabledControlTextColor]);
+            break;
+        case CSSValueHighlight:
+            color = convertNSColorToColor([NSColor selectedTextBackgroundColor]);
+            break;
+        case CSSValueHighlighttext:
+            color = convertNSColorToColor([NSColor selectedTextColor]);
+            break;
+        case CSSValueInactiveborder:
+            color = convertNSColorToColor([NSColor controlBackgroundColor]);
+            break;
+        case CSSValueInactivecaption:
+            color = convertNSColorToColor([NSColor controlBackgroundColor]);
+            break;
+        case CSSValueInactivecaptiontext:
+            color = convertNSColorToColor([NSColor textColor]);
+            break;
+        case CSSValueInfobackground:
+            // There is no corresponding NSColor for this so we use a hard coded value.
+            color = 0xFFFBFCC5;
+            break;
+        case CSSValueInfotext:
+            color = convertNSColorToColor([NSColor textColor]);
+            break;
+        case CSSValueMenu:
+            color = menuBackgroundColor();
+            break;
+        case CSSValueMenutext:
+            color = convertNSColorToColor([NSColor selectedMenuItemTextColor]);
+            break;
+        case CSSValueScrollbar:
+            color = convertNSColorToColor([NSColor scrollBarColor]);
+            break;
+        case CSSValueText:
+            color = convertNSColorToColor([NSColor textColor]);
+            break;
+        case CSSValueThreeddarkshadow:
+            color = convertNSColorToColor([NSColor controlDarkShadowColor]);
+            break;
+        case CSSValueThreedshadow:
+            color = convertNSColorToColor([NSColor shadowColor]);
+            break;
+        case CSSValueThreedface:
+            // We use this value instead of NSColor's controlColor to avoid website incompatibilities.
+            // We may want to change this to use the NSColor in future.
+            color = 0xFFC0C0C0;
+            break;
+        case CSSValueThreedhighlight:
+            color = convertNSColorToColor([NSColor highlightColor]);
+            break;
+        case CSSValueThreedlightshadow:
+            color = convertNSColorToColor([NSColor controlLightHighlightColor]);
+            break;
+        case CSSValueWindow:
+            color = convertNSColorToColor([NSColor windowBackgroundColor]);
+            break;
+        case CSSValueWindowframe:
+            color = convertNSColorToColor([NSColor windowFrameColor]);
+            break;
+        case CSSValueWindowtext:
+            color = convertNSColorToColor([NSColor windowFrameTextColor]);
+            break;
+    }
+
+    if (!color.isValid())
+        color = RenderTheme::systemColor(cssValueId);
+
+    if (color.isValid())
+        m_systemColorCache.set(cssValueId, color.rgb());
+
+    return color;
+}
+
+bool RenderThemeMac::isControlStyled(const RenderStyle* style, const BorderData& border,
+                                     const FillLayer& background, const Color& backgroundColor) const
+{
+    if (style->appearance() == TextFieldPart || style->appearance() == TextAreaPart || style->appearance() == ListboxPart)
+        return style->border() != border;
+        
+    // FIXME: This is horrible, but there is not much else that can be done.  Menu lists cannot draw properly when
+    // scaled.  They can't really draw properly when transformed either.  We can't detect the transform case at style
+    // adjustment time so that will just have to stay broken.  We can however detect that we're zooming.  If zooming
+    // is in effect we treat it like the control is styled.
+    if (style->appearance() == MenulistPart && style->effectiveZoom() != 1.0f)
+        return true;
+
+    return RenderTheme::isControlStyled(style, border, background, backgroundColor);
 }
 
 void RenderThemeMac::adjustRepaintRect(const RenderObject* o, IntRect& r)
 {
-    switch (o->style()->appearance()) {
-        case CheckboxAppearance: {
-            // Since we query the prototype cell, we need to update its state to match.
-            setCheckboxCellState(o, r);
-
-            // We inflate the rect as needed to account for padding included in the cell to accommodate the checkbox
-            // shadow" and the check.  We don't consider this part of the bounds of the control in WebKit.
-            r = inflateRect(r, checkboxSizes()[[checkbox() controlSize]], checkboxMargins());
-            break;
-        }
-        case RadioAppearance: {
-            // Since we query the prototype cell, we need to update its state to match.
-            setRadioCellState(o, r);
-
-            // We inflate the rect as needed to account for padding included in the cell to accommodate the checkbox
-            // shadow" and the check.  We don't consider this part of the bounds of the control in WebKit.
-            r = inflateRect(r, radioSizes()[[radio() controlSize]], radioMargins());
-            break;
-        }
-        case PushButtonAppearance:
-        case DefaultButtonAppearance:
-        case ButtonAppearance: {
-            // Since we query the prototype cell, we need to update its state to match.
-            setButtonCellState(o, r);
-
-            // We inflate the rect as needed to account for padding included in the cell to accommodate the checkbox
-            // shadow" and the check.  We don't consider this part of the bounds of the control in WebKit.
-            if ([button() bezelStyle] == NSRoundedBezelStyle)
-                r = inflateRect(r, buttonSizes()[[button() controlSize]], buttonMargins());
-            break;
-        }
-        case MenulistAppearance: {
-            setPopupButtonCellState(o, r);
-            r = inflateRect(r, popupButtonSizes()[[popupButton() controlSize]], popupButtonMargins());
-            break;
-        }
+    ControlPart part = o->style()->appearance();
+    
+#if USE(NEW_THEME)
+    switch (part) {
+        case CheckboxPart:
+        case RadioPart:
+        case PushButtonPart:
+        case SquareButtonPart:
+        case DefaultButtonPart:
+        case ButtonPart:
+            return RenderTheme::adjustRepaintRect(o, r);
         default:
             break;
     }
+#endif
+
+    float zoomLevel = o->style()->effectiveZoom();
+
+    if (part == MenulistPart) {
+        setPopupButtonCellState(o, r);
+        IntSize size = popupButtonSizes()[[popupButton() controlSize]];
+        size.setHeight(size.height() * zoomLevel);
+        size.setWidth(r.width());
+        r = inflateRect(r, size, popupButtonMargins(), zoomLevel);
+    }
 }
 
-IntRect RenderThemeMac::inflateRect(const IntRect& r, const IntSize& size, const int* margins) const
+IntRect RenderThemeMac::inflateRect(const IntRect& r, const IntSize& size, const int* margins, float zoomLevel) const
 {
     // Only do the inflation if the available width/height are too small.  Otherwise try to
     // fit the glow/check space into the available box's width/height.
-    int widthDelta = r.width() - (size.width() + margins[leftMargin] + margins[rightMargin]);
-    int heightDelta = r.height() - (size.height() + margins[topMargin] + margins[bottomMargin]);
+    int widthDelta = r.width() - (size.width() + margins[leftMargin] * zoomLevel + margins[rightMargin] * zoomLevel);
+    int heightDelta = r.height() - (size.height() + margins[topMargin] * zoomLevel + margins[bottomMargin] * zoomLevel);
     IntRect result(r);
     if (widthDelta < 0) {
-        result.setX(result.x() - margins[leftMargin]);
+        result.setX(result.x() - margins[leftMargin] * zoomLevel);
         result.setWidth(result.width() - widthDelta);
     }
     if (heightDelta < 0) {
-        result.setY(result.y() - margins[topMargin]);
+        result.setY(result.y() - margins[topMargin] * zoomLevel);
         result.setHeight(result.height() - heightDelta);
     }
     return result;
+}
+
+FloatRect RenderThemeMac::convertToPaintingRect(const RenderObject* inputRenderer, const RenderObject* partRenderer, const FloatRect& inputRect, const IntRect& r) const
+{
+    FloatRect partRect(inputRect);
+    
+    // Compute an offset between the part renderer and the input renderer
+    FloatSize offsetFromInputRenderer;
+    const RenderObject* renderer = partRenderer;
+    while (renderer && renderer != inputRenderer) {
+        RenderObject* containingRenderer = renderer->container();
+        offsetFromInputRenderer -= renderer->offsetFromContainer(containingRenderer);
+        renderer = containingRenderer;
+    }
+    // If the input renderer was not a container, something went wrong
+    ASSERT(renderer == inputRenderer);
+    // Move the rect into partRenderer's coords
+    partRect.move(offsetFromInputRenderer);
+    // Account for the local drawing offset (tx, ty)
+    partRect.move(r.x(), r.y());
+
+    return partRect;
 }
 
 void RenderThemeMac::updateCheckedState(NSCell* cell, const RenderObject* o)
@@ -312,16 +548,9 @@ void RenderThemeMac::updateFocusedState(NSCell* cell, const RenderObject* o)
 void RenderThemeMac::updatePressedState(NSCell* cell, const RenderObject* o)
 {
     bool oldPressed = [cell isHighlighted];
-    bool pressed = (o->element() && o->element()->active());
+    bool pressed = (o->node() && o->node()->active());
     if (pressed != oldPressed)
         [cell setHighlighted:pressed];
-}
-
-short RenderThemeMac::baselinePosition(const RenderObject* o) const
-{
-    if (o->style()->appearance() == CheckboxAppearance || o->style()->appearance() == RadioAppearance)
-        return o->marginTop() + o->height() - 2; // The baseline is 2px up from the bottom of the checkbox/radio in AppKit.
-    return RenderTheme::baselinePosition(o);
 }
 
 bool RenderThemeMac::controlSupportsTints(const RenderObject* o) const
@@ -335,7 +564,7 @@ bool RenderThemeMac::controlSupportsTints(const RenderObject* o) const
         return false;
 
     // Checkboxes only have tint when checked.
-    if (o->style()->appearance() == CheckboxAppearance)
+    if (o->style()->appearance() == CheckboxPart)
         return isChecked(o);
 
     // For now assume other controls have tint if enabled.
@@ -352,14 +581,14 @@ NSControlSize RenderThemeMac::controlSizeForFont(RenderStyle* style) const
     return NSMiniControlSize;
 }
 
-void RenderThemeMac::setControlSize(NSCell* cell, const IntSize* sizes, const IntSize& minSize)
+void RenderThemeMac::setControlSize(NSCell* cell, const IntSize* sizes, const IntSize& minSize, float zoomLevel)
 {
     NSControlSize size;
-    if (minSize.width() >= sizes[NSRegularControlSize].width() &&
-        minSize.height() >= sizes[NSRegularControlSize].height())
+    if (minSize.width() >= static_cast<int>(sizes[NSRegularControlSize].width() * zoomLevel) &&
+        minSize.height() >= static_cast<int>(sizes[NSRegularControlSize].height() * zoomLevel))
         size = NSRegularControlSize;
-    else if (minSize.width() >= sizes[NSSmallControlSize].width() &&
-             minSize.height() >= sizes[NSSmallControlSize].height())
+    else if (minSize.width() >= static_cast<int>(sizes[NSSmallControlSize].width() * zoomLevel) &&
+             minSize.height() >= static_cast<int>(sizes[NSSmallControlSize].height() * zoomLevel))
         size = NSSmallControlSize;
     else
         size = NSMiniControlSize;
@@ -369,11 +598,19 @@ void RenderThemeMac::setControlSize(NSCell* cell, const IntSize* sizes, const In
 
 IntSize RenderThemeMac::sizeForFont(RenderStyle* style, const IntSize* sizes) const
 {
+    if (style->effectiveZoom() != 1.0f) {
+        IntSize result = sizes[controlSizeForFont(style)];
+        return IntSize(result.width() * style->effectiveZoom(), result.height() * style->effectiveZoom());
+    }
     return sizes[controlSizeForFont(style)];
 }
 
 IntSize RenderThemeMac::sizeForSystemFont(RenderStyle* style, const IntSize* sizes) const
 {
+    if (style->effectiveZoom() != 1.0f) {
+        IntSize result = sizes[controlSizeForSystemFont(style)];
+        return IntSize(result.width() * style->effectiveZoom(), result.height() * style->effectiveZoom());
+    }
     return sizes[controlSizeForSystemFont(style)];
 }
 
@@ -387,7 +624,7 @@ void RenderThemeMac::setSizeFromFont(RenderStyle* style, const IntSize* sizes) c
         style->setHeight(Length(size.height(), Fixed));
 }
 
-void RenderThemeMac::setFontFromControlSize(CSSStyleSelector* selector, RenderStyle* style, NSControlSize controlSize) const
+void RenderThemeMac::setFontFromControlSize(CSSStyleSelector*, RenderStyle* style, NSControlSize controlSize) const
 {
     FontDescription fontDescription;
     fontDescription.setIsAbsoluteSize(true);
@@ -395,8 +632,8 @@ void RenderThemeMac::setFontFromControlSize(CSSStyleSelector* selector, RenderSt
 
     NSFont* font = [NSFont systemFontOfSize:[NSFont systemFontSizeForControlSize:controlSize]];
     fontDescription.firstFamily().setFamily([font familyName]);
-    fontDescription.setComputedSize([font pointSize]);
-    fontDescription.setSpecifiedSize([font pointSize]);
+    fontDescription.setComputedSize([font pointSize] * style->effectiveZoom());
+    fontDescription.setSpecifiedSize([font pointSize] * style->effectiveZoom());
 
     // Reset line height
     style->setLineHeight(RenderStyle::initialLineHeight());
@@ -415,275 +652,6 @@ NSControlSize RenderThemeMac::controlSizeForSystemFont(RenderStyle* style) const
     return NSMiniControlSize;
 }
 
-bool RenderThemeMac::paintCheckbox(RenderObject* o, const RenderObject::PaintInfo&, const IntRect& r)
-{
-    // Determine the width and height needed for the control and prepare the cell for painting.
-    setCheckboxCellState(o, r);
-
-    // We inflate the rect as needed to account for padding included in the cell to accommodate the checkbox
-    // shadow" and the check.  We don't consider this part of the bounds of the control in WebKit.
-    NSButtonCell* checkbox = this->checkbox();
-    IntRect inflatedRect = inflateRect(r, checkboxSizes()[[checkbox controlSize]], checkboxMargins());
-    [checkbox drawWithFrame:NSRect(inflatedRect) inView:o->view()->frameView()->getDocumentView()];
-    [checkbox setControlView:nil];
-
-    return false;
-}
-
-const IntSize* RenderThemeMac::checkboxSizes() const
-{
-    static const IntSize sizes[3] = { IntSize(14, 14), IntSize(12, 12), IntSize(10, 10) };
-    return sizes;
-}
-
-const int* RenderThemeMac::checkboxMargins() const
-{
-    static const int margins[3][4] =
-    {
-        { 3, 4, 4, 2 },
-        { 4, 3, 3, 3 },
-        { 4, 3, 3, 3 },
-    };
-    return margins[[checkbox() controlSize]];
-}
-
-void RenderThemeMac::setCheckboxCellState(const RenderObject* o, const IntRect& r)
-{
-    NSButtonCell* checkbox = this->checkbox();
-
-    // Set the control size based off the rectangle we're painting into.
-    setControlSize(checkbox, checkboxSizes(), r.size());
-
-    // Update the various states we respond to.
-    updateCheckedState(checkbox, o);
-    updateEnabledState(checkbox, o);
-    updatePressedState(checkbox, o);
-    updateFocusedState(checkbox, o);
-}
-
-void RenderThemeMac::setCheckboxSize(RenderStyle* style) const
-{
-    // If the width and height are both specified, then we have nothing to do.
-    if (!style->width().isIntrinsicOrAuto() && !style->height().isAuto())
-        return;
-
-    // Use the font size to determine the intrinsic width of the control.
-    setSizeFromFont(style, checkboxSizes());
-}
-
-bool RenderThemeMac::paintRadio(RenderObject* o, const RenderObject::PaintInfo&, const IntRect& r)
-{
-    // Determine the width and height needed for the control and prepare the cell for painting.
-    setRadioCellState(o, r);
-
-    // We inflate the rect as needed to account for padding included in the cell to accommodate the checkbox
-    // shadow" and the check.  We don't consider this part of the bounds of the control in WebKit.
-    NSButtonCell* radio = this->radio();
-    IntRect inflatedRect = inflateRect(r, radioSizes()[[radio controlSize]], radioMargins());
-    [radio drawWithFrame:NSRect(inflatedRect) inView:o->view()->frameView()->getDocumentView()];
-    [radio setControlView:nil];
-
-    return false;
-}
-
-const IntSize* RenderThemeMac::radioSizes() const
-{
-    static const IntSize sizes[3] = { IntSize(14, 15), IntSize(12, 13), IntSize(10, 10) };
-    return sizes;
-}
-
-const int* RenderThemeMac::radioMargins() const
-{
-    static const int margins[3][4] =
-    {
-        { 2, 2, 4, 2 },
-        { 3, 2, 3, 2 },
-        { 1, 0, 2, 0 },
-    };
-    return margins[[radio() controlSize]];
-}
-
-void RenderThemeMac::setRadioCellState(const RenderObject* o, const IntRect& r)
-{
-    NSButtonCell* radio = this->radio();
-
-    // Set the control size based off the rectangle we're painting into.
-    setControlSize(radio, radioSizes(), r.size());
-
-    // Update the various states we respond to.
-    updateCheckedState(radio, o);
-    updateEnabledState(radio, o);
-    updatePressedState(radio, o);
-    updateFocusedState(radio, o);
-}
-
-
-void RenderThemeMac::setRadioSize(RenderStyle* style) const
-{
-    // If the width and height are both specified, then we have nothing to do.
-    if (!style->width().isIntrinsicOrAuto() && !style->height().isAuto())
-        return;
-
-    // Use the font size to determine the intrinsic width of the control.
-    setSizeFromFont(style, radioSizes());
-}
-
-void RenderThemeMac::setButtonPaddingFromControlSize(RenderStyle* style, NSControlSize size) const
-{
-    // Just use 8px.  AppKit wants to use 11px for mini buttons, but that padding is just too large
-    // for real-world Web sites (creating a huge necessary minimum width for buttons whose space is
-    // by definition constrained, since we select mini only for small cramped environments.
-    // This also guarantees the HTML4 <button> will match our rendering by default, since we're using a consistent
-    // padding.
-    const int padding = 8;
-    style->setPaddingLeft(Length(padding, Fixed));
-    style->setPaddingRight(Length(padding, Fixed));
-    style->setPaddingTop(Length(0, Fixed));
-    style->setPaddingBottom(Length(0, Fixed));
-}
-
-void RenderThemeMac::adjustButtonStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
-{
-    // There are three appearance constants for buttons.
-    // (1) Push-button is the constant for the default Aqua system button.  Push buttons will not scale vertically and will not allow
-    // custom fonts or colors.  <input>s use this constant.  This button will allow custom colors and font weights/variants but won't
-    // scale vertically.
-    // (2) square-button is the constant for the square button.  This button will allow custom fonts and colors and will scale vertically.
-    // (3) Button is the constant that means "pick the best button as appropriate."  <button>s use this constant.  This button will
-    // also scale vertically and allow custom fonts and colors.  It will attempt to use Aqua if possible and will make this determination
-    // solely on the rectangle of the control.
-
-    // Determine our control size based off our font.
-    NSControlSize controlSize = controlSizeForFont(style);
-
-    if (style->appearance() == PushButtonAppearance) {
-        // Ditch the border.
-        style->resetBorder();
-
-        // Height is locked to auto.
-        style->setHeight(Length(Auto));
-
-        // White-space is locked to pre
-        style->setWhiteSpace(PRE);
-
-        // Set the button's vertical size.
-        setButtonSize(style);
-
-        // Add in the padding that we'd like to use.
-        setButtonPaddingFromControlSize(style, controlSize);
-
-        // Our font is locked to the appropriate system font size for the control.  To clarify, we first use the CSS-specified font to figure out
-        // a reasonable control size, but once that control size is determined, we throw that font away and use the appropriate
-        // system font for the control size instead.
-        setFontFromControlSize(selector, style, controlSize);
-    } else {
-        // Set a min-height so that we can't get smaller than the mini button.
-        style->setMinHeight(Length(15, Fixed));
-
-        // Reset the top and bottom borders.
-        style->resetBorderTop();
-        style->resetBorderBottom();
-    }
-
-    style->setBoxShadow(0);
-}
-
-const IntSize* RenderThemeMac::buttonSizes() const
-{
-    static const IntSize sizes[3] = { IntSize(0, 21), IntSize(0, 18), IntSize(0, 15) };
-    return sizes;
-}
-
-const int* RenderThemeMac::buttonMargins() const
-{
-    static const int margins[3][4] =
-    {
-        { 4, 6, 7, 6 },
-        { 4, 5, 6, 5 },
-        { 0, 1, 1, 1 },
-    };
-    return margins[[button() controlSize]];
-}
-
-void RenderThemeMac::setButtonSize(RenderStyle* style) const
-{
-    // If the width and height are both specified, then we have nothing to do.
-    if (!style->width().isIntrinsicOrAuto() && !style->height().isAuto())
-        return;
-
-    // Use the font size to determine the intrinsic width of the control.
-    setSizeFromFont(style, buttonSizes());
-}
-
-void RenderThemeMac::setButtonCellState(const RenderObject* o, const IntRect& r)
-{
-    NSButtonCell* button = this->button();
-
-    // Set the control size based off the rectangle we're painting into.
-    if (o->style()->appearance() == SquareButtonAppearance ||
-        r.height() > buttonSizes()[NSRegularControlSize].height()) {
-        // Use the square button
-        if ([button bezelStyle] != NSShadowlessSquareBezelStyle)
-            [button setBezelStyle:NSShadowlessSquareBezelStyle];
-    } else if ([button bezelStyle] != NSRoundedBezelStyle)
-        [button setBezelStyle:NSRoundedBezelStyle];
-
-    setControlSize(button, buttonSizes(), r.size());
-
-    NSWindow *window = [o->view()->frameView()->getDocumentView() window];
-    BOOL isDefaultButton = (isDefault(o) && [window isKeyWindow]);
-    [button setKeyEquivalent:(isDefaultButton ? @"\r" : @"")];
-
-    // Update the various states we respond to.
-    updateCheckedState(button, o);
-    updateEnabledState(button, o);
-    updatePressedState(button, o);
-    updateFocusedState(button, o);
-}
-
-bool RenderThemeMac::paintButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
-{
-    NSButtonCell* button = this->button();
-    LocalCurrentGraphicsContext localContext(paintInfo.context);
-
-    // Determine the width and height needed for the control and prepare the cell for painting.
-    setButtonCellState(o, r);
-
-    // We inflate the rect as needed to account for padding included in the cell to accommodate the button
-    // shadow.  We don't consider this part of the bounds of the control in WebKit.
-    IntSize size = buttonSizes()[[button controlSize]];
-    size.setWidth(r.width());
-    IntRect inflatedRect = r;
-    if ([button bezelStyle] == NSRoundedBezelStyle) {
-        // Center the button within the available space.
-        if (inflatedRect.height() > size.height()) {
-            inflatedRect.setY(inflatedRect.y() + (inflatedRect.height() - size.height()) / 2);
-            inflatedRect.setHeight(size.height());
-        }
-
-        // Now inflate it to account for the shadow.
-        inflatedRect = inflateRect(inflatedRect, size, buttonMargins());
-    }
-
-    NSView *view = o->view()->frameView()->getDocumentView();
-    NSWindow *window = [view window];
-    NSButtonCell *previousDefaultButtonCell = [window defaultButtonCell];
-
-    if (isDefault(o) && [window isKeyWindow]) {
-        [window setDefaultButtonCell:button];
-        wkAdvanceDefaultButtonPulseAnimation(button);
-    } else if ([previousDefaultButtonCell isEqual:button])
-        [window setDefaultButtonCell:nil];
-
-    [button drawWithFrame:NSRect(inflatedRect) inView:view];
-    [button setControlView:nil];
-
-    if (![previousDefaultButtonCell isEqual:button])
-        [window setDefaultButtonCell:previousDefaultButtonCell];
-
-    return false;
-}
-
 bool RenderThemeMac::paintTextField(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
     LocalCurrentGraphicsContext localContext(paintInfo.context);
@@ -695,7 +663,7 @@ void RenderThemeMac::adjustTextFieldStyle(CSSStyleSelector*, RenderStyle*, Eleme
 {
 }
 
-bool RenderThemeMac::paintCapsLockIndicator(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+bool RenderThemeMac::paintCapsLockIndicator(RenderObject*, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
     if (paintInfo.context->paintingDisabled())
         return true;
@@ -751,26 +719,35 @@ bool RenderThemeMac::paintMenuList(RenderObject* o, const RenderObject::PaintInf
 
     NSPopUpButtonCell* popupButton = this->popupButton();
 
-    IntRect inflatedRect = r;
+    float zoomLevel = o->style()->effectiveZoom();
     IntSize size = popupButtonSizes()[[popupButton controlSize]];
+    size.setHeight(size.height() * zoomLevel);
     size.setWidth(r.width());
 
     // Now inflate it to account for the shadow.
+    IntRect inflatedRect = r;
     if (r.width() >= minimumMenuListSize(o->style()))
-        inflatedRect = inflateRect(inflatedRect, size, popupButtonMargins());
+        inflatedRect = inflateRect(inflatedRect, size, popupButtonMargins(), zoomLevel);
 
+    paintInfo.context->save();
+    
 #ifndef BUILDING_ON_TIGER
     // On Leopard, the cell will draw outside of the given rect, so we have to clip to the rect
-    paintInfo.context->save();
     paintInfo.context->clip(inflatedRect);
 #endif
 
-    [popupButton drawWithFrame:inflatedRect inView:o->view()->frameView()->getDocumentView()];
+    if (zoomLevel != 1.0f) {
+        inflatedRect.setWidth(inflatedRect.width() / zoomLevel);
+        inflatedRect.setHeight(inflatedRect.height() / zoomLevel);
+        paintInfo.context->translate(inflatedRect.x(), inflatedRect.y());
+        paintInfo.context->scale(FloatSize(zoomLevel, zoomLevel));
+        paintInfo.context->translate(-inflatedRect.x(), -inflatedRect.y());
+    }
+
+    [popupButton drawWithFrame:inflatedRect inView:o->view()->frameView()->documentView()];
     [popupButton setControlView:nil];
 
-#ifndef BUILDING_ON_TIGER
     paintInfo.context->restore();
-#endif
 
     return false;
 }
@@ -787,7 +764,7 @@ const int styledPopupPaddingLeft = 8;
 const int styledPopupPaddingTop = 1;
 const int styledPopupPaddingBottom = 2;
 
-static void TopGradientInterpolate(void* info, const CGFloat* inData, CGFloat* outData)
+static void TopGradientInterpolate(void*, const CGFloat* inData, CGFloat* outData)
 {
     static float dark[4] = { 1.0f, 1.0f, 1.0f, 0.4f };
     static float light[4] = { 1.0f, 1.0f, 1.0f, 0.15f };
@@ -797,7 +774,7 @@ static void TopGradientInterpolate(void* info, const CGFloat* inData, CGFloat* o
         outData[i] = (1.0f - a) * dark[i] + a * light[i];
 }
 
-static void BottomGradientInterpolate(void* info, const CGFloat* inData, CGFloat* outData)
+static void BottomGradientInterpolate(void*, const CGFloat* inData, CGFloat* outData)
 {
     static float dark[4] = { 1.0f, 1.0f, 1.0f, 0.0f };
     static float light[4] = { 1.0f, 1.0f, 1.0f, 0.3f };
@@ -807,7 +784,7 @@ static void BottomGradientInterpolate(void* info, const CGFloat* inData, CGFloat
         outData[i] = (1.0f - a) * dark[i] + a * light[i];
 }
 
-static void MainGradientInterpolate(void* info, const CGFloat* inData, CGFloat* outData)
+static void MainGradientInterpolate(void*, const CGFloat* inData, CGFloat* outData)
 {
     static float dark[4] = { 0.0f, 0.0f, 0.0f, 0.15f };
     static float light[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
@@ -817,7 +794,7 @@ static void MainGradientInterpolate(void* info, const CGFloat* inData, CGFloat* 
         outData[i] = (1.0f - a) * dark[i] + a * light[i];
 }
 
-static void TrackGradientInterpolate(void* info, const CGFloat* inData, CGFloat* outData)
+static void TrackGradientInterpolate(void*, const CGFloat* inData, CGFloat* outData)
 {
     static float dark[4] = { 0.0f, 0.0f, 0.0f, 0.678f };
     static float light[4] = { 0.0f, 0.0f, 0.0f, 0.13f };
@@ -906,10 +883,10 @@ bool RenderThemeMac::paintMenuListButton(RenderObject* o, const RenderObject::Pa
     float centerY = bounds.y() + bounds.height() / 2.0f;
     float arrowHeight = baseArrowHeight * fontScale;
     float arrowWidth = baseArrowWidth * fontScale;
-    float leftEdge = bounds.right() - arrowPaddingRight - arrowWidth;
+    float leftEdge = bounds.right() - arrowPaddingRight * o->style()->effectiveZoom() - arrowWidth;
     float spaceBetweenArrows = baseSpaceBetweenArrows * fontScale;
 
-    if (bounds.width() < arrowWidth + arrowPaddingLeft)
+    if (bounds.width() < arrowWidth + arrowPaddingLeft * o->style()->effectiveZoom())
         return false;
     
     paintInfo.context->setFillColor(o->style()->color());
@@ -935,11 +912,11 @@ bool RenderThemeMac::paintMenuListButton(RenderObject* o, const RenderObject::Pa
     Color rightSeparatorColor(255, 255, 255, 40);
 
     // FIXME: Should the separator thickness and space be scaled up by fontScale?
-    int separatorSpace = 2;
-    int leftEdgeOfSeparator = static_cast<int>(leftEdge - arrowPaddingLeft); // FIXME: Round?
+    int separatorSpace = 2; // Deliberately ignores zoom since it looks nicer if it stays thin.
+    int leftEdgeOfSeparator = static_cast<int>(leftEdge - arrowPaddingLeft * o->style()->effectiveZoom()); // FIXME: Round?
 
     // Draw the separator to the left of the arrows
-    paintInfo.context->setStrokeThickness(1.0f);
+    paintInfo.context->setStrokeThickness(1.0f); // Deliberately ignores zoom since it looks nicer if it stays thin.
     paintInfo.context->setStrokeStyle(SolidStroke);
     paintInfo.context->setStrokeColor(leftSeparatorColor);
     paintInfo.context->drawLine(IntPoint(leftEdgeOfSeparator, bounds.y()),
@@ -951,6 +928,12 @@ bool RenderThemeMac::paintMenuListButton(RenderObject* o, const RenderObject::Pa
 
     paintInfo.context->restore();
     return false;
+}
+
+static const IntSize* menuListButtonSizes()
+{
+    static const IntSize sizes[3] = { IntSize(0, 21), IntSize(0, 18), IntSize(0, 15) };
+    return sizes;
 }
 
 void RenderThemeMac::adjustMenuListStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
@@ -968,10 +951,10 @@ void RenderThemeMac::adjustMenuListStyle(CSSStyleSelector* selector, RenderStyle
 
     // Set the foreground color to black or gray when we have the aqua look.
     // Cast to RGB32 is to work around a compiler bug.
-    style->setColor(e->isEnabled() ? static_cast<RGBA32>(Color::black) : Color::darkGray);
+    style->setColor(e && e->isEnabledFormControl() ? static_cast<RGBA32>(Color::black) : Color::darkGray);
 
     // Set the button's vertical size.
-    setButtonSize(style);
+    setSizeFromFont(style, menuListButtonSizes());
 
     // Our font is locked to the appropriate system font size for the control.  To clarify, we first use the CSS-specified font to figure out
     // a reasonable control size, but once that control size is determined, we throw that font away and use the appropriate
@@ -983,44 +966,44 @@ void RenderThemeMac::adjustMenuListStyle(CSSStyleSelector* selector, RenderStyle
 
 int RenderThemeMac::popupInternalPaddingLeft(RenderStyle* style) const
 {
-    if (style->appearance() == MenulistAppearance)
-        return popupButtonPadding(controlSizeForFont(style))[leftPadding];
-    if (style->appearance() == MenulistButtonAppearance)
-        return styledPopupPaddingLeft;
+    if (style->appearance() == MenulistPart)
+        return popupButtonPadding(controlSizeForFont(style))[leftPadding] * style->effectiveZoom();
+    if (style->appearance() == MenulistButtonPart)
+        return styledPopupPaddingLeft * style->effectiveZoom();
     return 0;
 }
 
 int RenderThemeMac::popupInternalPaddingRight(RenderStyle* style) const
 {
-    if (style->appearance() == MenulistAppearance)
-        return popupButtonPadding(controlSizeForFont(style))[rightPadding];
-    if (style->appearance() == MenulistButtonAppearance) {
+    if (style->appearance() == MenulistPart)
+        return popupButtonPadding(controlSizeForFont(style))[rightPadding] * style->effectiveZoom();
+    if (style->appearance() == MenulistButtonPart) {
         float fontScale = style->fontSize() / baseFontSize;
         float arrowWidth = baseArrowWidth * fontScale;
-        return static_cast<int>(ceilf(arrowWidth + arrowPaddingLeft + arrowPaddingRight + paddingBeforeSeparator));
+        return static_cast<int>(ceilf(arrowWidth + (arrowPaddingLeft + arrowPaddingRight + paddingBeforeSeparator) * style->effectiveZoom()));
     }
     return 0;
 }
 
 int RenderThemeMac::popupInternalPaddingTop(RenderStyle* style) const
 {
-    if (style->appearance() == MenulistAppearance)
-        return popupButtonPadding(controlSizeForFont(style))[topPadding];
-    if (style->appearance() == MenulistButtonAppearance)
-        return styledPopupPaddingTop;
+    if (style->appearance() == MenulistPart)
+        return popupButtonPadding(controlSizeForFont(style))[topPadding] * style->effectiveZoom();
+    if (style->appearance() == MenulistButtonPart)
+        return styledPopupPaddingTop * style->effectiveZoom();
     return 0;
 }
 
 int RenderThemeMac::popupInternalPaddingBottom(RenderStyle* style) const
 {
-    if (style->appearance() == MenulistAppearance)
-        return popupButtonPadding(controlSizeForFont(style))[bottomPadding];
-    if (style->appearance() == MenulistButtonAppearance)
-        return styledPopupPaddingBottom;
+    if (style->appearance() == MenulistPart)
+        return popupButtonPadding(controlSizeForFont(style))[bottomPadding] * style->effectiveZoom();
+    if (style->appearance() == MenulistButtonPart)
+        return styledPopupPaddingBottom * style->effectiveZoom();
     return 0;
 }
 
-void RenderThemeMac::adjustMenuListButtonStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
+void RenderThemeMac::adjustMenuListButtonStyle(CSSStyleSelector*, RenderStyle* style, Element*) const
 {
     float fontScale = style->fontSize() / baseFontSize;
 
@@ -1038,7 +1021,7 @@ void RenderThemeMac::setPopupButtonCellState(const RenderObject* o, const IntRec
     NSPopUpButtonCell* popupButton = this->popupButton();
 
     // Set the control size based off the rectangle we're painting into.
-    setControlSize(popupButton, popupButtonSizes(), r.size());
+    setControlSize(popupButton, popupButtonSizes(), r.size(), o->style()->effectiveZoom());
 
     // Update the various states we respond to.
     updateCheckedState(popupButton, o);
@@ -1061,7 +1044,7 @@ int RenderThemeMac::minimumMenuListSize(RenderStyle* style) const
 const int trackWidth = 5;
 const int trackRadius = 2;
 
-void RenderThemeMac::adjustSliderTrackStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
+void RenderThemeMac::adjustSliderTrackStyle(CSSStyleSelector*, RenderStyle* style, Element*) const
 {
     style->setBoxShadow(0);
 }
@@ -1069,13 +1052,15 @@ void RenderThemeMac::adjustSliderTrackStyle(CSSStyleSelector* selector, RenderSt
 bool RenderThemeMac::paintSliderTrack(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
     IntRect bounds = r;
+    float zoomLevel = o->style()->effectiveZoom();
+    float zoomedTrackWidth = trackWidth * zoomLevel;
 
-    if (o->style()->appearance() ==  SliderHorizontalAppearance || o->style()->appearance() ==  MediaSliderAppearance) {
-        bounds.setHeight(trackWidth);
-        bounds.setY(r.y() + r.height() / 2 - trackWidth / 2);
-    } else if (o->style()->appearance() == SliderVerticalAppearance) {
-        bounds.setWidth(trackWidth);
-        bounds.setX(r.x() + r.width() / 2 - trackWidth / 2);
+    if (o->style()->appearance() ==  SliderHorizontalPart || o->style()->appearance() ==  MediaSliderPart) {
+        bounds.setHeight(zoomedTrackWidth);
+        bounds.setY(r.y() + r.height() / 2 - zoomedTrackWidth / 2);
+    } else if (o->style()->appearance() == SliderVerticalPart) {
+        bounds.setWidth(zoomedTrackWidth);
+        bounds.setX(r.x() + r.width() / 2 - zoomedTrackWidth / 2);
     }
 
     LocalCurrentGraphicsContext localContext(paintInfo.context);
@@ -1088,7 +1073,7 @@ bool RenderThemeMac::paintSliderTrack(RenderObject* o, const RenderObject::Paint
     struct CGFunctionCallbacks mainCallbacks = { 0, TrackGradientInterpolate, NULL };
     RetainPtr<CGFunctionRef> mainFunction(AdoptCF, CGFunctionCreate(NULL, 1, NULL, 4, NULL, &mainCallbacks));
     RetainPtr<CGShadingRef> mainShading;
-    if (o->style()->appearance() == SliderVerticalAppearance)
+    if (o->style()->appearance() == SliderVerticalPart)
         mainShading.adoptCF(CGShadingCreateAxial(cspace.get(), CGPointMake(bounds.x(),  bounds.bottom()), CGPointMake(bounds.right(), bounds.bottom()), mainFunction.get(), false, false));
     else
         mainShading.adoptCF(CGShadingCreateAxial(cspace.get(), CGPointMake(bounds.x(),  bounds.y()), CGPointMake(bounds.x(), bounds.bottom()), mainFunction.get(), false, false));
@@ -1103,7 +1088,7 @@ bool RenderThemeMac::paintSliderTrack(RenderObject* o, const RenderObject::Paint
     return false;
 }
 
-void RenderThemeMac::adjustSliderThumbStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
+void RenderThemeMac::adjustSliderThumbStyle(CSSStyleSelector*, RenderStyle* style, Element*) const
 {
     style->setBoxShadow(0);
 }
@@ -1114,7 +1099,7 @@ bool RenderThemeMac::paintSliderThumb(RenderObject* o, const RenderObject::Paint
 {
     ASSERT(o->parent()->isSlider());
 
-    NSSliderCell* sliderThumbCell = o->style()->appearance() == SliderThumbVerticalAppearance
+    NSSliderCell* sliderThumbCell = o->style()->appearance() == SliderThumbVerticalPart
         ? sliderThumbVertical()
         : sliderThumbHorizontal();
 
@@ -1126,14 +1111,14 @@ bool RenderThemeMac::paintSliderThumb(RenderObject* o, const RenderObject::Paint
 
     // Update the pressed state using the NSCell tracking methods, since that's how NSSliderCell keeps track of it.
     bool oldPressed;
-    if (o->style()->appearance() == SliderThumbVerticalAppearance)
+    if (o->style()->appearance() == SliderThumbVerticalPart)
         oldPressed = m_isSliderThumbVerticalPressed;
     else
         oldPressed = m_isSliderThumbHorizontalPressed;
 
     bool pressed = static_cast<RenderSlider*>(o->parent())->inDragMode();
 
-    if (o->style()->appearance() == SliderThumbVerticalAppearance)
+    if (o->style()->appearance() == SliderThumbVerticalPart)
         m_isSliderThumbVerticalPressed = pressed;
     else
         m_isSliderThumbHorizontalPressed = pressed;
@@ -1147,29 +1132,27 @@ bool RenderThemeMac::paintSliderThumb(RenderObject* o, const RenderObject::Paint
 
     FloatRect bounds = r;
     // Make the height of the vertical slider slightly larger so NSSliderCell will draw a vertical slider.
-    if (o->style()->appearance() == SliderThumbVerticalAppearance)
-        bounds.setHeight(bounds.height() + verticalSliderHeightPadding);
+    if (o->style()->appearance() == SliderThumbVerticalPart)
+        bounds.setHeight(bounds.height() + verticalSliderHeightPadding * o->style()->effectiveZoom());
 
-    [sliderThumbCell drawWithFrame:NSRect(bounds) inView:o->view()->frameView()->getDocumentView()];
+    paintInfo.context->save();
+    float zoomLevel = o->style()->effectiveZoom();
+    
+    FloatRect unzoomedRect = bounds;
+    if (zoomLevel != 1.0f) {
+        unzoomedRect.setWidth(unzoomedRect.width() / zoomLevel);
+        unzoomedRect.setHeight(unzoomedRect.height() / zoomLevel);
+        paintInfo.context->translate(unzoomedRect.x(), unzoomedRect.y());
+        paintInfo.context->scale(FloatSize(zoomLevel, zoomLevel));
+        paintInfo.context->translate(-unzoomedRect.x(), -unzoomedRect.y());
+    }
+
+    [sliderThumbCell drawWithFrame:unzoomedRect inView:o->view()->frameView()->documentView()];
     [sliderThumbCell setControlView:nil];
 
+    paintInfo.context->restore();
+
     return false;
-}
-
-const int sliderThumbWidth = 15;
-const int sliderThumbHeight = 15;
-const int mediaSliderThumbWidth = 13;
-const int mediaSliderThumbHeight = 14;
-
-void RenderThemeMac::adjustSliderThumbSize(RenderObject* o) const
-{
-    if (o->style()->appearance() == SliderThumbHorizontalAppearance || o->style()->appearance() == SliderThumbVerticalAppearance) {
-        o->style()->setWidth(Length(sliderThumbWidth, Fixed));
-        o->style()->setHeight(Length(sliderThumbHeight, Fixed));
-    } else if (o->style()->appearance() == MediaSliderThumbAppearance) {
-        o->style()->setWidth(Length(mediaSliderThumbWidth, Fixed));
-        o->style()->setHeight(Length(mediaSliderThumbHeight, Fixed));
-    }
 }
 
 bool RenderThemeMac::paintSearchField(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
@@ -1179,22 +1162,38 @@ bool RenderThemeMac::paintSearchField(RenderObject* o, const RenderObject::Paint
 
     setSearchCellState(o, r);
 
+    paintInfo.context->save();
+
+    float zoomLevel = o->style()->effectiveZoom();
+
+    IntRect unzoomedRect = r;
+    
+    if (zoomLevel != 1.0f) {
+        unzoomedRect.setWidth(unzoomedRect.width() / zoomLevel);
+        unzoomedRect.setHeight(unzoomedRect.height() / zoomLevel);
+        paintInfo.context->translate(unzoomedRect.x(), unzoomedRect.y());
+        paintInfo.context->scale(FloatSize(zoomLevel, zoomLevel));
+        paintInfo.context->translate(-unzoomedRect.x(), -unzoomedRect.y());
+    }
+
     // Set the search button to nil before drawing.  Then reset it so we can draw it later.
     [search setSearchButtonCell:nil];
 
-    [search drawWithFrame:NSRect(r) inView:o->view()->frameView()->getDocumentView()];
+    [search drawWithFrame:NSRect(unzoomedRect) inView:o->view()->frameView()->documentView()];
 #ifdef BUILDING_ON_TIGER
     if ([search showsFirstResponder])
-        wkDrawTextFieldCellFocusRing(search, NSRect(r));
+        wkDrawTextFieldCellFocusRing(search, NSRect(unzoomedRect));
 #endif
 
     [search setControlView:nil];
     [search resetSearchButtonCell];
 
+    paintInfo.context->restore();
+
     return false;
 }
 
-void RenderThemeMac::setSearchCellState(RenderObject* o, const IntRect& r)
+void RenderThemeMac::setSearchCellState(RenderObject* o, const IntRect&)
 {
     NSSearchFieldCell* search = this->search();
 
@@ -1221,11 +1220,11 @@ void RenderThemeMac::setSearchFieldSize(RenderStyle* style) const
     setSizeFromFont(style, searchFieldSizes());
 }
 
-void RenderThemeMac::adjustSearchFieldStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
+void RenderThemeMac::adjustSearchFieldStyle(CSSStyleSelector* selector, RenderStyle* style, Element*) const
 {
     // Override border.
     style->resetBorder();
-    const short borderWidth = 2;
+    const short borderWidth = 2 * style->effectiveZoom();
     style->setBorderLeftWidth(borderWidth);
     style->setBorderLeftStyle(INSET);
     style->setBorderRightWidth(borderWidth);
@@ -1240,7 +1239,7 @@ void RenderThemeMac::adjustSearchFieldStyle(CSSStyleSelector* selector, RenderSt
     setSearchFieldSize(style);
     
     // Override padding size to match AppKit text positioning.
-    const int padding = 1;
+    const int padding = 1 * style->effectiveZoom();
     style->setPaddingLeft(Length(padding, Fixed));
     style->setPaddingRight(Length(padding, Fixed));
     style->setPaddingTop(Length(padding, Fixed));
@@ -1255,16 +1254,35 @@ void RenderThemeMac::adjustSearchFieldStyle(CSSStyleSelector* selector, RenderSt
 bool RenderThemeMac::paintSearchFieldCancelButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
     Node* input = o->node()->shadowAncestorNode();
+    if (!input->renderer()->isBox())
+        return false;
+
     setSearchCellState(input->renderer(), r);
 
     NSSearchFieldCell* search = this->search();
 
     updatePressedState([search cancelButtonCell], o);
 
-    NSRect bounds = [search cancelButtonRectForBounds:NSRect(input->renderer()->absoluteBoundingBoxRect())];
-    [[search cancelButtonCell] drawWithFrame:bounds inView:o->view()->frameView()->getDocumentView()];
+    paintInfo.context->save();
+
+    float zoomLevel = o->style()->effectiveZoom();
+
+    FloatRect localBounds = [search cancelButtonRectForBounds:NSRect(input->renderBox()->borderBoxRect())];
+    localBounds = convertToPaintingRect(input->renderer(), o, localBounds, r);
+
+    FloatRect unzoomedRect(localBounds);
+    if (zoomLevel != 1.0f) {
+        unzoomedRect.setWidth(unzoomedRect.width() / zoomLevel);
+        unzoomedRect.setHeight(unzoomedRect.height() / zoomLevel);
+        paintInfo.context->translate(unzoomedRect.x(), unzoomedRect.y());
+        paintInfo.context->scale(FloatSize(zoomLevel, zoomLevel));
+        paintInfo.context->translate(-unzoomedRect.x(), -unzoomedRect.y());
+    }
+
+    [[search cancelButtonCell] drawWithFrame:unzoomedRect inView:o->view()->frameView()->documentView()];
     [[search cancelButtonCell] setControlView:nil];
 
+    paintInfo.context->restore();
     return false;
 }
 
@@ -1274,7 +1292,7 @@ const IntSize* RenderThemeMac::cancelButtonSizes() const
     return sizes;
 }
 
-void RenderThemeMac::adjustSearchFieldCancelButtonStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
+void RenderThemeMac::adjustSearchFieldCancelButtonStyle(CSSStyleSelector*, RenderStyle* style, Element*) const
 {
     IntSize size = sizeForSystemFont(style, cancelButtonSizes());
     style->setWidth(Length(size.width(), Fixed));
@@ -1289,7 +1307,7 @@ const IntSize* RenderThemeMac::resultsButtonSizes() const
 }
 
 const int emptyResultsOffset = 9;
-void RenderThemeMac::adjustSearchFieldDecorationStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
+void RenderThemeMac::adjustSearchFieldDecorationStyle(CSSStyleSelector*, RenderStyle* style, Element*) const
 {
     IntSize size = sizeForSystemFont(style, resultsButtonSizes());
     style->setWidth(Length(size.width() - emptyResultsOffset, Fixed));
@@ -1297,12 +1315,12 @@ void RenderThemeMac::adjustSearchFieldDecorationStyle(CSSStyleSelector* selector
     style->setBoxShadow(0);
 }
 
-bool RenderThemeMac::paintSearchFieldDecoration(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+bool RenderThemeMac::paintSearchFieldDecoration(RenderObject*, const RenderObject::PaintInfo&, const IntRect&)
 {
     return false;
 }
 
-void RenderThemeMac::adjustSearchFieldResultsDecorationStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
+void RenderThemeMac::adjustSearchFieldResultsDecorationStyle(CSSStyleSelector*, RenderStyle* style, Element*) const
 {
     IntSize size = sizeForSystemFont(style, resultsButtonSizes());
     style->setWidth(Length(size.width(), Fixed));
@@ -1310,9 +1328,12 @@ void RenderThemeMac::adjustSearchFieldResultsDecorationStyle(CSSStyleSelector* s
     style->setBoxShadow(0);
 }
 
-bool RenderThemeMac::paintSearchFieldResultsDecoration(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+bool RenderThemeMac::paintSearchFieldResultsDecoration(RenderObject* o, const RenderObject::PaintInfo&, const IntRect& r)
 {
     Node* input = o->node()->shadowAncestorNode();
+    if (!input->renderer()->isBox())
+        return false;
+
     setSearchCellState(input->renderer(), r);
 
     NSSearchFieldCell* search = this->search();
@@ -1320,14 +1341,16 @@ bool RenderThemeMac::paintSearchFieldResultsDecoration(RenderObject* o, const Re
     if ([search searchMenuTemplate] != nil)
         [search setSearchMenuTemplate:nil];
 
-    NSRect bounds = [search searchButtonRectForBounds:NSRect(input->renderer()->absoluteBoundingBoxRect())];
-    [[search searchButtonCell] drawWithFrame:bounds inView:o->view()->frameView()->getDocumentView()];
+    FloatRect localBounds = [search searchButtonRectForBounds:NSRect(input->renderBox()->borderBoxRect())];
+    localBounds = convertToPaintingRect(input->renderer(), o, localBounds, r);
+
+    [[search searchButtonCell] drawWithFrame:localBounds inView:o->view()->frameView()->documentView()];
     [[search searchButtonCell] setControlView:nil];
     return false;
 }
 
 const int resultsArrowWidth = 5;
-void RenderThemeMac::adjustSearchFieldResultsButtonStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
+void RenderThemeMac::adjustSearchFieldResultsButtonStyle(CSSStyleSelector*, RenderStyle* style, Element*) const
 {
     IntSize size = sizeForSystemFont(style, resultsButtonSizes());
     style->setWidth(Length(size.width() + resultsArrowWidth, Fixed));
@@ -1338,6 +1361,9 @@ void RenderThemeMac::adjustSearchFieldResultsButtonStyle(CSSStyleSelector* selec
 bool RenderThemeMac::paintSearchFieldResultsButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
     Node* input = o->node()->shadowAncestorNode();
+    if (!input->renderer()->isBox())
+        return false;
+
     setSearchCellState(input->renderer(), r);
 
     NSSearchFieldCell* search = this->search();
@@ -1345,26 +1371,109 @@ bool RenderThemeMac::paintSearchFieldResultsButton(RenderObject* o, const Render
     if (![search searchMenuTemplate])
         [search setSearchMenuTemplate:searchMenuTemplate()];
 
-    NSRect bounds = [search searchButtonRectForBounds:NSRect(input->renderer()->absoluteBoundingBoxRect())];
-    [[search searchButtonCell] drawWithFrame:bounds inView:o->view()->frameView()->getDocumentView()];
+    paintInfo.context->save();
+
+    float zoomLevel = o->style()->effectiveZoom();
+
+    FloatRect localBounds = [search searchButtonRectForBounds:NSRect(input->renderBox()->borderBoxRect())];
+    localBounds = convertToPaintingRect(input->renderer(), o, localBounds, r);
+    
+    IntRect unzoomedRect(localBounds);
+    if (zoomLevel != 1.0f) {
+        unzoomedRect.setWidth(unzoomedRect.width() / zoomLevel);
+        unzoomedRect.setHeight(unzoomedRect.height() / zoomLevel);
+        paintInfo.context->translate(unzoomedRect.x(), unzoomedRect.y());
+        paintInfo.context->scale(FloatSize(zoomLevel, zoomLevel));
+        paintInfo.context->translate(-unzoomedRect.x(), -unzoomedRect.y());
+    }
+
+    [[search searchButtonCell] drawWithFrame:unzoomedRect inView:o->view()->frameView()->documentView()];
     [[search searchButtonCell] setControlView:nil];
+    
+    paintInfo.context->restore();
+
     return false;
 }
 
+#if ENABLE(VIDEO)
+typedef enum {
+    MediaControllerThemeClassic   = 1,
+    MediaControllerThemeQT        = 2
+} MediaControllerThemeStyle;
+
+static int mediaControllerTheme()
+{
+    static const long minimumQuickTimeVersion = 0x07600000; // 7.6
+    static SInt32 quickTimeVersion = 0;
+
+    if (!quickTimeVersion) {
+        OSErr err;
+        err = Gestalt(gestaltQuickTime, &quickTimeVersion);
+        if (err != noErr)
+            return MediaControllerThemeClassic;
+    }
+    if (quickTimeVersion < minimumQuickTimeVersion)
+        return MediaControllerThemeClassic;
+
+    // keep the feature off for now without an explicit opt-in
+    Boolean validKey;
+    Boolean useQTMediaUI = CFPreferencesGetAppBooleanValue(CFSTR("UseQuickTimeMediaUI"), CFSTR("com.apple.WebCore"), &validKey);
+    if (!validKey || !useQTMediaUI)
+        return MediaControllerThemeClassic;
+
+    return MediaControllerThemeQT;
+}
+#endif
+
+const int sliderThumbWidth = 15;
+const int sliderThumbHeight = 15;
+const int mediaSliderThumbWidth = 13;
+const int mediaSliderThumbHeight = 14;
+
+void RenderThemeMac::adjustSliderThumbSize(RenderObject* o) const
+{
+    float zoomLevel = o->style()->effectiveZoom();
+    if (o->style()->appearance() == SliderThumbHorizontalPart || o->style()->appearance() == SliderThumbVerticalPart) {
+        o->style()->setWidth(Length(static_cast<int>(sliderThumbWidth * zoomLevel), Fixed));
+        o->style()->setHeight(Length(static_cast<int>(sliderThumbHeight * zoomLevel), Fixed));
+    } 
+
+#if ENABLE(VIDEO)
+    else if (o->style()->appearance() == MediaSliderThumbPart) {
+        int width = mediaSliderThumbWidth;
+        int height = mediaSliderThumbHeight;
+        
+        if (mediaControllerTheme() == MediaControllerThemeQT) {
+            CGSize  size;
+            
+            wkMeasureMediaUIPart(MediaSliderThumb, MediaControllerThemeQT, NULL, &size);
+            width = size.width;
+            height = size.height;
+        }
+
+        o->style()->setWidth(Length(static_cast<int>(width * zoomLevel), Fixed));
+        o->style()->setHeight(Length(static_cast<int>(height * zoomLevel), Fixed));
+    }
+#endif
+}
+
+
+#if ENABLE(VIDEO)
+
 bool RenderThemeMac::paintMediaFullscreenButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
-    Node* node = o->element();
+    Node* node = o->node();
     if (!node)
         return false;
 
     LocalCurrentGraphicsContext localContext(paintInfo.context);
-    wkDrawMediaFullscreenButton(paintInfo.context->platformContext(), r, node->active());
+    wkDrawMediaUIPart(MediaFullscreenButton, mediaControllerTheme(), paintInfo.context->platformContext(), r, node->active());
     return false;
 }
 
 bool RenderThemeMac::paintMediaMuteButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
-    Node* node = o->element();
+    Node* node = o->node();
     Node* mediaNode = node ? node->shadowAncestorNode() : 0;
     if (!mediaNode || (!mediaNode->hasTagName(videoTag) && !mediaNode->hasTagName(audioTag)))
         return false;
@@ -1374,16 +1483,13 @@ bool RenderThemeMac::paintMediaMuteButton(RenderObject* o, const RenderObject::P
         return false;
     
     LocalCurrentGraphicsContext localContext(paintInfo.context);
-    if (mediaElement->muted())
-        wkDrawMediaUnMuteButton(paintInfo.context->platformContext(), r, node->active());
-    else
-        wkDrawMediaMuteButton(paintInfo.context->platformContext(), r, node->active());        
+    wkDrawMediaUIPart(mediaElement->muted() ? MediaUnMuteButton : MediaMuteButton, mediaControllerTheme(), paintInfo.context->platformContext(), r, node->active());
     return false;
 }
 
 bool RenderThemeMac::paintMediaPlayButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
-    Node* node = o->element();
+    Node* node = o->node();
     Node* mediaNode = node ? node->shadowAncestorNode() : 0;
     if (!mediaNode || (!mediaNode->hasTagName(videoTag) && !mediaNode->hasTagName(audioTag)))
         return false;
@@ -1393,38 +1499,35 @@ bool RenderThemeMac::paintMediaPlayButton(RenderObject* o, const RenderObject::P
         return false;
 
     LocalCurrentGraphicsContext localContext(paintInfo.context);
-    if (mediaElement->canPlay())
-        wkDrawMediaPlayButton(paintInfo.context->platformContext(), r, node->active());
-    else
-        wkDrawMediaPauseButton(paintInfo.context->platformContext(), r, node->active());        
+    wkDrawMediaUIPart(mediaElement->canPlay() ? MediaPlayButton : MediaPauseButton, mediaControllerTheme(), paintInfo.context->platformContext(), r, node->active());
     return false;
 }
 
 bool RenderThemeMac::paintMediaSeekBackButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
-    Node* node = o->element();
+    Node* node = o->node();
     if (!node)
         return false;
 
     LocalCurrentGraphicsContext localContext(paintInfo.context);
-    wkDrawMediaSeekBackButton(paintInfo.context->platformContext(), r, node->active());
+    wkDrawMediaUIPart(MediaSeekBackButton, mediaControllerTheme(), paintInfo.context->platformContext(), r, node->active());
     return false;
 }
 
 bool RenderThemeMac::paintMediaSeekForwardButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
-    Node* node = o->element();
+    Node* node = o->node();
     if (!node)
         return false;
 
     LocalCurrentGraphicsContext localContext(paintInfo.context);
-    wkDrawMediaSeekForwardButton(paintInfo.context->platformContext(), r, node->active());
+    wkDrawMediaUIPart(MediaSeekForwardButton, mediaControllerTheme(), paintInfo.context->platformContext(), r, node->active());
     return false;
 }
 
 bool RenderThemeMac::paintMediaSliderTrack(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
-    Node* node = o->element();
+    Node* node = o->node();
     Node* mediaNode = node ? node->shadowAncestorNode() : 0;
     if (!mediaNode || (!mediaNode->hasTagName(videoTag) && !mediaNode->hasTagName(audioTag)))
         return false;
@@ -1433,61 +1536,85 @@ bool RenderThemeMac::paintMediaSliderTrack(RenderObject* o, const RenderObject::
     if (!mediaElement)
         return false;
 
-    float percentLoaded = 0;
-    if (MediaPlayer* player = mediaElement->player())
-        if (player->duration())
-            percentLoaded = player->maxTimeBuffered() / player->duration();
-
-    wkDrawMediaSliderTrack(paintInfo.context->platformContext(), r, percentLoaded);
+    float timeLoaded = 0;
+    float currentTime = 0;
+    float duration = 0;
+    if (MediaPlayer* player = mediaElement->player()) {
+        duration = player->duration();
+        timeLoaded = player->maxTimeBuffered();
+        currentTime = player->currentTime();
+    }
+ 
+    wkDrawMediaSliderTrack(mediaControllerTheme(), paintInfo.context->platformContext(), r, timeLoaded, currentTime, duration);
     return false;
 }
 
 bool RenderThemeMac::paintMediaSliderThumb(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
-    Node* node = o->element();
+    Node* node = o->node();
     if (!node)
         return false;
 
     LocalCurrentGraphicsContext localContext(paintInfo.context);
-    wkDrawMediaSliderThumb(paintInfo.context->platformContext(), r, node->active());
+    wkDrawMediaUIPart(MediaSliderThumb, mediaControllerTheme(), paintInfo.context->platformContext(), r, node->active());
     return false;
 }
 
-NSButtonCell* RenderThemeMac::checkbox() const
+bool RenderThemeMac::paintMediaTimelineContainer(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
-    if (!m_checkbox) {
-        m_checkbox.adoptNS([[NSButtonCell alloc] init]);
-        [m_checkbox.get() setButtonType:NSSwitchButton];
-        [m_checkbox.get() setTitle:nil];
-        [m_checkbox.get() setAllowsMixedState:YES];
-        [m_checkbox.get() setFocusRingType:NSFocusRingTypeExterior];
-    }
-    
-    return m_checkbox.get();
+    Node* node = o->node();
+    if (!node)
+        return false;
+
+    LocalCurrentGraphicsContext localContext(paintInfo.context);
+    wkDrawMediaUIPart(MediaTimelineContainer, mediaControllerTheme(), paintInfo.context->platformContext(), r, node->active());
+    return false;
 }
 
-NSButtonCell* RenderThemeMac::radio() const
+bool RenderThemeMac::paintMediaCurrentTime(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
-    if (!m_radio) {
-        m_radio.adoptNS([[NSButtonCell alloc] init]);
-        [m_radio.get() setButtonType:NSRadioButton];
-        [m_radio.get() setTitle:nil];
-        [m_radio.get() setFocusRingType:NSFocusRingTypeExterior];
-    }
-    
-    return m_radio.get();
+    Node* node = o->node();
+    if (!node)
+        return false;
+
+    LocalCurrentGraphicsContext localContext(paintInfo.context);
+    wkDrawMediaUIPart(MediaCurrentTimeDisplay, mediaControllerTheme(), paintInfo.context->platformContext(), r, node->active());
+    return false;
 }
 
-NSButtonCell* RenderThemeMac::button() const
+bool RenderThemeMac::paintMediaTimeRemaining(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
-    if (!m_button) {
-        m_button.adoptNS([[NSButtonCell alloc] init]);
-        [m_button.get() setTitle:nil];
-        [m_button.get() setButtonType:NSMomentaryPushInButton];
-    }
-    
-    return m_button.get();
+    Node* node = o->node();
+    if (!node)
+        return false;
+
+    LocalCurrentGraphicsContext localContext(paintInfo.context);
+    wkDrawMediaUIPart(MediaTimeRemainingDisplay, mediaControllerTheme(), paintInfo.context->platformContext(), r, node->active());
+    return false;
 }
+
+String RenderThemeMac::extraMediaControlsStyleSheet()
+{
+    if (mediaControllerTheme() == MediaControllerThemeQT) 
+        return String(mediaControlsQTUserAgentStyleSheet, sizeof(mediaControlsQTUserAgentStyleSheet));
+    else
+        return String();
+}
+
+bool RenderThemeMac::hitTestMediaControlPart(RenderObject* o, const IntPoint& absPoint)
+{
+    if (!o->isBox())
+        return false;
+        
+    if (mediaControllerTheme() == MediaControllerThemeQT) {
+        ControlPart part = o->style()->appearance();
+        FloatPoint localPoint = o->absoluteToLocal(absPoint, false, true);  // respect transforms
+        return wkHitTestMediaUIPart(part - MediaFullscreenButtonPart, MediaControllerThemeQT, CGRect(toRenderBox(o)->borderBoxRect()), CGPoint(localPoint));
+    }
+    else
+        return RenderTheme::hitTestMediaControlPart(o, absPoint);
+}
+#endif
 
 NSPopUpButtonCell* RenderThemeMac::popupButton() const
 {
@@ -1545,13 +1672,6 @@ NSSliderCell* RenderThemeMac::sliderThumbVertical() const
     }
     
     return m_sliderThumbVertical.get();
-}
-
-Image* RenderThemeMac::resizeCornerImage() const
-{
-    if (!m_resizeCornerImage)
-        m_resizeCornerImage = Image::loadPlatformResource("textAreaResizeCorner");
-    return m_resizeCornerImage;
 }
 
 } // namespace WebCore

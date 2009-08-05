@@ -1030,6 +1030,24 @@
 			<key>idVendor</key>
 			<integer>1133</integer>
 		</dict>
+		<key>Apple 8403</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>USB Product Name</key>
+				<string>Internal Memory Card Reader</string>
+			</dict>
+			<key>idProduct</key>
+			<integer>33795</integer>
+			<key>idVendor</key>
+			<integer>1452</integer>
+		</dict>
 		<key>LogitechCamera10</key>
 		<dict>
 			<key>CFBundleIdentifier</key>

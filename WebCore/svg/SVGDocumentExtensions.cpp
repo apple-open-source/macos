@@ -27,16 +27,17 @@
 #include "SVGDocumentExtensions.h"
 
 #include "AtomicString.h"
-#include "Chrome.h"
+#include "Console.h"
+#include "DOMWindow.h"
 #include "Document.h"
 #include "EventListener.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "Page.h"
 #include "SVGSVGElement.h"
-#include "TimeScheduler.h"
+#include "SMILTimeContainer.h"
 #include "XMLTokenizer.h"
-#include "kjs_proxy.h"
+#include "ScriptController.h"
 
 namespace WebCore {
 
@@ -48,15 +49,6 @@ SVGDocumentExtensions::SVGDocumentExtensions(Document* doc)
 SVGDocumentExtensions::~SVGDocumentExtensions()
 {
     deleteAllValues(m_pendingResources);
-    deleteAllValues(m_elementInstances);
-}
-
-PassRefPtr<EventListener> SVGDocumentExtensions::createSVGEventListener(const String& functionName, const String& code, Node *node)
-{
-    if (Frame* frame = m_doc->frame())
-        if (frame->scriptProxy()->isEnabled())
-            return frame->scriptProxy()->createSVGEventHandler(functionName, code, node);
-    return 0;
 }
 
 void SVGDocumentExtensions::addTimeContainer(SVGSVGElement* element)
@@ -76,7 +68,7 @@ void SVGDocumentExtensions::startAnimations()
 #if ENABLE(SVG_ANIMATION)    
     HashSet<SVGSVGElement*>::iterator end = m_timeContainers.end();
     for (HashSet<SVGSVGElement*>::iterator itr = m_timeContainers.begin(); itr != end; ++itr)
-        (*itr)->timeScheduler()->startAnimations();
+        (*itr)->timeContainer()->begin();
 #endif
 }
     
@@ -97,15 +89,13 @@ void SVGDocumentExtensions::unpauseAnimations()
 void SVGDocumentExtensions::reportWarning(const String& message)
 {
     if (Frame* frame = m_doc->frame())
-        if (Page* page = frame->page())
-            page->chrome()->addMessageToConsole(JSMessageSource, ErrorMessageLevel, "Warning: " + message, m_doc->tokenizer() ? m_doc->tokenizer()->lineNumber() : 1, String());
+        frame->domWindow()->console()->addMessage(JSMessageSource, ErrorMessageLevel, "Warning: " + message, m_doc->tokenizer() ? m_doc->tokenizer()->lineNumber() : 1, String());
 }
 
 void SVGDocumentExtensions::reportError(const String& message)
 {
     if (Frame* frame = m_doc->frame())
-        if (Page* page = frame->page())
-            page->chrome()->addMessageToConsole(JSMessageSource, ErrorMessageLevel, "Error: " + message, m_doc->tokenizer() ? m_doc->tokenizer()->lineNumber() : 1, String());
+        frame->domWindow()->console()->addMessage(JSMessageSource, ErrorMessageLevel, "Error: " + message, m_doc->tokenizer() ? m_doc->tokenizer()->lineNumber() : 1, String());
 }
 
 void SVGDocumentExtensions::addPendingResource(const AtomicString& id, SVGStyledElement* obj)
@@ -140,37 +130,6 @@ std::auto_ptr<HashSet<SVGStyledElement*> > SVGDocumentExtensions::removePendingR
     std::auto_ptr<HashSet<SVGStyledElement*> > set(m_pendingResources.get(id));
     m_pendingResources.remove(id);
     return set;
-}
-
-void SVGDocumentExtensions::mapInstanceToElement(SVGElementInstance* instance, SVGElement* element)
-{
-    ASSERT(instance);
-    ASSERT(element);
-
-    if (m_elementInstances.contains(element))
-        m_elementInstances.get(element)->add(instance);
-    else {
-        HashSet<SVGElementInstance*>* set = new HashSet<SVGElementInstance*>();
-        set->add(instance);
-
-        m_elementInstances.add(element, set);
-    }
-}
-
-void SVGDocumentExtensions::removeInstanceMapping(SVGElementInstance* instance, SVGElement* element)
-{
-    ASSERT(instance);
-
-    if (!m_elementInstances.contains(element))
-        return;
-
-    m_elementInstances.get(element)->remove(instance);
-}
-
-HashSet<SVGElementInstance*>* SVGDocumentExtensions::instancesForElement(SVGElement* element) const
-{
-    ASSERT(element);
-    return m_elementInstances.get(element);
 }
 
 }

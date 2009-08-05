@@ -28,29 +28,31 @@
 #include "TextCodec.h"
 
 #include "PlatformString.h"
+#include <wtf/StringExtras.h>
 
 namespace WebCore {
-
-const UChar BOM = 0xFEFF;
 
 TextCodec::~TextCodec()
 {
 }
 
-// We strip BOM characters because they can show up both at the start of content
-// and inside content, and we never want them to end up in the decoded text.
-void TextCodec::appendOmittingBOM(Vector<UChar>& v, const UChar* characters, size_t length)
+int TextCodec::getUnencodableReplacement(unsigned codePoint, UnencodableHandling handling, UnencodableReplacementArray replacement)
 {
-    size_t start = 0;
-    for (size_t i = 0; i != length; ++i) {
-        if (BOM == characters[i]) {
-            if (start != i)
-                v.append(&characters[start], i - start);
-            start = i + 1;
-        }
+    switch (handling) {
+        case QuestionMarksForUnencodables:
+            replacement[0] = '?';
+            replacement[1] = 0;
+            return 1;
+        case EntitiesForUnencodables:
+            snprintf(replacement, sizeof(UnencodableReplacementArray), "&#%u;", codePoint);
+            return static_cast<int>(strlen(replacement));
+        case URLEncodedEntitiesForUnencodables:
+            snprintf(replacement, sizeof(UnencodableReplacementArray), "%%26%%23%u%%3B", codePoint);
+            return static_cast<int>(strlen(replacement));
     }
-    if (start != length)
-        v.append(&characters[start], length - start);
+    ASSERT_NOT_REACHED();
+    replacement[0] = 0;
+    return 0;
 }
 
 } // namespace WebCore

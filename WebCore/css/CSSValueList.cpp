@@ -22,6 +22,7 @@
 #include "config.h"
 #include "CSSValueList.h"
 
+#include "CSSParserValues.h"
 #include "PlatformString.h"
 
 namespace WebCore {
@@ -31,8 +32,27 @@ CSSValueList::CSSValueList(bool isSpaceSeparated)
 {
 }
 
+CSSValueList::CSSValueList(CSSParserValueList* list)
+    : m_isSpaceSeparated(true)
+{
+    if (list) {
+        unsigned s = list->size();
+        for (unsigned i = 0; i < s; ++i) {
+            CSSParserValue* v = list->valueAt(i);
+            append(v->createCSSValue());
+        }
+    }
+}
+
 CSSValueList::~CSSValueList()
 {
+}
+
+CSSValue* CSSValueList::item(unsigned index)
+{
+    if (index >= m_values.size())
+        return 0;
+    return m_values[index].get();
 }
 
 unsigned short CSSValueList::cssValueType() const
@@ -43,6 +63,11 @@ unsigned short CSSValueList::cssValueType() const
 void CSSValueList::append(PassRefPtr<CSSValue> val)
 {
     m_values.append(val);
+}
+
+void CSSValueList::prepend(PassRefPtr<CSSValue> val)
+{
+    m_values.prepend(val);
 }
 
 String CSSValueList::cssText() const
@@ -61,6 +86,24 @@ String CSSValueList::cssText() const
     }
 
     return result;
+}
+
+CSSParserValueList* CSSValueList::createParserValueList() const
+{
+    unsigned s = m_values.size();
+    if (!s)
+        return 0;
+    CSSParserValueList* result = new CSSParserValueList;
+    for (unsigned i = 0; i < s; ++i)
+        result->addValue(m_values[i]->parserValue());
+    return result;
+}
+
+void CSSValueList::addSubresourceStyleURLs(ListHashSet<KURL>& urls, const CSSStyleSheet* styleSheet)
+{
+    size_t size = m_values.size();
+    for (size_t i = 0; i < size; ++i)
+        m_values[i]->addSubresourceStyleURLs(urls, styleSheet);
 }
 
 } // namespace WebCore

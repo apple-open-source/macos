@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -62,6 +62,32 @@
 
 #define kKeySwitchProperty			"Keyswitch"
 #define kAppleKeySwitchProperty		"AppleKeyswitch"
+
+enum
+{
+    
+	kIOUSBMassStorageUFIDevicePowerStateSleep 		= 0,
+	kIOUSBMassStorageUFIDevicePowerStateActive		= 1,
+	kIOUSBMassStorageUFIDeviceNumPowerStates		= 2
+    
+};
+
+
+static IOPMPowerState sPowerStates[kIOUSBMassStorageUFIDeviceNumPowerStates] =
+{
+
+    { kIOPMPowerStateVersion1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+    { kIOPMPowerStateVersion1, IOPMPowerOn, IOPMPowerOn, IOPMPowerOn, 0, 0, 0, 0, 0, 0, 0, 0 }
+
+};
+
+
+//-----------------------------------------------------------------------------
+//	Globals
+//-----------------------------------------------------------------------------
+
+IOOptionBits	gUFIRestartShutdownFlag = 0;
+
 
 OSDefineMetaClassAndStructors( IOUSBMassStorageUFISubclass, IOUSBMassStorageClass )
 
@@ -1306,6 +1332,75 @@ IOUSBMassStorageUFIDevice::GetInitialPowerState ( void )
 void
 IOUSBMassStorageUFIDevice::HandlePowerChange ( void )
 {
+    
+    STATUS_LOG ( ( 2, "IOUSBMassStorageUFIDevice::HandlePowerChange called\n" ) );
+	
+	// Avoid changing power state to lower state when a restart is in progress.
+	if ( gUFIRestartShutdownFlag != 0 )
+	{
+        
+		if ( fProposedPowerState <= kIOUSBMassStorageUFIDevicePowerStateSleep )
+			fCurrentPowerState = fProposedPowerState;
+        
+	}
+	
+	if ( ( fProposedPowerState != fCurrentPowerState ) &&
+        ( isInactive ( ) == false ) )
+	{
+        
+		switch ( fProposedPowerState )
+		{
+                
+			case kIOUSBMassStorageUFIDevicePowerStateSleep:
+			{
+                
+				STATUS_LOG ( ( 2, "case kIOUSBMassStorageUFIDevicePowerStateSleep\n" ) );
+				
+				DisablePolling();
+                
+				fCurrentPowerState = kIOUSBMassStorageUFIDevicePowerStateSleep;
+				
+			}
+            break;
+                
+			case kIOUSBMassStorageUFIDevicePowerStateActive:
+			{
+                
+				STATUS_LOG ( ( 2, "case kIOUSBMassStorageUFIDevicePowerStateActive\n" ) );
+				
+				fCurrentPowerState = kIOUSBMassStorageUFIDevicePowerStateActive;
+                
+				if (fMediumPresent == true)
+				{
+					// We preserve the state since we already have the media connected
+					fPollingMode = kPollingMode_MediaRemoval;
+				}
+				else
+				{
+					fPollingMode = kPollingMode_NewMedia;
+				}
+                
+				EnablePolling();
+				
+			}
+            break;
+                
+			default:
+            {
+                
+				PANIC_NOW ( ( "Undefined power state issued\n" ) );
+			
+            }
+            break;
+
+		}
+        
+	}
+	
+	if ( isInactive ( ) )
+	{
+		fCurrentPowerState = fProposedPowerState;
+	}
 	
 }
 

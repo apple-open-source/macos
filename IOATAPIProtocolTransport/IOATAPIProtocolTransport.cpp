@@ -36,6 +36,9 @@
 
 #include "IOATAPIProtocolTransport.h"
 
+#include <IOKit/storage/ata/IOATAFamilyPriv.h>
+
+
 #define ATAPI_PROTOCOL_TRANSPORT_DEBUGGING_LEVEL 0
 
 #if ( ATAPI_PROTOCOL_TRANSPORT_DEBUGGING_LEVEL >= 1 )
@@ -2334,6 +2337,12 @@ IOATAPIProtocolTransport::message ( UInt32 type, IOService * provider, void * ar
 			// and verify that the device is in a good state.
 			SendNotification_VerifyDeviceState ( );
 			break;
+		
+		case kATANewMediaEvent:
+			// Tell the layer above us that new media has been added so it can lock media
+			// and verify that the device is in a good state.
+			SendNotification_VerifyDeviceState ( );
+ 			break;
 		
 		case kATANullEvent:						// Just kidding -- nothing happened
 			break;

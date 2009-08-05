@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2006, 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2004, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,50 +26,61 @@
 #import "config.h"
 #import "DOMInternal.h"
 
-#import "Document.h"
-#import "Event.h"
+#import "DOMNodeInternal.h"
 #import "Frame.h"
 #import "JSNode.h"
-#import "Node.h"
-#import "PlatformString.h"
-#import "Range.h"
-#import "RangeException.h"
-#import "SVGException.h"
 #import "WebScriptObjectPrivate.h"
-#import "XPathEvaluator.h"
-#import "kjs_proxy.h"
+#import "runtime_root.h"
 
 //------------------------------------------------------------------------------------------
 // Wrapping WebCore implementation objects
 
-namespace WebCore {
+static NSMapTable* DOMWrapperCache;
 
-typedef HashMap<DOMObjectInternal*, NSObject*> DOMWrapperMap;
-static DOMWrapperMap* DOMWrapperCache;
+NSMapTable* createWrapperCache()
+{
+#ifdef BUILDING_ON_TIGER
+    return NSCreateMapTable(NSNonOwnedPointerMapKeyCallBacks, NSNonRetainedObjectMapValueCallBacks, 0);
+#else
+    // NSMapTable with zeroing weak pointers is the recommended way to build caches like this under garbage collection.
+    NSPointerFunctionsOptions keyOptions = NSPointerFunctionsOpaqueMemory | NSPointerFunctionsOpaquePersonality;
+    NSPointerFunctionsOptions valueOptions = NSPointerFunctionsZeroingWeakMemory | NSPointerFunctionsObjectPersonality;
+    return [[NSMapTable alloc] initWithKeyOptions:keyOptions valueOptions:valueOptions capacity:0];
+#endif
+}
+
+NSMapTable* createWrapperCacheWithIntegerKeys()
+{
+#ifdef BUILDING_ON_TIGER
+    return NSCreateMapTable(NSIntMapKeyCallBacks, NSNonRetainedObjectMapValueCallBacks, 0);
+#else
+    // NSMapTable with zeroing weak pointers is the recommended way to build caches like this under garbage collection.
+    NSPointerFunctionsOptions keyOptions = NSPointerFunctionsOpaqueMemory | NSPointerFunctionsIntegerPersonality;
+    NSPointerFunctionsOptions valueOptions = NSPointerFunctionsZeroingWeakMemory | NSPointerFunctionsObjectPersonality;
+    return [[NSMapTable alloc] initWithKeyOptions:keyOptions valueOptions:valueOptions capacity:0];
+#endif
+}
 
 NSObject* getDOMWrapper(DOMObjectInternal* impl)
 {
     if (!DOMWrapperCache)
         return nil;
-    return DOMWrapperCache->get(impl);
+    return static_cast<NSObject*>(NSMapGet(DOMWrapperCache, impl));
 }
 
 void addDOMWrapper(NSObject* wrapper, DOMObjectInternal* impl)
 {
     if (!DOMWrapperCache)
-        DOMWrapperCache = new DOMWrapperMap;
-    DOMWrapperCache->set(impl, wrapper);
+        DOMWrapperCache = createWrapperCache();
+    NSMapInsert(DOMWrapperCache, impl, wrapper);
 }
 
 void removeDOMWrapper(DOMObjectInternal* impl)
 {
     if (!DOMWrapperCache)
         return;
-    DOMWrapperCache->remove(impl);
+    NSMapRemove(DOMWrapperCache, impl);
 }
-
-} // namespace WebCore
-
 
 //------------------------------------------------------------------------------------------
 
@@ -93,7 +104,7 @@ void removeDOMWrapper(DOMObjectInternal* impl)
 
 - (void)_initializeScriptDOMNodeImp
 {
-    assert (_private->isCreatedByDOMWrapper);
+    ASSERT(_private->isCreatedByDOMWrapper);
     
     if (![self isKindOfClass:[DOMNode class]]) {
         // DOMObject can't map back to a document, and thus an interpreter,
@@ -104,7 +115,7 @@ void removeDOMWrapper(DOMObjectInternal* impl)
     
     // Extract the WebCore::Node from the ObjectiveC wrapper.
     DOMNode *n = (DOMNode *)self;
-    WebCore::Node *nodeImpl = [n _node];
+    WebCore::Node *nodeImpl = core(n);
 
     // Dig up Interpreter and ExecState.
     WebCore::Frame *frame = 0;
@@ -113,12 +124,12 @@ void removeDOMWrapper(DOMObjectInternal* impl)
     if (!frame)
         return;
         
-    KJS::ExecState *exec = frame->scriptProxy()->globalObject()->globalExec();
+    JSC::ExecState *exec = frame->script()->globalObject()->globalExec();
     
     // Get (or create) a cached JS object for the DOM node.
-    KJS::JSObject *scriptImp = static_cast<KJS::JSObject*>(WebCore::toJS(exec, nodeImpl));
+    JSC::JSObject *scriptImp = asObject(WebCore::toJS(exec, nodeImpl));
 
-    KJS::Bindings::RootObject* rootObject = frame->bindingRootObject();
+    JSC::Bindings::RootObject* rootObject = frame->script()->bindingRootObject();
 
     [self _setImp:scriptImp originRootObject:rootObject rootObject:rootObject];
 }

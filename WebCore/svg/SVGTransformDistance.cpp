@@ -38,7 +38,7 @@ SVGTransformDistance::SVGTransformDistance()
 {
 }
 
-SVGTransformDistance::SVGTransformDistance(SVGTransform::SVGTransformType type, float angle, float cx, float cy, const AffineTransform& transform)
+SVGTransformDistance::SVGTransformDistance(SVGTransform::SVGTransformType type, float angle, float cx, float cy, const TransformationMatrix& transform)
     : m_type(type)
     , m_angle(angle)
     , m_cx(cx)
@@ -77,9 +77,9 @@ SVGTransformDistance::SVGTransformDistance(const SVGTransform& fromSVGTransform,
     }
     case SVGTransform::SVG_TRANSFORM_SCALE:
     {
-        float scaleX = fromSVGTransform.scale().width() != 0 ? toSVGTransform.scale().width() / fromSVGTransform.scale().width() : toSVGTransform.scale().width() / 0.00001f;
-        float scaleY = fromSVGTransform.scale().height() != 0 ? toSVGTransform.scale().height() / fromSVGTransform.scale().height() : toSVGTransform.scale().height() / 0.00001f;
-        m_transform.scale(scaleX, scaleY);
+        float scaleX = toSVGTransform.scale().width() - fromSVGTransform.scale().width();        
+        float scaleY = toSVGTransform.scale().height() - fromSVGTransform.scale().height();
+        m_transform.scaleNonUniform(scaleX, scaleY);
         return;
     }
     case SVGTransform::SVG_TRANSFORM_SKEWX:
@@ -95,20 +95,20 @@ SVGTransformDistance SVGTransformDistance::scaledDistance(float scaleFactor) con
     case SVGTransform::SVG_TRANSFORM_UNKNOWN:
         return SVGTransformDistance();
     case SVGTransform::SVG_TRANSFORM_ROTATE:
-        return SVGTransformDistance(m_type, m_angle * scaleFactor, m_cx * scaleFactor, m_cy * scaleFactor, AffineTransform());
+        return SVGTransformDistance(m_type, m_angle * scaleFactor, m_cx * scaleFactor, m_cy * scaleFactor, TransformationMatrix());
     case SVGTransform::SVG_TRANSFORM_SCALE:
     case SVGTransform::SVG_TRANSFORM_MATRIX:
-        return SVGTransformDistance(m_type, m_angle * scaleFactor, m_cx * scaleFactor, m_cy * scaleFactor, AffineTransform(m_transform).scale(scaleFactor));
+        return SVGTransformDistance(m_type, m_angle * scaleFactor, m_cx * scaleFactor, m_cy * scaleFactor, TransformationMatrix(m_transform).scale(scaleFactor));
     case SVGTransform::SVG_TRANSFORM_TRANSLATE:
     {
-        AffineTransform newTransform(m_transform);
+        TransformationMatrix newTransform(m_transform);
         newTransform.setE(m_transform.e() * scaleFactor);
         newTransform.setF(m_transform.f() * scaleFactor);
         return SVGTransformDistance(m_type, 0, 0, 0, newTransform);
     }
     case SVGTransform::SVG_TRANSFORM_SKEWX:
     case SVGTransform::SVG_TRANSFORM_SKEWY:
-        return SVGTransformDistance(m_type, m_angle * scaleFactor, m_cx * scaleFactor, m_cy * scaleFactor, AffineTransform());
+        return SVGTransformDistance(m_type, m_angle * scaleFactor, m_cx * scaleFactor, m_cy * scaleFactor, TransformationMatrix());
     }
     
     ASSERT_NOT_REACHED();
@@ -188,7 +188,7 @@ void SVGTransformDistance::addSVGTransform(const SVGTransform& transform, bool a
     {
         float scaleX = absoluteValue ? fabsf(transform.scale().width()) : transform.scale().width();
         float scaleY = absoluteValue ? fabsf(transform.scale().height()) : transform.scale().height();
-        m_transform.scale(scaleX, scaleY);
+        m_transform.scaleNonUniform(scaleX, scaleY);
         return;
     }
     case SVGTransform::SVG_TRANSFORM_SKEWX:
@@ -249,7 +249,7 @@ SVGTransform SVGTransformDistance::addToSVGTransform(const SVGTransform& transfo
 
 bool SVGTransformDistance::isZero() const
 {
-    return (m_transform == AffineTransform() && m_angle == 0);
+    return (m_transform == TransformationMatrix() && m_angle == 0);
 }
 
 float SVGTransformDistance::distance() const

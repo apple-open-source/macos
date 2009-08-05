@@ -29,7 +29,8 @@
 namespace WebCore {
 
     class String;
-
+    class IntSize;
+    
     String inputElementAltText();
     String resetButtonDefaultLabel();
     String searchableIndexIntroduction();
@@ -75,6 +76,7 @@ namespace WebCore {
     String contextMenuItemTagUnderline();
     String contextMenuItemTagOutline();
     String contextMenuItemTagWritingDirectionMenu();
+    String contextMenuItemTagTextDirectionMenu();
     String contextMenuItemTagDefaultDirection();
     String contextMenuItemTagLeftToRight();
     String contextMenuItemTagRightToLeft();
@@ -86,6 +88,19 @@ namespace WebCore {
     String contextMenuItemTagSpeechMenu();
     String contextMenuItemTagStartSpeaking();
     String contextMenuItemTagStopSpeaking();
+    String contextMenuItemTagCorrectSpellingAutomatically();
+    String contextMenuItemTagSubstitutionsMenu();
+    String contextMenuItemTagShowSubstitutions(bool show);
+    String contextMenuItemTagSmartCopyPaste();
+    String contextMenuItemTagSmartQuotes();
+    String contextMenuItemTagSmartDashes();
+    String contextMenuItemTagSmartLinks();
+    String contextMenuItemTagTextReplacement();
+    String contextMenuItemTagTransformationsMenu();
+    String contextMenuItemTagMakeUpperCase();
+    String contextMenuItemTagMakeLowerCase();
+    String contextMenuItemTagCapitalize();
+    String contextMenuItemTagChangeBack(const String& replacedString);
 #endif
     String contextMenuItemTagInspectElement();
 
@@ -98,13 +113,25 @@ namespace WebCore {
     String AXListMarkerText();
     String AXImageMapText();
     String AXHeadingText();
+    String AXDefinitionListTermText();
+    String AXDefinitionListDefinitionText();
+    
+    String AXButtonActionVerb();
+    String AXRadioButtonActionVerb();
+    String AXTextFieldActionVerb();
+    String AXCheckedCheckBoxActionVerb();
+    String AXUncheckedCheckBoxActionVerb();
+    String AXLinkActionVerb();
 
+    String multipleFileUploadText(unsigned numberOfFiles);
     String unknownFileSizeText();
 
 #if PLATFORM(WIN)
     String uploadFileText();
     String allFilesText();
 #endif
+
+    String imageTitle(const String& filename, const IntSize& size);
 }
 
 #endif

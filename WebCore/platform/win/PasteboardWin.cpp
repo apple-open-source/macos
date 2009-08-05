@@ -26,17 +26,15 @@
 #include "config.h"
 #include "Pasteboard.h"
 
-#include "ClipboardUtilitiesWin.h"
 #include "CString.h"
-#include "DeprecatedString.h"
-#include "DocumentFragment.h"
+#include "ClipboardUtilitiesWin.h"
 #include "Document.h"
+#include "DocumentFragment.h"
 #include "Element.h"
 #include "Frame.h"
 #include "HitTestResult.h"
 #include "Image.h"
 #include "KURL.h"
-#include "NotImplemented.h"
 #include "Page.h"
 #include "Range.h"
 #include "RenderImage.h"
@@ -116,7 +114,10 @@ void Pasteboard::writeSelection(Range* selectedRange, bool canSmartCopyOrDelete,
     // Put CF_HTML format on the pasteboard 
     if (::OpenClipboard(m_owner)) {
         ExceptionCode ec = 0;
-        HGLOBAL cbData = createGlobalData(markupToCF_HTML(createMarkup(selectedRange, 0, AnnotateForInterchange), selectedRange->startContainer(ec)->document()->url()));
+        Vector<char> data;
+        markupToCF_HTML(createMarkup(selectedRange, 0, AnnotateForInterchange),
+            selectedRange->startContainer(ec)->document()->url().string(), data);
+        HGLOBAL cbData = createGlobalData(data);
         if (!::SetClipboardData(HTMLClipboardFormat, cbData))
             ::GlobalFree(cbData);
         ::CloseClipboard();
@@ -166,7 +167,9 @@ void Pasteboard::writeURL(const KURL& url, const String& titleStr, Frame* frame)
 
     // write to clipboard in format CF_HTML to be able to paste into contenteditable areas as a link
     if (::OpenClipboard(m_owner)) {
-        HGLOBAL cbData = createGlobalData(markupToCF_HTML(urlToMarkup(url, title), ""));
+        Vector<char> data;
+        markupToCF_HTML(urlToMarkup(url, title), "", data);
+        HGLOBAL cbData = createGlobalData(data);
         if (!::SetClipboardData(HTMLClipboardFormat, cbData))
             ::GlobalFree(cbData);
         ::CloseClipboard();

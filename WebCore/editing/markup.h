@@ -47,6 +47,9 @@ namespace WebCore {
     String createMarkup(const Range*,
         Vector<Node*>* = 0, EAnnotateForInterchange = DoNotAnnotateForInterchange, bool convertBlocksToInlines = false);
     String createMarkup(const Node*, EChildrenOnly = IncludeNode, Vector<Node*>* = 0);
+    
+    String createFullMarkup(const Node*);
+    String createFullMarkup(const Range*);
 
 }
 

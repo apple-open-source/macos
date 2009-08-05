@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,7 +27,7 @@
 #include "BString.h"
 
 #include "AtomicString.h"
-#include "DeprecatedString.h"
+#include "KURL.h"
 #include "PlatformString.h"
 #include <tchar.h>
 #include <windows.h>
@@ -35,6 +35,8 @@
 #if PLATFORM(CF)
 #include <CoreFoundation/CoreFoundation.h>
 #endif
+
+using namespace JSC;
 
 namespace WebCore {
 
@@ -67,12 +69,12 @@ BString::BString(const String& s)
         m_bstr = SysAllocStringLen(s.characters(), s.length());
 }
 
-BString::BString(const DeprecatedString& s)
+BString::BString(const KURL& url)
 {
-    if (s.isNull())
+    if (url.isNull())
         m_bstr = 0;
     else
-        m_bstr = SysAllocStringLen(String(s).characters(), s.length());
+        m_bstr = SysAllocStringLen(url.string().characters(), url.string().length());
 }
 
 BString::BString(const AtomicString& s)
@@ -81,6 +83,14 @@ BString::BString(const AtomicString& s)
         m_bstr = 0;
     else
         m_bstr = SysAllocStringLen(s.characters(), s.length());
+}
+
+BString::BString(const UString& s)
+{
+    if (s.isNull())
+        m_bstr = 0;
+    else
+        m_bstr = SysAllocStringLen(s.data(), s.size());
 }
 
 #if PLATFORM(CF)

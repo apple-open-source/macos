@@ -26,6 +26,7 @@
 module html {
 
     interface [
+        GenerateConstructor,
         InterfaceUUID=98fb48ae-7216-489c-862b-8e1217fc4443,
         ImplementationUUID=ab4f0781-152f-450e-9546-5b3987491a54
     ] CanvasRenderingContext2D {
@@ -41,12 +42,15 @@ module html {
         void rotate(in float angle);
         void translate(in float tx, in float ty);
         void transform(in float m11, in float m12, in float m21, in float m22, in float dx, in float dy);
+        void setTransform(in float m11, in float m12, in float m21, in float m22, in float dx, in float dy);
 
         attribute float globalAlpha;
         attribute [ConvertNullToNullString] DOMString globalCompositeOperation;
 
-        CanvasGradient createLinearGradient(in float x0, in float y0, in float x1, in float y1);
-        CanvasGradient createRadialGradient(in float x0, in float y0, in float r0, in float x1, in float y1, in float r1);
+        CanvasGradient createLinearGradient(in float x0, in float y0, in float x1, in float y1)
+            raises (DOMException);
+        CanvasGradient createRadialGradient(in float x0, in float y0, in float r0, in float x1, in float y1, in float r1)
+            raises (DOMException);
 
         attribute float lineWidth;
         attribute [ConvertNullToNullString] DOMString lineCap;
@@ -58,10 +62,8 @@ module html {
         attribute float shadowBlur;
         attribute [ConvertNullToNullString] DOMString shadowColor;
 
-        void clearRect(in float x, in float y, in float width, in float height)
-            raises (DOMException);
-        void fillRect(in float x, in float y, in float width, in float height)
-            raises (DOMException);
+        void clearRect(in float x, in float y, in float width, in float height);
+        void fillRect(in float x, in float y, in float width, in float height);
 
         void beginPath();
         void closePath();
@@ -71,14 +73,21 @@ module html {
         void bezierCurveTo(in float cp1x, in float cp1y, in float cp2x, in float cp2y, in float x, in float y);
         void arcTo(in float x1, in float y1, in float x2, in float y2, in float radius)
             raises (DOMException);
-        void rect(in float x, in float y, in float width, in float height)
-            raises (DOMException);
+        void rect(in float x, in float y, in float width, in float height);
         void arc(in float x, in float y, in float radius, in float startAngle, in float endAngle, in boolean anticlockwise)
             raises (DOMException);
         void fill();
         void stroke();
         void clip();
         boolean isPointInPath(in float x, in float y);
+
+        // text
+        attribute DOMString font;
+        attribute DOMString textAlign;
+        attribute DOMString textBaseline;
+        [Custom] void fillText(/* 4 */);
+        [Custom] void strokeText(/* 4 */);
+        TextMetrics measureText(in DOMString text);
 
         // other
 
@@ -101,7 +110,13 @@ module html {
         [Custom] void createPattern(/* 2 */);
         
         attribute [Custom] custom strokeStyle;
-        attribute [Custom] custom fillStyle;        
+        attribute [Custom] custom fillStyle;
+        
+        // pixel manipulation
+        ImageData createImageData(in float sw, in float sh);
+        ImageData getImageData(in float sx, in float sy, in float sw, in float sh)
+            raises(DOMException);
+        [Custom] void putImageData(/* in ImageData imagedata, in float dx, in float dy [, in float dirtyX, in float dirtyY, in float dirtyWidth, in float dirtyHeight] */);
     };
 
 }

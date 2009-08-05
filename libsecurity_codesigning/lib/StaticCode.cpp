@@ -320,6 +320,8 @@ bool SecStaticCode::verifySignature()
     CMSSignerStatus status;
     MacOSError::check(CMSDecoderCopySignerStatus(cms, 0, verificationPolicy(),
 		false, &status, &mTrust.aref(), NULL));
+	if (status != kCMSSignerValid)
+		MacOSError::throwMe(errSecCSSignatureFailed);
 	
 	// get signing date (we've got the decoder handle right here)
 	mSigningTime = 0;		// "not present" marker (nobody could code sign on Jan 1, 2001 :-)

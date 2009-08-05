@@ -37,7 +37,7 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-RenderPart::RenderPart(HTMLFrameOwnerElement* node)
+RenderPart::RenderPart(Element* node)
     : RenderWidget(node)
 {
     // init RenderObject attributes
@@ -79,39 +79,6 @@ void RenderPart::deleteWidget()
         static_cast<FrameView*>(m_widget)->deref();
     else
         delete m_widget;
-}
-
-// FIXME: This should not be necessary.  Remove this once WebKit knows to properly schedule
-// layouts using WebCore when objects resize.
-void RenderPart::updateWidgetPosition()
-{
-    if (!m_widget)
-        return;
-    
-    int x, y, width, height;
-    absolutePosition(x, y);
-    x += borderLeft() + paddingLeft();
-    y += borderTop() + paddingTop();
-    width = m_width - borderLeft() - borderRight() - paddingLeft() - paddingRight();
-    height = m_height - borderTop() - borderBottom() - paddingTop() - paddingBottom();
-    IntRect newBounds(x,y,width,height);
-    bool boundsChanged = newBounds != m_widget->frameGeometry();
-    if (boundsChanged) {
-        // The widget changed positions.  Update the frame geometry.
-        RenderArena *arena = ref();
-        element()->ref();
-        m_widget->setFrameGeometry(newBounds);
-        element()->deref();
-        deref(arena);
-    }
-
-    // if the frame bounds got changed, or if view needs layout (possibly indicating
-    // content size is wrong) we have to do a layout to set the right widget size
-    if (m_widget && m_widget->isFrameView()) {
-        FrameView* frameView = static_cast<FrameView*>(m_widget);
-        if (boundsChanged || frameView->needsLayout())
-            frameView->layout();
-    }
 }
 
 }

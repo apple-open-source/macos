@@ -1,11 +1,9 @@
 /*
-    This file is part of the KDE libraries
-
     Copyright (C) 1998 Lars Knoll (knoll@mpi-hd.mpg.de)
     Copyright (C) 2001 Dirk Mueller (mueller@kde.org)
     Copyright (C) 2002 Waldo Bastian (bastian@kde.org)
     Copyright (C) 2006 Samuel Weinig (sam.weinig@gmail.com)
-    Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
+    Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -32,23 +30,18 @@
 
 #include "CachedXBLDocument.h"
 
-#include "Cache.h"
 #include "CachedResourceClientWalker.h"
 #include "TextResourceDecoder.h"
-#include "loader.h"
 #include <wtf/Vector.h>
 
 namespace WebCore {
 
-CachedXBLDocument::CachedXBLDocument(DocLoader* dl, const String &url)
+CachedXBLDocument::CachedXBLDocument(const String &url)
 : CachedResource(url, XBL), m_document(0)
 {
     // It's XML we want.
     setAccept("text/xml, application/xml, application/xhtml+xml, text/xsl, application/rss+xml, application/atom+xml");
-    
-    // Load the file
-    Cache::loader()->load(dl, this, false);
-    m_loading = true;
+
     m_decoder = new TextResourceDecoder("application/xml");
 }
 

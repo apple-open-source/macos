@@ -30,16 +30,16 @@ module html {
                  attribute  [ConvertNullToNullString] DOMString            accessKey;
                  attribute  long                 cols;
                  attribute  boolean              disabled;
+                 attribute  boolean              autofocus;
                  attribute  [ConvertNullToNullString] DOMString            name;
                  attribute  boolean              readOnly;
                  attribute  long                 rows;
-                 attribute  long                 tabIndex;
         readonly attribute  DOMString            type;
                  attribute  [ConvertNullToNullString] DOMString            value;
         
-        void     blur();
-        void     focus();
         void     select();
+
+        readonly attribute boolean         willValidate;
 
        // WinIE & FireFox extension:
                  attribute long selectionStart;

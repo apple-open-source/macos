@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,97 +30,24 @@
 #import "config.h"
 #import "FileChooser.h"
 
-#import "Document.h"
-#import "SimpleFontData.h"
-#import "Frame.h"
-#import "Icon.h"
 #import "LocalizedStrings.h"
+#import "SimpleFontData.h"
 #import "StringTruncator.h"
-#import "WebCoreFrameBridge.h"
-
-using namespace WebCore;
-
-@interface WebCoreOpenPanelController : NSObject <WebCoreOpenPanelResultListener> {
-    FileChooser *_fileChooser;
-    WebCoreFrameBridge *_bridge;
-}
-- (id)initWithFileChooser:(FileChooser *)fileChooser;
-- (void)disconnectFileChooser;
-- (void)beginSheetWithFrame:(Frame*)frame;
-@end
-
-@implementation WebCoreOpenPanelController
-
-- (id)initWithFileChooser:(FileChooser *)fileChooser
-{
-    self = [super init];
-    if (!self)
-        return nil;
-
-    _fileChooser = fileChooser;
-    return self;
-}
-
-- (void)disconnectFileChooser
-{
-    _fileChooser = 0;
-}
-
-- (void)beginSheetWithFrame:(Frame*)frame
-{
-    if (!_fileChooser)
-        return;
-    
-    _bridge = frame->bridge();
-    [_bridge retain];
-    [_bridge runOpenPanelForFileButtonWithResultListener:self];
-}
-
-- (void)chooseFilename:(NSString *)filename
-{
-    if (_fileChooser)
-        _fileChooser->chooseFile(filename);
-    [_bridge release];
-}
-
-- (void)cancel
-{
-    [_bridge release];
-}
-
-@end
 
 namespace WebCore {
     
-FileChooser::FileChooser(FileChooserClient* client, const String& filename)
-    : m_client(client)
-    , m_filename(filename)
-    , m_icon(chooseIcon(filename))
-    , m_controller(AdoptNS, [[WebCoreOpenPanelController alloc] initWithFileChooser:this])
-{
-}
-
-FileChooser::~FileChooser()
-{
-    [m_controller.get() disconnectFileChooser];
-}
-
-void FileChooser::openFileChooser(Document* document)
-{
-    if (Frame* frame = document->frame())
-        [m_controller.get() beginSheetWithFrame:frame];
-}
-
 String FileChooser::basenameForWidth(const Font& font, int width) const
 {
     if (width <= 0)
         return String();
 
     String strToTruncate;
-    if (m_filename.isEmpty())
+    if (m_filenames.isEmpty())
         strToTruncate = fileButtonNoFileSelectedLabel();
+    else if (m_filenames.size() == 1)
+        strToTruncate = [[NSFileManager defaultManager] displayNameAtPath:(m_filenames[0])];
     else
-        strToTruncate = [[NSFileManager defaultManager] displayNameAtPath:m_filename];
+        return StringTruncator::rightTruncate(multipleFileUploadText(m_filenames.size()), width, font, false);
 
     return StringTruncator::centerTruncate(strToTruncate, width, font, false);
 }

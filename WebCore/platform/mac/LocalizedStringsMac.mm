@@ -27,6 +27,7 @@
 #import "LocalizedStrings.h"
 
 #import "BlockExceptions.h"
+#import "IntSize.h"
 #import "PlatformString.h"
 #import "WebCoreViewFactory.h"
 
@@ -400,6 +401,14 @@ String contextMenuItemTagWritingDirectionMenu()
     return String();
 }
 
+String contextMenuItemTagTextDirectionMenu()
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    return [[WebCoreViewFactory sharedFactory] contextMenuItemTagTextDirectionMenu];
+    END_BLOCK_OBJC_EXCEPTIONS;
+    return String();
+}
+
 String contextMenuItemTagDefaultDirection()
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
@@ -424,6 +433,110 @@ String contextMenuItemTagRightToLeft()
     return String();
 }
 
+String contextMenuItemTagCorrectSpellingAutomatically()
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    return [[WebCoreViewFactory sharedFactory] contextMenuItemTagCorrectSpellingAutomatically];
+    END_BLOCK_OBJC_EXCEPTIONS;
+    return String();
+}
+
+String contextMenuItemTagSubstitutionsMenu()
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    return [[WebCoreViewFactory sharedFactory] contextMenuItemTagSubstitutionsMenu];
+    END_BLOCK_OBJC_EXCEPTIONS;
+    return String();
+}
+
+String contextMenuItemTagShowSubstitutions(bool show)
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    return [[WebCoreViewFactory sharedFactory] contextMenuItemTagShowSubstitutions:show];
+    END_BLOCK_OBJC_EXCEPTIONS;
+    return String();
+}
+
+String contextMenuItemTagSmartCopyPaste()
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    return [[WebCoreViewFactory sharedFactory] contextMenuItemTagSmartCopyPaste];
+    END_BLOCK_OBJC_EXCEPTIONS;
+    return String();
+}
+
+String contextMenuItemTagSmartQuotes()
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    return [[WebCoreViewFactory sharedFactory] contextMenuItemTagSmartQuotes];
+    END_BLOCK_OBJC_EXCEPTIONS;
+    return String();
+}
+
+String contextMenuItemTagSmartDashes()
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    return [[WebCoreViewFactory sharedFactory] contextMenuItemTagSmartDashes];
+    END_BLOCK_OBJC_EXCEPTIONS;
+    return String();
+}
+
+String contextMenuItemTagSmartLinks()
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    return [[WebCoreViewFactory sharedFactory] contextMenuItemTagSmartLinks];
+    END_BLOCK_OBJC_EXCEPTIONS;
+    return String();
+}
+
+String contextMenuItemTagTextReplacement()
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    return [[WebCoreViewFactory sharedFactory] contextMenuItemTagTextReplacement];
+    END_BLOCK_OBJC_EXCEPTIONS;
+    return String();
+}
+
+String contextMenuItemTagTransformationsMenu()
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    return [[WebCoreViewFactory sharedFactory] contextMenuItemTagTransformationsMenu];
+    END_BLOCK_OBJC_EXCEPTIONS;
+    return String();
+}
+
+String contextMenuItemTagMakeUpperCase()
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    return [[WebCoreViewFactory sharedFactory] contextMenuItemTagMakeUpperCase];
+    END_BLOCK_OBJC_EXCEPTIONS;
+    return String();
+}
+
+String contextMenuItemTagMakeLowerCase()
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    return [[WebCoreViewFactory sharedFactory] contextMenuItemTagMakeLowerCase];
+    END_BLOCK_OBJC_EXCEPTIONS;
+    return String();
+}
+
+String contextMenuItemTagCapitalize()
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    return [[WebCoreViewFactory sharedFactory] contextMenuItemTagCapitalize];
+    END_BLOCK_OBJC_EXCEPTIONS;
+    return String();
+}
+
+String contextMenuItemTagChangeBack(const String& replacedString)
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    return [[WebCoreViewFactory sharedFactory] contextMenuItemTagChangeBack:replacedString];
+    END_BLOCK_OBJC_EXCEPTIONS;
+    return replacedString;
+}
+    
 String contextMenuItemTagInspectElement()
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
@@ -496,10 +609,90 @@ String AXHeadingText()
     return String();
 }
 
+String AXDefinitionListTermText()
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    return [[WebCoreViewFactory sharedFactory] AXDefinitionListTermText];
+    END_BLOCK_OBJC_EXCEPTIONS;
+    return String();
+}
+    
+String AXDefinitionListDefinitionText()
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    return [[WebCoreViewFactory sharedFactory] AXDefinitionListDefinitionText];
+    END_BLOCK_OBJC_EXCEPTIONS;
+    return String();
+}
+    
+String AXButtonActionVerb()
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    return [[WebCoreViewFactory sharedFactory] AXButtonActionVerb];
+    END_BLOCK_OBJC_EXCEPTIONS;
+    return String();
+}
+
+String AXRadioButtonActionVerb()
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    return [[WebCoreViewFactory sharedFactory] AXRadioButtonActionVerb];
+    END_BLOCK_OBJC_EXCEPTIONS;
+    return String();
+}
+
+String AXTextFieldActionVerb()
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    return [[WebCoreViewFactory sharedFactory] AXTextFieldActionVerb];
+    END_BLOCK_OBJC_EXCEPTIONS;
+    return String();
+}
+
+String AXCheckedCheckBoxActionVerb()
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    return [[WebCoreViewFactory sharedFactory] AXCheckedCheckBoxActionVerb];
+    END_BLOCK_OBJC_EXCEPTIONS;
+    return String();
+}
+
+String AXUncheckedCheckBoxActionVerb()
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    return [[WebCoreViewFactory sharedFactory] AXUncheckedCheckBoxActionVerb];
+    END_BLOCK_OBJC_EXCEPTIONS;
+    return String();
+}
+
+String AXLinkActionVerb()
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    return [[WebCoreViewFactory sharedFactory] AXLinkActionVerb];
+    END_BLOCK_OBJC_EXCEPTIONS;
+    return String();
+}
+
+String multipleFileUploadText(unsigned numberOfFiles)
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    return [[WebCoreViewFactory sharedFactory] multipleFileUploadTextForNumberOfFiles:numberOfFiles];
+    END_BLOCK_OBJC_EXCEPTIONS;
+    return String();
+}
+
 String unknownFileSizeText()
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
     return [[WebCoreViewFactory sharedFactory] unknownFileSizeText];
+    END_BLOCK_OBJC_EXCEPTIONS;
+    return String();
+}
+
+String imageTitle(const String& filename, const IntSize& size)
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    return [[WebCoreViewFactory sharedFactory] imageTitleForFilename:filename width:size.width() height:size.height()];
     END_BLOCK_OBJC_EXCEPTIONS;
     return String();
 }

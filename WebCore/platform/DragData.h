@@ -43,7 +43,9 @@ typedef id <NSDraggingInfo> DragDataRef;
 typedef void* DragDataRef;
 #endif
 #elif PLATFORM(QT)
+QT_BEGIN_NAMESPACE
 class QMimeData;
+QT_END_NAMESPACE
 typedef const QMimeData* DragDataRef;
 #elif PLATFORM(WIN)
 typedef struct IDataObject* DragDataRef;
@@ -52,6 +54,8 @@ typedef class wxDataObject* DragDataRef;
 #elif PLATFORM(GTK)
 // FIXME: this should probably be something gdk-specific
 typedef void* DragDataRef;
+#elif PLATFORM(CHROMIUM)
+#include "DragDataRef.h"
 #endif
 
 
@@ -82,7 +86,7 @@ namespace WebCore {
         const IntPoint& globalPosition() const { return m_globalPosition; }
         DragDataRef platformData() const { return m_platformDragData; }
         DragOperation draggingSourceOperationMask() const { return m_draggingSourceOperationMask; }
-        Clipboard* createClipboard(ClipboardAccessPolicy) const;
+        PassRefPtr<Clipboard> createClipboard(ClipboardAccessPolicy) const;
         bool containsURL() const;
         bool containsPlainText() const;
         bool containsCompatibleContent() const;

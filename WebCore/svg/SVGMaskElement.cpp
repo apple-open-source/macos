@@ -29,6 +29,7 @@
 #include "CSSStyleSelector.h"
 #include "GraphicsContext.h"
 #include "ImageBuffer.h"
+#include "MappedAttribute.h"
 #include "RenderSVGContainer.h"
 #include "SVGLength.h"
 #include "SVGNames.h"
@@ -48,32 +49,20 @@ SVGMaskElement::SVGMaskElement(const QualifiedName& tagName, Document* doc)
     , SVGTests()
     , SVGLangSpace()
     , SVGExternalResourcesRequired()
-    , m_maskUnits(SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX)
-    , m_maskContentUnits(SVGUnitTypes::SVG_UNIT_TYPE_USERSPACEONUSE)
-    , m_x(this, LengthModeWidth)
-    , m_y(this, LengthModeHeight)
-    , m_width(this, LengthModeWidth)
-    , m_height(this, LengthModeHeight)
+    , m_maskUnits(this, SVGNames::maskUnitsAttr, SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX)
+    , m_maskContentUnits(this, SVGNames::maskContentUnitsAttr, SVGUnitTypes::SVG_UNIT_TYPE_USERSPACEONUSE)
+    , m_x(this, SVGNames::xAttr, LengthModeWidth, "-10%")
+    , m_y(this, SVGNames::yAttr, LengthModeHeight, "-10%")
+    , m_width(this, SVGNames::widthAttr, LengthModeWidth, "120%")
+    , m_height(this, SVGNames::heightAttr, LengthModeHeight, "120%")
 {
-    // Spec: If the attribute is not specified, the effect is as if a value of "-10%" were specified.
-    setXBaseValue(SVGLength(this, LengthModeWidth, "-10%"));
-    setYBaseValue(SVGLength(this, LengthModeHeight, "-10%"));
-  
-    // Spec: If the attribute is not specified, the effect is as if a value of "120%" were specified.
-    setWidthBaseValue(SVGLength(this, LengthModeWidth, "120%"));
-    setHeightBaseValue(SVGLength(this, LengthModeHeight, "120%"));
+    // Spec: If the x/y attribute is not specified, the effect is as if a value of "-10%" were specified.
+    // Spec: If the width/height attribute is not specified, the effect is as if a value of "120%" were specified.
 }
 
 SVGMaskElement::~SVGMaskElement()
 {
 }
-
-ANIMATED_PROPERTY_DEFINITIONS(SVGMaskElement, int, Enumeration, enumeration, MaskUnits, maskUnits, SVGNames::maskUnitsAttr, m_maskUnits)
-ANIMATED_PROPERTY_DEFINITIONS(SVGMaskElement, int, Enumeration, enumeration, MaskContentUnits, maskContentUnits, SVGNames::maskContentUnitsAttr, m_maskContentUnits)
-ANIMATED_PROPERTY_DEFINITIONS(SVGMaskElement, SVGLength, Length, length, X, x, SVGNames::xAttr, m_x)
-ANIMATED_PROPERTY_DEFINITIONS(SVGMaskElement, SVGLength, Length, length, Y, y, SVGNames::yAttr, m_y)
-ANIMATED_PROPERTY_DEFINITIONS(SVGMaskElement, SVGLength, Length, length, Width, width, SVGNames::widthAttr, m_width)
-ANIMATED_PROPERTY_DEFINITIONS(SVGMaskElement, SVGLength, Length, length, Height, height, SVGNames::heightAttr, m_height)
 
 void SVGMaskElement::parseMappedAttribute(MappedAttribute* attr)
 {
@@ -88,13 +77,13 @@ void SVGMaskElement::parseMappedAttribute(MappedAttribute* attr)
         else if (attr->value() == "objectBoundingBox")
             setMaskContentUnitsBaseValue(SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX);
     } else if (attr->name() == SVGNames::xAttr)
-        setXBaseValue(SVGLength(this, LengthModeWidth, attr->value()));
+        setXBaseValue(SVGLength(LengthModeWidth, attr->value()));
     else if (attr->name() == SVGNames::yAttr)
-        setYBaseValue(SVGLength(this, LengthModeHeight, attr->value()));
+        setYBaseValue(SVGLength(LengthModeHeight, attr->value()));
     else if (attr->name() == SVGNames::widthAttr)
-        setWidthBaseValue(SVGLength(this, LengthModeWidth, attr->value()));
+        setWidthBaseValue(SVGLength(LengthModeWidth, attr->value()));
     else if (attr->name() == SVGNames::heightAttr)
-        setHeightBaseValue(SVGLength(this, LengthModeHeight, attr->value()));
+        setHeightBaseValue(SVGLength(LengthModeHeight, attr->value()));
     else {
         if (SVGURIReference::parseMappedAttribute(attr))
             return;
@@ -126,9 +115,9 @@ void SVGMaskElement::svgAttributeChanged(const QualifiedName& attrName)
         m_masker->invalidate();
 }
 
-void SVGMaskElement::childrenChanged(bool changedByParser)
+void SVGMaskElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
 {
-    SVGStyledElement::childrenChanged(changedByParser);
+    SVGStyledElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
 
     if (!m_masker)
         return;
@@ -150,14 +139,14 @@ auto_ptr<ImageBuffer> SVGMaskElement::drawMaskerContent(const FloatRect& targetR
         widthValue = width().valueAsPercentage() * targetRect.width();
         heightValue = height().valueAsPercentage() * targetRect.height();
     } else {
-        xValue = x().value();
-        yValue = y().value();
-        widthValue = width().value();
-        heightValue = height().value();
+        xValue = x().value(this);
+        yValue = y().value(this);
+        widthValue = width().value(this);
+        heightValue = height().value(this);
     } 
 
     IntSize imageSize(lroundf(widthValue), lroundf(heightValue));
-    clampImageBufferSizeToViewport(document()->renderer(), imageSize);
+    clampImageBufferSizeToViewport(document()->view(), imageSize);
 
     if (imageSize.width() < static_cast<int>(widthValue))
         widthValue = imageSize.width();
@@ -217,7 +206,7 @@ RenderObject* SVGMaskElement::createRenderer(RenderArena* arena, RenderStyle*)
 SVGResource* SVGMaskElement::canvasResource()
 {
     if (!m_masker)
-        m_masker = new SVGResourceMasker(this);
+        m_masker = SVGResourceMasker::create(this);
     return m_masker.get();
 }
 

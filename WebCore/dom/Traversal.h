@@ -1,11 +1,9 @@
 /*
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  * Copyright (C) 2000 Frederik Holljen (frederik.holljen@hig.no)
  * Copyright (C) 2001 Peter Kelly (pmk@post.com)
  * Copyright (C) 2006 Samuel Weinig (sam.weinig@gmail.com)
- * Copyright (C) 2004 Apple Computer, Inc.
+ * Copyright (C) 2004, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -27,7 +25,7 @@
 #ifndef Traversal_h
 #define Traversal_h
 
-#include <wtf/RefCounted.h>
+#include "ScriptState.h"
 #include <wtf/Forward.h>
 #include <wtf/RefPtr.h>
 
@@ -36,17 +34,16 @@ namespace WebCore {
     class Node;
     class NodeFilter;
 
-    class Traversal : public RefCounted<Traversal> {
+    class Traversal {
     public:
-        Traversal(Node*, unsigned whatToShow, PassRefPtr<NodeFilter>, bool expandEntityReferences);
-        virtual ~Traversal();
-
         Node* root() const { return m_root.get(); }
         unsigned whatToShow() const { return m_whatToShow; }
         NodeFilter* filter() const { return m_filter.get(); }
         bool expandEntityReferences() const { return m_expandEntityReferences; }
 
-        short acceptNode(Node*) const;
+    protected:
+        Traversal(PassRefPtr<Node>, unsigned whatToShow, PassRefPtr<NodeFilter>, bool expandEntityReferences);
+        short acceptNode(ScriptState*, Node*) const;
 
     private:
         RefPtr<Node> m_root;

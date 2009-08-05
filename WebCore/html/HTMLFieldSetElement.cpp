@@ -1,6 +1,4 @@
 /*
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
@@ -29,14 +27,16 @@
 
 #include "HTMLNames.h"
 #include "RenderFieldset.h"
+#include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLFieldSetElement::HTMLFieldSetElement(Document *doc, HTMLFormElement *f)
-   : HTMLGenericFormElement(fieldsetTag, doc, f)
+HTMLFieldSetElement::HTMLFieldSetElement(const QualifiedName& tagName, Document *doc, HTMLFormElement *f)
+   : HTMLFormControlElement(tagName, doc, f)
 {
+    ASSERT(hasTagName(fieldsetTag));
 }
 
 HTMLFieldSetElement::~HTMLFieldSetElement()
@@ -50,16 +50,16 @@ bool HTMLFieldSetElement::checkDTD(const Node* newChild)
 
 bool HTMLFieldSetElement::isFocusable() const
 {
-    return false;
+    return HTMLElement::isFocusable();
 }
 
-const AtomicString& HTMLFieldSetElement::type() const
+const AtomicString& HTMLFieldSetElement::formControlType() const
 {
-    static const AtomicString fieldset("fieldset");
+    DEFINE_STATIC_LOCAL(const AtomicString, fieldset, ("fieldset"));
     return fieldset;
 }
 
-RenderObject* HTMLFieldSetElement::createRenderer(RenderArena* arena, RenderStyle* style)
+RenderObject* HTMLFieldSetElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
     return new (arena) RenderFieldset(this);
 }

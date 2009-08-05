@@ -579,6 +579,19 @@ IOUSBHIDDriver::message( UInt32 type, IOService * provider,  void * argument )
             
             USBLog(3, "IOUSBHIDDriver(%s)[%p]: received kIOUSBMessagePortHasBeenReset, checking idle and rearming interrupt read", getName(), this);
             
+			// We need to take into account the fact that we did not initiate the reset.  In that cause, we need to make sure that or interrupt pie is 
+			// aborted.
+			if ( _retryCount != 0 )
+			{
+				USBLog(3, "IOUSBHIDDriver(%s)[%p]: received kIOUSBMessagePortHasBeenReset, retryCount was %ld, so we didn't generate the reset", getName(), this, _retryCount);
+                ABORTEXPECTED = TRUE;
+
+                if (_interruptPipe)
+                {
+                    _interruptPipe->Abort();
+                }
+			}
+			
             _retryCount = kHIDDriverRetryCount;
             ABORTEXPECTED = FALSE;
             _deviceHasBeenDisconnected = FALSE;

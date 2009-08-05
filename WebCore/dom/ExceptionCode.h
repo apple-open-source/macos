@@ -48,7 +48,16 @@ namespace WebCore {
 
         // Introduced in DOM Level 3:
         VALIDATION_ERR = 16,
-        TYPE_MISMATCH_ERR = 17
+        TYPE_MISMATCH_ERR = 17,
+
+        // XMLHttpRequest extension:
+        SECURITY_ERR = 18,
+
+        // Others introduced in HTML5:
+        NETWORK_ERR = 19,
+        ABORT_ERR = 20,
+        URL_MISMATCH_ERR = 21,
+        QUOTA_EXCEEDED_ERR = 22,
     };
 
     enum ExceptionType {

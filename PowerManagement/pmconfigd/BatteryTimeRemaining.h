@@ -39,4 +39,6 @@ __private_extern__ void BatteryTimeRemainingSleepWakeNotification(natural_t mess
 
 __private_extern__ void BatteryTimeRemainingBatteriesHaveChanged(IOPMBattery **battery_info);
 
+__private_extern__ bool BatteryHandleDeadName(mach_port_t deadName);
+
 #endif _BatteryTimeRemaining_h_

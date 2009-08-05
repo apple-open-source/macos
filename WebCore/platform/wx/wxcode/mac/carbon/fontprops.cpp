@@ -23,13 +23,17 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if __WXMAC__
+#include "config.h"
+#include "fontprops.h"
+
 #include <ApplicationServices/ApplicationServices.h>
-#endif
 
 #include <wx/defs.h>
 #include <wx/gdicmn.h>
-#include "fontprops.h"
+
+#ifdef BUILDING_ON_TIGER
+void (*wkGetFontMetrics)(CGFontRef, int* ascent, int* descent, int* lineGap, unsigned* unitsPerEm);
+#endif
 
 const float smallCapsFontSizeMultiplier = 0.7f;
 const float contextDPI = 72.0f;
@@ -38,26 +42,49 @@ static inline float scaleEmToUnits(float x, unsigned unitsPerEm) { return x * (c
 wxFontProperties::wxFontProperties(wxFont* font):
 m_ascent(0), m_descent(0), m_lineGap(0), m_lineSpacing(0), m_xHeight(0)
 {
+    CGFontRef cgFont;
+
+#ifdef wxOSX_USE_CORE_TEXT && wxOSX_USE_CORE_TEXT
+    cgFont = CTFontCopyGraphicsFont((CTFontRef)font->OSXGetCTFont(), NULL);
+#else
     ATSFontRef fontRef;
     
     fontRef = FMGetATSFontRefFromFont(font->MacGetATSUFontID());
-    if (fontRef){
-        ATSFontMetrics vMetrics;
-        OSStatus err;
-        
-        int height = font->GetPointSize(); //.GetHeight();
-        err = ATSFontGetHorizontalMetrics(fontRef, 0, &vMetrics);
-        if (err != noErr)
-            fprintf(stderr, "Error number is %d\n", err);
-        m_ascent = lroundf(vMetrics.ascent * height);
-        m_descent = lroundf(vMetrics.descent * height);
-        m_lineGap = lroundf(vMetrics.leading * height);
+    
+    if (fontRef)
+        cgFont = CGFontCreateWithPlatformFont((void*)&fontRef);
+#endif
+
+    if (cgFont) {
+        int iAscent;
+        int iDescent;
+        int iLineGap;
+        unsigned unitsPerEm;
+#ifdef BUILDING_ON_TIGER
+        wkGetFontMetrics(cgFont, &iAscent, &iDescent, &iLineGap, &unitsPerEm);
+#else
+        iAscent = CGFontGetAscent(cgFont);
+        iDescent = CGFontGetDescent(cgFont);
+        iLineGap = CGFontGetLeading(cgFont);
+        unitsPerEm = CGFontGetUnitsPerEm(cgFont);
+#endif
+        float pointSize = font->GetPointSize();
+        float fAscent = scaleEmToUnits(iAscent, unitsPerEm) * pointSize;
+        float fDescent = -scaleEmToUnits(iDescent, unitsPerEm) * pointSize;
+        float fLineGap = scaleEmToUnits(iLineGap, unitsPerEm) * pointSize;
+
+        m_ascent = lroundf(fAscent);
+        m_descent = lroundf(fDescent);
+        m_lineGap = lroundf(fLineGap);
         wxCoord xHeight = 0;
         GetTextExtent(*font, wxT("x"), NULL, &xHeight, NULL, NULL);
         m_xHeight = lroundf(xHeight);
-        m_lineSpacing = m_ascent - m_descent + m_lineGap;
+        m_lineSpacing = m_ascent + m_descent + m_lineGap;
 
     }
+    
+    if (cgFont)
+        CGFontRelease(cgFont);
 
 }
 
@@ -76,7 +103,7 @@ void GetTextExtent( const wxFont& font, const wxString& str, wxCoord *width, wxC
 
         // we need the scale here ...
 
-        Fixed atsuSize = IntToFixed( int( /*m_scaleY*/ 1 * font.MacGetFontSize()) ) ;
+        Fixed atsuSize = IntToFixed( int( /*m_scaleY*/ 1 * font.GetPointSize()) ) ;
         //RGBColor atsuColor = MAC_WXCOLORREF( m_textForegroundColor.GetPixel() ) ;
         ATSUAttributeTag atsuTags[] =
         {
@@ -152,5 +179,10 @@ void GetTextExtent( const wxFont& font, const wxString& str, wxCoord *width, wxC
     if ( width )
         *width = FixedToInt(textAfter - textBefore) ;
 
+#if SIZEOF_WCHAR_T == 4
+    free( ubuf ) ;
+#endif
+
     ::ATSUDisposeTextLayout(atsuLayout);
+    ::ATSUDisposeStyle((ATSUStyle)ATSUIStyle);
 }

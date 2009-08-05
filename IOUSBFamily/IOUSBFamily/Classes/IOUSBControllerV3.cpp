@@ -1046,9 +1046,15 @@ IOUSBControllerV3::RootHubTimerFired(OSObject *owner, IOTimerEventSource *sender
 	
     if (!me || me->isInactive() || !me->_controllerAvailable)
         return;
+	
 	if (me->_rootHubDevice && me->_rootHubDevice->GetPolicyMaker())
 	{
-		USBLog(7, "IOUSBControllerV3(%s)[%p]::RootHubTimerFired - PolicyMaker[%p] powerState[%d]", me->getName(), me, me->_rootHubDevice->GetPolicyMaker(), (int)me->_rootHubDevice->GetPolicyMaker()->getPowerState());
+		USBLog(7, "IOUSBControllerV3(%s)[%p]::RootHubTimerFired - PolicyMaker[%p] powerState[%d] _powerStateChangingTo[%d]", me->getName(), me, me->_rootHubDevice->GetPolicyMaker(), (int)me->_rootHubDevice->GetPolicyMaker()->getPowerState(),(int)me->_powerStateChangingTo);
+		if ((me->_powerStateChangingTo == kUSBPowerStateSleep) and (me->_rootHubDevice->GetPolicyMaker()->getPowerState() == kIOUSBHubPowerStateSleep))
+		{
+			USBLog(2, "IOUSBControllerV3(%s)[%p]::RootHubTimerFired - abandoning ship because I am going to sleep and my root hub is already asleep", me->getName(), me);
+			return;
+		}
 	}
 	else
 	{

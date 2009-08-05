@@ -1,11 +1,9 @@
-/**
- * This file is part of the DOM implementation for KDE.
- *
+/*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Stefan Schimanski (1Stein@gmx.de)
- * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
- * Copyright (C) 2007 Trolltech ASA
+ * Copyright (C) 2004, 2005, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -22,34 +20,34 @@
  * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301, USA.
  */
+
 #include "config.h"
 #include "HTMLAppletElement.h"
 
 #include "Frame.h"
 #include "HTMLDocument.h"
 #include "HTMLNames.h"
+#include "MappedAttribute.h"
 #include "RenderApplet.h"
 #include "RenderInline.h"
 #include "Settings.h"
+#include "ScriptController.h"
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLAppletElement::HTMLAppletElement(Document *doc)
-: HTMLPlugInElement(appletTag, doc)
+HTMLAppletElement::HTMLAppletElement(const QualifiedName& tagName, Document* doc)
+    : HTMLPlugInElement(tagName, doc)
 {
+    ASSERT(hasTagName(appletTag));
 }
 
 HTMLAppletElement::~HTMLAppletElement()
 {
-#if USE(JAVASCRIPTCORE_BINDINGS)
-    // m_instance should have been cleaned up in detach().
-    ASSERT(!m_instance);
-#endif
 }
 
-void HTMLAppletElement::parseMappedAttribute(MappedAttribute *attr)
+void HTMLAppletElement::parseMappedAttribute(MappedAttribute* attr)
 {
     if (attr->name() == altAttr ||
         attr->name() == archiveAttr ||
@@ -59,21 +57,21 @@ void HTMLAppletElement::parseMappedAttribute(MappedAttribute *attr)
         attr->name() == objectAttr) {
         // Do nothing.
     } else if (attr->name() == nameAttr) {
-        String newNameAttr = attr->value();
+        const AtomicString& newName = attr->value();
         if (inDocument() && document()->isHTMLDocument()) {
-            HTMLDocument *doc = static_cast<HTMLDocument *>(document());
-            doc->removeNamedItem(oldNameAttr);
-            doc->addNamedItem(newNameAttr);
+            HTMLDocument* document = static_cast<HTMLDocument*>(this->document());
+            document->removeNamedItem(m_name);
+            document->addNamedItem(newName);
         }
-        oldNameAttr = newNameAttr;
+        m_name = newName;
     } else if (attr->name() == idAttr) {
-        String newIdAttr = attr->value();
+        const AtomicString& newId = attr->value();
         if (inDocument() && document()->isHTMLDocument()) {
-            HTMLDocument *doc = static_cast<HTMLDocument *>(document());
-            doc->removeDocExtraNamedItem(oldIdAttr);
-            doc->addDocExtraNamedItem(newIdAttr);
+            HTMLDocument* document = static_cast<HTMLDocument*>(this->document());
+            document->removeExtraNamedItem(m_id);
+            document->addExtraNamedItem(newId);
         }
-        oldIdAttr = newIdAttr;
+        m_id = newId;
         // also call superclass
         HTMLPlugInElement::parseMappedAttribute(attr);
     } else
@@ -83,9 +81,9 @@ void HTMLAppletElement::parseMappedAttribute(MappedAttribute *attr)
 void HTMLAppletElement::insertedIntoDocument()
 {
     if (document()->isHTMLDocument()) {
-        HTMLDocument *doc = static_cast<HTMLDocument *>(document());
-        doc->addNamedItem(oldNameAttr);
-        doc->addDocExtraNamedItem(oldIdAttr);
+        HTMLDocument* document = static_cast<HTMLDocument*>(this->document());
+        document->addNamedItem(m_name);
+        document->addExtraNamedItem(m_id);
     }
 
     HTMLPlugInElement::insertedIntoDocument();
@@ -94,20 +92,23 @@ void HTMLAppletElement::insertedIntoDocument()
 void HTMLAppletElement::removedFromDocument()
 {
     if (document()->isHTMLDocument()) {
-        HTMLDocument *doc = static_cast<HTMLDocument *>(document());
-        doc->removeNamedItem(oldNameAttr);
-        doc->removeDocExtraNamedItem(oldIdAttr);
+        HTMLDocument* document = static_cast<HTMLDocument*>(this->document());
+        document->removeNamedItem(m_name);
+        document->removeExtraNamedItem(m_id);
     }
 
     HTMLPlugInElement::removedFromDocument();
 }
 
-bool HTMLAppletElement::rendererIsNeeded(RenderStyle *style)
+bool HTMLAppletElement::rendererIsNeeded(RenderStyle* style)
 {
-    return !getAttribute(codeAttr).isNull();
+    if (getAttribute(codeAttr).isNull())
+        return false;
+
+    return HTMLPlugInElement::rendererIsNeeded(style);
 }
 
-RenderObject *HTMLAppletElement::createRenderer(RenderArena *arena, RenderStyle *style)
+RenderObject* HTMLAppletElement::createRenderer(RenderArena*, RenderStyle* style)
 {
     Settings* settings = document()->settings();
 
@@ -115,17 +116,19 @@ RenderObject *HTMLAppletElement::createRenderer(RenderArena *arena, RenderStyle 
         HashMap<String, String> args;
 
         args.set("code", getAttribute(codeAttr));
+
         const AtomicString& codeBase = getAttribute(codebaseAttr);
-        if(!codeBase.isNull())
+        if (!codeBase.isNull())
             args.set("codeBase", codeBase);
-        const AtomicString& name = getAttribute(document()->htmlMode() != Document::XHtml ? nameAttr : idAttr);
+
+        const AtomicString& name = getAttribute(document()->isHTMLDocument() ? nameAttr : idAttr);
         if (!name.isNull())
             args.set("name", name);
         const AtomicString& archive = getAttribute(archiveAttr);
         if (!archive.isNull())
             args.set("archive", archive);
 
-        args.set("baseURL", document()->baseURL());
+        args.set("baseURL", document()->baseURL().string());
 
         const AtomicString& mayScript = getAttribute(mayscriptAttr);
         if (!mayScript.isNull())
@@ -139,24 +142,18 @@ RenderObject *HTMLAppletElement::createRenderer(RenderArena *arena, RenderStyle 
     return RenderObject::createObject(this, style);
 }
 
-#if USE(JAVASCRIPTCORE_BINDINGS)
-KJS::Bindings::Instance *HTMLAppletElement::getInstance() const
+RenderWidget* HTMLAppletElement::renderWidgetForJSBindings() const
 {
     Settings* settings = document()->settings();
     if (!settings || !settings->isJavaEnabled())
         return 0;
 
-    if (m_instance)
-        return m_instance.get();
-    
-    if (RenderApplet* r = static_cast<RenderApplet*>(renderer())) {
-        r->createWidgetIfNecessary();
-        if (r->widget() && document()->frame())
-            m_instance = document()->frame()->createScriptInstanceForWidget(r->widget());
-    }
-    return m_instance.get();
+    RenderApplet* applet = static_cast<RenderApplet*>(renderer());
+    if (applet)
+        applet->createWidgetIfNecessary();
+
+    return applet;
 }
-#endif
 
 void HTMLAppletElement::finishParsingChildren()
 {
@@ -164,14 +161,6 @@ void HTMLAppletElement::finishParsingChildren()
     HTMLPlugInElement::finishParsingChildren();
     if (renderer())
         renderer()->setNeedsLayout(true); // This will cause it to create its widget & the Java applet
-}
-
-void HTMLAppletElement::detach()
-{
-#if USE(JAVASCRIPTCORE_BINDINGS)
-    m_instance = 0;
-#endif
-    HTMLPlugInElement::detach();
 }
 
 String HTMLAppletElement::alt() const

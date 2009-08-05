@@ -1,10 +1,9 @@
 /*
- * This file is part of the html renderer for KDE.
- *
  * Copyright (C) 2000 Lars Knoll (knoll@kde.org)
  *           (C) 2000 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
  * Copyright (C) 2003, 2006, 2007 Apple Computer, Inc.
+ * Copyright (C) 2008 Holger Hans Peter Freyther
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -26,12 +25,14 @@
 #ifndef Font_h
 #define Font_h
 
+#include "TextRun.h"
 #include "FontDescription.h"
+#include "SimpleFontData.h"
 #include <wtf/HashMap.h>
+#include <wtf/MathExtras.h>
 
 #if PLATFORM(QT)
-#include <QtGui/qfont.h>
-#include <QtGui/qfontmetrics.h>
+#include <QFont>
 #endif
 
 namespace WebCore {
@@ -46,109 +47,18 @@ class GlyphBuffer;
 class GlyphPageTreeNode;
 class GraphicsContext;
 class IntPoint;
-class RenderObject;
-class SimpleFontData;
-class SVGPaintServer;
+class SVGFontElement;
 
 struct GlyphData;
 
-class TextRun {
-public:
-    TextRun(const UChar* c, int len, bool allowTabs = false, int xpos = 0, int padding = 0, bool rtl = false, bool directionalOverride = false,
-              bool applyRunRounding = true, bool applyWordRounding = true)
-        : m_characters(c)
-        , m_len(len)
-        , m_allowTabs(allowTabs)
-        , m_xpos(xpos)
-        , m_padding(padding)
-        , m_rtl(rtl)
-        , m_directionalOverride(directionalOverride)
-        , m_applyRunRounding(applyRunRounding)
-        , m_applyWordRounding(applyWordRounding)
-        , m_disableSpacing(false)
-#if ENABLE(SVG_FONTS)
-        , m_referencingRenderObject(0)
-        , m_activePaintServer(0)
-#endif
-    {
-    }
-
-    TextRun(const String& s, bool allowTabs = false, int xpos = 0, int padding = 0, bool rtl = false, bool directionalOverride = false,
-              bool applyRunRounding = true, bool applyWordRounding = true)
-        : m_characters(s.characters())
-        , m_len(s.length())
-        , m_allowTabs(allowTabs)
-        , m_xpos(xpos)
-        , m_padding(padding)
-        , m_rtl(rtl)
-        , m_directionalOverride(directionalOverride)
-        , m_applyRunRounding(applyRunRounding)
-        , m_applyWordRounding(applyWordRounding)
-        , m_disableSpacing(false)
-#if ENABLE(SVG_FONTS)
-        , m_referencingRenderObject(0)
-        , m_activePaintServer(0)
-#endif
-    {
-    }
-
-    const UChar operator[](int i) const { return m_characters[i]; }
-    const UChar* data(int i) const { return &m_characters[i]; }
-
-    const UChar* characters() const { return m_characters; }
-    int length() const { return m_len; }
-
-    void setText(const UChar* c, int len) { m_characters = c; m_len = len; }
-
-    bool allowTabs() const { return m_allowTabs; }
-    int xPos() const { return m_xpos; }
-    int padding() const { return m_padding; }
-    bool rtl() const { return m_rtl; }
-    bool ltr() const { return !m_rtl; }
-    bool directionalOverride() const { return m_directionalOverride; }
-    bool applyRunRounding() const { return m_applyRunRounding; }
-    bool applyWordRounding() const { return m_applyWordRounding; }
-    bool spacingDisabled() const { return m_disableSpacing; }
-
-    void disableSpacing() { m_disableSpacing = true; }
-    void disableRoundingHacks() { m_applyRunRounding = m_applyWordRounding = false; }
-    void setRTL(bool b) { m_rtl = b; }
-    void setDirectionalOverride(bool override) { m_directionalOverride = override; }
-
-#if ENABLE(SVG_FONTS)
-    RenderObject* referencingRenderObject() const { return m_referencingRenderObject; }
-    void setReferencingRenderObject(RenderObject* object) { m_referencingRenderObject = object; }
-
-    SVGPaintServer* activePaintServer() const { return m_activePaintServer; }
-    void setActivePaintServer(SVGPaintServer* object) { m_activePaintServer = object; }
-#endif
-
-private:
-    const UChar* m_characters;
-    int m_len;
-
-    bool m_allowTabs;
-    int m_xpos;
-    int m_padding;
-    bool m_rtl;
-    bool m_directionalOverride;
-    bool m_applyRunRounding;
-    bool m_applyWordRounding;
-    bool m_disableSpacing;
-
-#if ENABLE(SVG_FONTS)
-    RenderObject* m_referencingRenderObject;
-    SVGPaintServer* m_activePaintServer;
-#endif
-};
+const unsigned defaultUnitsPerEm = 1000;
 
 class Font {
 public:
     Font();
     Font(const FontDescription&, short letterSpacing, short wordSpacing);
-#if !PLATFORM(QT)
-    Font(const FontPlatformData&, bool isPrinting); // This constructor is only used if the platform wants to start with a native font.
-#endif
+    // This constructor is only used if the platform wants to start with a native font.
+    Font(const FontPlatformData&, bool isPrinting);
     ~Font();
 
     Font(const Font&);
@@ -168,8 +78,9 @@ public:
 
     void drawText(GraphicsContext*, const TextRun&, const FloatPoint&, int from = 0, int to = -1) const;
 
-    int width(const TextRun&) const;
-    float floatWidth(const TextRun&) const;
+    int width(const TextRun& run, HashSet<const SimpleFontData*>* fallbackFonts = 0) const { return lroundf(floatWidth(run, fallbackFonts)); }
+    float floatWidth(const TextRun&, HashSet<const SimpleFontData*>* fallbackFonts = 0) const;
+    float floatWidth(const TextRun& run, int extraCharsAvailable, int& charsConsumed, String& glyphName) const;
 
     int offsetForPosition(const TextRun&, int position, bool includePartialGlyphs) const;
     FloatRect selectionRectForText(const TextRun&, const IntPoint&, int h, int from = 0, int to = -1) const;
@@ -178,13 +89,8 @@ public:
 
     short wordSpacing() const { return m_wordSpacing; }
     short letterSpacing() const { return m_letterSpacing; }
-#if !PLATFORM(QT)
     void setWordSpacing(short s) { m_wordSpacing = s; }
     void setLetterSpacing(short s) { m_letterSpacing = s; }
-#else
-    void setWordSpacing(short s);
-    void setLetterSpacing(short s);
-#endif
     bool isFixedPitch() const;
     bool isPrinterFont() const { return m_fontDescription.usePrinterFont(); }
     
@@ -194,29 +100,21 @@ public:
     const FontFamily& family() const { return m_fontDescription.family(); }
 
     bool italic() const { return m_fontDescription.italic(); }
-    unsigned weight() const { return m_fontDescription.weight(); }
-    bool bold() const { return m_fontDescription.bold(); }
+    FontWeight weight() const { return m_fontDescription.weight(); }
 
-#if !PLATFORM(QT)
     bool isPlatformFont() const { return m_isPlatformFont; }
-#endif
-
-#if PLATFORM(QT)
-    inline const QFont &font() const { return m_font; }
-    inline const QFont &scFont() const { return m_scFont; }
-#endif
 
     // Metrics that we query the FontFallbackList for.
-    int ascent() const;
-    int descent() const;
+    int ascent() const { return primaryFont()->ascent(); }
+    int descent() const { return primaryFont()->descent(); }
     int height() const { return ascent() + descent(); }
-    int lineSpacing() const;
-    float xHeight() const;
-    unsigned unitsPerEm() const;
-    int spaceWidth() const;
+    int lineSpacing() const { return primaryFont()->lineSpacing(); }
+    int lineGap() const { return primaryFont()->lineGap(); }
+    float xHeight() const { return primaryFont()->xHeight(); }
+    unsigned unitsPerEm() const { return primaryFont()->unitsPerEm(); }
+    int spaceWidth() const { return (int)ceilf(primaryFont()->m_adjustedSpaceWidth + m_letterSpacing); }
     int tabWidth() const { return 8 * spaceWidth(); }
 
-#if !PLATFORM(QT)
     const SimpleFontData* primaryFont() const {
         if (!m_cachedPrimaryFont)
             cachePrimaryFont();
@@ -224,66 +122,76 @@ public:
     }
 
     const FontData* fontDataAt(unsigned) const;
-    const GlyphData& glyphDataForCharacter(UChar32, bool mirror, bool forceSmallCaps = false) const;
+    GlyphData glyphDataForCharacter(UChar32, bool mirror, bool forceSmallCaps = false) const;
     // Used for complex text, and does not utilize the glyph map cache.
     const FontData* fontDataForCharacters(const UChar*, int length) const;
 
+#if PLATFORM(QT)
+    QFont font() const;
+#endif
+
 private:
-    bool canUseGlyphCache(const TextRun&) const;
-    void drawSimpleText(GraphicsContext*, const TextRun&, const FloatPoint&, int from, int to) const;
 #if ENABLE(SVG_FONTS)
     void drawTextUsingSVGFont(GraphicsContext*, const TextRun&, const FloatPoint&, int from, int to) const;
     float floatWidthUsingSVGFont(const TextRun&) const;
+    float floatWidthUsingSVGFont(const TextRun&, int extraCharsAvailable, int& charsConsumed, String& glyphName) const;
     FloatRect selectionRectForTextUsingSVGFont(const TextRun&, const IntPoint&, int h, int from, int to) const;
     int offsetForPositionForTextUsingSVGFont(const TextRun&, int position, bool includePartialGlyphs) const;
 #endif
+
+#if USE(FONT_FAST_PATH)
+    bool canUseGlyphCache(const TextRun&) const;
+    void drawSimpleText(GraphicsContext*, const TextRun&, const FloatPoint&, int from, int to) const;
     void drawGlyphs(GraphicsContext*, const SimpleFontData*, const GlyphBuffer&, int from, int to, const FloatPoint&) const;
     void drawGlyphBuffer(GraphicsContext*, const GlyphBuffer&, const TextRun&, const FloatPoint&) const;
-    void drawComplexText(GraphicsContext*, const TextRun&, const FloatPoint&, int from, int to) const;
-    float floatWidthForSimpleText(const TextRun&, GlyphBuffer*) const;
-    float floatWidthForComplexText(const TextRun&) const;
+    float floatWidthForSimpleText(const TextRun&, GlyphBuffer*, HashSet<const SimpleFontData*>* fallbackFonts = 0) const;
     int offsetForPositionForSimpleText(const TextRun&, int position, bool includePartialGlyphs) const;
-    int offsetForPositionForComplexText(const TextRun&, int position, bool includePartialGlyphs) const;
     FloatRect selectionRectForSimpleText(const TextRun&, const IntPoint&, int h, int from, int to) const;
+
+    static bool canReturnFallbackFontsForComplexText();
+#endif
+
+    void drawComplexText(GraphicsContext*, const TextRun&, const FloatPoint&, int from, int to) const;
+    float floatWidthForComplexText(const TextRun&, HashSet<const SimpleFontData*>* fallbackFonts = 0) const;
+    int offsetForPositionForComplexText(const TextRun&, int position, bool includePartialGlyphs) const;
     FloatRect selectionRectForComplexText(const TextRun&, const IntPoint&, int h, int from, int to) const;
     void cachePrimaryFont() const;
-#endif
+
     friend struct WidthIterator;
 
-    // Useful for debugging the different font rendering code paths.
 public:
-#if !PLATFORM(QT)
+    // Useful for debugging the different font rendering code paths.
+#if USE(FONT_FAST_PATH)
     enum CodePath { Auto, Simple, Complex };
     static void setCodePath(CodePath);
-    static CodePath codePath;
+    static CodePath codePath();
+    static CodePath s_codePath;
 
     static const uint8_t gRoundingHackCharacterTable[256];
     static bool isRoundingHackCharacter(UChar32 c)
     {
         return (((c & ~0xFF) == 0 && gRoundingHackCharacterTable[c]));
     }
+#endif
 
     FontSelector* fontSelector() const;
-#endif
     static bool treatAsSpace(UChar c) { return c == ' ' || c == '\t' || c == '\n' || c == 0x00A0; }
-    static bool treatAsZeroWidthSpace(UChar c) { return c < 0x20 || (c >= 0x7F && c < 0xA0) || c == 0x200e || c == 0x200f || c >= 0x202a && c <= 0x202e; }
+    static bool treatAsZeroWidthSpace(UChar c) { return c < 0x20 || (c >= 0x7F && c < 0xA0) || c == 0x200e || c == 0x200f || (c >= 0x202a && c <= 0x202e) || c == 0xFFFC; }
+
+#if ENABLE(SVG_FONTS)
+    bool isSVGFont() const;
+    SVGFontElement* svgFont() const;
+#endif
+
 private:
     FontDescription m_fontDescription;
-#if !PLATFORM(QT)
     mutable RefPtr<FontFallbackList> m_fontList;
     mutable HashMap<int, GlyphPageTreeNode*> m_pages;
     mutable GlyphPageTreeNode* m_pageZero;
     mutable const SimpleFontData* m_cachedPrimaryFont;
-#endif
     short m_letterSpacing;
     short m_wordSpacing;
-#if !PLATFORM(QT)
     bool m_isPlatformFont;
-#else
-    QFont m_font;
-    QFont m_scFont;
-    int m_spaceWidth;
-#endif
 };
 
 }

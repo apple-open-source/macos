@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2003-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,15 +25,19 @@
 
 #include "trusted_cert_dump.h"
 #include "trusted_cert_utils.h"
+
+#include <errno.h>
+#include <unistd.h>
 #include <Security/Security.h>
 #include <Security/cssmapple.h>
 #include <Security/SecTrustSettings.h>
-#include <Security/SecCertificatePriv.h>
 #include <Security/oidsalg.h>
-#include <errno.h>
-#include <unistd.h>
 #include <security_cdsa_utils/cuFileIo.h>
 #include <CoreFoundation/CoreFoundation.h>
+
+// SecCertificateInferLabel
+#include <Security/SecCertificatePriv.h>
+
 
 /* print cert's label (the one SecCertificate infers) */
 static OSStatus printCertLabel(

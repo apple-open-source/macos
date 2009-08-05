@@ -25,15 +25,16 @@
 #if ENABLE(SVG)
 
 #include "RenderBlock.h"
+#include "SVGRenderSupport.h"
 
 namespace WebCore {
 
 class SVGElement;
 
-class RenderSVGBlock : public RenderBlock {
+class RenderSVGBlock : public RenderBlock, protected SVGRenderBase {
 public:
     RenderSVGBlock(SVGElement*);
-    virtual void setStyle(RenderStyle*);
+    virtual void setStyle(PassRefPtr<RenderStyle>);
 };
 
 }

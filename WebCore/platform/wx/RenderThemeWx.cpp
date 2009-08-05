@@ -29,9 +29,13 @@
 #include "Document.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
+#include "NotImplemented.h"
 #include "RenderView.h"
 
 #include <wx/defs.h>
+
+#include <wx/dc.h>
+#include <wx/dcgraph.h>
 #include <wx/renderer.h>
 #include <wx/dcclient.h>
 #include <wx/scrolwin.h>
@@ -60,14 +64,24 @@ public:
 
     virtual void setRadioSize(RenderStyle*) const;
 
+    virtual void adjustRepaintRect(const RenderObject*, IntRect&);
+
     virtual void adjustButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
     virtual bool paintButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
 
     virtual void adjustTextFieldStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
     virtual bool paintTextField(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
 
+    virtual int minimumMenuListSize(RenderStyle*) const;
+
+    virtual void adjustMenuListStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+    virtual bool paintMenuList(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+
+    virtual void adjustMenuListButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+    virtual bool paintMenuListButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+
     virtual bool isControlStyled(const RenderStyle*, const BorderData&,
-                                 const BackgroundLayer&, const Color&) const;
+                                 const FillLayer&, const Color&) const;
 
     virtual bool controlSupportsTints(const RenderObject*) const;
 
@@ -78,13 +92,32 @@ public:
     
     virtual Color platformActiveSelectionForegroundColor() const;
     virtual Color platformInactiveSelectionForegroundColor() const;
+    
+    virtual int popupInternalPaddingLeft(RenderStyle*) const;
+    virtual int popupInternalPaddingRight(RenderStyle*) const;
+    virtual int popupInternalPaddingTop(RenderStyle*) const;
+    virtual int popupInternalPaddingBottom(RenderStyle*) const;
 
 private:
     void addIntrinsicMargins(RenderStyle*) const;
     void close();
 
-    bool supportsFocus(EAppearance) const;
+    bool supportsFocus(ControlPart) const;
 };
+
+
+// Constants
+
+#define MINIMUM_MENU_LIST_SIZE 21
+#define POPUP_INTERNAL_PADDING_LEFT 6
+#define POPUP_INTERNAL_PADDING_TOP 2
+#define POPUP_INTERNAL_PADDING_BOTTOM 2
+
+#ifdef __WXMAC__
+#define POPUP_INTERNAL_PADDING_RIGHT 22
+#else
+#define POPUP_INTERNAL_PADDING_RIGHT 20
+#endif
 
 RenderTheme* theme()
 {
@@ -93,12 +126,29 @@ RenderTheme* theme()
 }
 
 bool RenderThemeWx::isControlStyled(const RenderStyle* style, const BorderData& border,
-                                     const BackgroundLayer& background, const Color& backgroundColor) const
+                                     const FillLayer& background, const Color& backgroundColor) const
 {
-    if (style->appearance() == TextFieldAppearance || style->appearance() == TextAreaAppearance)
+    if (style->appearance() == TextFieldPart || style->appearance() == TextAreaPart)
         return style->border() != border;
 
-    return RenderTheme::isControlStyled(style, border, background, backgroundColor);
+    // Normally CSS can be used to set properties of form controls (such as adding a background bitmap).
+    // However, for this to work RenderThemeWx needs to adjust uncustomized elements (e.g. buttons) to reflect the
+    // changes made by CSS. Since we don't do that right now, the native parts of form elements appear in odd places. 
+    // Until we have time to implement that support, we return false here, so that we ignore customizations 
+    // and always use the native theme drawing to draw form controls.
+    return false;
+}
+
+void RenderThemeWx::adjustRepaintRect(const RenderObject* o, IntRect& r)
+{
+    switch (o->style()->appearance()) {
+        case MenulistPart: {
+            r.setWidth(r.width() + 100);
+            break;
+        }
+        default:
+            break;
+    }
 }
 
 bool RenderThemeWx::controlSupportsTints(const RenderObject* o) const
@@ -107,7 +157,7 @@ bool RenderThemeWx::controlSupportsTints(const RenderObject* o) const
         return false;
 
     // Checkboxes only have tint when checked.
-    if (o->style()->appearance() == CheckboxAppearance)
+    if (o->style()->appearance() == CheckboxPart)
         return isChecked(o);
 
     // For now assume other controls have tint if enabled.
@@ -169,12 +219,12 @@ void RenderThemeWx::setRadioSize(RenderStyle* style) const
     setCheckboxSize(style);
 }
 
-bool RenderThemeWx::supportsFocus(EAppearance appearance) const
+bool RenderThemeWx::supportsFocus(ControlPart part) const
 {
-    switch (appearance) {
-        case PushButtonAppearance:
-        case ButtonAppearance:
-        case TextFieldAppearance:
+    switch (part) {
+        case PushButtonPart:
+        case ButtonPart:
+        case TextFieldPart:
             return true;
         default: // No for all others...
             return false;
@@ -188,32 +238,36 @@ void RenderThemeWx::adjustButtonStyle(CSSStyleSelector* selector, RenderStyle* s
 
 bool RenderThemeWx::paintButton(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
 {
-    wxWindow* window = o->view()->frameView()->nativeWindow();
+    wxWindow* window = o->view()->frameView()->platformWidget();
     wxDC* dc = static_cast<wxDC*>(i.context->platformContext());
-    wxASSERT(dc->IsOk());
-
     int flags = 0;
     
     if (!isEnabled(o))
         flags |= wxCONTROL_DISABLED;
 
-    EAppearance appearance = o->style()->appearance();
-    if (supportsFocus(o->style()->appearance()) && isFocused(o))
+    ControlPart part = o->style()->appearance();
+    if (supportsFocus(part) && isFocused(o))
         flags |= wxCONTROL_FOCUSED;
 
     if (isPressed(o))
         flags |= wxCONTROL_PRESSED;
     
-    if (appearance == PushButtonAppearance || appearance == ButtonAppearance)
+    if (part == PushButtonPart || part == ButtonPart)
         wxRendererNative::Get().DrawPushButton(window, *dc, r, flags);
-    // TODO: add a radio button rendering API to wx
-    //else if(appearance == RadioAppearance)
-    else if(appearance == CheckboxAppearance) {
+    else if(part == RadioPart) {
+        if (isChecked(o))
+            flags |= wxCONTROL_CHECKED;
+#if wxCHECK_VERSION(2,9,0)
+        wxRendererNative::Get().DrawRadioButton(window, *dc, r, flags);
+#else
+        wxRenderer_DrawRadioButton(window, *dc, r, flags);
+#endif
+    }
+    else if(part == CheckboxPart) {
         if (isChecked(o))
             flags |= wxCONTROL_CHECKED;
         wxRendererNative::Get().DrawCheckBox(window, *dc, r, flags);
     }
-        
     return false;
 }
 
@@ -224,12 +278,76 @@ void RenderThemeWx::adjustTextFieldStyle(CSSStyleSelector*, RenderStyle* style, 
 
 bool RenderThemeWx::paintTextField(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
 {
-    i.context->setStrokeThickness(1);
-    i.context->setStrokeColor(Color(0, 0, 0));
-    i.context->drawRect(r);
+    wxWindow* window = o->view()->frameView()->platformWidget();
+    wxDC* dc = static_cast<wxDC*>(i.context->platformContext());
+#if wxCHECK_VERSION(2,9,0)
+    wxRendererNative::Get().DrawTextCtrl(window, *dc, r, 0);
+#else
+    wxRenderer_DrawTextCtrl(window, *dc, r, 0);
+#endif
+
     return false;
 }
 
+int RenderThemeWx::minimumMenuListSize(RenderStyle*) const 
+{ 
+    return MINIMUM_MENU_LIST_SIZE; 
+}
+
+void RenderThemeWx::adjustMenuListStyle(CSSStyleSelector*, RenderStyle* style, Element*) const
+{
+}
+    
+bool RenderThemeWx::paintMenuList(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
+{
+    wxWindow* window = o->view()->frameView()->platformWidget();
+    wxDC* dc = static_cast<wxDC*>(i.context->platformContext());
+    
+    int flags = 0;      
+    if (!isEnabled(o))
+        flags |= wxCONTROL_DISABLED;
+        
+    if (supportsFocus(o->style()->appearance()) && isFocused(o))
+        flags |= wxCONTROL_FOCUSED;
+
+    if (isPressed(o))
+        flags |= wxCONTROL_PRESSED;
+
+#if wxCHECK_VERSION(2,9,0)
+    wxRendererNative::Get().DrawChoice(window, *dc, r, flags);
+#else
+    wxRenderer_DrawChoice(window, *dc, r, flags);
+#endif
+
+    return false;
+}
+
+void RenderThemeWx::adjustMenuListButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const
+{
+    notImplemented();
+}
+    
+bool RenderThemeWx::paintMenuListButton(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
+{
+    wxWindow* window = o->view()->frameView()->platformWidget();
+    wxDC* dc = static_cast<wxDC*>(i.context->platformContext());
+    
+    int flags = 0;      
+    if (!isEnabled(o))
+        flags |= wxCONTROL_DISABLED;
+        
+    if (supportsFocus(o->style()->appearance()) && isFocused(o))
+        flags |= wxCONTROL_FOCUSED;
+    
+    if (isPressed(o))
+        flags |= wxCONTROL_PRESSED;
+
+    wxRendererNative::Get().DrawComboBoxDropButton(window, *dc, r, flags);
+            
+    return false;
+}
+
+    
 Color RenderThemeWx::platformActiveSelectionBackgroundColor() const
 {
     return wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHT);
@@ -257,6 +375,26 @@ Color RenderThemeWx::platformInactiveSelectionForegroundColor() const
 #else
     return Color(255, 255, 255);
 #endif
+}
+
+int RenderThemeWx::popupInternalPaddingLeft(RenderStyle*) const 
+{ 
+    return POPUP_INTERNAL_PADDING_LEFT; 
+}
+
+int RenderThemeWx::popupInternalPaddingRight(RenderStyle*) const 
+{
+    return POPUP_INTERNAL_PADDING_RIGHT;
+}
+
+int RenderThemeWx::popupInternalPaddingTop(RenderStyle*) const 
+{
+    return POPUP_INTERNAL_PADDING_TOP;
+}
+
+int RenderThemeWx::popupInternalPaddingBottom(RenderStyle*) const
+{ 
+    return POPUP_INTERNAL_PADDING_BOTTOM; 
 }
 
 }

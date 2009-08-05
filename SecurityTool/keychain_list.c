@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2003-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,13 +28,16 @@
 #include "keychain_utilities.h"
 #include "security.h"
 
-#include <CoreFoundation/CFArray.h>
-#include <Security/SecKeychain.h>
-#include <Security/SecKeychainPriv.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/param.h>
 #include <unistd.h>
+#include <CoreFoundation/CFArray.h>
+#include <Security/SecKeychain.h>
+
+// SecKeychainCopyLogin
+#include <Security/SecKeychainPriv.h>
+
 
 typedef enum
 {

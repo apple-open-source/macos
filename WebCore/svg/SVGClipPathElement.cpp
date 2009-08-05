@@ -1,6 +1,6 @@
 /*
     Copyright (C) 2004, 2005, 2007, 2008 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
+                  2004, 2005, 2006, 2007, 2008 Rob Buis <buis@kde.org>
 
     This file is part of the KDE project
 
@@ -27,6 +27,7 @@
 
 #include "CSSStyleSelector.h"
 #include "Document.h"
+#include "MappedAttribute.h"
 #include "SVGNames.h"
 #include "SVGTransformList.h"
 #include "SVGUnitTypes.h"
@@ -38,15 +39,13 @@ SVGClipPathElement::SVGClipPathElement(const QualifiedName& tagName, Document* d
     , SVGTests()
     , SVGLangSpace()
     , SVGExternalResourcesRequired()
-    , m_clipPathUnits(SVGUnitTypes::SVG_UNIT_TYPE_USERSPACEONUSE)
+    , m_clipPathUnits(this, SVGNames::clipPathUnitsAttr, SVGUnitTypes::SVG_UNIT_TYPE_USERSPACEONUSE)
 {
 }
 
 SVGClipPathElement::~SVGClipPathElement()
 {
 }
-
-ANIMATED_PROPERTY_DEFINITIONS(SVGClipPathElement, int, Enumeration, enumeration, ClipPathUnits, clipPathUnits, SVGNames::clipPathUnitsAttr, m_clipPathUnits)
 
 void SVGClipPathElement::parseMappedAttribute(MappedAttribute* attr)
 {
@@ -81,9 +80,9 @@ void SVGClipPathElement::svgAttributeChanged(const QualifiedName& attrName)
         m_clipper->invalidate();
 }
 
-void SVGClipPathElement::childrenChanged(bool changedByParser)
+void SVGClipPathElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
 {
-    SVGStyledTransformableElement::childrenChanged(changedByParser);
+    SVGStyledTransformableElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
 
     if (!m_clipper)
         return;
@@ -94,23 +93,22 @@ void SVGClipPathElement::childrenChanged(bool changedByParser)
 SVGResource* SVGClipPathElement::canvasResource()
 {
     if (!m_clipper)
-        m_clipper = new SVGResourceClipper();
+        m_clipper = SVGResourceClipper::create();
     else
         m_clipper->resetClipData();
 
     bool bbox = clipPathUnits() == SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX;
 
-    RenderStyle* clipPathStyle = styleForRenderer(parent()->renderer()); // FIXME: Manual style resolution is a hack
+    RefPtr<RenderStyle> clipPathStyle = styleForRenderer(); // FIXME: Manual style resolution is a hack
     for (Node* n = firstChild(); n; n = n->nextSibling()) {
         if (n->isSVGElement() && static_cast<SVGElement*>(n)->isStyledTransformable()) {
             SVGStyledTransformableElement* styled = static_cast<SVGStyledTransformableElement*>(n);
-            RenderStyle* pathStyle = document()->styleSelector()->styleForElement(styled, clipPathStyle);
-            Path pathData = styled->toClipPath();
-            // FIXME: How do we know the element has done a layout?
-            pathData.transform(styled->animatedLocalTransform());
-            if (!pathData.isEmpty())
-                m_clipper->addClipData(pathData, pathStyle->svgStyle()->clipRule(), bbox);
-            pathStyle->deref(document()->renderArena());
+            RefPtr<RenderStyle> pathStyle = document()->styleSelector()->styleForElement(styled, clipPathStyle.get());
+            if (pathStyle->display() != NONE) {
+                Path pathData = styled->toClipPath();
+                if (!pathData.isEmpty())
+                    m_clipper->addClipData(pathData, pathStyle->svgStyle()->clipRule(), bbox);
+            }
         }
     }
     if (m_clipper->clipData().isEmpty()) {
@@ -118,7 +116,6 @@ SVGResource* SVGClipPathElement::canvasResource()
         pathData.addRect(FloatRect());
         m_clipper->addClipData(pathData, RULE_EVENODD, bbox);
     }
-    clipPathStyle->deref(document()->renderArena());
     return m_clipper.get();
 }
 

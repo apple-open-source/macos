@@ -25,21 +25,21 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 #ifndef OriginQuotaManager_h
 #define OriginQuotaManager_h
 
-#include "PlatformString.h"
+#if ENABLE(DATABASE)
+
 #include "StringHash.h"
 #include "SecurityOriginHash.h"
-#include "Threading.h"
 #include <wtf/HashMap.h>
+#include <wtf/Threading.h>
 
 namespace WebCore {
 
 class Database;
 class OriginUsageRecord;
-class SecurityOrigin;
-class String;
 
 class OriginQuotaManager : public Noncopyable {
 public:
@@ -48,22 +48,27 @@ public:
     void lock();
     void unlock();
 
-    // To setup the origin usage records on the main (DatabaseTracker) thread
     void trackOrigin(PassRefPtr<SecurityOrigin>);
     bool tracksOrigin(SecurityOrigin*) const;
     void addDatabase(SecurityOrigin*, const String& databaseIdentifier, const String& fullPath);
     void removeDatabase(SecurityOrigin*, const String& databaseIdentifier);
     void removeOrigin(SecurityOrigin*);
 
-    // To mark dirtiness of a specific database on the background thread
-    void markDatabase(Database*);
+    void markDatabase(Database*); // Mark dirtiness of a specific database.
     unsigned long long diskUsage(SecurityOrigin*) const;
+
 private:
     mutable Mutex m_usageRecordGuard;
-    typedef HashMap<RefPtr<SecurityOrigin>, OriginUsageRecord*, SecurityOriginHash, SecurityOriginTraits> OriginUsageMap;
+#ifndef NDEBUG
+    bool m_usageRecordGuardLocked;
+#endif
+
+    typedef HashMap<RefPtr<SecurityOrigin>, OriginUsageRecord*, SecurityOriginHash> OriginUsageMap;
     OriginUsageMap m_usageMap;
 };
 
 } // namespace WebCore
+
+#endif // ENABLE(DATABASE)
 
 #endif // OriginQuotaManager_h

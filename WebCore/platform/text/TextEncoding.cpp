@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Alexey Proskuryakov <ap@nypop.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,7 +30,6 @@
 #include "CString.h"
 #include "PlatformString.h"
 #include "TextCodec.h"
-#include "TextDecoder.h"
 #include "TextEncodingRegistry.h"
 #if USE(ICU_UNICODE)
 #include <unicode/unorm.h>
@@ -39,6 +38,7 @@
 #endif
 #include <wtf/HashSet.h>
 #include <wtf/OwnPtr.h>
+#include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
@@ -49,25 +49,33 @@ static void addEncodingName(HashSet<const char*>& set, const char* name)
         set.add(atomicName);
 }
 
+static const TextEncoding& UTF7Encoding()
+{
+    static TextEncoding globalUTF7Encoding("UTF-7");
+    return globalUTF7Encoding;
+}
+
 TextEncoding::TextEncoding(const char* name)
     : m_name(atomicCanonicalTextEncodingName(name))
+    , m_backslashAsCurrencySymbol(backslashAsCurrencySymbol())
 {
 }
 
 TextEncoding::TextEncoding(const String& name)
     : m_name(atomicCanonicalTextEncodingName(name.characters(), name.length()))
+    , m_backslashAsCurrencySymbol(backslashAsCurrencySymbol())
 {
 }
 
-String TextEncoding::decode(const char* data, size_t length) const
+String TextEncoding::decode(const char* data, size_t length, bool stopOnError, bool& sawError) const
 {
     if (!m_name)
         return String();
 
-    return TextDecoder(*this).decode(data, length, true);
+    return newTextCodec(*this)->decode(data, length, true, stopOnError, sawError);
 }
 
-CString TextEncoding::encode(const UChar* characters, size_t length, bool allowEntities) const
+CString TextEncoding::encode(const UChar* characters, size_t length, UnencodableHandling handling) const
 {
     if (!m_name)
         return CString();
@@ -100,12 +108,30 @@ CString TextEncoding::encode(const UChar* characters, size_t length, bool allowE
         source = normalizedCharacters.data();
         sourceLength = normalizedLength;
     }
-    return newTextCodec(*this)->encode(source, sourceLength, allowEntities);
+    return newTextCodec(*this)->encode(source, sourceLength, handling);
 #elif USE(QT4_UNICODE)
     QString str(reinterpret_cast<const QChar*>(characters), length);
     str = str.normalized(QString::NormalizationForm_C);
-    return newTextCodec(*this)->encode(reinterpret_cast<const UChar *>(str.utf16()), str.length(), allowEntities);
+    return newTextCodec(*this)->encode(reinterpret_cast<const UChar *>(str.utf16()), str.length(), handling);
 #endif
+}
+
+const char* TextEncoding::domName() const
+{
+    if (noExtendedTextEncodingNameUsed())
+        return m_name;
+
+    // We treat EUC-KR as windows-949 (its superset), but need to expose 
+    // the name 'EUC-KR' because the name 'windows-949' is not recognized by
+    // most Korean web servers even though they do use the encoding
+    // 'windows-949' with the name 'EUC-KR'. 
+    // FIXME: This is not thread-safe. At the moment, this function is
+    // only accessed in a single thread, but eventually has to be made
+    // thread-safe along with usesVisualOrdering().
+    static const char* const a = atomicCanonicalTextEncodingName("windows-949");
+    if (m_name == a)
+        return "EUC-KR";
+    return m_name;
 }
 
 bool TextEncoding::usesVisualOrdering() const
@@ -122,7 +148,7 @@ bool TextEncoding::isJapanese() const
     if (noExtendedTextEncodingNameUsed())
         return false;
 
-    static HashSet<const char*> set;
+    DEFINE_STATIC_LOCAL(HashSet<const char*>, set, ());
     if (set.isEmpty()) {
         addEncodingName(set, "x-mac-japanese");
         addEncodingName(set, "cp932");
@@ -154,9 +180,42 @@ UChar TextEncoding::backslashAsCurrencySymbol() const
     return (m_name == a || m_name == b) ? 0x00A5 : '\\';
 }
 
-const TextEncoding& TextEncoding::closest8BitEquivalent() const
+bool TextEncoding::isNonByteBasedEncoding() const
 {
-    if (*this == UTF16BigEndianEncoding() || *this == UTF16LittleEndianEncoding())
+    if (noExtendedTextEncodingNameUsed()) {
+        return *this == UTF16LittleEndianEncoding()
+            || *this == UTF16BigEndianEncoding();
+    }
+
+    return *this == UTF16LittleEndianEncoding()
+        || *this == UTF16BigEndianEncoding()
+        || *this == UTF32BigEndianEncoding()
+        || *this == UTF32LittleEndianEncoding();
+}
+
+bool TextEncoding::isUTF7Encoding() const
+{
+    if (noExtendedTextEncodingNameUsed())
+        return false;
+
+    return *this == UTF7Encoding();
+}
+
+const TextEncoding& TextEncoding::closestByteBasedEquivalent() const
+{
+    if (isNonByteBasedEncoding())
+        return UTF8Encoding();
+    return *this; 
+}
+
+// HTML5 specifies that UTF-8 be used in form submission when a form is 
+// is a part of a document in UTF-16 probably because UTF-16 is not a 
+// byte-based encoding and can contain 0x00. By extension, the same
+// should be done for UTF-32. In case of UTF-7, it is a byte-based encoding,
+// but it's fraught with problems and we'd rather steer clear of it.
+const TextEncoding& TextEncoding::encodingForFormSubmission() const
+{
+    if (isNonByteBasedEncoding() || isUTF7Encoding())
         return UTF8Encoding();
     return *this;
 }
@@ -196,7 +255,6 @@ const TextEncoding& UTF32LittleEndianEncoding()
     static TextEncoding globalUTF32LittleEndianEncoding("UTF-32LE");
     return globalUTF32LittleEndianEncoding;
 }
-
 
 const TextEncoding& UTF8Encoding()
 {

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved. 
- * Copyright (C) 2006 Trolltech ASA
+ * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * All rights reserved.
  *
@@ -31,64 +31,11 @@
 #include "ImageDecoderQt.h"
 #include "SharedBuffer.h"
 
+#include <QBuffer>
 #include <QImage>
-#include <qdebug.h>
-
+#include <QImageReader>
 
 namespace WebCore {
-    enum ImageFormat { ImageFormat_None, ImageFormat_GIF, ImageFormat_PNG, ImageFormat_JPEG,
-                       ImageFormat_BMP,  ImageFormat_ICO,  ImageFormat_XBM };
-
-ImageFormat detectImageFormat(const SharedBuffer& data)
-{
-    // We need at least 4 bytes to figure out what kind of image we're dealing with.
-    int length = data.size();
-    if (length < 4)
-        return ImageFormat_None;
-
-    const unsigned char* uContents = (const unsigned char*) data.data();
-    const char* contents = data.data();
-
-    // GIFs begin with GIF8(7 or 9).
-    if (strncmp(contents, "GIF8", 4) == 0)
-        return ImageFormat_GIF;
-
-    // Test for PNG.
-    if (uContents[0] == 0x89 &&
-        uContents[1] == 0x50 &&
-        uContents[2] == 0x4E &&
-        uContents[3] == 0x47)
-        return ImageFormat_PNG;
-
-    // JPEG
-    if (uContents[0] == 0xFF &&
-        uContents[1] == 0xD8 &&
-        uContents[2] == 0xFF)
-        return ImageFormat_JPEG;
-
-    // BMP
-    if (strncmp(contents, "BM", 2) == 0)
-        return ImageFormat_BMP;
-
-    // ICOs always begin with a 2-byte 0 followed by a 2-byte 1.
-    // CURs begin with 2-byte 0 followed by 2-byte 2.
-    if (!memcmp(contents, "\000\000\001\000", 4) ||
-        !memcmp(contents, "\000\000\002\000", 4))
-        return ImageFormat_ICO;
-
-    // XBMs require 8 bytes of info.
-    if (length >= 8 && strncmp(contents, "#define ", 8) == 0)
-        return ImageFormat_XBM;
-
-    // Give up. We don't know what the heck this is.
-    return ImageFormat_None;
-}
-    
-ImageDecoderQt* createDecoder(const SharedBuffer& data) {
-    if (detectImageFormat(data) != ImageFormat_None) 
-        return new ImageDecoderQt();
-    return 0;
-}
 
 ImageSource::ImageSource()
     : m_decoder(0)
@@ -97,7 +44,7 @@ ImageSource::ImageSource()
 
 ImageSource::~ImageSource()
 {
-    delete m_decoder;
+    clear(true);
 }
 
 bool ImageSource::initialized() const
@@ -112,12 +59,20 @@ void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
     // If insufficient bytes are available to determine the image type, no decoder plugin will be
     // made.
     if (!m_decoder)
-        m_decoder = createDecoder(*data);
+        m_decoder = ImageDecoderQt::create(*data);
 
     if (!m_decoder)
         return;
 
     m_decoder->setData(data->buffer(), allDataReceived);
+}
+
+String ImageSource::filenameExtension() const
+{
+    if (!m_decoder)
+        return String();
+
+    return m_decoder->filenameExtension();
 }
 
 bool ImageSource::isSizeAvailable()
@@ -134,6 +89,11 @@ IntSize ImageSource::size() const
         return IntSize();
 
     return m_decoder->size();
+}
+
+IntSize ImageSource::frameSizeAtIndex(size_t) const
+{
+    return size();
 }
 
 int ImageSource::repetitionCount()
@@ -191,12 +151,19 @@ bool ImageSource::frameIsCompleteAtIndex(size_t index)
     return (m_decoder && m_decoder->imageAtIndex(index) != 0);
 }
 
-void ImageSource::clear()
+void ImageSource::clear(bool destroyAll, size_t clearBeforeFrame, SharedBuffer* data, bool allDataReceived)
 {
-    delete  m_decoder;
-    m_decoder = 0;
-}
+    if (!destroyAll) {
+        if (m_decoder)
+            m_decoder->clearFrameBufferCache(clearBeforeFrame);
+        return;
+    }
 
+    delete m_decoder;
+    m_decoder = 0;
+    if (data)
+        setData(data, allDataReceived);
+}
 
 }
 

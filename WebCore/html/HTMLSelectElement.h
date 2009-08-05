@@ -24,9 +24,9 @@
 #ifndef HTMLSelectElement_h
 #define HTMLSelectElement_h
 
+#include "CollectionCache.h"
 #include "Event.h"
-#include "HTMLCollection.h"
-#include "HTMLGenericFormElement.h"
+#include "HTMLFormControlElement.h"
 #include <wtf/Vector.h>
 
 namespace WebCore {
@@ -37,13 +37,12 @@ class KeyboardEvent;
 
 class HTMLSelectElement : public HTMLFormControlElementWithState {
 public:
-    HTMLSelectElement(Document*, HTMLFormElement* = 0);
-    HTMLSelectElement(const QualifiedName& tagName, Document*, HTMLFormElement* = 0);
+    HTMLSelectElement(const QualifiedName&, Document*, HTMLFormElement* = 0);
 
     virtual int tagPriority() const { return 6; }
     virtual bool checkDTD(const Node* newChild);
 
-    virtual const AtomicString& type() const;
+    virtual const AtomicString& formControlType() const;
     
     virtual bool isKeyboardFocusable(KeyboardEvent*) const;
     virtual bool isMouseFocusable() const;
@@ -79,15 +78,10 @@ public:
     
     PassRefPtr<HTMLOptionsCollection> options();
 
-    virtual bool saveState(String& value) const;
-    virtual void restoreState(const String&);
+    virtual bool saveFormControlState(String& value) const;
+    virtual void restoreFormControlState(const String&);
 
-    virtual bool insertBefore(PassRefPtr<Node> newChild, Node* refChild, ExceptionCode&);
-    virtual bool replaceChild(PassRefPtr<Node> newChild, Node* oldChild, ExceptionCode&);
-    virtual bool removeChild(Node* child, ExceptionCode&);
-    virtual bool appendChild(PassRefPtr<Node> newChild, ExceptionCode&);
-    virtual bool removeChildren();
-    virtual void childrenChanged(bool changedByParser = false);
+    virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
 
     virtual void parseMappedAttribute(MappedAttribute*);
 
@@ -113,6 +107,7 @@ public:
 
     virtual void defaultEventHandler(Event*);
     virtual void accessKeyAction(bool sendToAnyElement);
+    void accessKeySetSelectedIndex(int);
 
     void setMultiple(bool);
 
@@ -121,10 +116,10 @@ public:
     void setOption(unsigned index, HTMLOptionElement*, ExceptionCode&);
     void setLength(unsigned, ExceptionCode&);
 
-    Node* namedItem(const String& name, bool caseSensitive = true);
+    Node* namedItem(const AtomicString& name);
     Node* item(unsigned index);
 
-    HTMLCollection::CollectionInfo* collectionInfo() { return &m_collectionInfo; }
+    CollectionCache* collectionInfo() { return &m_collectionInfo; }
     
     void setActiveSelectionAnchorIndex(int index);
     void setActiveSelectionEndIndex(int index) { m_activeSelectionEndIndex = index; }
@@ -150,6 +145,8 @@ private:
     void typeAheadFind(KeyboardEvent*);
     void saveLastSelection();
 
+    virtual void insertedIntoTree(bool);
+
     mutable Vector<HTMLElement*> m_listItems;
     Vector<bool> m_cachedStateForActiveSelection;
     Vector<bool> m_lastOnChangeSelection;
@@ -168,7 +165,7 @@ private:
     DOMTimeStamp m_lastCharTime;
     String m_typedString;
 
-    HTMLCollection::CollectionInfo m_collectionInfo;
+    CollectionCache m_collectionInfo;
 };
 
 #ifdef NDEBUG

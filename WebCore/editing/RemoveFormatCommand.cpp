@@ -27,10 +27,11 @@
 #include "RemoveFormatCommand.h"
 
 #include "CSSComputedStyleDeclaration.h"
+#include "CSSMutableStyleDeclaration.h"
 #include "Editor.h"
 #include "Frame.h"
 #include "HTMLNames.h"
-#include "Selection.h"
+#include "VisibleSelection.h"
 #include "SelectionController.h"
 #include "TextIterator.h"
 #include "TypingCommand.h"
@@ -49,13 +50,12 @@ void RemoveFormatCommand::doApply()
     Frame* frame = document()->frame();
     
     // Make a plain text string from the selection to remove formatting like tables and lists.
-    String string = plainText(frame->selectionController()->selection().toRange().get());
+    String string = plainText(frame->selection()->selection().toNormalizedRange().get());
 
     // Get the default style for this editable root, it's the style that we'll give the
     // content that we're operating on.
-    Node* root = frame->selectionController()->rootEditableElement();
-    RefPtr<CSSComputedStyleDeclaration> computedStyle = new CSSComputedStyleDeclaration(root);
-    RefPtr<CSSMutableStyleDeclaration> defaultStyle = computedStyle->copyInheritableProperties();
+    Node* root = frame->selection()->rootEditableElement();
+    RefPtr<CSSMutableStyleDeclaration> defaultStyle = computedStyle(root)->copyInheritableProperties();
     
     // Delete the selected content.
     // FIXME: We should be able to leave this to insertText, but its delete operation
@@ -66,10 +66,14 @@ void RemoveFormatCommand::doApply()
     while (breakOutOfEmptyListItem())
         ;
     
-    // Normally, deleting a fully selected anchor and then inserting text will re-create
-    // the removed anchor, but we don't want that behavior here. 
-    frame->editor()->setRemovedAnchor(0);
+    // If the selection was all formatting (like an empty list) the format-less text will 
+    // be empty. Early return since we don't need to do any of the work that follows and
+    // to avoid the ASSERT that fires if input(...) is called with an empty String.
+    if (string.isEmpty())
+        return;
+    
     // Insert the content with the default style.
+    // See <rdar://problem/5794382> RemoveFormat doesn't always reset text alignment
     frame->setTypingStyle(defaultStyle.get());
     
     inputText(string, true);

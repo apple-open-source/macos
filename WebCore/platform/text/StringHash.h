@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc. All rights reserved
+ * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,12 +21,17 @@
 #ifndef StringHash_h
 #define StringHash_h
 
-#include "AtomicStringImpl.h"
+#include "AtomicString.h"
 #include "PlatformString.h"
+#include <wtf/HashFunctions.h>
 #include <wtf/HashTraits.h>
 #include <wtf/unicode/Unicode.h>
 
 namespace WebCore {
+
+    // FIXME: We should really figure out a way to put the computeHash function that's
+    // currently a member function of StringImpl into this file so we can be a little
+    // closer to having all the nearly-identical hash functions in one place.
 
     struct StringHash {
         static unsigned hash(StringImpl* key) { return key->hash(); }
@@ -72,23 +77,20 @@ namespace WebCore {
     };
 
     class CaseFoldingHash {
-    private:
-        // Golden ratio - arbitrary start value to avoid mapping all 0's to all 0's
-        static const unsigned PHI = 0x9e3779b9U;
     public:
         // Paul Hsieh's SuperFastHash
         // http://www.azillionmonkeys.com/qed/hash.html
-        static unsigned hash(StringImpl* str)
+        static unsigned hash(const UChar* data, unsigned length)
         {
-            unsigned l = str->length();
-            const UChar* s = str->characters();
-            uint32_t hash = PHI;
+            unsigned l = length;
+            const UChar* s = data;
+            uint32_t hash = WTF::stringHashingStartValue;
             uint32_t tmp;
             
             int rem = l & 1;
             l >>= 1;
             
-            // Main loop
+            // Main loop.
             for (; l > 0; l--) {
                 hash += WTF::Unicode::foldCase(s[0]);
                 tmp = (WTF::Unicode::foldCase(s[1]) << 11) ^ hash;
@@ -97,27 +99,31 @@ namespace WebCore {
                 hash += hash >> 11;
             }
             
-            // Handle end case
+            // Handle end case.
             if (rem) {
                 hash += WTF::Unicode::foldCase(s[0]);
                 hash ^= hash << 11;
                 hash += hash >> 17;
             }
             
-            // Force "avalanching" of final 127 bits
+            // Force "avalanching" of final 127 bits.
             hash ^= hash << 3;
             hash += hash >> 5;
             hash ^= hash << 2;
             hash += hash >> 15;
             hash ^= hash << 10;
             
-            // this avoids ever returning a hash code of 0, since that is used to
+            // This avoids ever returning a hash code of 0, since that is used to
             // signal "hash not computed yet", using a value that is likely to be
-            // effectively the same as 0 when the low bits are masked
-            if (hash == 0)
-                hash = 0x80000000;
+            // effectively the same as 0 when the low bits are masked.
+            hash |= !hash << 31;
             
             return hash;
+        }
+
+        static unsigned hash(StringImpl* str)
+        {
+            return hash(str->characters(), str->length());
         }
         
         static unsigned hash(const char* str, unsigned length)
@@ -128,7 +134,7 @@ namespace WebCore {
 
             unsigned l = length;
             const char* s = str;
-            uint32_t hash = PHI;
+            uint32_t hash = WTF::stringHashingStartValue;
             uint32_t tmp;
             
             int rem = l & 1;
@@ -160,8 +166,7 @@ namespace WebCore {
             // this avoids ever returning a hash code of 0, since that is used to
             // signal "hash not computed yet", using a value that is likely to be
             // effectively the same as 0 when the low bits are masked
-            if (hash == 0)
-                hash = 0x80000000;
+            hash |= !hash << 31;
             
             return hash;
         }
@@ -192,56 +197,50 @@ namespace WebCore {
         {
             return hash(key.impl());
         }
+        static unsigned hash(const AtomicString& key)
+        {
+            return hash(key.impl());
+        }
         static bool equal(const String& a, const String& b)
         {
             return equal(a.impl(), b.impl());
         }
+        static bool equal(const AtomicString& a, const AtomicString& b)
+        {
+            return (a == b) || equal(a.impl(), b.impl());
+        }
 
         static const bool safeToCompareToEmptyOrDeleted = false;
+    };
+
+    // This hash can be used in cases where the key is a hash of a string, but we don't
+    // want to store the string. It's not really specific to string hashing, but all our
+    // current uses of it are for strings.
+    struct AlreadyHashed : IntHash<unsigned> {
+        static unsigned hash(unsigned key) { return key; }
+
+        // To use a hash value as a key for a hash table, we need to eliminate the
+        // "deleted" value, which is negative one. That could be done by changing
+        // the string hash function to never generate negative one, but this works
+        // and is still relatively efficient.
+        static unsigned avoidDeletedValue(unsigned hash)
+        {
+            ASSERT(hash);
+            unsigned newHash = hash | (!(hash + 1) << 31);
+            ASSERT(newHash);
+            ASSERT(newHash != 0xFFFFFFFF);
+            return newHash;
+        }
     };
 
 }
 
 namespace WTF {
 
-    // store WebCore::String as StringImpl*
-
     template<> struct HashTraits<WebCore::String> : GenericHashTraits<WebCore::String> {
-        typedef HashTraits<WebCore::StringImpl*>::StorageTraits StorageTraits;
-        typedef StorageTraits::TraitType StorageType;
         static const bool emptyValueIsZero = true;
-        static const bool needsRef = true;
-        
-        typedef union { 
-            WebCore::StringImpl* m_p; 
-            StorageType m_s; 
-        } UnionType;
-
-        static void ref(const StorageType& s) { ref(reinterpret_cast<const UnionType*>(&s)->m_p); }
-        static void deref(const StorageType& s) { deref(reinterpret_cast<const UnionType*>(&s)->m_p); }
-        
-        static void ref(const WebCore::StringImpl* str) { if (str) const_cast<WebCore::StringImpl*>(str)->ref(); }
-        static void deref(const WebCore::StringImpl* str) { if (str) const_cast<WebCore::StringImpl*>(str)->deref(); }
-    };
-
-    // share code between StringImpl*, RefPtr<StringImpl>, and String
-
-    template<> struct HashKeyStorageTraits<WebCore::StringHash, HashTraits<RefPtr<WebCore::StringImpl> > > {
-        typedef WebCore::StringHash Hash;
-        typedef HashTraits<WebCore::StringImpl*> Traits;
-    };
-    template<> struct HashKeyStorageTraits<WebCore::StringHash, HashTraits<WebCore::String> > {
-        typedef WebCore::StringHash Hash;
-        typedef HashTraits<WebCore::StringImpl*> Traits;
-    };
-
-    template<> struct HashKeyStorageTraits<WebCore::CaseFoldingHash, HashTraits<RefPtr<WebCore::StringImpl> > > {
-        typedef WebCore::CaseFoldingHash Hash;
-        typedef HashTraits<WebCore::StringImpl*> Traits;
-    };
-    template<> struct HashKeyStorageTraits<WebCore::CaseFoldingHash, HashTraits<WebCore::String> > {
-        typedef WebCore::CaseFoldingHash Hash;
-        typedef HashTraits<WebCore::StringImpl*> Traits;
+        static void constructDeletedValue(WebCore::String& slot) { new (&slot) WebCore::String(HashTableDeletedValue); }
+        static bool isDeletedValue(const WebCore::String& slot) { return slot.isHashTableDeletedValue(); }
     };
 
 }

@@ -3,7 +3,7 @@
  * Copyright (C) 2006 Michael Emmel mike.emmel@gmail.com
  * Copyright (C) 2007 Holger Hans Peter Freyther
  * Copyright (C) 2008 Christian Dywan <christian@imendio.com>
- * All rights reserved.
+ * Copyright (C) 2008 Nuanti Ltd.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,10 +30,14 @@
 #include "config.h"
 
 #include "LocalizedStrings.h"
+#include "CString.h"
+#include "GOwnPtr.h"
+#include "IntSize.h"
+#include "NotImplemented.h"
 #include "PlatformString.h"
 
+#include <glib/gi18n-lib.h>
 #include <gtk/gtk.h>
-#include <glib/gi18n.h>
 
 namespace WebCore {
 
@@ -124,11 +128,7 @@ String contextMenuItemTagDelete()
 
 String contextMenuItemTagSelectAll()
 {
-#if GLIB_CHECK_VERSION(2,10,0)
     static String stockLabel = String::fromUTF8(gtkStockLabel(GTK_STOCK_SELECT_ALL));
-#else
-    static String stockLabel = String::fromUTF8(_("Select _All"));
-#endif
     return stockLabel;
 }
 
@@ -285,9 +285,64 @@ String searchMenuClearRecentSearchesText()
     return String::fromUTF8(_("_Clear recent searches"));
 }
 
+String AXDefinitionListTermText()
+{
+    return String::fromUTF8(_("term"));
+}
+
+String AXDefinitionListDefinitionText()
+{
+    return String::fromUTF8(_("definition"));
+}
+
+String AXButtonActionVerb()
+{
+    return String::fromUTF8(_("press"));
+}
+
+String AXRadioButtonActionVerb()
+{
+    return String::fromUTF8(_("select"));
+}
+
+String AXTextFieldActionVerb()
+{
+    return String::fromUTF8(_("activate"));
+}
+
+String AXCheckedCheckBoxActionVerb()
+{
+    return String::fromUTF8(_("uncheck"));
+}
+
+String AXUncheckedCheckBoxActionVerb()
+{
+    return String::fromUTF8(_("check"));
+}
+
+String AXLinkActionVerb()
+{
+    return String::fromUTF8(_("jump"));
+}
+
+String multipleFileUploadText(unsigned numberOfFiles)
+{
+    // FIXME: If this file gets localized, this should really be localized as one string with a wildcard for the number.
+    return String::number(numberOfFiles) + String::fromUTF8(_(" files"));
+}
+
 String unknownFileSizeText()
 {
     return String::fromUTF8(_("Unknown"));
+}
+
+String imageTitle(const String& filename, const IntSize& size)
+{
+    GOwnPtr<gchar> string(g_strdup_printf(C_("Title string for images", "%s  (%dx%d pixels)"),
+                                          filename.utf8().data(),
+                                          size.width(), size.height()));
+
+    return String::fromUTF8(string.get());
 }
 
 }

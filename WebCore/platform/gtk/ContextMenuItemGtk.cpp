@@ -56,10 +56,8 @@ static const char* gtkStockIDFromContextMenuAction(const ContextMenuAction& acti
         return GTK_STOCK_PASTE;
     case ContextMenuItemTagDelete:
         return GTK_STOCK_DELETE;
-#if GTK_CHECK_VERSION(2, 10, 0)
     case ContextMenuItemTagSelectAll:
         return GTK_STOCK_SELECT_ALL;
-#endif
     case ContextMenuItemTagSpellingGuess:
         return GTK_STOCK_INFO;
     case ContextMenuItemTagIgnoreSpelling:
@@ -232,12 +230,7 @@ void ContextMenuItem::setSubMenu(ContextMenu* menu)
     m_platformDescription.subMenu = menu->releasePlatformDescription();
     m_platformDescription.type = SubmenuType;
 
-#if GLIB_CHECK_VERSION(2,10,0)
     g_object_ref_sink(G_OBJECT(m_platformDescription.subMenu));
-#else
-    g_object_ref(G_OBJECT(m_platformDescription.subMenu));
-    gtk_object_sink(GTK_OBJECT(m_platformDescription.subMenu));
-#endif
 }
 
 void ContextMenuItem::setChecked(bool shouldCheck)

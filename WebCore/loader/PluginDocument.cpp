@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,7 +48,8 @@ class PluginTokenizer : public Tokenizer {
 public:
     PluginTokenizer(Document* doc) : m_doc(doc), m_embedElement(0) {}
         
-    virtual bool write(const SegmentedString&, bool appendData);
+private:
+    virtual void write(const SegmentedString&, bool appendData);
     virtual void stopParsing();
     virtual void finish();
     virtual bool isWaitingForScripts() const;
@@ -57,67 +58,64 @@ public:
     virtual bool writeRawData(const char* data, int len);
         
     void createDocumentStructure();
-private:
+
     Document* m_doc;
     HTMLEmbedElement* m_embedElement;
 };
     
-bool PluginTokenizer::write(const SegmentedString& s, bool appendData)
+void PluginTokenizer::write(const SegmentedString&, bool)
 {
     ASSERT_NOT_REACHED();
-    return false;
 }
     
 void PluginTokenizer::createDocumentStructure()
 {
     ExceptionCode ec;
-    RefPtr<Element> rootElement = m_doc->createElementNS(xhtmlNamespaceURI, "html", ec);
+    RefPtr<Element> rootElement = m_doc->createElement(htmlTag, false);
     m_doc->appendChild(rootElement, ec);
-        
-    RefPtr<Element> body = m_doc->createElementNS(xhtmlNamespaceURI, "body", ec);
+
+    RefPtr<Element> body = m_doc->createElement(bodyTag, false);
     body->setAttribute(marginwidthAttr, "0");
     body->setAttribute(marginheightAttr, "0");
     body->setAttribute(bgcolorAttr, "rgb(38,38,38)");
 
     rootElement->appendChild(body, ec);
         
-    RefPtr<Element> embedElement = m_doc->createElementNS(xhtmlNamespaceURI, "embed", ec);
+    RefPtr<Element> embedElement = m_doc->createElement(embedTag, false);
         
     m_embedElement = static_cast<HTMLEmbedElement*>(embedElement.get());
     m_embedElement->setAttribute(widthAttr, "100%");
     m_embedElement->setAttribute(heightAttr, "100%");
     
     m_embedElement->setAttribute(nameAttr, "plugin");
-    m_embedElement->setSrc(m_doc->url());
+    m_embedElement->setSrc(m_doc->url().string());
     m_embedElement->setType(m_doc->frame()->loader()->responseMIMEType());
     
     body->appendChild(embedElement, ec);    
 }
     
-bool PluginTokenizer::writeRawData(const char* data, int len)
+bool PluginTokenizer::writeRawData(const char*, int)
 {
-    if (!m_embedElement) {
-        createDocumentStructure();
-
-        if (Frame* frame = m_doc->frame()) {
-            Settings* settings = frame->settings();
-            if (settings && settings->arePluginsEnabled()) {
-                m_doc->updateLayout();
-            
-                if (RenderWidget* renderer = static_cast<RenderWidget*>(m_embedElement->renderer())) {
-                    frame->loader()->client()->redirectDataToPlugin(renderer->widget());
-                    frame->loader()->activeDocumentLoader()->mainResourceLoader()->setShouldBufferData(false);
-                }
-            
-                finish();
-            }
-        }
-        
+    ASSERT(!m_embedElement);
+    if (m_embedElement)
         return false;
+    
+    createDocumentStructure();
+
+    if (Frame* frame = m_doc->frame()) {
+        Settings* settings = frame->settings();
+        if (settings && settings->arePluginsEnabled()) {
+            m_doc->updateLayout();
+        
+            if (RenderWidget* renderer = static_cast<RenderWidget*>(m_embedElement->renderer())) {
+                frame->loader()->client()->redirectDataToPlugin(renderer->widget());
+                frame->loader()->activeDocumentLoader()->mainResourceLoader()->setShouldBufferData(false);
+            }
+        
+            finish();
+        }
     }
-    
-    ASSERT_NOT_REACHED();
-    
+
     return false;
 }
     
@@ -138,8 +136,8 @@ bool PluginTokenizer::isWaitingForScripts() const
     return false;
 }
     
-PluginDocument::PluginDocument(DOMImplementation* implementation, Frame* frame)
-    : HTMLDocument(implementation, frame)
+PluginDocument::PluginDocument(Frame* frame)
+    : HTMLDocument(frame)
 {
     setParseMode(Compat);
 }

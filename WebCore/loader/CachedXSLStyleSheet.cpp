@@ -1,11 +1,9 @@
 /*
-    This file is part of the KDE libraries
-
     Copyright (C) 1998 Lars Knoll (knoll@mpi-hd.mpg.de)
     Copyright (C) 2001 Dirk Mueller (mueller@kde.org)
     Copyright (C) 2002 Waldo Bastian (bastian@kde.org)
     Copyright (C) 2006 Samuel Weinig (sam.weinig@gmail.com)
-    Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
+    Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -29,34 +27,26 @@
 #include "config.h"
 #include "CachedXSLStyleSheet.h"
 
-#include "Cache.h"
 #include "CachedResourceClient.h"
 #include "CachedResourceClientWalker.h"
 #include "TextResourceDecoder.h"
-#include "loader.h"
 #include <wtf/Vector.h>
 
 namespace WebCore {
 
 #if ENABLE(XSLT)
 
-CachedXSLStyleSheet::CachedXSLStyleSheet(DocLoader* dl, const String &url)
+CachedXSLStyleSheet::CachedXSLStyleSheet(const String &url)
     : CachedResource(url, XSLStyleSheet)
-    , m_decoder(new TextResourceDecoder("text/xsl"))
+    , m_decoder(TextResourceDecoder::create("text/xsl"))
 {
     // It's XML we want.
     // FIXME: This should accept more general xml formats */*+xml, image/svg+xml for example.
     setAccept("text/xml, application/xml, application/xhtml+xml, text/xsl, application/rss+xml, application/atom+xml");
-    
-    // load the file
-    cache()->loader()->load(dl, this, false);
-    m_loading = true;
 }
 
-void CachedXSLStyleSheet::ref(CachedResourceClient *c)
-{
-    CachedResource::ref(c);
-    
+void CachedXSLStyleSheet::didAddClient(CachedResourceClient* c)
+{  
     if (!m_loading)
         c->setXSLStyleSheet(m_url, m_sheet);
 }

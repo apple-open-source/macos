@@ -20,94 +20,95 @@
 #include "config.h"
 #include "JSDocument.h"
 
-#include "DOMWindow.h"
-#include "Document.h"
+#include "ExceptionCode.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "HTMLDocument.h"
-#include "JSDOMWindow.h"
+#include "JSDOMWindowCustom.h"
 #include "JSHTMLDocument.h"
 #include "JSLocation.h"
-#include "kjs_binding.h"
-#include "kjs_proxy.h"
+#include "Location.h"
+#include "ScriptController.h"
 
 #if ENABLE(SVG)
 #include "JSSVGDocument.h"
 #include "SVGDocument.h"
 #endif
 
-namespace WebCore {
+using namespace JSC;
 
-using namespace KJS;
+namespace WebCore {
 
 void JSDocument::mark()
 {
-    JSEventTargetNode::mark();
-    ScriptInterpreter::markDOMNodesForDocument(static_cast<Document*>(impl()));
+    JSNode::mark();
+    markDOMNodesForDocument(impl());
+    markActiveObjectsForContext(*Heap::heap(this)->globalData(), impl());
 }
 
-JSValue* JSDocument::location(ExecState* exec) const
+JSValue JSDocument::location(ExecState* exec) const
 {
     Frame* frame = static_cast<Document*>(impl())->frame();
     if (!frame)
         return jsNull();
 
-    KJS::Window* win = KJS::Window::retrieveWindow(frame);
-    ASSERT(win);
-    return win->location();
+    Location* location = frame->domWindow()->location();
+    if (DOMObject* wrapper = getCachedDOMObjectWrapper(exec->globalData(), location))
+        return wrapper;
+
+    JSDOMWindow* window = static_cast<JSDOMWindow*>(exec->lexicalGlobalObject());
+    JSLocation* jsLocation = new (exec) JSLocation(getDOMStructure<JSLocation>(exec, window), location);
+    cacheDOMObjectWrapper(exec->globalData(), location, jsLocation);
+    return jsLocation;
 }
 
-void JSDocument::setLocation(ExecState* exec, JSValue* value)
+void JSDocument::setLocation(ExecState* exec, JSValue value)
 {
     Frame* frame = static_cast<Document*>(impl())->frame();
     if (!frame)
         return;
 
-    String str = value->toString(exec);
+    String str = value.toString(exec);
 
     // IE and Mozilla both resolve the URL relative to the source frame,
     // not the target frame.
-    Frame* activeFrame = static_cast<JSDOMWindow*>(exec->dynamicGlobalObject())->impl()->frame();
+    Frame* activeFrame = asJSDOMWindow(exec->dynamicGlobalObject())->impl()->frame();
     if (activeFrame)
-        str = activeFrame->document()->completeURL(str);
+        str = activeFrame->document()->completeURL(str).string();
 
-    bool userGesture = activeFrame->scriptProxy()->processingUserGesture();
-    frame->loader()->scheduleLocationChange(str, activeFrame->loader()->outgoingReferrer(), false, userGesture);
+    bool userGesture = activeFrame->script()->processingUserGesture();
+    frame->loader()->scheduleLocationChange(str, activeFrame->loader()->outgoingReferrer(), !activeFrame->script()->anyPageIsProcessingUserGesture(), false, userGesture);
 }
 
-JSValue* toJS(ExecState* exec, Document* doc)
+JSValue toJS(ExecState* exec, Document* document)
 {
-    if (!doc)
+    if (!document)
         return jsNull();
 
-    JSDocument* ret = static_cast<JSDocument*>(ScriptInterpreter::getDOMObject(doc));
-    if (ret)
-        return ret;
+    DOMObject* wrapper = getCachedDOMObjectWrapper(exec->globalData(), document);
+    if (wrapper)
+        return wrapper;
 
-    if (doc->isHTMLDocument())
-        ret = new JSHTMLDocument(JSHTMLDocumentPrototype::self(exec), static_cast<HTMLDocument*>(doc));
+    if (document->isHTMLDocument())
+        wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, HTMLDocument, document);
 #if ENABLE(SVG)
-    else if (doc->isSVGDocument())
-        ret = new JSSVGDocument(JSSVGDocumentPrototype::self(exec), static_cast<SVGDocument*>(doc));
+    else if (document->isSVGDocument())
+        wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, SVGDocument, document);
 #endif
     else
-        ret = new JSDocument(JSDocumentPrototype::self(exec), doc);
+        wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, Document, document);
 
     // Make sure the document is kept around by the window object, and works right with the
     // back/forward cache.
-    if (doc->frame())
-        KJS::Window::retrieveWindow(doc->frame())->putDirect("document", ret, DontDelete|ReadOnly);
-    else {
+    if (!document->frame()) {
         size_t nodeCount = 0;
-        for (Node* n = doc; n; n = n->traverseNextNode())
+        for (Node* n = document; n; n = n->traverseNextNode())
             nodeCount++;
         
-        Collector::reportExtraMemoryCost(nodeCount * sizeof(Node));
+        exec->heap()->reportExtraMemoryCost(nodeCount * sizeof(Node));
     }
 
-    ScriptInterpreter::putDOMObject(doc, ret);
-
-    return ret;
+    return wrapper;
 }
 
 } // namespace WebCore

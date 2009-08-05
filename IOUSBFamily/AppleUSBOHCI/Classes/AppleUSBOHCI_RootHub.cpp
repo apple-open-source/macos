@@ -237,10 +237,10 @@ IOReturn AppleUSBOHCI::SetRootHubDescriptor(OSData * /*buffer*/)
 
 IOReturn AppleUSBOHCI::GetRootHubStatus(IOUSBHubStatus *status)
 {
-    if ( _myBusState == kUSBBusStateSuspended )
-        return kIOReturnNotResponding;
-
-    *(UInt32*)status = _pOHCIRegisters->hcRhStatus;
+    if ( _controllerAvailable )
+		*(UInt32*)status = _pOHCIRegisters->hcRhStatus;
+	else
+		*(UInt32*)status = 0;					// if the controller is not available, just return 0. The OC bit is the only really important bit anyway
 
     return kIOReturnSuccess;
 }

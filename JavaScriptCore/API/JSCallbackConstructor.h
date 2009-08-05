@@ -1,6 +1,5 @@
-// -*- mode: c++; c-basic-offset: 4 -*-
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,32 +27,31 @@
 #define JSCallbackConstructor_h
 
 #include "JSObjectRef.h"
-#include <kjs/object.h>
+#include <runtime/JSObject.h>
 
-namespace KJS {
+namespace JSC {
 
-class JSCallbackConstructor : public JSObject
-{
+class JSCallbackConstructor : public JSObject {
 public:
-    JSCallbackConstructor(ExecState* exec, JSClassRef jsClass, JSObjectCallAsConstructorCallback callback);
+    JSCallbackConstructor(PassRefPtr<Structure>, JSClassRef, JSObjectCallAsConstructorCallback);
     virtual ~JSCallbackConstructor();
-    
-    virtual bool implementsHasInstance() const;
-    
-    virtual bool implementsConstruct() const;
-    virtual JSObject* construct(ExecState*, const List &args);
-    
-    virtual const ClassInfo *classInfo() const { return &info; }
+    JSClassRef classRef() const { return m_class; }
+    JSObjectCallAsConstructorCallback callback() const { return m_callback; }
     static const ClassInfo info;
     
+    static PassRefPtr<Structure> createStructure(JSValue proto) 
+    { 
+        return Structure::create(proto, TypeInfo(ObjectType, ImplementsHasInstance | HasStandardGetOwnPropertySlot)); 
+    }
+
 private:
-    JSCallbackConstructor(); // prevent default construction
-    JSCallbackConstructor(const JSCallbackConstructor&);
+    virtual ConstructType getConstructData(ConstructData&);
+    virtual const ClassInfo* classInfo() const { return &info; }
 
     JSClassRef m_class;
     JSObjectCallAsConstructorCallback m_callback;
 };
 
-} // namespace KJS
+} // namespace JSC
 
 #endif // JSCallbackConstructor_h

@@ -21,21 +21,24 @@
 module traversal {
 
     // Introduced in DOM Level 2:
-    interface [CustomMarkFunction] TreeWalker {
+    interface [
+        CustomMarkFunction,
+        GenerateConstructor
+    ] TreeWalker {
         readonly attribute Node root;
         readonly attribute unsigned long whatToShow;
-        readonly attribute [ObjCIvar] NodeFilter filter;
+        readonly attribute NodeFilter filter;
         readonly attribute boolean expandEntityReferences;        
                  attribute Node currentNode
                      setter raises(DOMException);
 
-        Node parentNode();
-        Node firstChild();
-        Node lastChild();
-        Node previousSibling();
-        Node nextSibling();
-        Node previousNode();
-        Node nextNode();
+        [Custom] Node parentNode();
+        [Custom] Node firstChild();
+        [Custom] Node lastChild();
+        [Custom] Node previousSibling();
+        [Custom] Node nextSibling();
+        [Custom] Node previousNode();
+        [Custom] Node nextNode();
     };
 
 }

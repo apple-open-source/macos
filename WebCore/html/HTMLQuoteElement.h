@@ -1,6 +1,4 @@
 /*
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Simon Hausmann <hausmann@kde.org>
@@ -33,10 +31,12 @@ class String;
 class HTMLQuoteElement : public HTMLElement
 {
 public:
-    HTMLQuoteElement(Document*);
+    HTMLQuoteElement(const QualifiedName&, Document*);
     
     virtual HTMLTagStatus endTagRequirement() const { return TagStatusRequired; }
     virtual int tagPriority() const { return 1; }
+
+    virtual void insertedIntoDocument();
 
     String cite() const;
     void setCite(const String&);

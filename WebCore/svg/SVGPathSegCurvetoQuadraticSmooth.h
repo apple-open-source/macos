@@ -1,6 +1,6 @@
 /*
     Copyright (C) 2004, 2005, 2006 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005, 2006 Rob Buis <buis@kde.org>
+                  2004, 2005, 2006, 2008 Rob Buis <buis@kde.org>
 
     This file is part of the KDE project
 
@@ -29,44 +29,26 @@
 
 namespace WebCore {
 
-    class SVGPathSegCurvetoQuadraticSmoothAbs : public SVGPathSeg {
+    class SVGPathSegCurvetoQuadraticSmoothAbs : public SVGPathSegSingleCoord {
     public:
-        SVGPathSegCurvetoQuadraticSmoothAbs(float x, float y);
-        virtual ~SVGPathSegCurvetoQuadraticSmoothAbs();
+        static PassRefPtr<SVGPathSegCurvetoQuadraticSmoothAbs> create(float x, float y) { return adoptRef(new SVGPathSegCurvetoQuadraticSmoothAbs(x, y)); }
 
         virtual unsigned short pathSegType() const { return PATHSEG_CURVETO_QUADRATIC_SMOOTH_ABS; }
         virtual String pathSegTypeAsLetter() const { return "T"; }
-        virtual String toString() const { return String::format("T %.6lg %.6lg", m_x, m_y); }
-
-        void setX(float);
-        float x() const;
-
-        void setY(float);
-        float y() const;
 
     private:
-        float m_x;
-        float m_y;
+        SVGPathSegCurvetoQuadraticSmoothAbs(float x, float y);
     };
 
-    class SVGPathSegCurvetoQuadraticSmoothRel : public SVGPathSeg {
+    class SVGPathSegCurvetoQuadraticSmoothRel : public SVGPathSegSingleCoord {
     public:
-        SVGPathSegCurvetoQuadraticSmoothRel(float x, float y);
-        virtual ~SVGPathSegCurvetoQuadraticSmoothRel();
+        static PassRefPtr<SVGPathSegCurvetoQuadraticSmoothRel> create(float x, float y) { return adoptRef(new SVGPathSegCurvetoQuadraticSmoothRel(x, y)); }
 
         virtual unsigned short pathSegType() const { return PATHSEG_CURVETO_QUADRATIC_SMOOTH_REL; }
         virtual String pathSegTypeAsLetter() const { return "t"; }
-        virtual String toString() const { return String::format("t %.6lg %.6lg", m_x, m_y); }
-
-        void setX(float);
-        float x() const;
-
-        void setY(float);
-        float y() const;
 
     private:
-        float m_x;
-        float m_y;
+        SVGPathSegCurvetoQuadraticSmoothRel(float x, float y);
     };
 
 } // namespace WebCore

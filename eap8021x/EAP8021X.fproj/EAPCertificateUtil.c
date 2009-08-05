@@ -358,10 +358,11 @@ EAPSecIdentityHandleCreateSecIdentityTrustChain(EAPSecIdentityHandleRef cert_id,
 		EAPSecurityErrorString(status), (int)status);
 	goto done;
     }
+
     count = CFArrayGetCount(trust_chain);
-    array = CFArrayCreateMutable(NULL, count + 1, &kCFTypeArrayCallBacks);
-    CFArrayAppendValue(array, identity); /* identity into [0] */
-    CFArrayAppendArray(array, trust_chain, CFRangeMake(0, count));
+    array = CFArrayCreateMutableCopy(NULL, count, trust_chain);
+    /* array[0] contains the identity's cert, replace it with the identity */
+    CFArraySetValueAtIndex(array, 0, identity);
     *ret_array = array;
 
  done:

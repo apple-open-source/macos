@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2004, 2005 Nikolas Zimmermann <wildfox@kde.org>
+    Copyright (C) 2004, 2005, 2008 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005 Rob Buis <buis@kde.org>
 
     This file is part of the KDE project
@@ -22,12 +22,11 @@
 
 #ifndef SVGTransform_h
 #define SVGTransform_h
-#if ENABLE(SVG)
 
-#include "AffineTransform.h"
+#if ENABLE(SVG)
+#include "TransformationMatrix.h"
 #include "FloatPoint.h"
-#include <wtf/RefCounted.h>
-#include <wtf/RefPtr.h>
+#include "SVGNames.h"
 
 namespace WebCore {
     
@@ -47,17 +46,19 @@ namespace WebCore {
  
         SVGTransform();
         SVGTransform(SVGTransformType);
-        explicit SVGTransform(const AffineTransform&);
+        explicit SVGTransform(const TransformationMatrix&);
         virtual ~SVGTransform();
                
         SVGTransformType type() const;
 
-        AffineTransform matrix() const;
+        TransformationMatrix matrix() const;
     
         float angle() const;
         FloatPoint rotationCenter() const;
 
-        void setMatrix(const AffineTransform&);
+//        void setMatrix(const TransformationMatrix&);
+        void setMatrix(TransformationMatrix);
+
         void setTranslate(float tx, float ty);
         void setScale(float sx, float sy);
         void setRotate(float angle, float cx, float cy);
@@ -70,11 +71,14 @@ namespace WebCore {
         
         bool isValid();
 
+        // Throughout SVG 1.1 'SVGTransform' is only used for the 'transform' attribute
+        const QualifiedName& associatedAttributeName() const { return SVGNames::transformAttr; }
+
     private:
         SVGTransformType m_type;
         float m_angle;
         FloatPoint m_center;
-        AffineTransform m_matrix;
+        TransformationMatrix m_matrix;
     };
 
     inline bool operator==(const SVGTransform& a, const SVGTransform& b)

@@ -31,28 +31,21 @@
 
 #if PLATFORM(GTK)
     #define supressNotImplementedWarning() getenv("DISABLE_NI_WARNING")
+#elif PLATFORM(QT)
+    #include <QByteArray>
+    #define supressNotImplementedWarning() !qgetenv("DISABLE_NI_WARNING").isEmpty()
 #else
     #define supressNotImplementedWarning() false
 #endif
 
-#if PLATFORM(QT)
-
-    #include <qglobal.h>
-    #include <qbytearray.h>
-    #define notImplemented() \
-        if (qgetenv("DISABLE_NI_WARNING").isEmpty()) \
-            qDebug("FIXME: UNIMPLEMENTED: %s:%d (%s)", __FILE__, __LINE__, WTF_PRETTY_FUNCTION)
-
-#elif defined(NDEBUG)
-
-#define notImplemented() ((void)0)
-
+#if defined(NDEBUG)
+    #define notImplemented() ((void)0)
 #else
 
 #define notImplemented() do { \
         static bool havePrinted = false; \
         if (!havePrinted && !supressNotImplementedWarning()) { \
-            WTFLogVerbose(__FILE__, __LINE__, WTF_PRETTY_FUNCTION, &LogNotYetImplemented, "UNIMPLEMENTED: "); \
+            WTFLogVerbose(__FILE__, __LINE__, WTF_PRETTY_FUNCTION, &::WebCore::LogNotYetImplemented, "UNIMPLEMENTED: "); \
             havePrinted = true; \
         } \
     } while (0)

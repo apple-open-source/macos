@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2006 James G. Speth (speth@end.com)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,14 +26,35 @@
 
 #import "config.h"
 
+#import "DOMAbstractViewInternal.h"
+#import "DOMCSSRuleInternal.h"
+#import "DOMCSSRuleListInternal.h"
+#import "DOMCSSStyleDeclarationInternal.h"
+#import "DOMCSSValueInternal.h"
+#import "DOMCounterInternal.h"
+#import "DOMEventInternal.h"
+#import "DOMHTMLCollectionInternal.h"
 #import "DOMImplementationFront.h"
 #import "DOMInternal.h"
+#import "DOMMediaListInternal.h"
+#import "DOMNamedNodeMapInternal.h"
+#import "DOMNodeInternal.h"
+#import "DOMNodeIteratorInternal.h"
+#import "DOMNodeListInternal.h"
+#import "DOMRGBColorInternal.h"
+#import "DOMRangeInternal.h"
+#import "DOMRectInternal.h"
+#import "DOMStyleSheetInternal.h"
+#import "DOMStyleSheetListInternal.h"
+#import "DOMTreeWalkerInternal.h"
 #import "JSCSSRule.h"
 #import "JSCSSRuleList.h"
 #import "JSCSSStyleDeclaration.h"
 #import "JSCSSValue.h"
 #import "JSCounter.h"
 #import "JSDOMImplementation.h"
+#import "JSDOMWindow.h"
+#import "JSDOMWindowShell.h"
 #import "JSEvent.h"
 #import "JSHTMLCollection.h"
 #import "JSHTMLOptionsCollection.h"
@@ -42,6 +63,7 @@
 #import "JSNode.h"
 #import "JSNodeIterator.h"
 #import "JSNodeList.h"
+#import "JSRGBColor.h"
 #import "JSRange.h"
 #import "JSRect.h"
 #import "JSStyleSheet.h"
@@ -49,30 +71,33 @@
 #import "JSTreeWalker.h"
 #import "JSXPathExpression.h"
 #import "JSXPathResult.h"
-#import "Node.h"
 #import "WebScriptObjectPrivate.h"
-#import "kjs_css.h"
-#import "kjs_html.h"
-#import "kjs_window.h"
-#import <objc/objc-runtime.h>
+#import "runtime_root.h"
+
+#if ENABLE(XPATH)
+#import "DOMXPathExpressionInternal.h"
+#import "DOMXPathResultInternal.h"
+#endif
+
+// FIXME: Couldn't get an include of "DOMDOMImplementationInternal.h" to work here.
+DOMImplementation *kit(WebCore::DOMImplementationFront*);
 
 // This file makes use of both the ObjC DOM API and the C++ DOM API, so we need to be careful about what
 // headers are included and what namespaces we use to avoid naming conflicts.
 
-// FIXME: This has to be in the KJS namespace to avoid an Objective-C++ ambiguity with C++ and
-// Objective-C classes of the same name (even when not in the same namespace). That's also the
-// reason for the use of objc_getClass in the WRAP_OLD macro below.
+// FIXME: This has to be in the JSC namespace to avoid an Objective-C++ ambiguity with C++ and
+// Objective-C classes of the same name (even when not in the same namespace).
 
 // Some day if the compiler is fixed, or if all the JS wrappers are named with a "JS" prefix,
-// we could move the function into the WebCore namespace where it belongs.
+// we could move the function out of the JSC namespace.
 
-namespace KJS {
+namespace JSC {
 
-static inline id createDOMWrapper(KJS::JSObject* object)
+static inline id createDOMWrapper(JSC::JSObject* object)
 {
     #define WRAP(className) \
-        if (object->inherits(&WebCore::JS##className::info)) \
-            return [DOM##className _wrap##className:static_cast<WebCore::JS##className*>(object)->impl()];
+        if (object->inherits(&WebCore::JS##className::s_info)) \
+            return kit(static_cast<WebCore::JS##className*>(object)->impl());
 
     WRAP(CSSRule)
     WRAP(CSSRuleList)
@@ -84,14 +109,18 @@ static inline id createDOMWrapper(KJS::JSObject* object)
     WRAP(MediaList)
     WRAP(NamedNodeMap)
     WRAP(Node)
+    WRAP(NodeIterator)
     WRAP(NodeList)
     WRAP(RGBColor)
     WRAP(Range)
     WRAP(Rect)
     WRAP(StyleSheet)
     WRAP(StyleSheetList)
+    WRAP(TreeWalker)
+#if ENABLE(XPATH)
     WRAP(XPathExpression)
     WRAP(XPathResult)
+#endif
 
     // This must be after the HTMLOptionsCollection check, because it's a subclass in the JavaScript
     // binding, but not a subclass in the ObjC binding.
@@ -99,28 +128,21 @@ static inline id createDOMWrapper(KJS::JSObject* object)
 
     #undef WRAP
 
-    if (object->inherits(&Window::info))
-        return [DOMAbstractView _wrapAbstractView:static_cast<Window*>(object)->impl()];
-    if (object->inherits(&WebCore::JSDOMImplementation::info))
-        return [DOMImplementation _wrapDOMImplementation:implementationFront(static_cast<WebCore::JSDOMImplementation*>(object))];
-    if (object->inherits(&WebCore::JSNodeIterator::info))
-        return [DOMNodeIterator _wrapNodeIterator:static_cast<WebCore::JSNodeIterator*>(object)->impl() filter:nil];
-    if (object->inherits(&WebCore::JSTreeWalker::info))
-        return [DOMTreeWalker _wrapTreeWalker:static_cast<WebCore::JSTreeWalker*>(object)->impl() filter:nil];
+    if (object->inherits(&WebCore::JSDOMWindowShell::s_info))
+        return kit(static_cast<WebCore::JSDOMWindowShell*>(object)->impl());
+
+    if (object->inherits(&WebCore::JSDOMImplementation::s_info))
+        return kit(implementationFront(static_cast<WebCore::JSDOMImplementation*>(object)));
 
     return nil;
 }
 
 }
 
-namespace WebCore {
-
-id createDOMWrapper(KJS::JSObject* object, PassRefPtr<KJS::Bindings::RootObject> origin, PassRefPtr<KJS::Bindings::RootObject> current)
+id createDOMWrapper(JSC::JSObject* object, PassRefPtr<JSC::Bindings::RootObject> origin, PassRefPtr<JSC::Bindings::RootObject> current)
 {
-    id wrapper = KJS::createDOMWrapper(object);
+    id wrapper = JSC::createDOMWrapper(object);
     if (![wrapper _hasImp]) // new wrapper, not from cache
         [wrapper _setImp:object originRootObject:origin rootObject:current];
     return wrapper;
-}
-
 }

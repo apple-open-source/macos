@@ -28,6 +28,8 @@
 #include "Document.h"
 #include "ExceptionCode.h"
 #include "Node.h"
+#include "TextEncoding.h"
+#include <wtf/Deque.h>
 
 namespace WebCore {
 
@@ -37,6 +39,7 @@ CSSStyleSheet::CSSStyleSheet(CSSStyleSheet* parentSheet, const String& href, con
     , m_namespaces(0)
     , m_charset(charset)
     , m_loadCompleted(false)
+    , m_strictParsing(!parentSheet || parentSheet->useStrictParsing())
 {
 }
 
@@ -46,16 +49,19 @@ CSSStyleSheet::CSSStyleSheet(Node *parentNode, const String& href, const String&
     , m_namespaces(0)
     , m_charset(charset)
     , m_loadCompleted(false)
+    , m_strictParsing(false)
 {
 }
 
 CSSStyleSheet::CSSStyleSheet(CSSRule *ownerRule, const String& href, const String& charset)
     : StyleSheet(ownerRule, href)
-    , m_doc(0)
     , m_namespaces(0)
     , m_charset(charset)
     , m_loadCompleted(false)
+    , m_strictParsing(!ownerRule || ownerRule->useStrictParsing())
 {
+    CSSStyleSheet* parentSheet = ownerRule ? ownerRule->parentStyleSheet() : 0;
+    m_doc = parentSheet ? parentSheet->doc() : 0;
 }
 
 CSSStyleSheet::~CSSStyleSheet()
@@ -107,9 +113,9 @@ int CSSStyleSheet::addRule(const String& selector, const String& style, Exceptio
 }
 
 
-CSSRuleList* CSSStyleSheet::cssRules(bool omitCharsetRules)
+PassRefPtr<CSSRuleList> CSSStyleSheet::cssRules(bool omitCharsetRules)
 {
-    return new CSSRuleList(this, omitCharsetRules);
+    return CSSRuleList::create(this, omitCharsetRules);
 }
 
 void CSSStyleSheet::deleteRule(unsigned index, ExceptionCode& ec)
@@ -134,7 +140,7 @@ void CSSStyleSheet::addNamespace(CSSParser* p, const AtomicString& prefix, const
     if (prefix.isEmpty())
         // Set the default namespace on the parser so that selectors that omit namespace info will
         // be able to pick it up easily.
-        p->defaultNamespace = uri;
+        p->m_defaultNamespace = uri;
 }
 
 const AtomicString& CSSStyleSheet::determineNamespace(const AtomicString& prefix)
@@ -176,16 +182,11 @@ void CSSStyleSheet::checkLoaded()
         return;
     if (parent())
         parent()->checkLoaded();
-    m_loadCompleted = m_parentNode ? m_parentNode->sheetLoaded() : true;
-}
 
-DocLoader *CSSStyleSheet::docLoader()
-{
-    if (!m_doc) // doc is 0 for the user- and default-sheet!
-        return 0;
-
-    // ### remove? (clients just use sheet->doc()->docLoader())
-    return m_doc->docLoader();
+    // Avoid |this| being deleted by scripts that run via HTMLTokenizer::executeScriptsWaitingForStylesheets().
+    // See <rdar://problem/6622300>.
+    RefPtr<CSSStyleSheet> protector(this);
+    m_loadCompleted = ownerNode() ? ownerNode()->sheetLoaded() : true;
 }
 
 void CSSStyleSheet::styleSheetChanged()
@@ -193,7 +194,7 @@ void CSSStyleSheet::styleSheetChanged()
     StyleBase* root = this;
     while (StyleBase* parent = root->parent())
         root = parent;
-    Document* documentToUpdate = (root && root->isCSSStyleSheet()) ? static_cast<CSSStyleSheet*>(root)->doc() : 0;
+    Document* documentToUpdate = root->isCSSStyleSheet() ? static_cast<CSSStyleSheet*>(root)->doc() : 0;
     
     /* FIXME: We don't need to do everything updateStyleSelector does,
      * basically we just need to recreate the document's selector with the
@@ -201,6 +202,39 @@ void CSSStyleSheet::styleSheetChanged()
      */
     if (documentToUpdate)
         documentToUpdate->updateStyleSelector();
+}
+
+KURL CSSStyleSheet::completeURL(const String& url) const
+{
+    // Always return a null URL when passed a null string.
+    // FIXME: Should we change the KURL constructor to have this behavior?
+    // See also Document::completeURL(const String&)
+    if (url.isNull() || m_charset.isEmpty())
+        return StyleSheet::completeURL(url);
+    const TextEncoding encoding = TextEncoding(m_charset);
+    return KURL(baseURL(), url, encoding);
+}
+
+void CSSStyleSheet::addSubresourceStyleURLs(ListHashSet<KURL>& urls)
+{
+    Deque<CSSStyleSheet*> styleSheetQueue;
+    styleSheetQueue.append(this);
+
+    while (!styleSheetQueue.isEmpty()) {
+        CSSStyleSheet* styleSheet = styleSheetQueue.first();
+        styleSheetQueue.removeFirst();
+
+        RefPtr<CSSRuleList> ruleList = styleSheet->cssRules();
+
+        for (unsigned i = 0; i < ruleList->length(); ++i) {
+            CSSRule* rule = ruleList->item(i);
+            if (rule->isImportRule()) {
+                if (CSSStyleSheet* ruleStyleSheet = static_cast<CSSImportRule*>(rule)->styleSheet())
+                    styleSheetQueue.append(ruleStyleSheet);
+            }
+            rule->addSubresourceStyleURLs(urls);
+        }
+    }
 }
 
 }

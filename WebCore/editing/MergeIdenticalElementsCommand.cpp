@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,31 +30,34 @@
 
 namespace WebCore {
 
-MergeIdenticalElementsCommand::MergeIdenticalElementsCommand(Element* first, Element* second)
-    : EditCommand(first->document()), m_element1(first), m_element2(second)
-{
-    ASSERT(m_element1);
-    ASSERT(m_element2);
-}
-
-void MergeIdenticalElementsCommand::doApply()
+MergeIdenticalElementsCommand::MergeIdenticalElementsCommand(PassRefPtr<Element> first, PassRefPtr<Element> second)
+    : SimpleEditCommand(first->document())
+    , m_element1(first)
+    , m_element2(second)
 {
     ASSERT(m_element1);
     ASSERT(m_element2);
     ASSERT(m_element1->nextSibling() == m_element2);
-    
+}
+
+void MergeIdenticalElementsCommand::doApply()
+{
+    if (m_element1->nextSibling() != m_element2)
+        return;
+
+    m_atChild = m_element2->firstChild();
+
     ExceptionCode ec = 0;
 
-    if (!m_atChild)
-        m_atChild = m_element2->firstChild();
+    Vector<RefPtr<Node> > children;
+    for (Node* child = m_element1->firstChild(); child; child = child->nextSibling())
+        children.append(child);
 
-    while (m_element1->lastChild()) {
-        m_element2->insertBefore(m_element1->lastChild(), m_element2->firstChild(), ec);
-        ASSERT(ec == 0);
-    }
+    size_t size = children.size();
+    for (size_t i = 0; i < size; ++i)
+        m_element2->insertBefore(children[i].release(), m_atChild.get(), ec);
 
-    m_element2->parentNode()->removeChild(m_element1.get(), ec);
-    ASSERT(ec == 0);
+    m_element1->remove(ec);
 }
 
 void MergeIdenticalElementsCommand::doUnapply()
@@ -62,16 +65,25 @@ void MergeIdenticalElementsCommand::doUnapply()
     ASSERT(m_element1);
     ASSERT(m_element2);
 
+    RefPtr<Node> atChild = m_atChild.release();
+
+    Node* parent = m_element2->parent();
+    if (!parent)
+        return;
+
     ExceptionCode ec = 0;
 
-    m_element2->parent()->insertBefore(m_element1.get(), m_element2.get(), ec);
-    ASSERT(ec == 0);
+    parent->insertBefore(m_element1.get(), m_element2.get(), ec);
+    if (ec)
+        return;
 
-    while (m_element2->firstChild() != m_atChild) {
-        ASSERT(m_element2->firstChild());
-        m_element1->appendChild(m_element2->firstChild(), ec);
-        ASSERT(ec == 0);
-    }
+    Vector<RefPtr<Node> > children;
+    for (Node* child = m_element2->firstChild(); child && child != atChild; child = child->nextSibling())
+        children.append(child);
+
+    size_t size = children.size();
+    for (size_t i = 0; i < size; ++i)
+        m_element1->appendChild(children[i].release(), ec);
 }
 
 } // namespace WebCore

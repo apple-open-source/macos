@@ -26,13 +26,16 @@
 #define SharedBuffer_h
 
 #include "PlatformString.h"
-#include <wtf/RefCounted.h>
 #include <wtf/Forward.h>
+#include <wtf/OwnPtr.h>
+#include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
 
-#if PLATFORM(MAC)
+#if PLATFORM(CF)
 #include <wtf/RetainPtr.h>
+#endif
 
+#if PLATFORM(MAC)
 #ifdef __OBJC__
 @class NSData;
 #else
@@ -42,21 +45,34 @@ class NSData;
 #endif
 
 namespace WebCore {
+    
+class PurgeableBuffer;
 
 class SharedBuffer : public RefCounted<SharedBuffer> {
 public:
-    SharedBuffer();
-    SharedBuffer(const char*, int);
-    SharedBuffer(const unsigned char*, int);
+    static PassRefPtr<SharedBuffer> create() { return adoptRef(new SharedBuffer); }
+    static PassRefPtr<SharedBuffer> create(const char* c, int i) { return adoptRef(new SharedBuffer(c, i)); }
+    static PassRefPtr<SharedBuffer> create(const unsigned char* c, int i) { return adoptRef(new SharedBuffer(c, i)); }
 
     static PassRefPtr<SharedBuffer> createWithContentsOfFile(const String& filePath);
+
+    static PassRefPtr<SharedBuffer> adoptVector(Vector<char>& vector);
+    
+    // The buffer must be in non-purgeable state before adopted to a SharedBuffer. 
+    // It will stay that way until released.
+    static PassRefPtr<SharedBuffer> adoptPurgeableBuffer(PurgeableBuffer* buffer);
+    
+    ~SharedBuffer();
     
 #if PLATFORM(MAC)
     NSData *createNSData();
-    CFDataRef createCFData();
     static PassRefPtr<SharedBuffer> wrapNSData(NSData *data);
 #endif
-        
+#if PLATFORM(CF)
+    CFDataRef createCFData();
+    static PassRefPtr<SharedBuffer> wrapCFData(CFDataRef);
+#endif
+
     const char* data() const;
     unsigned size() const;
     const Vector<char> &buffer() { return m_buffer; }
@@ -70,15 +86,25 @@ public:
 
     PassRefPtr<SharedBuffer> copy() const;
     
+    bool hasPurgeableBuffer() const { return m_purgeableBuffer.get(); }
+
+    // Ensure this buffer has no other clients before calling this.
+    PurgeableBuffer* releasePurgeableBuffer();
+    
 private:
+    SharedBuffer();
+    SharedBuffer(const char*, int);
+    SharedBuffer(const unsigned char*, int);
+    
     void clearPlatformData();
     void maybeTransferPlatformData();
     bool hasPlatformData() const;
     
     Vector<char> m_buffer;
-#if PLATFORM(MAC)
-    SharedBuffer(NSData *nsdata);
-    RetainPtr<NSData> m_nsData;
+    OwnPtr<PurgeableBuffer> m_purgeableBuffer;
+#if PLATFORM(CF)
+    SharedBuffer(CFDataRef);
+    RetainPtr<CFDataRef> m_cfData;
 #endif
 };
     

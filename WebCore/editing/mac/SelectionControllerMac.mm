@@ -27,39 +27,41 @@
 #import "SelectionController.h"
 
 #import "AXObjectCache.h"
-#import "Document.h"
 #import "Frame.h"
-#import "FrameView.h"
 #import "RenderView.h"
-#import "Selection.h"
-
-#import <ApplicationServices/ApplicationServices.h> 
+#import "WebCoreViewFactory.h"
 
 namespace WebCore {
 
 void SelectionController::notifyAccessibilityForSelectionChange()
 {
-    if (AXObjectCache::accessibilityEnabled() && m_sel.start().isNotNull() && m_sel.end().isNotNull())
-        m_frame->document()->axObjectCache()->postNotification(m_sel.start().node()->renderer(), "AXSelectedTextChanged");
-    
-    // if zoom feature is enabled, insertion point changes should update the zoom
-    if (UAZoomEnabled() && m_sel.isCaret() && m_sel.start().node()) {
-        RenderView *renderView = static_cast<RenderView*>(m_sel.start().node()->renderer());
-        if (renderView) {
-            IntRect selectionRect = caretRect();
-            IntRect viewRect = renderView->viewRect();
-            FrameView* frameView = renderView->view()->frameView(); 
-            NSView *view = frameView->getDocumentView();
-            if (view) {
-                selectionRect.setLocation(frameView->convertToScreenCoordinate(view, selectionRect.location()));
-                viewRect.setLocation(frameView->convertToScreenCoordinate(view, viewRect.location()));
-                CGRect cgCaretRect = CGRectMake(selectionRect.x(), selectionRect.y(), selectionRect.width(), selectionRect.height());
-                CGRect cgViewRect = CGRectMake(viewRect.x(), viewRect.y(), viewRect.width(), viewRect.height());
-                (void)UAZoomChangeFocus(&cgViewRect, &cgCaretRect, kUAZoomFocusTypeInsertionPoint);
-            }
-        }
-    }
-}
+    Document* document = m_frame->document();
 
+    if (AXObjectCache::accessibilityEnabled() && m_sel.start().isNotNull() && m_sel.end().isNotNull())
+        document->axObjectCache()->postNotification(m_sel.start().node()->renderer(), "AXSelectedTextChanged", false);
+
+    // if zoom feature is enabled, insertion point changes should update the zoom
+    if (!UAZoomEnabled() || !m_sel.isCaret())
+        return;
+
+    RenderView* renderView = document->renderView();
+    if (!renderView)
+        return;
+    FrameView* frameView = m_frame->view();
+    if (!frameView)
+        return;
+
+    IntRect selectionRect = absoluteCaretBounds();
+    IntRect viewRect = renderView->viewRect();
+
+    selectionRect = frameView->contentsToScreen(selectionRect);
+    viewRect = frameView->contentsToScreen(viewRect);
+    CGRect cgCaretRect = CGRectMake(selectionRect.x(), selectionRect.y(), selectionRect.width(), selectionRect.height());
+    CGRect cgViewRect = CGRectMake(viewRect.x(), viewRect.y(), viewRect.width(), viewRect.height());
+    cgCaretRect = [[WebCoreViewFactory sharedFactory] accessibilityConvertScreenRect:cgCaretRect];
+    cgViewRect = [[WebCoreViewFactory sharedFactory] accessibilityConvertScreenRect:cgViewRect];
+
+    UAZoomChangeFocus(&cgViewRect, &cgCaretRect, kUAZoomFocusTypeInsertionPoint);
+}
 
 } // namespace WebCore

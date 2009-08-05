@@ -26,8 +26,8 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef JSObject_h
-#define JSObject_h
+#ifndef JSGlue_JSObject_h
+#define JSGlue_JSObject_h
 
 #include "JSBase.h"
 #include "JSUtils.h"
@@ -43,7 +43,7 @@ class JSUserObject : public JSBase {
         CFArrayRef CopyPropertyNames(void);
         JSUserObject* CopyProperty(CFStringRef propertyName);
         void SetProperty(CFStringRef propertyName, JSUserObject* value);
-        bool ImplementsCall();
+        CallType getCallData(CallData&);
         JSUserObject* CallFunction(JSUserObject* thisObj, CFArrayRef args);
         CFTypeRef CopyCFValue() const;
         virtual UInt8 Equal(JSBase* other);
@@ -58,4 +58,4 @@ class JSUserObject : public JSBase {
                 int fDataType;
 };
 
-#endif
+#endif // JSGlue_JSObject_h

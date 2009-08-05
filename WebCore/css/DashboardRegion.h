@@ -1,8 +1,6 @@
 /*
- * This file is part of the DOM implementation for KDE.
- *
  * (C) 1999-2003 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
+ * Copyright (C) 2004, 2005, 2006, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,19 +23,26 @@
 
 #include "Rect.h"
 
+#if ENABLE(DASHBOARD_SUPPORT)
+
 namespace WebCore {
 
-class DashboardRegion : public Rect {
+class DashboardRegion : public RectBase, public RefCounted<DashboardRegion> {
 public:
-    DashboardRegion() : m_isCircle(0), m_isRectangle(0) { }
+    static PassRefPtr<DashboardRegion> create() { return adoptRef(new DashboardRegion); }
 
     RefPtr<DashboardRegion> m_next;
     String m_label;
     String m_geometryType;
     bool m_isCircle : 1;
     bool m_isRectangle : 1;
+
+private:
+    DashboardRegion() : m_isCircle(false), m_isRectangle(false) { }
 };
 
 } // namespace
+
+#endif
 
 #endif

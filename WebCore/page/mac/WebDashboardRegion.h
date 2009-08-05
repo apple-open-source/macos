@@ -23,6 +23,12 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
+#if !defined(ENABLE_DASHBOARD_SUPPORT)
+#define ENABLE_DASHBOARD_SUPPORT 1
+#endif
+
+#if ENABLE_DASHBOARD_SUPPORT
+
 typedef enum {
     WebDashboardRegionTypeNone,
     WebDashboardRegionTypeCircle,
@@ -41,3 +47,5 @@ typedef enum {
 - (NSRect)dashboardRegionRect;
 - (WebDashboardRegionType)dashboardRegionType;
 @end
+
+#endif

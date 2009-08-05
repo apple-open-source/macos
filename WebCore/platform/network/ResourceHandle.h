@@ -28,8 +28,16 @@
 
 #include "AuthenticationChallenge.h"
 #include "HTTPHeaderMap.h"
+#include "ThreadableLoader.h"
 #include <wtf/OwnPtr.h>
 
+#if USE(SOUP)
+typedef struct _SoupSession SoupSession;
+#endif
+
+#if PLATFORM(CF)
+typedef const struct __CFData * CFDataRef;
+#endif
 
 #if PLATFORM(WIN)
 typedef unsigned long DWORD;
@@ -76,11 +84,10 @@ class KURL;
 class ResourceError;
 class ResourceHandleClient;
 class ResourceHandleInternal;
-class ResourceRequest;
+struct ResourceRequest;
 class ResourceResponse;
+class SchedulePair;
 class SharedBuffer;
-class SubresourceLoader;
-class SubresourceLoaderClient;
 
 template <typename T> class Timer;
 
@@ -97,36 +104,56 @@ public:
     // FIXME: should not need the Frame
     static PassRefPtr<ResourceHandle> create(const ResourceRequest&, ResourceHandleClient*, Frame*, bool defersLoading, bool shouldContentSniff, bool mightDownloadFromHandle = false);
 
-    static void loadResourceSynchronously(const ResourceRequest&, ResourceError&, ResourceResponse&, Vector<char>& data, Frame* frame);
+    static void loadResourceSynchronously(const ResourceRequest&, StoredCredentials, ResourceError&, ResourceResponse&, Vector<char>& data, Frame* frame);
     static bool willLoadFromCache(ResourceRequest&);
-    
+#if PLATFORM(MAC)
+    static bool didSendBodyDataDelegateExists();
+#endif
+
     ~ResourceHandle();
 
 #if PLATFORM(MAC) || USE(CFNETWORK)
+    void willSendRequest(ResourceRequest&, const ResourceResponse& redirectResponse);
+    bool shouldUseCredentialStorage();
+#endif
+#if PLATFORM(MAC) || USE(CFNETWORK) || USE(CURL)
     void didReceiveAuthenticationChallenge(const AuthenticationChallenge&);
     void receivedCredential(const AuthenticationChallenge&, const Credential&);
     void receivedRequestToContinueWithoutCredential(const AuthenticationChallenge&);
     void receivedCancellation(const AuthenticationChallenge&);
 #endif
+
 #if PLATFORM(MAC)
     void didCancelAuthenticationChallenge(const AuthenticationChallenge&);
     NSURLConnection *connection() const;
     WebCoreResourceHandleAsDelegate *delegate();
     void releaseDelegate();
+    id releaseProxy();
+
+    void schedule(SchedulePair*);
+    void unschedule(SchedulePair*);
 #elif USE(CFNETWORK)
     static CFRunLoopRef loaderRunLoop();
     CFURLConnectionRef connection() const;
     CFURLConnectionRef releaseConnectionForDownload();
-
     static void setHostAllowsAnyHTTPSCertificate(const String&);
     static void setClientCertificate(const String& host, CFDataRef);
 #endif
+
+#if PLATFORM(WIN) && USE(CURL)
+    static void setHostAllowsAnyHTTPSCertificate(const String&);
+#endif
+#if PLATFORM(WIN) && USE(CURL) && PLATFORM(CF)
+    static void setClientCertificate(const String& host, CFDataRef);
+#endif
+
     PassRefPtr<SharedBuffer> bufferedData();
     static bool supportsBufferedData();
-    
-#if PLATFORM(MAC)
-    id releaseProxy();
-#endif
+
+    bool shouldContentSniff() const;
+    static bool shouldContentSniffURL(const KURL&);
+
+    static void forceContentSniffing();
 
 #if USE(WININET)
     void setHasReceivedResponse(bool = true);
@@ -139,8 +166,12 @@ public:
     friend LRESULT __stdcall ResourceHandleWndProc(HWND, unsigned message, WPARAM, LPARAM);
 #endif
 
-#if PLATFORM(GTK) || PLATFORM(QT) || PLATFORM(WX)
+#if PLATFORM(QT) || USE(CURL) || USE(SOUP)
     ResourceHandleInternal* getInternal() { return d.get(); }
+#endif
+
+#if USE(SOUP)
+    static SoupSession* defaultSession();
 #endif
 
     // Used to work around the fact that you don't get any more NSURLConnection callbacks until you return from the one you're in.
@@ -160,6 +191,12 @@ public:
     void fireFailure(Timer<ResourceHandle>*);
 
 private:
+#if USE(SOUP)
+    bool startData(String urlString);
+    bool startHttp(String urlString);
+    bool startGio(KURL url);
+#endif
+
     void scheduleFailure(FailureType);
 
     bool start(Frame*);

@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005, 2008 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -27,6 +25,7 @@
 
 #include "DOMImplementation.h"
 #include "Language.h"
+#include "MappedAttribute.h"
 #include "SVGElement.h"
 #include "SVGNames.h"
 #include "SVGStringList.h"
@@ -44,7 +43,7 @@ SVGTests::~SVGTests()
 SVGStringList* SVGTests::requiredFeatures() const
 {
     if (!m_features)
-        m_features = new SVGStringList(SVGNames::requiredFeaturesAttr);
+        m_features = SVGStringList::create(SVGNames::requiredFeaturesAttr);
 
     return m_features.get();
 }
@@ -52,7 +51,7 @@ SVGStringList* SVGTests::requiredFeatures() const
 SVGStringList* SVGTests::requiredExtensions() const
 {
     if (!m_extensions)
-        m_extensions = new SVGStringList(SVGNames::requiredExtensionsAttr);
+        m_extensions = SVGStringList::create(SVGNames::requiredExtensionsAttr);
 
     return m_extensions.get();
 }
@@ -60,7 +59,7 @@ SVGStringList* SVGTests::requiredExtensions() const
 SVGStringList* SVGTests::systemLanguage() const
 {
     if (!m_systemLanguage)
-        m_systemLanguage = new SVGStringList(SVGNames::systemLanguageAttr);
+        m_systemLanguage = SVGStringList::create(SVGNames::systemLanguageAttr);
 
     return m_systemLanguage.get();
 }
@@ -77,7 +76,7 @@ bool SVGTests::isValid() const
     if (m_features) {
         for (unsigned long i = 0; i < m_features->numberOfItems(); i++) {
             String value = m_features->getItem(i, ec);
-            if (value.isEmpty() || !DOMImplementation::instance()->hasFeature(value, String()))
+            if (value.isEmpty() || !DOMImplementation::hasFeature(value, String()))
                 return false;
         }
     }

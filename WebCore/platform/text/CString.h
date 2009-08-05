@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2003, 2006, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,23 +26,26 @@
 #ifndef CString_h
 #define CString_h
 
+#include "SharedBuffer.h"
+
+#include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
 
-using std::min;
-
 namespace WebCore {
 
-    class DeprecatedCString;
-    
     class CStringBuffer : public RefCounted<CStringBuffer> {
     public:
-        CStringBuffer(unsigned length) : m_vector(length) { }
-
-        char* data() { return m_vector.data(); }
-        unsigned length() const { return m_vector.size(); }
-
+        const char* data() { return m_vector.data(); }
+        size_t length() { return m_vector.size(); }
+        
     private:
+        friend class CString;
+
+        static PassRefPtr<CStringBuffer> create(unsigned length) { return adoptRef(new CStringBuffer(length)); }
+        CStringBuffer(unsigned length) : m_vector(length) { }
+        char* mutableData() { return m_vector.data(); }
+
         Vector<char> m_vector;
     };
 
@@ -53,6 +56,7 @@ namespace WebCore {
         CString() { }
         CString(const char*);
         CString(const char*, unsigned length);
+        CString(CStringBuffer* buffer) : m_buffer(buffer) { }
         static CString newUninitialized(size_t length, char*& characterBuffer);
 
         const char* data() const;
@@ -61,8 +65,7 @@ namespace WebCore {
 
         bool isNull() const { return !m_buffer; }
 
-        CString(const DeprecatedCString&);
-        DeprecatedCString deprecatedCString() const;
+        CStringBuffer* buffer() const { return m_buffer.get(); }
 
     private:
         void copyBufferIfNeeded();
@@ -73,6 +76,6 @@ namespace WebCore {
     bool operator==(const CString& a, const CString& b);
     inline bool operator!=(const CString& a, const CString& b) { return !(a == b); }
 
-}
+} // namespace WebCore
 
 #endif // CString_h

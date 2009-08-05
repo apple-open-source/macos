@@ -1,6 +1,4 @@
 /**
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Simon Hausmann (hausmann@kde.org)
@@ -25,15 +23,18 @@
 #include "config.h"
 #include "HTMLHtmlElement.h"
 
+#include "ApplicationCacheGroup.h"
+#include "Document.h"
 #include "HTMLNames.h"
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLHtmlElement::HTMLHtmlElement(Document* doc)
-    : HTMLElement(htmlTag, doc)
+HTMLHtmlElement::HTMLHtmlElement(const QualifiedName& tagName, Document* doc)
+    : HTMLElement(tagName, doc)
 {
+    ASSERT(hasTagName(htmlTag));
 }
 
 HTMLHtmlElement::~HTMLHtmlElement()
@@ -52,10 +53,28 @@ void HTMLHtmlElement::setVersion(const String &value)
 
 bool HTMLHtmlElement::checkDTD(const Node* newChild)
 {
-    // FIXME: Why is <script> allowed here?
     return newChild->hasTagName(headTag) || newChild->hasTagName(bodyTag) ||
-           newChild->hasTagName(framesetTag) || newChild->hasTagName(noframesTag) ||
-           newChild->hasTagName(scriptTag);
+           newChild->hasTagName(framesetTag) || newChild->hasTagName(noframesTag);
 }
+
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+void HTMLHtmlElement::insertedIntoDocument()
+{
+    HTMLElement::insertedIntoDocument();
+    
+    if (!document()->parsing())
+        return;
+
+    if (!document()->frame())
+        return;
+
+    // Check the manifest attribute
+    AtomicString manifest = getAttribute(manifestAttr);
+    if (manifest.isNull())
+        ApplicationCacheGroup::selectCacheWithoutManifestURL(document()->frame());
+    else
+        ApplicationCacheGroup::selectCache(document()->frame(), document()->completeURL(manifest));
+}
+#endif
 
 }

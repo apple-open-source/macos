@@ -22,31 +22,22 @@
 
 #ifndef SVGSetElement_h
 #define SVGSetElement_h
-#if ENABLE(SVG)
+#if ENABLE(SVG_ANIMATION)
 
-#include "SVGAnimationElement.h"
+#include "SVGAnimateElement.h"
 
 namespace WebCore
 {
-    class SVGSetElement : public SVGAnimationElement
+    // SVGAnimateElement implements superset of the functionality.
+    class SVGSetElement : public SVGAnimateElement
     {
     public:
         SVGSetElement(const QualifiedName&, Document*);
-        virtual ~SVGSetElement();
-
-    protected:
-        virtual const SVGElement* contextElement() const { return this; }
-        
-        virtual bool updateAnimatedValue(EAnimationMode, float timePercentage, unsigned valueIndex, float percentagePast);
-        virtual bool calculateFromAndToValues(EAnimationMode, unsigned valueIndex);
-
-    private:
-        String m_savedTo;
     };
 
 } // namespace WebCore
 
-#endif // ENABLE(SVG)
+#endif // ENABLE(SVG_ANIMATION)
 #endif
 
 // vim:ts=4:noet

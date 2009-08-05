@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,6 +36,23 @@ namespace WebCore {
 
     class CanvasStyle : public RefCounted<CanvasStyle> {
     public:
+        static PassRefPtr<CanvasStyle> create(const String& color) { return adoptRef(new CanvasStyle(color)); }
+        static PassRefPtr<CanvasStyle> create(float grayLevel) { return adoptRef(new CanvasStyle(grayLevel)); }
+        static PassRefPtr<CanvasStyle> create(const String& color, float alpha) { return adoptRef(new CanvasStyle(color, alpha)); }
+        static PassRefPtr<CanvasStyle> create(float grayLevel, float alpha) { return adoptRef(new CanvasStyle(grayLevel, alpha)); }
+        static PassRefPtr<CanvasStyle> create(float r, float g, float b, float a) { return adoptRef(new CanvasStyle(r, g, b, a)); }
+        static PassRefPtr<CanvasStyle> create(float c, float m, float y, float k, float a) { return adoptRef(new CanvasStyle(c, m, y, k, a)); }
+        static PassRefPtr<CanvasStyle> create(PassRefPtr<CanvasGradient> gradient) { return adoptRef(new CanvasStyle(gradient)); }
+        static PassRefPtr<CanvasStyle> create(PassRefPtr<CanvasPattern> pattern) { return adoptRef(new CanvasStyle(pattern)); }
+
+        String color() const { return m_color; }
+        CanvasGradient* canvasGradient() const { return m_gradient.get(); }
+        CanvasPattern* canvasPattern() const { return m_pattern.get(); }
+
+        void applyFillColor(GraphicsContext*);
+        void applyStrokeColor(GraphicsContext*);
+
+    private:
         CanvasStyle(const String& color);
         CanvasStyle(float grayLevel);
         CanvasStyle(const String& color, float alpha);
@@ -45,17 +62,6 @@ namespace WebCore {
         CanvasStyle(PassRefPtr<CanvasGradient>);
         CanvasStyle(PassRefPtr<CanvasPattern>);
 
-        String color() const { return m_color; }
-        CanvasGradient* gradient() const { return m_gradient.get(); }
-        CanvasPattern* pattern() const { return m_pattern.get(); }
-
-        // These do nothing for gradients or patterns.
-#if !PLATFORM(CAIRO)
-        void applyFillColor(GraphicsContext*);
-#endif
-        void applyStrokeColor(GraphicsContext*);
-
-    private:
         enum Type { ColorString, ColorStringWithAlpha, GrayLevel, RGBA, CMYKA, Gradient, ImagePattern };
 
         Type m_type;

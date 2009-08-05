@@ -1059,6 +1059,7 @@ void IOHIDEventService::free()
     }
 
     if (_ejectTimerEventSource) {
+        _ejectTimerEventSource->cancelTimeout();
         if ( _workLoop )
             _workLoop->removeEventSource(_ejectTimerEventSource);
             
@@ -1067,7 +1068,8 @@ void IOHIDEventService::free()
     }
 
     if (_capsTimerEventSource) {
-        if ( _workLoop )
+        _capsTimerEventSource->cancelTimeout();
+       if ( _workLoop )
             _workLoop->removeEventSource(_capsTimerEventSource);
             
         _capsTimerEventSource->release();
@@ -1075,6 +1077,7 @@ void IOHIDEventService::free()
     }
 
     if ( _workLoop ) {
+    	// not our workloop. don't stop it.
         _workLoop->release();
         _workLoop = NULL;
     }

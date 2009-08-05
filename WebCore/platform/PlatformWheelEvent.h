@@ -47,7 +47,9 @@ typedef struct _GdkEventScroll GdkEventScroll;
 #endif
 
 #if PLATFORM(QT)
+QT_BEGIN_NAMESPACE
 class QWheelEvent;
+QT_END_NAMESPACE
 #endif
 
 #if PLATFORM(WX)
@@ -57,13 +59,25 @@ class wxPoint;
 
 namespace WebCore {
 
+    // Wheel events come in two flavors:
+    // The ScrollByPixelWheelEvent is a fine-grained event that specifies the precise number of pixels to scroll.  It is sent directly by MacBook touchpads on OS X,
+    // and synthesized in other cases where platforms generate line-by-line scrolling events.
+    // The ScrollByPageWheelEvent indicates that the wheel event should scroll an entire page.  In this case WebCore's built in paging behavior is used to page
+    // up and down (you get the same behavior as if the user was clicking in a scrollbar track to page up or page down).  Page scrolling only works in the vertical direction.
+    enum PlatformWheelEventGranularity { ScrollByPageWheelEvent, ScrollByPixelWheelEvent };
+    
     class PlatformWheelEvent {
     public:
-        const IntPoint& pos() const { return m_position; }
-        const IntPoint& globalPos() const { return m_globalPosition; }
+        const IntPoint& pos() const { return m_position; } // PlatformWindow coordinates.
+        const IntPoint& globalPos() const { return m_globalPosition; } // Screen coordinates.
 
         float deltaX() const { return m_deltaX; }
         float deltaY() const { return m_deltaY; }
+
+        float wheelTicksX() const { return m_wheelTicksX; }
+        float wheelTicksY() const { return m_wheelTicksY; }
+
+        PlatformWheelEventGranularity granularity() const { return m_granularity; }
 
         bool isAccepted() const { return m_isAccepted; }
         bool shiftKey() const { return m_shiftKey; }
@@ -71,23 +85,19 @@ namespace WebCore {
         bool altKey() const { return m_altKey; }
         bool metaKey() const { return m_metaKey; }
 
-        int x() const { return m_position.x(); }
+        int x() const { return m_position.x(); } // PlatformWindow coordinates.
         int y() const { return m_position.y(); }
-        int globalX() const { return m_globalPosition.x(); }
+        int globalX() const { return m_globalPosition.x(); } // Screen coordinates.
         int globalY() const { return m_globalPosition.y(); }
 
         void accept() { m_isAccepted = true; }
         void ignore() { m_isAccepted = false; }
-        
-        bool isContinuous() const { return m_isContinuous; }
-        float continuousDeltaX() const { return m_continuousDeltaX; }
-        float continuousDeltaY() const { return m_continuousDeltaY; }
 
 #if PLATFORM(MAC)
         PlatformWheelEvent(NSEvent*);
 #endif
 #if PLATFORM(WIN)
-        PlatformWheelEvent(HWND, WPARAM, LPARAM, bool isHorizontal);
+        PlatformWheelEvent(HWND, WPARAM, LPARAM, bool isMouseHWheel);
 #endif
 #if PLATFORM(GTK)
         PlatformWheelEvent(GdkEventScroll*);
@@ -99,19 +109,19 @@ namespace WebCore {
         PlatformWheelEvent(const wxMouseEvent&, const wxPoint&);
 #endif
 
-    private:
+    protected:
         IntPoint m_position;
         IntPoint m_globalPosition;
         float m_deltaX;
         float m_deltaY;
+        float m_wheelTicksX;
+        float m_wheelTicksY;
+        PlatformWheelEventGranularity m_granularity;
         bool m_isAccepted;
         bool m_shiftKey;
         bool m_ctrlKey;
         bool m_altKey;
         bool m_metaKey;
-        bool m_isContinuous;
-        float m_continuousDeltaX;
-        float m_continuousDeltaY;
     };
 
 } // namespace WebCore

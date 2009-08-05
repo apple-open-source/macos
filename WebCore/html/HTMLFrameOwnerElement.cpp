@@ -35,7 +35,6 @@ namespace WebCore {
 HTMLFrameOwnerElement::HTMLFrameOwnerElement(const QualifiedName& tagName, Document* document)
     : HTMLElement(tagName, document)
     , m_contentFrame(0)
-    , m_createdByParser(false)
 {
 }
 

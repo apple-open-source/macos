@@ -64,9 +64,10 @@ my $opt_bug_url = "http://bugzilla.mozilla.org/show_bug.cgi?id=";
 my $opt_console_failures = 0;
 my $opt_lxr_url = "./"; # "http://lxr.mozilla.org/mozilla/source/js/tests/";
 my $opt_exit_munge = ($os_type ne "MAC") ? 1 : 0;
+my $opt_arch= "";
 
 # command line option definition
-my $options = "b=s bugurl>b c=s classpath>c e=s engine>e f=s file>f " .
+my $options = "a=s arch>a b=s bugurl>b c=s classpath>c e=s engine>e f=s file>f " .
 "h help>h i j=s javapath>j k confail>k l=s list>l L=s neglist>L " .
 "o=s opt>o p=s testpath>p s=s shellpath>s t trace>t u=s lxrurl>u " .
 "x noexitmunge>x";
@@ -173,7 +174,9 @@ sub execute_tests {
 # (only check for their existance if the suite or test_dir has changed
 # since the last time we looked.)
         if ($last_suite ne $suite || $last_test_dir ne $test_dir) {
-            $shell_command = &xp_path($engine_command);
+            $shell_command = $opt_arch . " ";
+            
+            $shell_command .= &xp_path($engine_command)  . " -s ";
             
             $path = &xp_path($opt_suite_path . $suite . "/shell.js");
             if (-f $path) {
@@ -191,7 +194,8 @@ sub execute_tests {
         }
         
         $path = &xp_path($opt_suite_path . $test);
-        &status ("executing: " . $shell_command . $file_param . $path);
+        
+        print ($shell_command . $file_param . $path . "\n");
         &dd ("executing: " . $shell_command . $file_param . $path);
         
         open (OUTPUT, $shell_command . $file_param . $path .
@@ -373,7 +377,12 @@ sub parse_args {
     
     while (($option, $value) = nextOption()) {
         
-        if ($option eq "b") {
+        if ($option eq "a") {
+            &dd ("opt: running with architecture $value.");
+            $value =~ s/^ //;
+            $opt_arch = "arch -$value";
+        
+        } elsif ($option eq "b") {
             &dd ("opt: setting bugurl to '$value'.");
             $opt_bug_url = $value;
             
@@ -475,12 +484,13 @@ sub parse_args {
 sub usage {
     print STDERR 
     ("\nusage: $0 [<options>] \n" .
+     "(-a|--arch) <arch>        run with a specific architecture on mac\n" .
      "(-b|--bugurl)             Bugzilla URL.\n" .
      "                          (default is $opt_bug_url)\n" .
      "(-c|--classpath)          Classpath (Rhino only.)\n" .
      "(-e|--engine) <type> ...  Specify the type of engine(s) to test.\n" .
      "                          <type> is one or more of\n" .
-     "                          (kjs|smopt|smdebug|lcopt|lcdebug|xpcshell|" .
+     "                          (squirrelfish|smopt|smdebug|lcopt|lcdebug|xpcshell|" .
      "rhino|rhinoi|rhinoms|rhinomsi|rhino9|rhinoms9).\n" .
      "(-f|--file) <file>        Redirect output to file named <file>.\n" .
      "                          (default is " .
@@ -553,10 +563,9 @@ sub get_engine_command {
     }  elsif ($opt_engine_type =~ /^ep(opt|debug)$/) {
         &dd ("getting epimetheus engine command.");
         $retval = &get_ep_engine_command;
-    } elsif ($opt_engine_type eq "kjs") {
-        &dd ("getting kjs engine command.");
-        $retval = &get_kjs_engine_command;
-        
+    } elsif ($opt_engine_type eq "squirrelfish") {
+        &dd ("getting squirrelfish engine command.");
+        $retval = &get_squirrelfish_engine_command;        
     } else {
         die ("Unknown engine type selected, '$opt_engine_type'.\n");
     }
@@ -633,15 +642,18 @@ sub get_xpc_engine_command {
 }
 
 #
-# get the shell command used to run kjs
+# get the shell command used to run squirrelfish
 #
-sub get_kjs_engine_command {
+sub get_squirrelfish_engine_command {
     my $retval;
     
     if ($opt_shell_path) {
-        $retval = $opt_shell_path;
+        # FIXME: Quoting the path this way won't work with paths with quotes in
+        # them. A better fix would be to use the multi-parameter version of
+        # open(), but that doesn't work on ActiveState Perl.
+        $retval = "\"" . $opt_shell_path . "\"";
     } else {
-        die "Please specify a full path to the kjs testing engine";
+        die "Please specify a full path to the squirrelfish testing engine";
     }
     
     return $retval;

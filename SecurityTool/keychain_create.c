@@ -113,7 +113,7 @@ keychain_create(int argc, char * const *argv)
 
 	if (!password && !do_prompt)
 	{
-		int compare;
+		int compare = 1;
 		int tries;
 
 		for (tries = 3; tries-- > 0;)

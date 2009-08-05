@@ -2,6 +2,7 @@
  * Copyright (C) 2006 Dirk Mueller <mueller@kde.org>
  * Copyright (C) 2006 George Staikos <staikos@kde.org>
  * Copyright (C) 2006 Charles Samuels <charles@kde.org>
+ * Copyright (C) 2008 Holger Hans Peter Freyther
  *
  * All rights reserved.
  *
@@ -33,11 +34,12 @@
 #include "Image.h"
 #include "IntPoint.h"
 
-#include "DeprecatedString.h"
 #include "NotImplemented.h"
 
 #include <stdio.h>
 #include <stdlib.h>
+
+#undef CopyCursor
 
 namespace WebCore {
 
@@ -57,7 +59,7 @@ Cursor::~Cursor()
 
 Cursor::Cursor(Image* image, const IntPoint& hotspot)
 #ifndef QT_NO_CURSOR
-    : m_impl(*(image->getPixmap()), hotspot.x(), hotspot.y())
+    : m_impl(*(image->nativeImageForCurrentFrame()), hotspot.x(), hotspot.y())
 #endif
 {
 }
@@ -75,20 +77,30 @@ class Cursors {
 protected:
     Cursors()
 #ifndef QT_NO_CURSOR
-        : CrossCursor(QCursor(Qt::CrossCursor))
-        , MoveCursor(QCursor(Qt::SizeAllCursor))
-        , PointerCursor(QCursor(Qt::ArrowCursor))
-        , PointingHandCursor(QCursor(Qt::PointingHandCursor))
-        , IBeamCursor(QCursor(Qt::IBeamCursor))
-        , WaitCursor(QCursor(Qt::WaitCursor))
-        , WhatsThisCursor(QCursor(Qt::WhatsThisCursor))
-        , SizeHorCursor(QCursor(Qt::SizeHorCursor))
-        , SizeVerCursor(QCursor(Qt::SizeVerCursor))
-        , SizeFDiagCursor(QCursor(Qt::SizeFDiagCursor))
-        , SizeBDiagCursor(QCursor(Qt::SizeBDiagCursor))
-        , SplitHCursor(QCursor(Qt::SplitHCursor))
-        , SplitVCursor(QCursor(Qt::SplitVCursor))
-        , BlankCursor(QCursor(Qt::BlankCursor))
+        : CrossCursor(Qt::CrossCursor)
+        , MoveCursor(Qt::SizeAllCursor)
+        , PointerCursor(Qt::ArrowCursor)
+        , PointingHandCursor(Qt::PointingHandCursor)
+        , IBeamCursor(Qt::IBeamCursor)
+        , WaitCursor(Qt::WaitCursor)
+        , WhatsThisCursor(Qt::WhatsThisCursor)
+        , SizeHorCursor(Qt::SizeHorCursor)
+        , SizeVerCursor(Qt::SizeVerCursor)
+        , SizeFDiagCursor(Qt::SizeFDiagCursor)
+        , SizeBDiagCursor(Qt::SizeBDiagCursor)
+        , SplitHCursor(Qt::SplitHCursor)
+        , SplitVCursor(Qt::SplitVCursor)
+        , NoDropCursor(Qt::ForbiddenCursor)
+        , BlankCursor(Qt::BlankCursor)
+        , ZoomInCursor(QPixmap(QLatin1String(":/webkit/resources/zoomInCursor.png")))
+        , ZoomOutCursor(QPixmap(QLatin1String(":/webkit/resources/zoomOutCursor.png")))
+        , VerticalTextCursor(QPixmap(QLatin1String(":/webkit/resources/verticalTextCursor.png")))
+        , CellCursor(QPixmap(QLatin1String(":/webkit/resources/cellCursor.png")))
+        , ContextMenuCursor(QPixmap(QLatin1String(":/webkit/resources/contextMenuCursor.png")))
+        , CopyCursor(QPixmap(QLatin1String(":/webkit/resources/copyCursor.png")))
+        , ProgressCursor(QPixmap(QLatin1String(":/webkit/resources/progressCursor.png")))
+        , AliasCursor(QPixmap(QLatin1String(":/webkit/resources/aliasCursor.png")))
+
 #endif
     {
     }
@@ -114,7 +126,16 @@ public:
     Cursor SizeBDiagCursor;
     Cursor SplitHCursor;
     Cursor SplitVCursor;
+    Cursor NoDropCursor;
     Cursor BlankCursor;
+    Cursor ZoomInCursor;
+    Cursor ZoomOutCursor;
+    Cursor VerticalTextCursor;
+    Cursor CellCursor;
+    Cursor ContextMenuCursor;
+    Cursor CopyCursor;
+    Cursor ProgressCursor;
+    Cursor AliasCursor;
 };
 
 Cursors* Cursors::s_self = 0;
@@ -233,40 +254,85 @@ const Cursor& rowResizeCursor()
 {
     return Cursors::self()->SplitVCursor;
 }
+    
+const Cursor& middlePanningCursor()
+{
+    return moveCursor();
+}
+
+const Cursor& eastPanningCursor()
+{
+    return eastResizeCursor();
+}
+
+const Cursor& northPanningCursor()
+{
+    return northResizeCursor();
+}
+
+const Cursor& northEastPanningCursor()
+{
+    return northEastResizeCursor();
+}
+
+const Cursor& northWestPanningCursor()
+{
+    return northWestResizeCursor();
+}
+
+const Cursor& southPanningCursor()
+{
+    return southResizeCursor();
+}
+
+const Cursor& southEastPanningCursor()
+{
+    return southEastResizeCursor();
+}
+
+const Cursor& southWestPanningCursor()
+{
+    return southWestResizeCursor();
+}
+
+const Cursor& westPanningCursor()
+{
+    return westResizeCursor();
+}    
 
 const Cursor& verticalTextCursor()
 {
-    return Cursors::self()->PointerCursor;
+    return Cursors::self()->VerticalTextCursor;
 }
 
 const Cursor& cellCursor()
 {
-    return Cursors::self()->PointerCursor;
+    return Cursors::self()->CellCursor;
 }
 
 const Cursor& contextMenuCursor()
 {
-    return Cursors::self()->PointerCursor;
+    return Cursors::self()->ContextMenuCursor;
 }
 
 const Cursor& noDropCursor()
 {
-    return Cursors::self()->PointerCursor;
+    return Cursors::self()->NoDropCursor;
 }
 
 const Cursor& copyCursor()
 {
-    return Cursors::self()->PointerCursor;
+    return Cursors::self()->CopyCursor;
 }
 
 const Cursor& progressCursor()
 {
-    return Cursors::self()->PointerCursor;
+    return Cursors::self()->ProgressCursor;
 }
 
 const Cursor& aliasCursor()
 {
-    return Cursors::self()->PointerCursor;
+    return Cursors::self()->AliasCursor;
 }
 
 const Cursor& noneCursor()
@@ -276,17 +342,28 @@ const Cursor& noneCursor()
 
 const Cursor& notAllowedCursor()
 {
-   // FIXME: Build fix -- what is correct here?
-   return Cursors::self()->BlankCursor;
+   return Cursors::self()->NoDropCursor;
 }
 
 const Cursor& zoomInCursor()
 {
-    return Cursors::self()->PointerCursor;
+    return Cursors::self()->ZoomInCursor;
 }
 
 const Cursor& zoomOutCursor()
 {
+    return Cursors::self()->ZoomOutCursor;
+}
+
+const Cursor& grabCursor()
+{
+    notImplemented();
+    return Cursors::self()->PointerCursor;
+}
+
+const Cursor& grabbingCursor()
+{
+    notImplemented();
     return Cursors::self()->PointerCursor;
 }
 

@@ -27,10 +27,12 @@
 #include "config.h"
 #include "Image.h"
 
-#include "AffineTransform.h"
+#include "TransformationMatrix.h"
+#include "BitmapImage.h"
 #include "GraphicsContext.h"
 #include "IntRect.h"
 #include "MIMETypeRegistry.h"
+#include <wtf/StdLibExtras.h>
 
 #include <math.h>
 
@@ -49,15 +51,16 @@ Image::~Image()
 {
 }
 
+Image* Image::nullImage()
+{
+    DEFINE_STATIC_LOCAL(RefPtr<Image>, nullImage, (BitmapImage::create()));;
+    return nullImage.get();
+}
+
 bool Image::supportsType(const String& type)
 {
     return MIMETypeRegistry::isSupportedImageResourceMIMEType(type); 
 } 
-
-bool Image::isNull() const
-{
-    return size().isEmpty();
-}
 
 bool Image::setData(PassRefPtr<SharedBuffer> data, bool allDataReceived)
 {
@@ -70,21 +73,6 @@ bool Image::setData(PassRefPtr<SharedBuffer> data, bool allDataReceived)
         return true;
     
     return dataChanged(allDataReceived);
-}
-
-IntRect Image::rect() const
-{
-    return IntRect(IntPoint(), size());
-}
-
-int Image::width() const
-{
-    return size().width();
-}
-
-int Image::height() const
-{
-    return size().height();
 }
 
 void Image::fillWithSolidColor(GraphicsContext* ctxt, const FloatRect& dstRect, const Color& color, CompositeOperator op)
@@ -118,9 +106,6 @@ static inline FloatSize calculatePatternScale(const FloatRect& dstRect, const Fl
 
 void Image::drawTiled(GraphicsContext* ctxt, const FloatRect& destRect, const FloatPoint& srcPoint, const FloatSize& scaledTileSize, CompositeOperator op)
 {    
-    if (!nativeImageForCurrentFrame())
-        return;
-    
     if (mayFillWithSolidColor()) {
         fillWithSolidColor(ctxt, destRect, solidColor(), op);
         return;
@@ -134,7 +119,7 @@ void Image::drawTiled(GraphicsContext* ctxt, const FloatRect& destRect, const Fl
 
     FloatSize scale(scaledTileSize.width() / intrinsicTileSize.width(),
                     scaledTileSize.height() / intrinsicTileSize.height());
-    AffineTransform patternTransform = AffineTransform().scale(scale.width(), scale.height());
+    TransformationMatrix patternTransform = TransformationMatrix().scaleNonUniform(scale.width(), scale.height());
 
     FloatRect oneTileRect;
     oneTileRect.setX(destRect.x() + fmodf(fmodf(-srcPoint.x(), scaledTileSize.width()) - scaledTileSize.width(), scaledTileSize.width()));
@@ -161,9 +146,6 @@ void Image::drawTiled(GraphicsContext* ctxt, const FloatRect& destRect, const Fl
 // FIXME: Merge with the other drawTiled eventually, since we need a combination of both for some things.
 void Image::drawTiled(GraphicsContext* ctxt, const FloatRect& dstRect, const FloatRect& srcRect, TileRule hRule, TileRule vRule, CompositeOperator op)
 {    
-    if (!nativeImageForCurrentFrame())
-        return;
-
     if (mayFillWithSolidColor()) {
         fillWithSolidColor(ctxt, dstRect, solidColor(), op);
         return;
@@ -176,7 +158,7 @@ void Image::drawTiled(GraphicsContext* ctxt, const FloatRect& dstRect, const Flo
         vRule = RepeatTile;
 
     FloatSize scale = calculatePatternScale(dstRect, srcRect, hRule, vRule);
-    AffineTransform patternTransform = AffineTransform().scale(scale.width(), scale.height());
+    TransformationMatrix patternTransform = TransformationMatrix().scaleNonUniform(scale.width(), scale.height());
 
     // We want to construct the phase such that the pattern is centered (when stretch is not
     // set for a particular rule).

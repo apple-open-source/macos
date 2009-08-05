@@ -2,6 +2,7 @@
  * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
  * Copyright (C) 2006 Michael Emmel mike.emmel@gmail.com
  * Copyright (C) 2007 Holger Hans Peter Freyther
+ * Copyright (C) 2008 Collabora, Ltd.  All rights reserved.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,7 +30,6 @@
 #include "config.h"
 #include "PlatformKeyboardEvent.h"
 
-#include "DeprecatedString.h"
 #include "KeyboardCodes.h"
 #include "NotImplemented.h"
 #include "TextEncoding.h"
@@ -187,6 +187,8 @@ static int windowsKeyCodeForKeyEvent(unsigned int keycode)
             return VK_TAB; // (09) TAB key
         case GDK_Clear:
             return VK_CLEAR; // (0C) CLEAR key
+        case GDK_ISO_Enter:
+        case GDK_KP_Enter:
         case GDK_Return:
             return VK_RETURN; //(0D) Return key
         case GDK_Shift_L:
@@ -255,9 +257,10 @@ static int windowsKeyCodeForKeyEvent(unsigned int keycode)
         case GDK_Help:
             return VK_HELP; // (2F) HELP key
         case GDK_0:
-        case GDK_parenleft:
+        case GDK_parenright:
             return VK_0;    //  (30) 0) key
         case GDK_1:
+        case GDK_exclam:
             return VK_1; //  (31) 1 ! key
         case GDK_2:
         case GDK_at:
@@ -281,7 +284,7 @@ static int windowsKeyCodeForKeyEvent(unsigned int keycode)
         case GDK_asterisk:
             return VK_8; //  (38) 8 key  '*'
         case GDK_9:
-        case GDK_parenright:
+        case GDK_parenleft:
             return VK_9; //  (39) 9 key '('
         case GDK_a:
         case GDK_A:
@@ -461,6 +464,32 @@ static int windowsKeyCodeForKeyEvent(unsigned int keycode)
             // VK_NONAME (FC) Reserved for future use
             // VK_PA1 (FD) PA1 key
             // VK_OEM_CLEAR (FE) Clear key
+        case GDK_F1:
+        case GDK_F2:
+        case GDK_F3:
+        case GDK_F4:
+        case GDK_F5:
+        case GDK_F6:
+        case GDK_F7:
+        case GDK_F8:
+        case GDK_F9:
+        case GDK_F10:
+        case GDK_F11:
+        case GDK_F12:
+        case GDK_F13:
+        case GDK_F14:
+        case GDK_F15:
+        case GDK_F16:
+        case GDK_F17:
+        case GDK_F18:
+        case GDK_F19:
+        case GDK_F20:
+        case GDK_F21:
+        case GDK_F22:
+        case GDK_F23:
+        case GDK_F24:
+            return VK_F1 + (keycode - GDK_F1);
+
         default:
             return 0;
     }
@@ -469,21 +498,30 @@ static int windowsKeyCodeForKeyEvent(unsigned int keycode)
 
 static String singleCharacterString(guint val)
 {
-    glong nwc;
-    String retVal;
-    gunichar c = gdk_keyval_to_unicode(val);
-    gunichar2* uchar16 = g_ucs4_to_utf16(&c, 1, 0, &nwc, 0);
+    switch (val) {
+        case GDK_ISO_Enter:
+        case GDK_KP_Enter:
+        case GDK_Return:
+            return String("\r");
+        default:
+            gunichar c = gdk_keyval_to_unicode(val);
+            glong nwc;
+            gunichar2* uchar16 = g_ucs4_to_utf16(&c, 1, 0, &nwc, 0);
 
-    if (uchar16)
-        retVal = String((UChar*)uchar16, nwc);
-    else
-        retVal = String();
+            String retVal;
+            if (uchar16)
+                retVal = String((UChar*)uchar16, nwc);
+            else
+                retVal = String();
 
-    g_free(uchar16);
+            g_free(uchar16);
 
-    return retVal;
+            return retVal;
+    }
 }
 
+// Keep this in sync with the other platform event constructors
+// TODO: m_gdkEventKey should be refcounted
 PlatformKeyboardEvent::PlatformKeyboardEvent(GdkEventKey* event)
     : m_type((event->type == GDK_KEY_RELEASE) ? KeyUp : KeyDown)
     , m_text(singleCharacterString(event->keyval))
@@ -491,19 +529,24 @@ PlatformKeyboardEvent::PlatformKeyboardEvent(GdkEventKey* event)
     , m_keyIdentifier(keyIdentifierForGdkKeyCode(event->keyval))
     , m_autoRepeat(false)
     , m_windowsVirtualKeyCode(windowsKeyCodeForKeyEvent(event->keyval))
-    , m_isKeypad(false)
+    , m_nativeVirtualKeyCode(event->keyval)
+    , m_isKeypad(event->keyval >= GDK_KP_Space && event->keyval <= GDK_KP_9)
     , m_shiftKey((event->state & GDK_SHIFT_MASK) || (event->keyval == GDK_3270_BackTab))
     , m_ctrlKey(event->state & GDK_CONTROL_MASK)
     , m_altKey(event->state & GDK_MOD1_MASK)
-    , m_metaKey(event->state & GDK_MOD2_MASK)
+    , m_metaKey(event->state & GDK_META_MASK)
+    , m_gdkEventKey(event)
 {
 }
 
-void PlatformKeyboardEvent::disambiguateKeyDownEvent(Type type, bool)
+void PlatformKeyboardEvent::disambiguateKeyDownEvent(Type type, bool backwardCompatibilityMode)
 {
     // Can only change type from KeyDown to RawKeyDown or Char, as we lack information for other conversions.
     ASSERT(m_type == KeyDown);
     m_type = type;
+
+    if (backwardCompatibilityMode)
+        return;
 
     if (type == RawKeyDown) {
         m_text = String();
@@ -518,6 +561,11 @@ bool PlatformKeyboardEvent::currentCapsLockState()
 {
     notImplemented();
     return false;
+}
+
+GdkEventKey* PlatformKeyboardEvent::gdkEventKey() const
+{
+    return m_gdkEventKey;
 }
 
 }

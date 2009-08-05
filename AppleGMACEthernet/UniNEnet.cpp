@@ -116,6 +116,7 @@ void UniNEnet::AllocateEventLog( UInt32 size )
 
 	IOLog( "\033[32mUniNEnet::AllocateEventLog - buffer=%8x phys=%16llx \033[0m \n",
 							(unsigned int)fpELG, fpELG->physAddr );
+	IOLog( "UniNEnet::AllocateEventLog - compiled on %s, %s\n", __DATE__, __TIME__ );
 	return;
 }/* end AllocateEventLog */
 
@@ -357,7 +358,7 @@ bool UniNEnet::start( IOService *provider )
 
 		// Allocate memory for buffers etc
 
-	transmitQueue = (IOGatedOutputQueue*)getOutputQueue();
+	transmitQueue = (IOBasicOutputQueue*)getOutputQueue();
     if ( !transmitQueue ) 
     {
         IOLog( "UniNEnet::start - Output queue initialization failed\n" );
@@ -625,8 +626,8 @@ void UniNEnet::free()
 	{	fRxRingMemDesc->complete(  kIODirectionOutIn );
 		fRxRingMemDesc->release();
 	}
-	if ( fTxMbuf )			IOFree( fTxMbuf, sizeof( mbuf* ) * fTxRingElements );
-	if ( fRxMbuf )			IOFree( fRxMbuf, sizeof( mbuf* ) * fRxRingElements );
+	if ( fTxMbuf )			IOFree( fTxMbuf, sizeof( mbuf_t ) * fTxRingElements );
+	if ( fRxMbuf )			IOFree( fRxMbuf, sizeof( mbuf_t ) * fRxRingElements );
 
 	if ( fWorkLoop )			fWorkLoop->release();
 
@@ -682,7 +683,7 @@ void UniNEnet::interruptOccurred( IOInterruptEventSource *src, int /*count*/ )
 		if ( fCellClockEnabled == false )
 	         interruptStatus = 0x8BadF00d;
 		else interruptStatus = READ_REGISTER( Status );
-		ELG( this, interruptStatus, 'int-', "interruptOccurred - not ready" );
+		ELG( this, interruptStatus, 'int-', "UniNEnet::interruptOccurred - not ready" );
 		return;
 	}
 
@@ -709,7 +710,7 @@ void UniNEnet::interruptOccurred( IOInterruptEventSource *src, int /*count*/ )
 
 	doService  = false;
 
-	if ( interruptStatus & kStatus_TX_INT_ME )
+	if ( interruptStatus & (kStatus_TX_INT_ME | kStatus_TX_ALL) )
 	{
 		KERNEL_DEBUG( DBG_GEM_TXIRQ | DBG_FUNC_START, 0, 0, 0, 0, 0 );
 		doService = transmitInterruptOccurred();
@@ -733,7 +734,7 @@ void UniNEnet::interruptOccurred( IOInterruptEventSource *src, int /*count*/ )
 	if ( interruptStatus & kStatus_MIF_Interrupt )
 	{
 		mifStatus = READ_REGISTER( MIFStatus );		// clear the interrupt
-		ELG( 0, mifStatus, '*MIF', "interruptOccurred - MIF interrupt" );
+		ELG( 0, mifStatus, '*MIF', "UniNEnet::interruptOccurred - MIF interrupt" );
 	}
 #endif // LATER
 
@@ -913,7 +914,7 @@ bool UniNEnet::wakeUp( bool wakeCellClockOnly )
 
 		if ( !fMediumDict && createMediumTables() == false )
 		{
-			ALRT( 0, 0, 'cmt-', "UniNEnet::start - createMediumTables failed" );    
+			ALRT( 0, 0, 'cmt-', "UniNEnet::wakeup - createMediumTables failed" );    
 			goto wakeUp_exit;
 		}
 
@@ -1066,7 +1067,7 @@ IOReturn UniNEnet::disable( IOKernelDebugger* /*debugger*/ )
 IOReturn UniNEnet::getMaxPacketSize( UInt32 *maxSize ) const
 {
 	*maxSize = kIOEthernetMaxPacketSize + 4;	// bump max for VLAN
-	ELG( 0, kIOEthernetMaxPacketSize + 4, 'gMPz', "UniNEnet::getMaxPacketSize" );
+///	ELG( 0, kIOEthernetMaxPacketSize + 4, 'gMPz', "UniNEnet::getMaxPacketSize" );
     return kIOReturnSuccess;
 }/* end getMaxPacketSize */
 
@@ -1273,8 +1274,9 @@ void UniNEnet::timeoutOccurred( IOTimerEventSource* /*timer*/ )
 	{
 		rxWDCount = 0;			// Reset watchdog timer count
 	}
-	else if ( (rxWDCount++ > (5 * 1000 / WATCHDOG_TIMER_MS))	// give about 5 seconds
-		  &&  (fRxMACStatus & kRX_MAC_Status_Rx_Overflow) )		// and require FIFO overflow
+	else if ( (rxWDCount++ > (33 * 1000 / WATCHDOG_TIMER_MS))	// give 33 secs max,
+		  || ((rxWDCount   > 2)									// or 600-900 ms
+			 && (fRxMACStatus & kRX_MAC_Status_Rx_Overflow)) )	// with FIFO overflow
     {
 			/* There are 3  possibilities here:									*/
 			/* 1) There really was no traffic on the link.						*/
@@ -1287,6 +1289,10 @@ void UniNEnet::timeoutOccurred( IOTimerEventSource* /*timer*/ )
 			/*    to better detect link activity. NB that if this 3rd condition	*/
 			/*    occurs, it is quite likely that the Rx ring and Rx FIFO		*/
 			/*    have overflowed.												*/
+
+			/* Radar 5477907 "networking disappeared while running network		*/
+			/* file system test" - Rx was deaf without FIFO overflow requiring	*/
+			/* restart after some time period such as 33 seconds.				*/
 
 		restartReceiver();
 
@@ -1754,12 +1760,12 @@ void UniNEnet::writeRegister( volatile UInt32 *pReg, UInt32 data )
 {
     if ( fCellClockEnabled == false )
     {
-        ALRT( data, pReg, 'Wrg-', "writeRegister: enet clock is disabled" );
+        ALRT( data, pReg, 'Wrg-', "UniNEnet::writeRegister: enet clock is disabled" );
         return;
     }
 
 	if ( pReg != &fpRegs->MIFBitBangFrame_Output )
-		ELG( data, (UInt32)pReg - (UInt32)fpRegs, 'wReg', "writeRegister" );
+		ELG( data, (UInt32)pReg - (UInt32)fpRegs, 'wReg', "UniNEnet::writeRegister" );
 
 	OSWriteLittleInt32( pReg, 0, data );
 	return;
@@ -2227,7 +2233,7 @@ IOReturn UniNEnetUserClient::getGMACTxRing(	void		*pIn,		void		*pOut,
 		len -= sizeof( UInt64 );
 	}
 
-	UC_ELG( fProvider->fTxRingElements,  fProvider->fTxDescriptorRing, 'gTxR', "UniNEnetUserClient::getGMACTxRing - done" );
+	UC_ELG( fProvider->fTxRingElements, fProvider->fTxDescriptorRing, 'gTxR', "UniNEnetUserClient::getGMACTxRing - done" );
     return kIOReturnSuccess;
 }/* end getGMACTxRing */
 

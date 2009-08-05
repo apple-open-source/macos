@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2004 Allan Sandfeld Jensen (kde@carewolf.com)
- * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -22,6 +22,7 @@
 #ifndef RenderCounter_h
 #define RenderCounter_h
 
+#include "CounterContent.h"
 #include "RenderText.h"
 
 namespace WebCore {
@@ -33,11 +34,12 @@ public:
     RenderCounter(Document*, const CounterContent&);
 
     virtual const char* renderName() const;
-    virtual bool isRenderCounter() const;
+    virtual bool isCounter() const;
     virtual PassRefPtr<StringImpl> originalText() const;
     
-    virtual void dirtyLineBoxes(bool, bool);
     virtual void calcPrefWidths(int leadWidth);
+
+    void invalidate();
 
     static void destroyCounterNodes(RenderObject*);
 

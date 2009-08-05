@@ -25,26 +25,29 @@
 
 #include "CachedResource.h"
 #include "ImageObserver.h"
+#include "Image.h"
 #include "IntRect.h"
+#include "Timer.h"
 #include <wtf/Vector.h>
 
 namespace WebCore {
 
 class DocLoader;
 class Cache;
-class Image;
 
 class CachedImage : public CachedResource, public ImageObserver {
     friend class Cache;
 
 public:
-    CachedImage(DocLoader*, const String& url, bool forCache);
+    CachedImage(const String& url);
     CachedImage(Image*);
     virtual ~CachedImage();
+    
+    virtual void load(DocLoader* docLoader);
 
     Image* image() const;
 
-    bool canRender() const { return !errorOccurred() && imageSize().width() > 0 && imageSize().height() > 0; }
+    bool canRender(float multiplier) const { return !errorOccurred() && !imageSize(multiplier).isEmpty(); }
 
     // These are only used for SVGImage right now
     void setImageContainerSize(const IntSize&);
@@ -52,17 +55,22 @@ public:
     bool imageHasRelativeWidth() const;
     bool imageHasRelativeHeight() const;
     
-    IntSize imageSize() const;  // returns the size of the complete image
-    IntRect imageRect() const;  // The size of the image.
+    // Both of these methods take a zoom multiplier that can be used to increase the natural size of the image by the
+    // zoom.
+    IntSize imageSize(float multiplier) const;  // returns the size of the complete image.
+    IntRect imageRect(float multiplier) const;  // The size of the currently decoded portion of the image.
 
-    virtual void ref(CachedResourceClient*);
+    virtual void didAddClient(CachedResourceClient*);
     
-    virtual void allReferencesRemoved();
+    virtual void allClientsRemoved();
     virtual void destroyDecodedData();
 
     virtual void data(PassRefPtr<SharedBuffer> data, bool allDataReceived);
     virtual void error();
-
+    
+    virtual void httpStatusCodeError() { m_httpStatusCodeErrorOccurred = true; }
+    bool httpStatusCodeErrorOccurred() const { return m_httpStatusCodeErrorOccurred; }
+    
     virtual bool schedule() const { return true; }
 
     void checkNotify();
@@ -80,12 +88,18 @@ public:
 
     virtual bool shouldPauseAnimation(const Image*);
     virtual void animationAdvanced(const Image*);
+    virtual void changedInRect(const Image*, const IntRect&);
 
 private:
     void createImage();
-    void notifyObservers();
+    size_t maximumDecodedImageSize();
+    // If not null, changeRect is the changed part of the image.
+    void notifyObservers(const IntRect* changeRect = 0);
+    void decodedDataDeletionTimerFired(Timer<CachedImage>*);
 
-    Image* m_image;
+    RefPtr<Image> m_image;
+    Timer<CachedImage> m_decodedDataDeletionTimer;
+    bool m_httpStatusCodeErrorOccurred;
 };
 
 }

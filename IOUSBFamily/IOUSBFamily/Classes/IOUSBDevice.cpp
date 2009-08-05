@@ -90,7 +90,7 @@ extern "C" {
 #define _DEVICEPORTINTO					_expansionData->_devicePortInfo
 #define _DEVICEISINTERNAL				_expansionData->_deviceIsInternal
 #define _DEVICEISINTERNALISVALID		_expansionData->_deviceIsInternalIsValid
-#define _RESET_AND_REENUMERATE_LOCK						_expansionData->_resetAndReEnumerateLock
+#define _RESET_AND_REENUMERATE_LOCK		_expansionData->_resetAndReEnumerateLock
 
 #define kNotifyTimerDelay			30000	// in milliseconds = 30 seconds
 #define kUserLoginDelay				20000	// in milliseconds = 20 seconds
@@ -722,6 +722,9 @@ IOUSBDevice::message( UInt32 type, IOService * provider,  void * argument )
 		
 		USBLog(4,"%s[%p] received kIOUSBMessagePortHasBeenReset with error = 0x%x",getName(), this, _RESET_ERROR);
 		
+		// We have reset our device, so the configuration in the device is 0
+		_currentConfigValue = 0;
+			
 		// If we had set our thread to sleep waiting for the reset to complete, now wake it up
 		//
 		if ( _RESET_COMMAND )
@@ -1246,20 +1249,20 @@ IOUSBDevice::ResetDevice()
 {
     UInt32		retries = 0;
 	IOReturn	kr = kIOReturnSuccess;
-	bool		gotLock;
-	
+ 	bool		gotLock;
+
+	if ( _SUSPEND_IN_PROGRESS )
+    {
+        USBLog(5, "%s[%p]::ResetDevice(port %d) while SuspendDevice() in progress", getName(), this, (uint32_t)_PORT_NUMBER );
+        return kIOReturnNotPermitted;
+    }
+
     if ( isInactive() )
     {
         USBLog(1, "%s[%p]::ResetDevice - while terminating!", getName(), this);
         return kIOReturnNoDevice;
     }
 	
-    if ( _SUSPEND_IN_PROGRESS )
-    {
-        USBLog(5, "%s[%p]::ResetDevice(port %d) while SuspendDevice() in progress", getName(), this, (uint32_t)_PORT_NUMBER );
-        return kIOReturnNotPermitted;
-    }
-
 	gotLock = OSCompareAndSwap(0, 1, &_RESET_AND_REENUMERATE_LOCK);
 	if ( !gotLock )
 	{
@@ -1378,9 +1381,17 @@ IOUSBDevice::FindConfig(UInt8 configValue, UInt8 *configIndex)
 static IOUSBDescriptorHeader *
 NextDescriptor(const void *desc)
 {
-    const UInt8 *next = (const UInt8 *)desc;
-    UInt8 length = next[0];
+    const UInt8 *	next = (const UInt8 *)desc;
+    UInt8			length = next[0];
+	
+	if ( length == 0 )
+	{
+		USBLog(1, "IOUSBDevice::NextDescriptor (%p), configLength was 0!, bad configuration descriptor", desc);
+		return NULL;
+	}
+	
     next = &next[length];
+	
     return((IOUSBDescriptorHeader *)next);
 }
 
@@ -1447,6 +1458,12 @@ IOUSBDevice::FindNextDescriptor(const void *cur, UInt8 descType)
     {
 		IOUSBDescriptorHeader 		*lasthdr = hdr;
 		hdr = NextDescriptor(hdr);
+		
+		if (hdr == NULL)
+		{
+			return NULL;
+		}
+		
 		if (lasthdr == hdr)
 		{
 			return NULL;
@@ -1495,7 +1512,8 @@ IOUSBDevice::FindNextInterfaceDescriptor(const IOUSBConfigurationDescriptor *con
     }
     else
 		interface = (IOUSBInterfaceDescriptor *)NextDescriptor(configDesc);
-    while (interface < end)
+	
+    while (interface && (interface < end))
     {
 		if (interface->bDescriptorType == kUSBInterfaceDesc)
 		{
@@ -1551,7 +1569,9 @@ IOUSBDevice::FindNextInterface(IOUSBInterface *current, IOUSBFindInterfaceReques
     {
 		// now find either the first interface descriptor which matches, or the first one after current
 		if (FindNextInterfaceDescriptor(NULL, id, request, &id) != kIOReturnSuccess)
+		{
 			return NULL;
+		}
 		
 		intf =  GetInterface(id);
 		// since not all interfaces (e.g. alternate) are instantiated, we only terminate if we find one that is
@@ -3468,7 +3488,7 @@ IOUSBDevice::ProcessPortReset()
         _pipeZero = NULL;
     }
 	
-    // In the past, we "terminated" all the interfaces at this point.  As of 9/17/01, we will not do 
+   // In the past, we "terminated" all the interfaces at this point.  As of 9/17/01, we will not do 
     // that anymore.  10/30/01:  We will do it in the case that we want to reenumerate devices:
     //
     
@@ -3486,8 +3506,6 @@ IOUSBDevice::ProcessPortReset()
         _USBPLANE_PARENT->release();
     }
     
-    _currentConfigValue = 0;
-	
 	_PORT_RESET_THREAD_ACTIVE = false;
 	
     USBLog(6,"-%s[%p]::ProcessPortReset (_pipeZero %p)",getName(), this, _pipeZero); 

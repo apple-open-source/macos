@@ -38,10 +38,12 @@
 #import "FontDescription.h"
 #import "SharedBuffer.h"
 #import "WebCoreSystemInterface.h"
+#import <AppKit/AppKit.h>
 #import <ApplicationServices/ApplicationServices.h>
 #import <float.h>
 #import <unicode/uchar.h>
 #import <wtf/Assertions.h>
+#import <wtf/StdLibExtras.h>
 #import <wtf/RetainPtr.h>
 
 @interface NSFont (WebAppKitSecretAPI)
@@ -54,15 +56,16 @@ const float smallCapsFontSizeMultiplier = 0.7f;
 const float contextDPI = 72.0f;
 static inline float scaleEmToUnits(float x, unsigned unitsPerEm) { return x * (contextDPI / (contextDPI * unitsPerEm)); }
 
-bool initFontData(SimpleFontData* fontData)
+static bool initFontData(SimpleFontData* fontData)
 {
-    if (!fontData->m_font.m_cgFont)
+    if (!fontData->m_font.cgFont())
         return false;
 
+#ifdef BUILDING_ON_TIGER
     ATSUStyle fontStyle;
     if (ATSUCreateStyle(&fontStyle) != noErr)
         return false;
-    
+
     ATSUFontID fontId = fontData->m_font.m_atsuFontID;
     if (!fontId) {
         ATSUDisposeStyle(fontStyle);
@@ -84,28 +87,74 @@ bool initFontData(SimpleFontData* fontData)
     }
 
     ATSUDisposeStyle(fontStyle);
+#endif
 
     return true;
 }
 
 static NSString *webFallbackFontFamily(void)
 {
-    static RetainPtr<NSString> webFallbackFontFamily = nil;
-    if (!webFallbackFontFamily)
-        webFallbackFontFamily = [[NSFont systemFontOfSize:16.0f] familyName];
+    DEFINE_STATIC_LOCAL(RetainPtr<NSString>, webFallbackFontFamily, ([[NSFont systemFontOfSize:16.0f] familyName]));
     return webFallbackFontFamily.get();
 }
 
+#if !ERROR_DISABLED
+#ifdef __LP64__
+static NSString* pathFromFont(NSFont*)
+{
+    // FMGetATSFontRefFromFont is not available in 64-bit. As pathFromFont is only used for debugging
+    // purposes, returning nil is acceptable.
+    return nil;
+}
+#else
+static NSString* pathFromFont(NSFont *font)
+{
+#ifndef BUILDING_ON_TIGER
+    ATSFontRef atsFont = FMGetATSFontRefFromFont(CTFontGetPlatformFont(toCTFontRef(font), 0));
+#else
+    ATSFontRef atsFont = FMGetATSFontRefFromFont(wkGetNSFontATSUFontId(font));
+#endif
+    FSRef fileRef;
+
+#ifndef BUILDING_ON_TIGER
+    OSStatus status = ATSFontGetFileReference(atsFont, &fileRef);
+    if (status != noErr)
+        return nil;
+#else
+    FSSpec oFile;
+    OSStatus status = ATSFontGetFileSpecification(atsFont, &oFile);
+    if (status != noErr)
+        return nil;
+
+    status = FSpMakeFSRef(&oFile, &fileRef);
+    if (status != noErr)
+        return nil;
+#endif
+
+    UInt8 filePathBuffer[PATH_MAX];
+    status = FSRefMakePath(&fileRef, filePathBuffer, PATH_MAX);
+    if (status == noErr)
+        return [NSString stringWithUTF8String:(const char*)filePathBuffer];
+
+    return nil;
+}
+#endif // __LP64__
+#endif // !ERROR_DISABLED
+
 void SimpleFontData::platformInit()
 {
+#ifdef BUILDING_ON_TIGER
     m_styleGroup = 0;
+#endif
+#if USE(ATSUI)
     m_ATSUStyleInitialized = false;
     m_ATSUMirrors = false;
     m_checkedShapesArabic = false;
     m_shapesArabic = false;
+#endif
 
     m_syntheticBoldOffset = m_font.m_syntheticBold ? 1.0f : 0.f;
-    
+
     bool failedSetup = false;
     if (!initFontData(this)) {
         // Ack! Something very bad happened, like a corrupt font.
@@ -126,9 +175,12 @@ void SimpleFontData::platformInit()
 #if !ERROR_DISABLED
         RetainPtr<NSFont> initialFont = m_font.font();
 #endif
-        m_font.setFont([[NSFontManager sharedFontManager] convertFont:m_font.font() toFamily:fallbackFontFamily]);
+        if (m_font.font())
+            m_font.setFont([[NSFontManager sharedFontManager] convertFont:m_font.font() toFamily:fallbackFontFamily]);
+        else
+            m_font.setFont([NSFont fontWithName:fallbackFontFamily size:m_font.size()]);
 #if !ERROR_DISABLED
-        NSString *filePath = wkPathFromFont(initialFont.get());
+        NSString *filePath = pathFromFont(initialFont.get());
         if (!filePath)
             filePath = @"not known";
 #endif
@@ -165,7 +217,15 @@ void SimpleFontData::platformInit()
     int iAscent;
     int iDescent;
     int iLineGap;
-    wkGetFontMetrics(m_font.m_cgFont, &iAscent, &iDescent, &iLineGap, &m_unitsPerEm); 
+#ifdef BUILDING_ON_TIGER
+    wkGetFontMetrics(m_font.cgFont(), &iAscent, &iDescent, &iLineGap, &m_unitsPerEm);
+#else
+    iAscent = CGFontGetAscent(m_font.cgFont());
+    iDescent = CGFontGetDescent(m_font.cgFont());
+    iLineGap = CGFontGetLeading(m_font.cgFont());
+    m_unitsPerEm = CGFontGetUnitsPerEm(m_font.cgFont());
+#endif
+
     float pointSize = m_font.m_size;
     float fAscent = scaleEmToUnits(iAscent, m_unitsPerEm) * pointSize;
     float fDescent = -scaleEmToUnits(iDescent, m_unitsPerEm) * pointSize;
@@ -179,6 +239,13 @@ void SimpleFontData::platformInit()
     NSString *familyName = [m_font.font() familyName];
     if ([familyName isEqualToString:@"Times"] || [familyName isEqualToString:@"Helvetica"] || [familyName isEqualToString:@"Courier"])
         fAscent += floorf(((fAscent + fDescent) * 0.15f) + 0.5f);
+    else if ([familyName isEqualToString:@"Geeza Pro"]) {
+        // Geeza Pro has glyphs that draw slightly above the ascent or far below the descent. Adjust
+        // those vertical metrics to better match reality, so that diacritics at the bottom of one line
+        // do not overlap diacritics at the top of the next line.
+        fAscent *= 1.08f;
+        fDescent *= 2.f;
+    }
 
     m_ascent = lroundf(fAscent);
     m_descent = lroundf(fDescent);
@@ -209,11 +276,14 @@ void SimpleFontData::platformInit()
 
 void SimpleFontData::platformDestroy()
 {
+#ifdef BUILDING_ON_TIGER
     if (m_styleGroup)
         wkReleaseStyleGroup(m_styleGroup);
-
+#endif
+#if USE(ATSUI)
     if (m_ATSUStyleInitialized)
         ATSUDisposeStyle(m_ATSUStyle);
+#endif
 }
 
 SimpleFontData* SimpleFontData::smallCapsFontData(const FontDescription& fontDescription) const
@@ -245,7 +315,7 @@ SimpleFontData* SimpleFontData::smallCapsFontData(const FontDescription& fontDes
                 smallCapsFont.m_syntheticBold = (fontTraits & NSBoldFontMask) && !(smallCapsFontTraits & NSBoldFontMask);
                 smallCapsFont.m_syntheticOblique = (fontTraits & NSItalicFontMask) && !(smallCapsFontTraits & NSItalicFontMask);
 
-                m_smallCapsFontData = FontCache::getCachedFontData(&smallCapsFont);
+                m_smallCapsFontData = fontCache()->getCachedFontData(&smallCapsFont);
             }
             END_BLOCK_OBJC_EXCEPTIONS;
         }
@@ -255,7 +325,7 @@ SimpleFontData* SimpleFontData::smallCapsFontData(const FontDescription& fontDes
 
 bool SimpleFontData::containsCharacters(const UChar* characters, int length) const
 {
-    NSString *string = [[NSString alloc] initWithCharactersNoCopy:(UniChar*)characters length:length freeWhenDone:NO];
+    NSString *string = [[NSString alloc] initWithCharactersNoCopy:const_cast<unichar*>(characters) length:length freeWhenDone:NO];
     NSCharacterSet *set = [[m_font.font() coveredCharacterSet] invertedSet];
     bool result = set && [string rangeOfCharacterFromSet:set].location == NSNotFound;
     [string release];
@@ -290,13 +360,14 @@ float SimpleFontData::platformWidthForGlyph(Glyph glyph) const
     float pointSize = m_font.m_size;
     CGAffineTransform m = CGAffineTransformMakeScale(pointSize, pointSize);
     CGSize advance;
-    if (!wkGetGlyphTransformedAdvances(m_font.m_cgFont, font, &m, &glyph, &advance)) {
+    if (!wkGetGlyphTransformedAdvances(m_font.cgFont(), font, &m, &glyph, &advance)) {
         LOG_ERROR("Unable to cache glyph widths for %@ %f", [font displayName], pointSize);
         advance.width = 0;
     }
     return advance.width + m_syntheticBoldOffset;
 }
 
+#if USE(ATSUI)
 void SimpleFontData::checkShapesArabic() const
 {
     ASSERT(!m_checkedShapesArabic);
@@ -325,5 +396,40 @@ void SimpleFontData::checkShapesArabic() const
             LOG_ERROR("ATSFontGetTable failed (%d)", status);
     }
 }
+#endif
 
+#if USE(CORE_TEXT)
+CTFontRef SimpleFontData::getCTFont() const
+{
+    if (getNSFont())
+        return toCTFontRef(getNSFont());
+    if (!m_CTFont)
+        m_CTFont.adoptCF(CTFontCreateWithGraphicsFont(m_font.cgFont(), m_font.size(), NULL, NULL));
+    return m_CTFont.get();
 }
+
+CFDictionaryRef SimpleFontData::getCFStringAttributes() const
+{
+    if (m_CFStringAttributes)
+        return m_CFStringAttributes.get();
+
+    static const float kerningAdjustmentValue = 0;
+    static CFNumberRef kerningAdjustment = CFNumberCreate(kCFAllocatorDefault, kCFNumberFloatType, &kerningAdjustmentValue);
+
+    static const int ligaturesNotAllowedValue = 0;
+    static CFNumberRef ligaturesNotAllowed = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &ligaturesNotAllowedValue);
+
+    static const int ligaturesAllowedValue = 1;
+    static CFNumberRef ligaturesAllowed = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &ligaturesAllowedValue);
+
+    static const void* attributeKeys[] = { kCTFontAttributeName, kCTKernAttributeName, kCTLigatureAttributeName };
+    const void* attributeValues[] = { getCTFont(), kerningAdjustment, platformData().allowsLigatures() ? ligaturesAllowed : ligaturesNotAllowed };
+
+    m_CFStringAttributes.adoptCF(CFDictionaryCreate(NULL, attributeKeys, attributeValues, sizeof(attributeKeys) / sizeof(*attributeKeys), &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+
+    return m_CFStringAttributes.get();
+}
+
+#endif
+
+} // namespace WebCore

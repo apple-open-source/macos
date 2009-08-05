@@ -1,5 +1,7 @@
 /*
  * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2008 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
+ * Copyright (C) 2009 Google, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,7 +29,7 @@
 #define BackForwardList_h
 
 #include <wtf/RefCounted.h>
-#include <wtf/Forward.h>
+#include <wtf/PassRefPtr.h>
 #include <wtf/HashSet.h>
 #include <wtf/Vector.h>
 
@@ -39,10 +41,31 @@ class Page;
 typedef Vector<RefPtr<HistoryItem> > HistoryItemVector;
 typedef HashSet<RefPtr<HistoryItem> > HistoryItemHashSet;
 
+#if PLATFORM(CHROMIUM)
+// In the Chromium port, the back/forward list is managed externally.
+// See BackForwardListChromium.cpp
+class BackForwardListClient {
+public:
+    virtual ~BackForwardListClient() {}
+    virtual void addItem(PassRefPtr<HistoryItem>) = 0;
+    virtual void goToItem(HistoryItem*) = 0;
+    virtual HistoryItem* currentItem() = 0;
+    virtual HistoryItem* itemAtIndex(int) = 0;
+    virtual int backListCount() = 0;
+    virtual int forwardListCount() = 0;
+    virtual void close() = 0;
+};
+#endif
+
 class BackForwardList : public RefCounted<BackForwardList> {
 public: 
-    BackForwardList(Page*);
+    static PassRefPtr<BackForwardList> create(Page* page) { return adoptRef(new BackForwardList(page)); }
     ~BackForwardList();
+
+#if PLATFORM(CHROMIUM)
+    // Must be called before any other methods. 
+    void setClient(BackForwardListClient* client) { m_client = client; }
+#endif
     
     Page* page() { return m_page; }
     
@@ -73,16 +96,26 @@ public:
     void removeItem(HistoryItem*);
     HistoryItemVector& entries();
     
+#if ENABLE(WML)
+    void clearWmlPageHistory();
+#endif
+
 private:
+    BackForwardList(Page*);
+
     Page* m_page;
+#if PLATFORM(CHROMIUM) 
+    BackForwardListClient* m_client;
+#else
     HistoryItemVector m_entries;
     HistoryItemHashSet m_entryHash;
     unsigned m_current;
+#endif
     unsigned m_capacity;
     bool m_closed;
     bool m_enabled;
-}; //class BackForwardList
+};
     
-}; //namespace WebCore
+} //namespace WebCore
 
-#endif //BACKFORWARDLIST_H
+#endif

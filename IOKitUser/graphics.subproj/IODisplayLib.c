@@ -1664,7 +1664,7 @@ InstallFromCEAShortVideoDesc( IOFBConnectRef connectRef, UInt8 * data )
 	if (kIOReturnSuccess == err)
 	{
 	    flags = kDisplayModeValidFlag | kDisplayModeSafeFlag;
-	    if( (data[offset] & 0x80) && connectRef->hasHDMI )
+	    if(false && connectRef->hasHDMI && (data[offset] & 0x80))
 			flags |= kDisplayModeDefaultFlag;
     
 	    err = InstallTiming( connectRef, &modeDesc, flags, kIOFBEDIDDetailedMode );
@@ -2557,26 +2557,26 @@ IODisplayInstallTimings( IOFBConnectRef connectRef )
 		continue;
 	}
 
-	if( !connectRef->hasHDMI )
-	{
-	    // EDID timing recs
-	    for( i = 0; i < 4; i++ )
-	    {
-		if( i && (0 == bcmp( &edid->descriptors[0].timing,
-				     &edid->descriptors[i].timing,
-				     sizeof( EDIDDetailedTimingDesc))))
-		    continue;
+        // EDID timing recs
+        for( i = 0; i < 4; i++ )
+        {
+            if( i && (0 == bcmp(&edid->descriptors[0].timing,
+                                &edid->descriptors[i].timing,
+                                sizeof( EDIDDetailedTimingDesc))))
+                continue;
 
-		InstallFromEDIDDesc( connectRef,
-				     edid,
-				     &edid->descriptors[i].timing,
-				     kDisplayModeValidFlag | kDisplayModeSafeFlag
-				     | ((i == defaultIndex) ? kDisplayModeDefaultFlag : 0));
-	    }
+            InstallFromEDIDDesc(connectRef,
+                                edid,
+                                &edid->descriptors[i].timing,
+                                kDisplayModeValidFlag | kDisplayModeSafeFlag
+                                | ((i == defaultIndex) ? kDisplayModeDefaultFlag : 0));
+        }
 
-	    InstallCVTStandardTimings( connectRef, edid );
-	    InstallStandardEstablishedTimings( connectRef, edid );
-	}
+        if( !connectRef->hasHDMI )
+        {
+            InstallCVTStandardTimings( connectRef, edid );
+            InstallStandardEstablishedTimings( connectRef, edid );
+        }
     }
     while( false );
 

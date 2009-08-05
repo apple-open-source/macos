@@ -1,10 +1,8 @@
 /*
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
+ * Copyright (C) 2004, 2005, 2006, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -26,8 +24,8 @@
 #ifndef DOMImplementation_h
 #define DOMImplementation_h
 
+#include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
-#include <wtf/Forward.h>
 
 namespace WebCore {
 
@@ -42,32 +40,31 @@ typedef int ExceptionCode;
 
 class DOMImplementation : public RefCounted<DOMImplementation> {
 public:
-    virtual ~DOMImplementation(); 
+    static PassRefPtr<DOMImplementation> create() { return adoptRef(new DOMImplementation); }
 
     // DOM methods & attributes for DOMImplementation
-    bool hasFeature(const String& feature, const String& version) const;
-    PassRefPtr<DocumentType> createDocumentType(const String& qualifiedName, const String& publicId, const String &systemId, ExceptionCode&);
-    PassRefPtr<Document> createDocument(const String& namespaceURI, const String& qualifiedName, DocumentType*, ExceptionCode&);
+    static bool hasFeature(const String& feature, const String& version);
+    static PassRefPtr<DocumentType> createDocumentType(const String& qualifiedName, const String& publicId, const String &systemId, ExceptionCode&);
+    static PassRefPtr<Document> createDocument(const String& namespaceURI, const String& qualifiedName, DocumentType*, ExceptionCode&);
 
-    DOMImplementation* getInterface(const String& feature) const;
+    DOMImplementation* getInterface(const String& feature);
 
     // From the DOMImplementationCSS interface
-    PassRefPtr<CSSStyleSheet> createCSSStyleSheet(const String& title, const String& media, ExceptionCode&);
+    static PassRefPtr<CSSStyleSheet> createCSSStyleSheet(const String& title, const String& media, ExceptionCode&);
 
     // From the HTMLDOMImplementation interface
-    PassRefPtr<HTMLDocument> createHTMLDocument(const String& title);
+    static PassRefPtr<HTMLDocument> createHTMLDocument(const String& title);
 
     // Other methods (not part of DOM)
-    PassRefPtr<Document> createDocument(const String& MIMEType, Frame*, bool inViewSourceMode);
-    PassRefPtr<Document> createDocument(Frame*);
-    PassRefPtr<HTMLDocument> createHTMLDocument(Frame*);
-
-    // Returns the static instance of this class - only one instance of this class should
-    // ever be present, and is used as a factory method for creating Document objects
-    static DOMImplementation* instance();
+    static PassRefPtr<Document> createDocument(const String& MIMEType, Frame*, bool inViewSourceMode);
+    static PassRefPtr<Document> createDocument(Frame*);
+    static PassRefPtr<HTMLDocument> createHTMLDocument(Frame*);
 
     static bool isXMLMIMEType(const String& MIMEType);
     static bool isTextMIMEType(const String& MIMEType);
+
+private:
+    DOMImplementation() { }
 };
 
 } //namespace

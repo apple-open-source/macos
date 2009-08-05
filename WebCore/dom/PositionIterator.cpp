@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,12 +27,23 @@
 #include "PositionIterator.h"
 
 #include "Node.h"
-#include "RenderObject.h"
+#include "RenderBlock.h"
 #include "htmlediting.h"
 
 namespace WebCore {
 
 using namespace HTMLNames;
+
+PositionIterator::operator Position() const
+{
+    if (m_child) {
+        ASSERT(m_child->parentNode() == m_parent);
+        return positionBeforeNode(m_child);
+    }
+    if (m_parent->hasChildNodes())
+        return lastDeepEditingPositionForNode(m_parent);
+    return Position(m_parent, m_offset);
+}
 
 void PositionIterator::increment()
 {
@@ -46,7 +57,7 @@ void PositionIterator::increment()
         return;
     }
 
-    if (!m_parent->hasChildNodes() && m_offset < maxDeepOffset(m_parent))
+    if (!m_parent->hasChildNodes() && m_offset < lastOffsetForEditing(m_parent))
         m_offset = Position::uncheckedNextOffset(m_parent, m_offset);
     else {
         m_child = m_parent;
@@ -65,7 +76,7 @@ void PositionIterator::decrement()
         m_parent = m_child->previousSibling();
         if (m_parent) {
             m_child = 0;
-            m_offset = m_parent->hasChildNodes() ? 0 : maxDeepOffset(m_parent);
+            m_offset = m_parent->hasChildNodes() ? 0 : lastOffsetForEditing(m_parent);
         } else {
             m_child = m_child->parentNode();
             m_parent = m_child->parentNode();
@@ -80,7 +91,7 @@ void PositionIterator::decrement()
         if (m_parent->hasChildNodes()) {
             m_parent = m_parent->lastChild();
             if (!m_parent->hasChildNodes())
-                m_offset = maxDeepOffset(m_parent);
+                m_offset = lastOffsetForEditing(m_parent);
         } else {
             m_child = m_parent;
             m_parent = m_parent->parentNode();
@@ -94,7 +105,7 @@ bool PositionIterator::atStart() const
         return true;
     if (m_parent->parentNode())
         return false;
-    return !m_parent->hasChildNodes() && !m_offset || m_child && !m_child->previousSibling();
+    return (!m_parent->hasChildNodes() && !m_offset) || (m_child && !m_child->previousSibling());
 }
 
 bool PositionIterator::atEnd() const
@@ -103,7 +114,7 @@ bool PositionIterator::atEnd() const
         return true;
     if (m_child)
         return false;
-    return !m_parent->parentNode() && (m_parent->hasChildNodes() || m_offset >= maxDeepOffset(m_parent));
+    return !m_parent->parentNode() && (m_parent->hasChildNodes() || m_offset >= lastOffsetForEditing(m_parent));
 }
 
 bool PositionIterator::atStartOfNode() const
@@ -121,7 +132,7 @@ bool PositionIterator::atEndOfNode() const
         return true;
     if (m_child)
         return false;
-    return m_parent->hasChildNodes() || m_offset >= maxDeepOffset(m_parent);
+    return m_parent->hasChildNodes() || m_offset >= lastOffsetForEditing(m_parent);
 }
 
 bool PositionIterator::isCandidate() const
@@ -146,7 +157,7 @@ bool PositionIterator::isCandidate() const
         return (atStartOfNode() || atEndOfNode()) && !Position::nodeIsUserSelectNone(m_parent->parent());
 
     if (!m_parent->hasTagName(htmlTag) && renderer->isBlockFlow() && !Position::hasRenderedNonAnonymousDescendantsWithHeight(renderer) &&
-       (renderer->height() || m_parent->hasTagName(bodyTag)))
+       (toRenderBlock(renderer)->height() || m_parent->hasTagName(bodyTag)))
         return atStartOfNode() && !Position::nodeIsUserSelectNone(m_parent);
     
     return false;

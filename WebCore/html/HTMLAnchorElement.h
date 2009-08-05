@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Simon Hausmann <hausmann@kde.org>
- * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -28,8 +28,6 @@
 
 namespace WebCore {
 
-class String;
-
 class HTMLAnchorElement : public HTMLElement {
 public:
     HTMLAnchorElement(Document*);
@@ -51,40 +49,40 @@ public:
 
     virtual bool canStartSelection() const;
 
-    String accessKey() const;
-    void setAccessKey(const String&);
+    const AtomicString& accessKey() const;
+    void setAccessKey(const AtomicString&);
 
-    String charset() const;
-    void setCharset(const String&);
+    const AtomicString& charset() const;
+    void setCharset(const AtomicString&);
 
-    String coords() const;
-    void setCoords(const String&);
+    const AtomicString& coords() const;
+    void setCoords(const AtomicString&);
 
-    String href() const;
-    void setHref(const String&);
+    KURL href() const;
+    void setHref(const AtomicString&);
 
-    String hreflang() const;
-    void setHreflang(const String&);
+    const AtomicString& hreflang() const;
+    void setHreflang(const AtomicString&);
 
-    String name() const;
-    void setName(const String&);
+    const AtomicString& name() const;
+    void setName(const AtomicString&);
 
-    String rel() const;
-    void setRel(const String&);
+    const AtomicString& rel() const;
+    void setRel(const AtomicString&);
 
-    String rev() const;
-    void setRev(const String&);
+    const AtomicString& rev() const;
+    void setRev(const AtomicString&);
 
-    String shape() const;
-    void setShape(const String&);
+    const AtomicString& shape() const;
+    void setShape(const AtomicString&);
 
-    void setTabIndex(int);
+    virtual short tabIndex() const;
 
     virtual String target() const;
-    void setTarget(const String&);
+    void setTarget(const AtomicString&);
 
-    String type() const;
-    void setType(const String&);
+    const AtomicString& type() const;
+    void setType(const AtomicString&);
 
     String hash() const;
     String host() const;

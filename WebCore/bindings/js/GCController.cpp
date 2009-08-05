@@ -26,14 +26,17 @@
 #include "config.h"
 #include "GCController.h"
 
-#include <kjs/JSLock.h>
-#include <kjs/collector.h>
+#include "JSDOMWindow.h"
+#include <runtime/JSGlobalData.h>
+#include <runtime/JSLock.h>
+#include <runtime/Collector.h>
+#include <wtf/StdLibExtras.h>
 
 #if USE(PTHREADS)
 #include <pthread.h>
 #endif
 
-using namespace KJS;
+using namespace JSC;
 
 namespace WebCore {
 
@@ -41,8 +44,8 @@ namespace WebCore {
 
 static void* collect(void*)
 {
-    JSLock lock;
-    Collector::collect();
+    JSLock lock(false);
+    JSDOMWindow::commonJSGlobalData()->heap.collect();
     return 0;
 }
 
@@ -50,7 +53,7 @@ static void* collect(void*)
 
 GCController& gcController()
 {
-    static GCController staticGCController;
+    DEFINE_STATIC_LOCAL(GCController, staticGCController, ());
     return staticGCController;
 }
 
@@ -62,19 +65,19 @@ GCController::GCController()
 void GCController::garbageCollectSoon()
 {
     if (!m_GCTimer.isActive())
-        m_GCTimer.startOneShot(0);
+        m_GCTimer.startOneShot(0.5);
 }
 
 void GCController::gcTimerFired(Timer<GCController>*)
 {
-    JSLock lock;
-    Collector::collect();
+    JSLock lock(false);
+    JSDOMWindow::commonJSGlobalData()->heap.collect();
 }
 
 void GCController::garbageCollectNow()
 {
-    JSLock lock;
-    Collector::collect();
+    JSLock lock(false);
+    JSDOMWindow::commonJSGlobalData()->heap.collect();
 }
 
 void GCController::garbageCollectOnAlternateThreadForDebugging(bool waitUntilDone)
@@ -83,10 +86,8 @@ void GCController::garbageCollectOnAlternateThreadForDebugging(bool waitUntilDon
     pthread_t thread;
     pthread_create(&thread, NULL, collect, NULL);
 
-    if (waitUntilDone) {
-        JSLock::DropAllLocks dropLocks; // Otherwise our lock would deadlock the collect thread we're joining
+    if (waitUntilDone)
         pthread_join(thread, NULL);
-    }
 #endif
 }
 

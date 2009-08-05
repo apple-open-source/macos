@@ -39,11 +39,17 @@ namespace WebCore {
     class Frame;
     class FrameView;
     class Page;
+    class SVGImageChromeClient;
     
     class SVGImage : public Image {
     public:
-        SVGImage(ImageObserver*);
-        ~SVGImage();
+        static PassRefPtr<SVGImage> create(ImageObserver* observer)
+        {
+            return adoptRef(new SVGImage(observer));
+        }
+
+    private:
+        virtual ~SVGImage();
 
         virtual void setContainerSize(const IntSize&);
         virtual bool usesContainerSize() const;
@@ -54,14 +60,20 @@ namespace WebCore {
         
         virtual bool dataChanged(bool allDataReceived);
 
+        // FIXME: SVGImages are underreporting decoded sizes and will be unable
+        // to prune because these functions are not implemented yet.
+        virtual void destroyDecodedData(bool) { }
+        virtual unsigned decodedSize() const { return 0; }
+
         virtual NativeImagePtr frameAtIndex(size_t) { return 0; }
         
-private:
+        SVGImage(ImageObserver*);
         virtual void draw(GraphicsContext*, const FloatRect& fromRect, const FloatRect& toRect, CompositeOperator);
         
         virtual NativeImagePtr nativeImageForCurrentFrame();
         
         SVGDocument* m_document;
+        OwnPtr<SVGImageChromeClient> m_chromeClient;
         OwnPtr<Page> m_page;
         RefPtr<Frame> m_frame;
         RefPtr<FrameView> m_frameView;

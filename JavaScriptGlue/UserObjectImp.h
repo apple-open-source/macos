@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,25 +32,25 @@
 #include "JSUtils.h"
 #include "JSBase.h"
 #include "JSObject.h"
+#include <JavaScriptCore/JSType.h>
 
-class UserObjectImp : public JSObject
-{
+class UserObjectImp : public JSObject {
 public:
-    UserObjectImp(JSUserObject* userObject);
+    UserObjectImp(PassRefPtr<Structure>, JSUserObject*);
     virtual ~UserObjectImp();
 
     virtual const ClassInfo *classInfo() const;
     static const ClassInfo info;
 
-    virtual bool implementsCall() const;
+    virtual CallType getCallData(CallData&);
 
     virtual void getPropertyNames(ExecState*, PropertyNameArray&);
 
-    virtual JSValue *callAsFunction(ExecState *exec, JSObject *thisObj, const List &args);
+    virtual JSValue callAsFunction(ExecState *exec, JSObject *thisObj, const ArgList &args);
     virtual bool getOwnPropertySlot(ExecState *, const Identifier&, PropertySlot&);
-    virtual void put(ExecState *exec, const Identifier &propertyName, JSValue *value, int attr = None);
+    virtual void put(ExecState *exec, const Identifier &propertyName, JSValue value, int attr = None);
 
-    JSValue *toPrimitive(ExecState *exec, JSType preferredType = UnspecifiedType) const;
+    JSValue toPrimitive(ExecState*, JSType preferredType = UnspecifiedType) const;
     virtual bool toBoolean(ExecState *exec) const;
     virtual double toNumber(ExecState *exec) const;
     virtual UString toString(ExecState *exec) const;
@@ -58,8 +58,14 @@ public:
     virtual void mark();
 
     JSUserObject *GetJSUserObject() const;
+
+    static PassRefPtr<Structure> createStructure(JSValue prototype)
+    {
+        return Structure::create(prototype, TypeInfo(ObjectType));
+    }
+
 private:
-    static JSValue *userObjectGetter(ExecState *, JSObject *originalObject, const Identifier& propertyName, const PropertySlot&);
+    static JSValue userObjectGetter(ExecState*, const Identifier& propertyName, const PropertySlot&);
 
     JSUserObject* fJSUserObject;
 };

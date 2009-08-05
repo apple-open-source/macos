@@ -1841,6 +1841,20 @@ bool AppleUSBCDCECMData::allocateResources()
     UInt32				i;
 
     XTRACE(this, 0, 0, "allocateResources.");
+	
+		// Check things are still around (waking from sleep)
+	
+	if (!fDataInterface)
+	{
+		XTRACE(this, 0, 0, "allocateResources - No data interface");
+		return false;
+	}
+	
+	if (!fControlDriver)
+	{
+		XTRACE(this, 0, 0, "allocateResources - No control driver");
+		return false;
+	}
 
         // Open all the end points
 

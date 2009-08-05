@@ -29,7 +29,9 @@
 #ifndef SQLTransactionErrorCallback_h
 #define SQLTransactionErrorCallback_h
 
-#include "Threading.h"
+#if ENABLE(DATABASE)
+
+#include <wtf/Threading.h>
 
 namespace WebCore {
     
@@ -42,6 +44,8 @@ namespace WebCore {
     };
     
 }
+
+#endif
 
 #endif // SQLTransactionErrorCallback_h
 

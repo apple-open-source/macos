@@ -1,6 +1,4 @@
 /**
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Simon Hausmann <hausmann@kde.org>
@@ -21,19 +19,23 @@
  * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301, USA.
  */
+
 #include "config.h"
 #include "HTMLBRElement.h"
 
 #include "CSSPropertyNames.h"
 #include "HTMLNames.h"
+#include "MappedAttribute.h"
 #include "RenderBR.h"
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLBRElement::HTMLBRElement(Document *doc) : HTMLElement(brTag, doc)
+HTMLBRElement::HTMLBRElement(const QualifiedName& tagName, Document *doc)
+    : HTMLElement(tagName, doc)
 {
+    ASSERT(hasTagName(brTag));
 }
 
 HTMLBRElement::~HTMLBRElement()
@@ -58,9 +60,9 @@ void HTMLBRElement::parseMappedAttribute(MappedAttribute *attr)
         const AtomicString& str = attr->value();
         if (!str.isEmpty()) {
             if (equalIgnoringCase(str, "all"))
-                addCSSProperty(attr, CSS_PROP_CLEAR, "both");
+                addCSSProperty(attr, CSSPropertyClear, "both");
             else
-                addCSSProperty(attr, CSS_PROP_CLEAR, str);
+                addCSSProperty(attr, CSSPropertyClear, str);
         }
     } else
         HTMLElement::parseMappedAttribute(attr);

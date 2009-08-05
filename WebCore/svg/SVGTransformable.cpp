@@ -26,9 +26,8 @@
 #if ENABLE(SVG)
 #include "SVGTransformable.h"
 
-#include "AffineTransform.h"
+#include "TransformationMatrix.h"
 #include "FloatConversion.h"
-#include "RegularExpression.h"
 #include "SVGNames.h"
 #include "SVGParserUtilities.h"
 #include "SVGStyledElement.h"
@@ -44,19 +43,19 @@ SVGTransformable::~SVGTransformable()
 {
 }
 
-AffineTransform SVGTransformable::getCTM(const SVGElement* element) const
+TransformationMatrix SVGTransformable::getCTM(const SVGElement* element) const
 {
-    AffineTransform ctm = SVGLocatable::getCTM(element);
+    TransformationMatrix ctm = SVGLocatable::getCTM(element);
     return animatedLocalTransform() * ctm;
 }
 
-AffineTransform SVGTransformable::getScreenCTM(const SVGElement* element) const
+TransformationMatrix SVGTransformable::getScreenCTM(const SVGElement* element) const
 {
-    AffineTransform ctm = SVGLocatable::getScreenCTM(element);
+    TransformationMatrix ctm = SVGLocatable::getScreenCTM(element);
     return animatedLocalTransform() * ctm;
 }
 
-int parseTransformParamList(const UChar*& ptr, const UChar* end, float* values, int required, int optional)
+static int parseTransformParamList(const UChar*& ptr, const UChar* end, float* values, int required, int optional)
 {
     int optionalParams = 0, requiredParams = 0;
     
@@ -148,7 +147,7 @@ bool SVGTransformable::parseTransformValue(unsigned type, const UChar*& ptr, con
                   t.setRotate(values[0], values[1], values[2]);
             break;
         case SVGTransform::SVG_TRANSFORM_MATRIX:
-            t.setMatrix(AffineTransform(values[0], values[1], values[2], values[3], values[4], values[5]));
+            t.setMatrix(TransformationMatrix(values[0], values[1], values[2], values[3], values[4], values[5]));
             break;
     }
 

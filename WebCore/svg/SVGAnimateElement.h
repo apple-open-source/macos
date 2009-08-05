@@ -1,6 +1,7 @@
 /*
     Copyright (C) 2004, 2005 Nikolas Zimmermann <wildfox@kde.org>
                   2004, 2005 Rob Buis <buis@kde.org>
+    Copyright (C) 2008 Apple Inc. All rights reserved.
 
     This file is part of the KDE project
 
@@ -25,9 +26,11 @@
 
 #if ENABLE(SVG) && ENABLE(SVG_ANIMATION)
 
+#include "Color.h"
 #include "SVGAnimationElement.h"
 
 namespace WebCore {
+    class SVGPathSegList;
 
     class SVGAnimateElement : public SVGAnimationElement {
     public:
@@ -35,15 +38,31 @@ namespace WebCore {
         virtual ~SVGAnimateElement();
     
     protected:
-        virtual const SVGElement* contextElement() const { return this; }
-        
-        virtual bool updateAnimatedValue(EAnimationMode, float timePercentage, unsigned valueIndex, float percentagePast) { return false; }
-        virtual bool calculateFromAndToValues(EAnimationMode, unsigned valueIndex) { return false; }
+        virtual void resetToBaseValue(const String&);
+        virtual bool calculateFromAndToValues(const String& fromString, const String& toString);
+        virtual bool calculateFromAndByValues(const String& fromString, const String& byString);
+        virtual void calculateAnimatedValue(float percentage, unsigned repeat, SVGSMILElement* resultElement);
+        virtual void applyResultsToTarget();
+        virtual float calculateDistance(const String& fromString, const String& toString);
 
     private:
-        int m_currentItem;
-
-        String m_savedTo;
+        enum PropertyType { NumberProperty, ColorProperty, StringProperty, PathProperty };
+        PropertyType determinePropertyType(const String& attribute) const;
+        PropertyType m_propertyType;
+        
+        double m_fromNumber;
+        double m_toNumber;
+        double m_animatedNumber;
+        String m_numberUnit;
+        Color m_fromColor;
+        Color m_toColor;
+        Color m_animatedColor;
+        String m_fromString;
+        String m_toString;
+        String m_animatedString;
+        RefPtr<SVGPathSegList> m_fromPath;
+        RefPtr<SVGPathSegList> m_toPath;
+        RefPtr<SVGPathSegList> m_animatedPath;
     };
 
 } // namespace WebCore

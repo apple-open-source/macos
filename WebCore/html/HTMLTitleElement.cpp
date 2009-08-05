@@ -1,6 +1,4 @@
 /**
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
@@ -32,10 +30,11 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLTitleElement::HTMLTitleElement(Document* doc)
-    : HTMLElement(titleTag, doc)
+HTMLTitleElement::HTMLTitleElement(const QualifiedName& tagName, Document* doc)
+    : HTMLElement(tagName, doc)
     , m_title("")
 {
+    ASSERT(hasTagName(titleTag));
 }
 
 HTMLTitleElement::~HTMLTitleElement()
@@ -54,7 +53,7 @@ void HTMLTitleElement::removedFromDocument()
     document()->removeTitle(this);
 }
 
-void HTMLTitleElement::childrenChanged(bool changedByParser)
+void HTMLTitleElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
 {
     m_title = "";
     for (Node* c = firstChild(); c != 0; c = c->nextSibling())
@@ -62,7 +61,7 @@ void HTMLTitleElement::childrenChanged(bool changedByParser)
             m_title += c->nodeValue();
     if (inDocument())
         document()->setTitle(m_title, this);
-    HTMLElement::childrenChanged(changedByParser);
+    HTMLElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
 }
 
 String HTMLTitleElement::text() const

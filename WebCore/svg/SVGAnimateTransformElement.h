@@ -2,6 +2,7 @@
     Copyright (C) 2004, 2005 Nikolas Zimmermann <wildfox@kde.org>
                   2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
     Copyright (C) 2007 Eric Seidel <eric@webkit.org>
+    Copyright (C) 2008 Apple Inc. All Rights Reserved.
     
     This file is part of the KDE project
 
@@ -31,7 +32,7 @@
 
 namespace WebCore {
 
-    class AffineTransform;
+    class TransformationMatrix;
 
     class SVGAnimateTransformElement : public SVGAnimationElement {
     public:
@@ -41,27 +42,23 @@ namespace WebCore {
         virtual bool hasValidTarget() const;
 
         virtual void parseMappedAttribute(MappedAttribute*);
-        
-        virtual bool updateAnimationBaseValueFromElement();
-        virtual void applyAnimatedValueToElement();
-
-    protected:
-        virtual const SVGElement* contextElement() const { return this; }
-        
-        virtual bool updateAnimatedValue(EAnimationMode, float timePercentage, unsigned valueIndex, float percentagePast);
-        virtual bool calculateFromAndToValues(EAnimationMode, unsigned valueIndex);
 
     private:
+        virtual void resetToBaseValue(const String&);
+        virtual bool calculateFromAndToValues(const String& fromString, const String& toString);
+        virtual bool calculateFromAndByValues(const String& fromString, const String& byString);
+        virtual void calculateAnimatedValue(float percentage, unsigned repeat, SVGSMILElement* resultElement);
+        virtual void applyResultsToTarget();
+        virtual float calculateDistance(const String& fromString, const String& toString);
+
         SVGTransform parseTransformValue(const String&) const;
-        void calculateRotationFromMatrix(const AffineTransform&, double& angle, double& cx, double& cy) const;
         
         SVGTransform::SVGTransformType m_type;
+        
+        unsigned m_baseIndexInTransformList;
 
         SVGTransform m_toTransform;
         SVGTransform m_fromTransform;
-
-        SVGTransform m_baseTransform;
-        SVGTransform m_animatedTransform;
     };
 
 } // namespace WebCore

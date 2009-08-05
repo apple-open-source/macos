@@ -35,7 +35,7 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLCollection::HTMLCollection(PassRefPtr<Node> base, Type type)
+HTMLCollection::HTMLCollection(PassRefPtr<Node> base, CollectionType type)
     : m_idsDone(false)
     , m_base(base)
     , m_type(type)
@@ -44,7 +44,7 @@ HTMLCollection::HTMLCollection(PassRefPtr<Node> base, Type type)
 {
 }
 
-HTMLCollection::HTMLCollection(PassRefPtr<Node> base, Type type, CollectionInfo* info)
+HTMLCollection::HTMLCollection(PassRefPtr<Node> base, CollectionType type, CollectionCache* info)
     : m_idsDone(false)
     , m_base(base)
     , m_type(type)
@@ -53,72 +53,15 @@ HTMLCollection::HTMLCollection(PassRefPtr<Node> base, Type type, CollectionInfo*
 {
 }
 
+PassRefPtr<HTMLCollection> HTMLCollection::create(PassRefPtr<Node> base, CollectionType type)
+{
+    return adoptRef(new HTMLCollection(base, type));
+}
+
 HTMLCollection::~HTMLCollection()
 {
     if (m_ownsInfo)
         delete m_info;
-}
-
-HTMLCollection::CollectionInfo::CollectionInfo()
-    : version(0)
-{
-    reset();
-}
-
-inline void HTMLCollection::CollectionInfo::copyCacheMap(NodeCacheMap& dest, const NodeCacheMap& src)
-{
-    ASSERT(dest.isEmpty());
-    NodeCacheMap::const_iterator end = src.end();
-    for (NodeCacheMap::const_iterator it = src.begin(); it != end; ++it)
-        dest.add(it->first, new Vector<Element*>(*it->second));
-}
-
-HTMLCollection::CollectionInfo::CollectionInfo(const CollectionInfo& other)
-    : version(other.version)
-    , current(other.current)
-    , position(other.position)
-    , length(other.length)
-    , elementsArrayPosition(other.elementsArrayPosition)
-    , hasLength(other.hasLength)
-    , hasNameCache(other.hasNameCache)
-{
-    copyCacheMap(idCache, other.idCache);
-    copyCacheMap(nameCache, other.nameCache);
-}
-
-void HTMLCollection::CollectionInfo::swap(CollectionInfo& other)
-{
-    std::swap(version, other.version);
-    std::swap(current, other.current);
-    std::swap(position, other.position);
-    std::swap(length, other.length);
-    std::swap(elementsArrayPosition, other.elementsArrayPosition);
-
-    idCache.swap(other.idCache);
-    nameCache.swap(other.nameCache);
-    
-    std::swap(hasLength, other.hasLength);
-    std::swap(hasNameCache, other.hasNameCache);
-}
-
-HTMLCollection::CollectionInfo::~CollectionInfo()
-{
-    deleteAllValues(idCache);
-    deleteAllValues(nameCache);
-}
-
-void HTMLCollection::CollectionInfo::reset()
-{
-    current = 0;
-    position = 0;
-    length = 0;
-    hasLength = false;
-    elementsArrayPosition = 0;
-    deleteAllValues(idCache);
-    idCache.clear();
-    deleteAllValues(nameCache);
-    nameCache.clear();
-    hasNameCache = false;
 }
 
 void HTMLCollection::resetCollectionInfo() const
@@ -126,7 +69,7 @@ void HTMLCollection::resetCollectionInfo() const
     unsigned docversion = static_cast<HTMLDocument*>(m_base->document())->domTreeVersion();
 
     if (!m_info) {
-        m_info = new CollectionInfo;
+        m_info = new CollectionCache;
         m_ownsInfo = true;
         m_info->version = docversion;
         return;
@@ -159,7 +102,7 @@ Element* HTMLCollection::itemAfter(Element* previous) const
         case DocScripts:
         case DocumentNamedItems:
         case MapAreas:
-        case Other:
+        case OtherCollection:
         case SelectOptions:
         case WindowNamedItems:
             break;
@@ -240,7 +183,7 @@ Element* HTMLCollection::itemAfter(Element* previous) const
             case NodeChildren:
                 return e;
             case DocumentNamedItems:
-            case Other:
+            case OtherCollection:
             case WindowNamedItems:
                 ASSERT_NOT_REACHED();
                 break;
@@ -307,47 +250,28 @@ Node* HTMLCollection::nextItem() const
      return retval;
 }
 
-bool HTMLCollection::checkForNameMatch(Element* element, bool checkName, const String& name, bool caseSensitive) const
+bool HTMLCollection::checkForNameMatch(Element* element, bool checkName, const AtomicString& name) const
 {
     if (!element->isHTMLElement())
         return false;
     
     HTMLElement* e = static_cast<HTMLElement*>(element);
-    if (caseSensitive) {
-        if (checkName) {
-            // document.all returns only images, forms, applets, objects and embeds
-            // by name (though everything by id)
-            if (m_type == DocAll && 
-                !(e->hasLocalName(imgTag) || e->hasLocalName(formTag) ||
-                  e->hasLocalName(appletTag) || e->hasLocalName(objectTag) ||
-                  e->hasLocalName(embedTag) || e->hasLocalName(inputTag) ||
-                  e->hasLocalName(selectTag)))
-                return false;
+    if (!checkName)
+        return e->getAttribute(idAttr) == name;
 
-            return e->getAttribute(nameAttr) == name && e->getAttribute(idAttr) != name;
-        } else
-            return e->getAttribute(idAttr) == name;
-    } else {
-        if (checkName) {
-            // document.all returns only images, forms, applets, objects and embeds
-            // by name (though everything by id)
-            if (m_type == DocAll && 
-                !(e->hasLocalName(imgTag) || e->hasLocalName(formTag) ||
-                  e->hasLocalName(appletTag) || e->hasLocalName(objectTag) ||
-                  e->hasLocalName(embedTag) || e->hasLocalName(inputTag) ||
-                  e->hasLocalName(selectTag)))
-                return false;
+    // document.all returns only images, forms, applets, objects and embeds
+    // by name (though everything by id)
+    if (m_type == DocAll && 
+        !(e->hasLocalName(imgTag) || e->hasLocalName(formTag) ||
+          e->hasLocalName(appletTag) || e->hasLocalName(objectTag) ||
+          e->hasLocalName(embedTag) || e->hasLocalName(inputTag) ||
+          e->hasLocalName(selectTag)))
+        return false;
 
-            return e->getAttribute(nameAttr).domString().lower() == name.lower() &&
-                e->getAttribute(idAttr).domString().lower() != name.lower();
-        } else {
-            return e->getAttribute(idAttr).domString().lower() == name.lower();
-        }
-    }
+    return e->getAttribute(nameAttr) == name && e->getAttribute(idAttr) != name;
 }
 
-
-Node *HTMLCollection::namedItem(const String &name, bool caseSensitive) const
+Node* HTMLCollection::namedItem(const AtomicString& name) const
 {
     // http://msdn.microsoft.com/workshop/author/dhtml/reference/methods/nameditem.asp
     // This method first searches for an object with a matching id
@@ -358,7 +282,7 @@ Node *HTMLCollection::namedItem(const String &name, bool caseSensitive) const
     m_idsDone = false;
 
     for (Element* e = itemAfter(0); e; e = itemAfter(e)) {
-        if (checkForNameMatch(e, m_idsDone, name, caseSensitive)) {
+        if (checkForNameMatch(e, m_idsDone, name)) {
             m_info->current = e;
             return e;
         }
@@ -367,7 +291,7 @@ Node *HTMLCollection::namedItem(const String &name, bool caseSensitive) const
     m_idsDone = true;
 
     for (Element* e = itemAfter(0); e; e = itemAfter(e)) {
-        if (checkForNameMatch(e, m_idsDone, name, caseSensitive)) {
+        if (checkForNameMatch(e, m_idsDone, name)) {
             m_info->current = e;
             return e;
         }
@@ -437,12 +361,12 @@ void HTMLCollection::namedItems(const AtomicString& name, Vector<RefPtr<Node> >&
 }
 
 
-Node* HTMLCollection::nextNamedItem(const String& name) const
+Node* HTMLCollection::nextNamedItem(const AtomicString& name) const
 {
     resetCollectionInfo();
 
     for (Element* e = itemAfter(m_info->current); e; e = itemAfter(e)) {
-        if (checkForNameMatch(e, m_idsDone, name, true)) {
+        if (checkForNameMatch(e, m_idsDone, name)) {
             m_info->current = e;
             return e;
         }
@@ -455,7 +379,7 @@ Node* HTMLCollection::nextNamedItem(const String& name) const
     m_idsDone = true;
 
     for (Element* e = itemAfter(m_info->current); e; e = itemAfter(e)) {
-        if (checkForNameMatch(e, m_idsDone, name, true)) {
+        if (checkForNameMatch(e, m_idsDone, name)) {
             m_info->current = e;
             return e;
         }

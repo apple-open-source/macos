@@ -1,6 +1,4 @@
 /**
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Simon Hausmann <hausmann@kde.org>
@@ -24,15 +22,24 @@
 #include "config.h"
 #include "HTMLQuoteElement.h"
 
+#include "Document.h"
 #include "HTMLNames.h"
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLQuoteElement::HTMLQuoteElement(Document *doc)
-    : HTMLElement(qTag, doc)
+HTMLQuoteElement::HTMLQuoteElement(const QualifiedName& tagName, Document* doc)
+    : HTMLElement(tagName, doc)
 {
+    ASSERT(hasTagName(qTag));
+}
+
+void HTMLQuoteElement::insertedIntoDocument()
+{
+    document()->setUsesBeforeAfterRules(true);
+
+    HTMLElement::insertedIntoDocument();
 }
 
 String HTMLQuoteElement::cite() const

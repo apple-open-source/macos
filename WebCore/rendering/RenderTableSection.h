@@ -33,11 +33,17 @@
 namespace WebCore {
 
 class RenderTableCell;
+class RenderTableRow;
 
-class RenderTableSection : public RenderContainer {
+class RenderTableSection : public RenderBox {
 public:
     RenderTableSection(Node*);
     ~RenderTableSection();
+
+    virtual RenderObjectChildList* virtualChildren() { return children(); }
+    virtual const RenderObjectChildList* virtualChildren() const { return children(); }
+    const RenderObjectChildList* children() const { return &m_children; }
+    RenderObjectChildList* children() { return &m_children; }
 
     virtual const char* renderName() const { return isAnonymous() ? "RenderTableSection (anonymous)" : "RenderTableSection"; }
 
@@ -45,17 +51,17 @@ public:
 
     virtual void destroy();
 
-    virtual void setStyle(RenderStyle*);
+    virtual void layout();
 
     virtual void addChild(RenderObject* child, RenderObject* beforeChild = 0);
+    virtual void removeChild(RenderObject* oldChild);
 
-    virtual short lineHeight(bool firstLine, bool isRootLineBox = false) const { return 0; }
-    virtual void position(InlineBox*) { }
+    virtual int firstLineBoxBaseline() const;
 
-    void addCell(RenderTableCell*, RenderObject* row);
+    void addCell(RenderTableCell*, RenderTableRow* row);
 
     void setCellWidths();
-    void calcRowHeight();
+    int calcRowHeight();
     int layoutRows(int height);
 
     RenderTable* table() const { return static_cast<RenderTable*>(parent()); }
@@ -69,7 +75,7 @@ public:
 
     struct RowStruct {
         Row* row;
-        RenderObject* rowRenderer;
+        RenderTableRow* rowRenderer;
         int baseline;
         Length height;
     };
@@ -80,9 +86,9 @@ public:
     void appendColumn(int pos);
     void splitColumn(int pos, int newSize);
 
-    virtual int overflowWidth(bool includeInterior = true) const { return (!includeInterior && hasOverflowClip()) ? m_width : m_overflowWidth; }
+    virtual int overflowWidth(bool includeInterior = true) const { return (!includeInterior && hasOverflowClip()) ? width() : m_overflowWidth; }
     virtual int overflowLeft(bool includeInterior = true) const { return (!includeInterior && hasOverflowClip()) ? 0 : m_overflowLeft; }
-    virtual int overflowHeight(bool includeInterior = true) const { return (!includeInterior && hasOverflowClip()) ? m_height : m_overflowHeight; }
+    virtual int overflowHeight(bool includeInterior = true) const { return (!includeInterior && hasOverflowClip()) ? height() : m_overflowHeight; }
     virtual int overflowTop(bool includeInterior = true) const { return (!includeInterior && hasOverflowClip()) ? 0 : m_overflowTop; }
 
     virtual int lowestPosition(bool includeOverflowInterior, bool includeSelf) const;
@@ -101,7 +107,9 @@ public:
     int outerBorderRight() const { return m_outerBorderRight; }
 
     virtual void paint(PaintInfo&, int tx, int ty);
-    virtual void imageChanged(CachedImage*);
+    virtual void paintObject(PaintInfo&, int tx, int ty);
+
+    virtual void imageChanged(WrappedImagePtr, const IntRect* = 0);
 
     int numRows() const { return m_gridRows; }
     int numColumns() const;
@@ -121,26 +129,24 @@ public:
 
     int getBaseline(int row) { return m_grid[row].baseline; }
 
-    virtual RenderObject* removeChildNode(RenderObject*, bool fullRemove = true);
-
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
 
-#ifndef NDEBUG
-    virtual void dump(TextStream*, DeprecatedString ind = "") const;
-#endif
+private:
+    virtual int lineHeight(bool, bool) const { return 0; }
 
-protected:
     bool ensureRows(int);
     void clearGrid();
 
+    RenderObjectChildList m_children;
+
     Vector<RowStruct> m_grid;
-    int m_gridRows;
     Vector<int> m_rowPos;
+
+    int m_gridRows;
 
     // the current insertion position
     int m_cCol;
     int m_cRow;
-    bool m_needsCellRecalc;
 
     int m_outerBorderLeft;
     int m_outerBorderRight;
@@ -150,6 +156,8 @@ protected:
     int m_overflowWidth;
     int m_overflowTop;
     int m_overflowHeight;
+
+    bool m_needsCellRecalc;
     bool m_hasOverflowingCell;
 };
 

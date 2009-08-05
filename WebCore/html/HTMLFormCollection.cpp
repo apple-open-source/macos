@@ -23,7 +23,8 @@
 #include "config.h"
 #include "HTMLFormCollection.h"
 
-#include "HTMLGenericFormElement.h"
+#include "CollectionCache.h"
+#include "HTMLFormControlElement.h"
 #include "HTMLFormElement.h"
 #include "HTMLImageElement.h"
 #include "HTMLNames.h"
@@ -35,16 +36,21 @@ using namespace HTMLNames;
 // Since the collections are to be "live", we have to do the
 // calculation every time if anything has changed.
 
-inline HTMLCollection::CollectionInfo* HTMLFormCollection::formCollectionInfo(HTMLFormElement* form)
+inline CollectionCache* HTMLFormCollection::formCollectionInfo(HTMLFormElement* form)
 {
     if (!form->collectionInfo)
-        form->collectionInfo = new CollectionInfo;
+        form->collectionInfo = new CollectionCache;
     return form->collectionInfo;
 }
 
 HTMLFormCollection::HTMLFormCollection(PassRefPtr<HTMLFormElement> form)
-    : HTMLCollection(form.get(), Other, formCollectionInfo(form.get()))
+    : HTMLCollection(form.get(), OtherCollection, formCollectionInfo(form.get()))
 {
+}
+
+PassRefPtr<HTMLFormCollection> HTMLFormCollection::create(PassRefPtr<HTMLFormElement> form)
+{
+    return adoptRef(new HTMLFormCollection(form));
 }
 
 HTMLFormCollection::~HTMLFormCollection()
@@ -72,7 +78,7 @@ Node* HTMLFormCollection::item(unsigned index) const
         info()->elementsArrayPosition = 0;
     }
 
-    Vector<HTMLGenericFormElement*>& l = static_cast<HTMLFormElement*>(base())->formElements;
+    Vector<HTMLFormControlElement*>& l = static_cast<HTMLFormElement*>(base())->formElements;
     unsigned currentIndex = info()->position;
     
     for (unsigned i = info()->elementsArrayPosition; i < l.size(); i++) {
@@ -91,43 +97,31 @@ Node* HTMLFormCollection::item(unsigned index) const
     return 0;
 }
 
-Element* HTMLFormCollection::getNamedItem(const QualifiedName& attrName, const String& name, bool caseSensitive) const
+Element* HTMLFormCollection::getNamedItem(const QualifiedName& attrName, const AtomicString& name) const
 {
     info()->position = 0;
-    return getNamedFormItem(attrName, name, 0, caseSensitive);
+    return getNamedFormItem(attrName, name, 0);
 }
 
-Element* HTMLFormCollection::getNamedFormItem(const QualifiedName& attrName, const String& name, int duplicateNumber, bool caseSensitive) const
+Element* HTMLFormCollection::getNamedFormItem(const QualifiedName& attrName, const String& name, int duplicateNumber) const
 {
     HTMLFormElement* form = static_cast<HTMLFormElement*>(base());
 
     bool foundInputElements = false;
     for (unsigned i = 0; i < form->formElements.size(); ++i) {
-        HTMLGenericFormElement* e = form->formElements[i];
-        if (e->isEnumeratable()) {
-            bool found;
-            if (caseSensitive)
-                found = e->getAttribute(attrName) == name;
-            else
-                found = e->getAttribute(attrName).domString().lower() == name.lower();
-            if (found) {
-                foundInputElements = true;
-                if (!duplicateNumber)
-                    return e;
-                --duplicateNumber;
-            }
+        HTMLFormControlElement* e = form->formElements[i];
+        if (e->isEnumeratable() && e->getAttribute(attrName) == name) {
+            foundInputElements = true;
+            if (!duplicateNumber)
+                return e;
+            --duplicateNumber;
         }
     }
 
     if (!foundInputElements) {
         for (unsigned i = 0; i < form->imgElements.size(); ++i) {
             HTMLImageElement* e = form->imgElements[i];
-            bool found;
-            if (caseSensitive)
-                found = e->getAttribute(attrName) == name;
-            else
-                found = e->getAttribute(attrName).domString().lower() == name.lower();
-            if (found) {
+            if (e->getAttribute(attrName) == name) {
                 if (!duplicateNumber)
                     return e;
                 --duplicateNumber;
@@ -145,17 +139,17 @@ Node* HTMLFormCollection::nextItem() const
 
 Element* HTMLFormCollection::nextNamedItemInternal(const String &name) const
 {
-    Element* retval = getNamedFormItem(m_idsDone ? nameAttr : idAttr, name, ++info()->position, true);
+    Element* retval = getNamedFormItem(m_idsDone ? nameAttr : idAttr, name, ++info()->position);
     if (retval)
         return retval;
     if (m_idsDone) // we're done
         return 0;
     // After doing id, do name
     m_idsDone = true;
-    return getNamedItem(nameAttr, name, true);
+    return getNamedItem(nameAttr, name);
 }
 
-Node* HTMLFormCollection::namedItem(const String& name, bool caseSensitive) const
+Node* HTMLFormCollection::namedItem(const AtomicString& name) const
 {
     // http://msdn.microsoft.com/workshop/author/dhtml/reference/methods/nameditem.asp
     // This method first searches for an object with a matching id
@@ -164,15 +158,15 @@ Node* HTMLFormCollection::namedItem(const String& name, bool caseSensitive) cons
     // that are allowed a name attribute.
     resetCollectionInfo();
     m_idsDone = false;
-    info()->current = getNamedItem(idAttr, name, true);
+    info()->current = getNamedItem(idAttr, name);
     if (info()->current)
         return info()->current;
     m_idsDone = true;
-    info()->current = getNamedItem(nameAttr, name, true);
+    info()->current = getNamedItem(nameAttr, name);
     return info()->current;
 }
 
-Node* HTMLFormCollection::nextNamedItem(const String& name) const
+Node* HTMLFormCollection::nextNamedItem(const AtomicString& name) const
 {
     // The nextNamedItemInternal function can return the same item twice if it has
     // both an id and name that are equal to the name parameter. So this function
@@ -195,7 +189,7 @@ void HTMLFormCollection::updateNameCache() const
     HTMLFormElement* f = static_cast<HTMLFormElement*>(base());
 
     for (unsigned i = 0; i < f->formElements.size(); ++i) {
-        HTMLGenericFormElement* e = f->formElements[i];
+        HTMLFormControlElement* e = f->formElements[i];
         if (e->isEnumeratable()) {
             const AtomicString& idAttrVal = e->getAttribute(idAttr);
             const AtomicString& nameAttrVal = e->getAttribute(nameAttr);

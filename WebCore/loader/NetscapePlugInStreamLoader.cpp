@@ -46,7 +46,7 @@ NetscapePlugInStreamLoader::~NetscapePlugInStreamLoader()
 
 PassRefPtr<NetscapePlugInStreamLoader> NetscapePlugInStreamLoader::create(Frame* frame, NetscapePlugInStreamLoaderClient* client)
 {
-    return new NetscapePlugInStreamLoader(frame, client);
+    return adoptRef(new NetscapePlugInStreamLoader(frame, client));
 }
 
 bool NetscapePlugInStreamLoader::isDone() const
@@ -76,7 +76,13 @@ void NetscapePlugInStreamLoader::didReceiveResponse(const ResourceResponse& resp
     if (!m_client)
         return;
 
-    if (response.isHTTP() && (response.httpStatusCode() < 100 || response.httpStatusCode() >= 400))
+    if (!response.isHTTP())
+        return;
+    
+    if (m_client->wantsAllStreams())
+        return;
+    
+    if (response.httpStatusCode() < 100 || response.httpStatusCode() >= 400)
         didCancel(frameLoader()->fileDoesNotExistError(response));
 }
 
@@ -111,8 +117,18 @@ void NetscapePlugInStreamLoader::didCancel(const ResourceError& error)
 {
     RefPtr<NetscapePlugInStreamLoader> protect(this);
 
-    m_documentLoader->removePlugInStreamLoader(this);
     m_client->didFail(this, error);
+
+    // If calling didFail spins the run loop the stream loader can reach the terminal state.
+    // If that's the case we just return early.
+    if (reachedTerminalState())
+        return;
+    
+    // We need to remove the stream loader after the call to didFail, since didFail can 
+    // spawn a new run loop and if the loader has been removed it won't be deferred when
+    // the document loader is asked to defer loading.
+    m_documentLoader->removePlugInStreamLoader(this);
+
     ResourceLoader::didCancel(error);
 }
 

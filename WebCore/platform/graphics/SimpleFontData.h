@@ -1,7 +1,7 @@
 /*
  * This file is part of the internal font implementation.
  *
- * Copyright (C) 2006 Apple Computer, Inc.
+ * Copyright (C) 2006, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -29,12 +29,20 @@
 #include "GlyphWidthMap.h"
 #include <wtf/OwnPtr.h>
 
-#if PLATFORM(MAC)
+#if USE(ATSUI)
 typedef struct OpaqueATSUStyle* ATSUStyle;
 #endif
 
 #if PLATFORM(WIN)
 #include <usp10.h>
+#endif
+
+#if PLATFORM(CAIRO)
+#include <cairo.h>
+#endif
+
+#if PLATFORM(QT)
+#include <QFont>
 #endif
 
 namespace WebCore {
@@ -88,6 +96,14 @@ public:
 
 #if PLATFORM(MAC)
     NSFont* getNSFont() const { return m_font.font(); }
+#endif
+
+#if USE(CORE_TEXT)
+    CTFontRef getCTFont() const;
+    CFDictionaryRef getCFStringAttributes() const;
+#endif
+
+#if USE(ATSUI)
     void checkShapesArabic() const;
     bool shapesArabic() const
     {
@@ -95,6 +111,10 @@ public:
             checkShapesArabic();
         return m_shapesArabic;
     }
+#endif
+
+#if PLATFORM(QT)
+    QFont getQtFont() const { return m_font.font(); }
 #endif
 
 #if PLATFORM(WIN)
@@ -106,19 +126,26 @@ public:
     static bool shouldApplyMacAscentHack();
 #endif
 
-#if PLATFORM(GTK)
+#if PLATFORM(CAIRO)
     void setFont(cairo_t*) const;
 #endif
 
 #if PLATFORM(WX)
-    wxFont getWxFont() const { return m_font.font(); }
+    wxFont* getWxFont() const { return m_font.font(); }
 #endif
 
 private:
     void platformInit();
+    void platformGlyphInit();
     void platformDestroy();
-    
+
     void commonInit();
+
+#if PLATFORM(WIN)
+    void initGDIFont();
+    void platformCommonDestroy();
+    float widthForGDIGlyph(Glyph glyph) const;
+#endif
 
 public:
     int m_ascent;
@@ -149,17 +176,27 @@ public:
 
     mutable SimpleFontData* m_smallCapsFontData;
 
-#if PLATFORM(CG)
+#if PLATFORM(CG) || PLATFORM(WIN)
     float m_syntheticBoldOffset;
 #endif
 
 #if PLATFORM(MAC)
+#ifdef BUILDING_ON_TIGER
     void* m_styleGroup;
+#endif
+#endif
+
+#if USE(ATSUI)
     mutable ATSUStyle m_ATSUStyle;
     mutable bool m_ATSUStyleInitialized;
     mutable bool m_ATSUMirrors;
     mutable bool m_checkedShapesArabic;
     mutable bool m_shapesArabic;
+#endif
+
+#if USE(CORE_TEXT)
+    mutable RetainPtr<CTFontRef> m_CTFont;
+    mutable RetainPtr<CFDictionaryRef> m_CFStringAttributes;
 #endif
 
 #if PLATFORM(WIN)
@@ -168,6 +205,21 @@ public:
     mutable SCRIPT_FONTPROPERTIES* m_scriptFontProperties;
 #endif
 };
+    
+    
+#if !PLATFORM(QT)
+ALWAYS_INLINE float SimpleFontData::widthForGlyph(Glyph glyph) const
+{
+    float width = m_glyphToWidthMap.widthForGlyph(glyph);
+    if (width != cGlyphWidthUnknown)
+        return width;
+    
+    width = platformWidthForGlyph(glyph);
+    m_glyphToWidthMap.setWidthForGlyph(glyph, width);
+    
+    return width;
+}
+#endif
 
 } // namespace WebCore
 

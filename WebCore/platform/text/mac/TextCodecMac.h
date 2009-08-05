@@ -43,8 +43,8 @@ namespace WebCore {
         explicit TextCodecMac(TECTextEncodingID);
         virtual ~TextCodecMac();
 
-        virtual String decode(const char*, size_t length, bool flush = false);
-        virtual CString encode(const UChar*, size_t length, bool allowEntities = false);
+        virtual String decode(const char*, size_t length, bool flush, bool stopOnError, bool& sawError);
+        virtual CString encode(const UChar*, size_t length, UnencodableHandling);
 
     private:
         OSStatus decode(const unsigned char* inputBuffer, int inputBufferLength, int& inputLength,
@@ -55,10 +55,17 @@ namespace WebCore {
 
         TECTextEncodingID m_encoding;
         UChar m_backslashAsCurrencySymbol;
-        bool m_error;
         unsigned m_numBufferedBytes;
         unsigned char m_bufferedBytes[16]; // bigger than any single multi-byte character
         mutable TECObjectRef m_converterTEC;
+    };
+
+    struct TECConverterWrapper {
+        TECConverterWrapper() : converter(0), encoding(invalidEncoding) { }
+        ~TECConverterWrapper() { if (converter) TECDisposeConverter(converter); }
+
+        TECObjectRef converter;
+        TECTextEncodingID encoding;
     };
 
 } // namespace WebCore

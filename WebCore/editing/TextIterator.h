@@ -26,7 +26,6 @@
 #ifndef TextIterator_h
 #define TextIterator_h
 
-#include "DeprecatedString.h"
 #include "InlineTextBox.h"
 #include "Range.h"
 #include <wtf/Vector.h>
@@ -34,8 +33,7 @@
 namespace WebCore {
 
 // FIXME: Can't really answer this question correctly without knowing the white-space mode.
-// FIXME: Move this along with the white-space position functions above
-// somewhere else in the editing directory. It doesn't belong here.
+// FIXME: Move this somewhere else in the editing directory. It doesn't belong here.
 inline bool isCollapsibleWhitespace(UChar c)
 {
     switch (c) {
@@ -48,18 +46,17 @@ inline bool isCollapsibleWhitespace(UChar c)
 }
 
 String plainText(const Range*);
-UChar* plainTextToMallocAllocatedBuffer(const Range*, unsigned& bufferLength);
+UChar* plainTextToMallocAllocatedBuffer(const Range*, unsigned& bufferLength, bool isDisplayString);
 PassRefPtr<Range> findPlainText(const Range*, const String&, bool forward, bool caseSensitive);
 
 // Iterates through the DOM range, returning all the text, and 0-length boundaries
 // at points where replaced elements break up the text flow.  The text comes back in
 // chunks so as to optimize for performance of the iteration.
 
-class TextIterator
-{
+class TextIterator {
 public:
     TextIterator();
-    explicit TextIterator(const Range*, bool emitCharactersBetweenAllVisiblePositions = false);
+    explicit TextIterator(const Range*, bool emitCharactersBetweenAllVisiblePositions = false, bool enterTextControls = false);
     
     bool atEnd() const { return !m_positionNode; }
     void advance();
@@ -68,6 +65,7 @@ public:
     const UChar* characters() const { return m_textCharacters; }
     
     PassRefPtr<Range> range() const;
+    Node* node() const;
      
     static int rangeLength(const Range*, bool spacesForReplacedElements = false);
     static PassRefPtr<Range> rangeFromLocationAndLength(Element* scope, int rangeLocation, int rangeLength, bool spacesForReplacedElements = false);
@@ -91,6 +89,7 @@ private:
     int m_offset;
     bool m_handledNode;
     bool m_handledChildren;
+    bool m_inShadowContent;
     
     // The range.
     Node *m_startContainer;
@@ -129,14 +128,16 @@ private:
     
     // Used by selection preservation code.  There should be one character emitted between every VisiblePosition
     // in the Range used to create the TextIterator.
+    // FIXME <rdar://problem/6028818>: This functionality should eventually be phased out when we rewrite 
+    // moveParagraphs to not clone/destroy moved content.
     bool m_emitCharactersBetweenAllVisiblePositions;
+    bool m_enterTextControls;
 };
 
 // Iterates through the DOM range, returning all the text, and 0-length boundaries
 // at points where replaced elements break up the text flow.  The text comes back in
 // chunks so as to optimize for performance of the iteration.
-class SimplifiedBackwardsTextIterator
-{
+class SimplifiedBackwardsTextIterator {
 public:
     SimplifiedBackwardsTextIterator();
     explicit SimplifiedBackwardsTextIterator(const Range *);
@@ -193,7 +194,7 @@ private:
 class CharacterIterator {
 public:
     CharacterIterator();
-    explicit CharacterIterator(const Range* r, bool emitCharactersBetweenAllVisiblePositions = false);
+    explicit CharacterIterator(const Range* r, bool emitCharactersBetweenAllVisiblePositions = false, bool enterTextControls = false);
     
     void advance(int numCharacters);
     
@@ -202,7 +203,7 @@ public:
     
     int length() const { return m_textIterator.length() - m_runOffset; }
     const UChar* characters() const { return m_textIterator.characters() + m_runOffset; }
-    DeprecatedString string(int numChars);
+    String string(int numChars);
     
     int characterOffset() const { return m_offset; }
     PassRefPtr<Range> range() const;
@@ -215,6 +216,25 @@ private:
     TextIterator m_textIterator;
 };
     
+class BackwardsCharacterIterator {
+public:
+    BackwardsCharacterIterator();
+    explicit BackwardsCharacterIterator(const Range*);
+
+    void advance(int);
+
+    bool atEnd() const { return m_textIterator.atEnd(); }
+
+    PassRefPtr<Range> range() const;
+
+private:
+    int m_offset;
+    int m_runOffset;
+    bool m_atBreak;
+
+    SimplifiedBackwardsTextIterator m_textIterator;
+};
+
 // Very similar to the TextIterator, except that the chunks of text returned are "well behaved",
 // meaning they never end split up a word.  This is useful for spellcheck or (perhaps one day) searching.
 class WordAwareIterator {
@@ -237,7 +257,7 @@ private:
     int m_previousLength;
 
     // many chunks from textIterator concatenated
-    DeprecatedString m_buffer;
+    Vector<UChar> m_buffer;
     
     // Did we have to look ahead in the textIterator to confirm the current chunk?
     bool m_didLookAhead;

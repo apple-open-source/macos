@@ -1,6 +1,6 @@
 /*
     Copyright (C) 2004, 2005, 2007, 2008 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005, 2006 Rob Buis <buis@kde.org>
+                  2004, 2005, 2006, 2008 Rob Buis <buis@kde.org>
 
     This file is part of the KDE project
 
@@ -25,28 +25,27 @@
 #if ENABLE(SVG)
 #include "SVGTextElement.h"
 
-#include "AffineTransform.h"
 #include "FloatRect.h"
+#include "MappedAttribute.h"
 #include "RenderSVGText.h"
 #include "SVGLengthList.h"
 #include "SVGRenderStyle.h"
 #include "SVGTSpanElement.h"
 #include "SVGTransformList.h"
+#include "TransformationMatrix.h"
 
 namespace WebCore {
 
 SVGTextElement::SVGTextElement(const QualifiedName& tagName, Document* doc)
     : SVGTextPositioningElement(tagName, doc)
     , SVGTransformable()
-    , m_transform(new SVGTransformList(SVGNames::transformAttr))
+    , m_transform(this, SVGNames::transformAttr, SVGTransformList::create(SVGNames::transformAttr))
 {
 }
 
 SVGTextElement::~SVGTextElement()
 {
 }
-
-ANIMATED_PROPERTY_DEFINITIONS(SVGTextElement, SVGTransformList*, TransformList, transformList, Transform, transform, SVGNames::transformAttr, m_transform.get())
 
 void SVGTextElement::parseMappedAttribute(MappedAttribute* attr)
 {
@@ -82,32 +81,53 @@ FloatRect SVGTextElement::getBBox() const
     return SVGTransformable::getBBox(this);
 }
 
-AffineTransform SVGTextElement::getScreenCTM() const
+TransformationMatrix SVGTextElement::getScreenCTM() const
 {
     return SVGTransformable::getScreenCTM(this);
 }
 
-AffineTransform SVGTextElement::getCTM() const
+TransformationMatrix SVGTextElement::getCTM() const
 {
     return SVGTransformable::getCTM(this);
 }
 
-AffineTransform SVGTextElement::animatedLocalTransform() const
+TransformationMatrix SVGTextElement::animatedLocalTransform() const
 {
-    return transform()->concatenate().matrix();
+    return m_supplementalTransform ? transform()->concatenate().matrix() * *m_supplementalTransform : transform()->concatenate().matrix();
 }
 
-RenderObject* SVGTextElement::createRenderer(RenderArena* arena, RenderStyle* style)
+TransformationMatrix* SVGTextElement::supplementalTransform()
+{
+    if (!m_supplementalTransform)
+        m_supplementalTransform.set(new TransformationMatrix());
+    return m_supplementalTransform.get();
+}
+
+RenderObject* SVGTextElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
     return new (arena) RenderSVGText(this);
 }
 
 bool SVGTextElement::childShouldCreateRenderer(Node* child) const
 {
-    if (child->isTextNode() || child->hasTagName(SVGNames::tspanTag) ||
-        child->hasTagName(SVGNames::trefTag) || child->hasTagName(SVGNames::aTag) || child->hasTagName(SVGNames::textPathTag))
+    if (child->isTextNode()
+#if ENABLE(SVG_FONTS)
+        || child->hasTagName(SVGNames::altGlyphTag)
+#endif
+        || child->hasTagName(SVGNames::tspanTag) || child->hasTagName(SVGNames::trefTag) || child->hasTagName(SVGNames::aTag) || child->hasTagName(SVGNames::textPathTag))
         return true;
     return false;
+}
+
+void SVGTextElement::svgAttributeChanged(const QualifiedName& attrName)
+{
+    SVGTextPositioningElement::svgAttributeChanged(attrName);
+
+    if (!renderer())
+        return;
+
+    if (SVGTextPositioningElement::isKnownAttribute(attrName))
+        renderer()->setNeedsLayout(true);
 }
 
 }

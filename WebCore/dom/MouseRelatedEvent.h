@@ -26,6 +26,7 @@
 #ifndef MouseRelatedEvent_h
 #define MouseRelatedEvent_h
 
+#include "IntPoint.h"
 #include "UIEventWithKeyState.h"
 
 namespace WebCore {
@@ -33,11 +34,8 @@ namespace WebCore {
     // Internal only: Helper class for what's common between mouse and wheel events.
     class MouseRelatedEvent : public UIEventWithKeyState {
     public:
-        MouseRelatedEvent();
-        MouseRelatedEvent(const AtomicString& type, bool canBubble, bool cancelable, AbstractView* view,
-                          int detail, int screenX, int screenY, int pageX, int pageY,
-                          bool ctrlKey, bool altKey, bool shiftKey, bool metaKey, bool isSimulated = false);
-
+        // Note that these values are adjusted to counter the effects of zoom, so that values
+        // exposed via DOM APIs are invariant under zooming.
         int screenX() const { return m_screenX; }
         int screenY() const { return m_screenY; }
         int clientX() const { return m_clientX; }
@@ -51,11 +49,23 @@ namespace WebCore {
         virtual int pageY() const;
         int x() const;
         int y() const;
+
+        // Page point in "absolute" coordinates (i.e. post-zoomed, page-relative coords,
+        // usable with RenderObject::absoluteToLocal).
+        IntPoint absoluteLocation() const { return m_absoluteLocation; }
+        void setAbsoluteLocation(const IntPoint& p) { m_absoluteLocation = p; }
     
     protected:
+        MouseRelatedEvent();
+        MouseRelatedEvent(const AtomicString& type, bool canBubble, bool cancelable, PassRefPtr<AbstractView>,
+                          int detail, int screenX, int screenY, int pageX, int pageY,
+                          bool ctrlKey, bool altKey, bool shiftKey, bool metaKey, bool isSimulated = false);
+
         void initCoordinates();
         void initCoordinates(int clientX, int clientY);
         virtual void receivedTarget();
+
+        void computePageLocation();
         
         // Expose these so MouseEvent::initMouseEvent can set them.
         int m_screenX;
@@ -70,6 +80,7 @@ namespace WebCore {
         int m_layerY;
         int m_offsetX;
         int m_offsetY;
+        IntPoint m_absoluteLocation;
         bool m_isSimulated;
     };
 

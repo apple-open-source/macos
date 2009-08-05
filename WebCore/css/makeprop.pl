@@ -3,8 +3,8 @@
 #   This file is part of the WebKit project
 #
 #   Copyright (C) 1999 Waldo Bastian (bastian@kde.org)
-#   Copyright (C) 2007 Apple Inc. All rights reserved.
-#   Copyright (C) 2007 Trolltech ASA
+#   Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
+#   Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
 #
 #   This library is free software; you can redistribute it and/or
 #   modify it under the terms of the GNU Library General Public
@@ -48,8 +48,8 @@ EOF
 
 foreach my $name (@names) {
   my $id = $name;
-  $id =~ s/-/_/g;
-  print GPERF $name . ", CSS_PROP_" . uc($id) . "\n";
+  $id =~ s/(^[^-])|-(.)/uc($1||$2)/ge;
+  print GPERF $name . ", CSSProperty" . $id . "\n";
 }
 print GPERF "%%\n";
 close GPERF;
@@ -62,23 +62,27 @@ print HEADER << "EOF";
 #define CSSPropertyNames_h
 
 enum CSSPropertyID {
-    CSS_PROP_INVALID = 0,
+    CSSPropertyInvalid = 0,
 EOF
 
-my $i = 1;
+my $first = 1001;
+my $i = 1001;
 my $maxLen = 0;
 foreach my $name (@names) {
   my $id = $name;
-  $id =~ s/-/_/g;
-  print HEADER "    CSS_PROP_" . uc($id) . " = " . $i . ",\n";
+  $id =~ s/(^[^-])|-(.)/uc($1||$2)/ge;
+  print HEADER "    CSSProperty" . $id . " = " . $i . ",\n";
   $i = $i + 1;
   if (length($name) > $maxLen) {
     $maxLen = length($name);
   }
 }
+my $num = $i - $first;
+
 print HEADER "};\n\n";
-print HEADER "const int numCSSProperties = " . $i . ";\n";
-print HEADER "const size_t maxCSSPropertyNameLength = " . $maxLen . ";\n";
+print HEADER "const int firstCSSProperty = $first;\n";
+print HEADER "const int numCSSProperties = $num;\n";
+print HEADER "const size_t maxCSSPropertyNameLength = $maxLen;\n";
 
 print HEADER << "EOF";
 
@@ -89,24 +93,25 @@ EOF
 
 close HEADER;
 
-system("gperf -a -L ANSI-C -E -C -c -o -t --key-positions=\"*\" -NfindProp -Hhash_prop -Wwordlist_prop -D -s 2 CSSPropertyNames.gperf > CSSPropertyNames.c");
+system("gperf -a -L ANSI-C -E -C -c -o -t --key-positions=\"*\" -NfindProp -Hhash_prop -Wwordlist_prop -D -s 2 CSSPropertyNames.gperf > CSSPropertyNames.cpp") == 0 || die "calling gperf failed: $?";
 
-open C, ">>CSSPropertyNames.c" || die "Could not open CSSPropertyNames.c for writing";
-print C  "static const char * const propertyList[] = {\n";
-print C  "\"\",\n";
+open C, ">>CSSPropertyNames.cpp" || die "Could not open CSSPropertyNames.cpp for writing";
+print C "static const char * const propertyNameStrings[$num] = {\n";
 
 foreach my $name (@names) {
-  print C  "\"" . $name . "\", \n";
+  print C "\"$name\",\n";
 }
 
 print C << "EOF";
-    0
 };
 const char* getPropertyName(CSSPropertyID id)
 {
-    if (id >= numCSSProperties || id <= 0)
+    if (id < firstCSSProperty)
         return 0;
-    return propertyList[id];
+    int index = id - firstCSSProperty;
+    if (index >= numCSSProperties)
+        return 0;
+    return propertyNameStrings[index];
 }
 EOF
 

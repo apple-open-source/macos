@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,7 +31,7 @@
 #include "CachedResourceClientWalker.h"
 #include "DOMImplementation.h"
 #include "FontPlatformData.h"
-#if PLATFORM(CG) || PLATFORM(QT) || PLATFORM(GTK)
+#if PLATFORM(CG) || PLATFORM(QT) || PLATFORM(GTK) || (PLATFORM(CHROMIUM) && PLATFORM(WIN_OS))
 #include "FontCustomPlatformData.h"
 #endif
 #include "TextResourceDecoder.h"
@@ -48,29 +48,31 @@
 
 namespace WebCore {
 
-CachedFont::CachedFont(DocLoader* dl, const String &url)
+CachedFont::CachedFont(const String &url)
     : CachedResource(url, FontResource)
     , m_fontData(0)
+    , m_loadInitiated(false)
 #if ENABLE(SVG_FONTS)
     , m_isSVGFont(false)
 #endif
 {
-    // Don't load the file yet.  Wait for an access before triggering the load.
-    m_loading = true;
-    m_loadInitiated = false;
 }
 
 CachedFont::~CachedFont()
 {
-#if PLATFORM(CG) || PLATFORM(QT) || PLATFORM(GTK)
+#if PLATFORM(CG) || PLATFORM(QT) || PLATFORM(GTK) || (PLATFORM(CHROMIUM) && PLATFORM(WIN_OS))
     delete m_fontData;
 #endif
 }
 
-void CachedFont::ref(CachedResourceClient *c)
+void CachedFont::load(DocLoader*)
 {
-    CachedResource::ref(c);
-    
+    // Don't load the file yet.  Wait for an access before triggering the load.
+    m_loading = true;
+}
+
+void CachedFont::didAddClient(CachedResourceClient* c)
+{
     if (!m_loading)
         c->fontLoaded(this);
 }
@@ -96,7 +98,7 @@ void CachedFont::beginLoadIfNeeded(DocLoader* dl)
 
 bool CachedFont::ensureCustomFontData()
 {
-#if PLATFORM(CG) || PLATFORM(QT) || PLATFORM(GTK)
+#if PLATFORM(CG) || PLATFORM(QT) || PLATFORM(GTK) || (PLATFORM(CHROMIUM) && PLATFORM(WIN_OS))
 #if ENABLE(SVG_FONTS)
     ASSERT(!m_isSVGFont);
 #endif
@@ -109,15 +111,15 @@ bool CachedFont::ensureCustomFontData()
     return m_fontData;
 }
 
-FontPlatformData CachedFont::platformDataFromCustomData(float size, bool bold, bool italic)
+FontPlatformData CachedFont::platformDataFromCustomData(float size, bool bold, bool italic, FontRenderingMode renderingMode)
 {
 #if ENABLE(SVG_FONTS)
     if (m_externalSVGDocument)
         return FontPlatformData(size, bold, italic);
 #endif
-#if PLATFORM(CG) || PLATFORM(QT) || PLATFORM(GTK)
+#if PLATFORM(CG) || PLATFORM(QT) || PLATFORM(GTK) || (PLATFORM(CHROMIUM) && PLATFORM(WIN_OS))
     ASSERT(m_fontData);
-    return m_fontData->fontPlatformData(static_cast<int>(size), bold, italic);
+    return m_fontData->fontPlatformData(static_cast<int>(size), bold, italic, renderingMode);
 #else
     return FontPlatformData();
 #endif
@@ -128,11 +130,16 @@ bool CachedFont::ensureSVGFontData()
 {
     ASSERT(m_isSVGFont);
     if (!m_externalSVGDocument && !m_errorOccurred && !m_loading && m_data) {
-        m_externalSVGDocument = new SVGDocument(DOMImplementation::instance(), 0);
+        m_externalSVGDocument = SVGDocument::create(0);
         m_externalSVGDocument->open();
 
-        TextResourceDecoder decoder("application/xml");
-        m_externalSVGDocument->write(decoder.decode(m_data->data(), m_data->size()));
+        RefPtr<TextResourceDecoder> decoder = TextResourceDecoder::create("application/xml");
+        m_externalSVGDocument->write(decoder->decode(m_data->data(), m_data->size()));
+        m_externalSVGDocument->write(decoder->flush());
+        if (decoder->sawError()) {
+            m_externalSVGDocument.clear();
+            return 0;
+        }
 
         m_externalSVGDocument->finishParsing();
         m_externalSVGDocument->close();
@@ -164,9 +171,9 @@ SVGFontElement* CachedFont::getSVGFontById(const String& fontName) const
 }
 #endif
 
-void CachedFont::allReferencesRemoved()
+void CachedFont::allClientsRemoved()
 {
-#if PLATFORM(CG) || PLATFORM(QT) || PLATFORM(GTK)
+#if PLATFORM(CG) || PLATFORM(QT) || PLATFORM(GTK) || (PLATFORM(CHROMIUM) && PLATFORM(WIN_OS))
     if (m_fontData) {
         delete m_fontData;
         m_fontData = 0;

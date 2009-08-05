@@ -28,7 +28,6 @@
 #include "CharacterNames.h"
 #include "Document.h"
 #include "GraphicsContext.h"
-#include "ListMarkerBox.h"
 #include "RenderLayer.h"
 #include "RenderListItem.h"
 #include "RenderView.h"
@@ -159,7 +158,7 @@ static int toArmenianUnder10000(int number, bool upper, bool addCircumflex, UCha
 
     int lowerOffset = upper ? 0 : 0x0030;
 
-    if (int thousands = number / 1000)
+    if (int thousands = number / 1000) {
         if (thousands == 7) {
             letters[length++] = 0x0548 + lowerOffset;
             letters[length++] = 0x0552 + lowerOffset;
@@ -170,6 +169,7 @@ static int toArmenianUnder10000(int number, bool upper, bool addCircumflex, UCha
             if (addCircumflex)
                 letters[length++] = 0x0302;
         }
+    }
 
     if (int hundreds = (number / 100) % 10) {
         letters[length++] = (0x0543 - 1 + lowerOffset) + hundreds;
@@ -471,9 +471,7 @@ String listMarkerText(EListStyleType type, int value)
 
 RenderListMarker::RenderListMarker(RenderListItem* item)
     : RenderBox(item->document())
-    , m_image(0)
     , m_listItem(item)
-    , m_selectionState(SelectionNone)
 {
     // init RenderObject attributes
     setInline(true);   // our object is Inline
@@ -483,31 +481,35 @@ RenderListMarker::RenderListMarker(RenderListItem* item)
 RenderListMarker::~RenderListMarker()
 {
     if (m_image)
-        m_image->deref(this);
+        m_image->removeClient(this);
 }
 
-void RenderListMarker::setStyle(RenderStyle* s)
+void RenderListMarker::styleWillChange(StyleDifference diff, const RenderStyle* newStyle)
 {
-    if (style() && (s->listStylePosition() != style()->listStylePosition() || s->listStyleType() != style()->listStyleType()))
+    if (style() && (newStyle->listStylePosition() != style()->listStylePosition() || newStyle->listStyleType() != style()->listStyleType()))
         setNeedsLayoutAndPrefWidthsRecalc();
     
-    RenderBox::setStyle(s);
+    RenderBox::styleWillChange(diff, newStyle);
+}
+
+void RenderListMarker::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
+{
+    RenderBox::styleDidChange(diff, oldStyle);
 
     if (m_image != style()->listStyleImage()) {
         if (m_image)
-            m_image->deref(this);
+            m_image->removeClient(this);
         m_image = style()->listStyleImage();
         if (m_image)
-            m_image->ref(this);
+            m_image->addClient(this);
     }
 }
 
-InlineBox* RenderListMarker::createInlineBox(bool, bool isRootLineBox, bool)
+InlineBox* RenderListMarker::createInlineBox()
 {
-    ASSERT(!isRootLineBox);
-    ListMarkerBox* box = new (renderArena()) ListMarkerBox(this);
-    m_inlineBoxWrapper = box;
-    return box;
+    InlineBox* result = RenderBox::createInlineBox();
+    result->setIsText(isText());
+    return result;
 }
 
 bool RenderListMarker::isImage() const
@@ -526,7 +528,7 @@ void RenderListMarker::paint(PaintInfo& paintInfo, int tx, int ty)
     IntRect marker = getRelativeMarkerRect();
     marker.move(tx, ty);
 
-    IntRect box(tx + m_x, ty + m_y, m_width, m_height);
+    IntRect box(tx + x(), ty + y(), width(), height());
 
     if (box.y() > paintInfo.rect.bottom() || box.y() + box.height() < paintInfo.rect.y())
         return;
@@ -535,16 +537,17 @@ void RenderListMarker::paint(PaintInfo& paintInfo, int tx, int ty)
         paintBoxDecorations(paintInfo, box.x(), box.y());
 
     GraphicsContext* context = paintInfo.context;
-    context->setFont(style()->font());
 
     if (isImage()) {
 #if PLATFORM(MAC)
         if (style()->highlight() != nullAtom && !paintInfo.context->paintingDisabled())
             paintCustomHighlight(tx, ty, style()->highlight(), true);
 #endif
-        context->drawImage(m_image->image(), marker.location());
-        if (selectionState() != SelectionNone)
+        context->drawImage(m_image->image(this, marker.size()), marker.location());
+        if (selectionState() != SelectionNone) {
+            // FIXME: selectionRect() is in absolute, not painting coordinates.
             context->fillRect(selectionRect(), selectionBackgroundColor());
+        }
         return;
     }
 
@@ -554,8 +557,10 @@ void RenderListMarker::paint(PaintInfo& paintInfo, int tx, int ty)
         paintCustomHighlight(tx, ty, style()->highlight(), true);
 #endif
 
-    if (selectionState() != SelectionNone)
+    if (selectionState() != SelectionNone) {
+        // FIXME: selectionRect() is in absolute, not painting coordinates.
         context->fillRect(selectionRect(), selectionBackgroundColor());
+    }
 
     const Color color(style()->color());
     context->setStrokeColor(color);
@@ -615,15 +620,15 @@ void RenderListMarker::paint(PaintInfo& paintInfo, int tx, int ty)
     const Font& font = style()->font();
     if (style()->direction() == LTR) {
         int width = font.width(textRun);
-        context->drawText(textRun, marker.location());
+        context->drawText(style()->font(), textRun, marker.location());
         const UChar periodSpace[2] = { '.', ' ' };
-        context->drawText(TextRun(periodSpace, 2), marker.location() + IntSize(width, 0));
+        context->drawText(style()->font(), TextRun(periodSpace, 2), marker.location() + IntSize(width, 0));
     } else {
         const UChar spacePeriod[2] = { ' ', '.' };
         TextRun spacePeriodRun(spacePeriod, 2);
         int width = font.width(spacePeriodRun);
-        context->drawText(spacePeriodRun, marker.location());
-        context->drawText(textRun, marker.location() + IntSize(width, 0));
+        context->drawText(style()->font(), spacePeriodRun, marker.location());
+        context->drawText(style()->font(), textRun, marker.location() + IntSize(width, 0));
     }
 }
 
@@ -633,11 +638,11 @@ void RenderListMarker::layout()
     ASSERT(!prefWidthsDirty());
 
     if (isImage()) {
-        m_width = m_image->image()->width();
-        m_height = m_image->image()->height();
+        setWidth(m_image->imageSize(this, style()->effectiveZoom()).width());
+        setHeight(m_image->imageSize(this, style()->effectiveZoom()).height());
     } else {
-        m_width = minPrefWidth();
-        m_height = style()->font().height();
+        setWidth(minPrefWidth());
+        setHeight(style()->font().height());
     }
 
     m_marginLeft = m_marginRight = 0;
@@ -652,13 +657,13 @@ void RenderListMarker::layout()
     setNeedsLayout(false);
 }
 
-void RenderListMarker::imageChanged(CachedImage* o)
+void RenderListMarker::imageChanged(WrappedImagePtr o, const IntRect*)
 {
     // A list marker can't have a background or border image, so no need to call the base class method.
-    if (o != m_image)
+    if (o != m_image->data())
         return;
 
-    if (m_width != m_image->imageSize().width() || m_height != m_image->imageSize().height() || m_image->errorOccurred())
+    if (width() != m_image->imageSize(this, style()->effectiveZoom()).width() || height() != m_image->imageSize(this, style()->effectiveZoom()).height() || m_image->errorOccurred())
         setNeedsLayoutAndPrefWidthsRecalc();
     else
         repaint();
@@ -670,14 +675,18 @@ void RenderListMarker::calcPrefWidths()
 
     m_text = "";
 
+    const Font& font = style()->font();
+
     if (isImage()) {
-        m_minPrefWidth = m_maxPrefWidth = m_image->image()->width();
+        // FIXME: This is a somewhat arbitrary width.  Generated images for markers really won't become particularly useful
+        // until we support the CSS3 marker pseudoclass to allow control over the width and height of the marker box.
+        int bulletWidth = font.ascent() / 2;
+        m_image->setImageContainerSize(IntSize(bulletWidth, bulletWidth));
+        m_minPrefWidth = m_maxPrefWidth = m_image->imageSize(this, style()->effectiveZoom()).width();
         setPrefWidthsDirty(false);
         updateMargins();
         return;
     }
-
-    const Font& font = style()->font();
 
     int width = 0;
     EListStyleType type = style()->listStyleType();
@@ -798,14 +807,14 @@ void RenderListMarker::updateMargins()
     style()->setMarginRight(Length(marginRight, Fixed));
 }
 
-short RenderListMarker::lineHeight(bool, bool) const
+int RenderListMarker::lineHeight(bool, bool) const
 {
     if (!isImage())
         return m_listItem->lineHeight(false, true);
     return height();
 }
 
-short RenderListMarker::baselinePosition(bool, bool) const
+int RenderListMarker::baselinePosition(bool, bool) const
 {
     if (!isImage()) {
         const Font& font = style()->font();
@@ -822,7 +831,7 @@ bool RenderListMarker::isInside() const
 IntRect RenderListMarker::getRelativeMarkerRect()
 {
     if (isImage())
-        return IntRect(m_x, m_y, m_image->imageSize().width(), m_image->imageSize().height());
+        return IntRect(x(), y(), m_image->imageSize(this, style()->effectiveZoom()).width(), m_image->imageSize(this, style()->effectiveZoom()).height());
 
     switch (style()->listStyleType()) {
         case DISC:
@@ -832,7 +841,7 @@ IntRect RenderListMarker::getRelativeMarkerRect()
             const Font& font = style()->font();
             int ascent = font.ascent();
             int bulletWidth = (ascent * 2 / 3 + 1) / 2;
-            return IntRect(m_x + 1, m_y + 3 * (ascent - ascent * 2 / 3) / 2, bulletWidth, bulletWidth);
+            return IntRect(x() + 1, y() + 3 * (ascent - ascent * 2 / 3) / 2, bulletWidth, bulletWidth);
         }
         case LNONE:
             return IntRect();
@@ -859,7 +868,7 @@ IntRect RenderListMarker::getRelativeMarkerRect()
             int itemWidth = font.width(m_text);
             const UChar periodSpace[2] = { '.', ' ' };
             int periodSpaceWidth = font.width(TextRun(periodSpace, 2));
-            return IntRect(m_x, m_y + font.ascent(), itemWidth + periodSpaceWidth, font.height());
+            return IntRect(x(), y() + font.ascent(), itemWidth + periodSpaceWidth, font.height());
     }
 
     return IntRect();
@@ -867,14 +876,14 @@ IntRect RenderListMarker::getRelativeMarkerRect()
 
 void RenderListMarker::setSelectionState(SelectionState state)
 {
-    m_selectionState = state;
+    RenderBox::setSelectionState(state);
     if (InlineBox* box = inlineBoxWrapper())
         if (RootInlineBox* root = box->root())
             root->setHasSelectedChildren(state != SelectionNone);
     containingBlock()->setSelectionState(state);
 }
 
-IntRect RenderListMarker::selectionRect(bool clipToVisibleContent)
+IntRect RenderListMarker::selectionRectForRepaint(RenderBoxModelObject* repaintContainer, bool clipToVisibleContent)
 {
     ASSERT(!needsLayout());
 
@@ -882,15 +891,12 @@ IntRect RenderListMarker::selectionRect(bool clipToVisibleContent)
         return IntRect();
 
     RootInlineBox* root = inlineBoxWrapper()->root();
-    IntRect rect(0, root->selectionTop() - yPos(), width(), root->selectionHeight());
+    IntRect rect(0, root->selectionTop() - y(), width(), root->selectionHeight());
             
     if (clipToVisibleContent)
-        computeAbsoluteRepaintRect(rect);
-    else {
-        int absx, absy;
-        absolutePosition(absx, absy);
-        rect.move(absx, absy);
-    }
+        computeRectForRepaint(repaintContainer, rect);
+    else
+        rect = localToContainerQuad(FloatRect(rect), repaintContainer).enclosingBoundingBox();
     
     return rect;
 }

@@ -31,7 +31,9 @@
 #include "CharacterNames.h"
 #include "CharsetData.h"
 #include "PlatformString.h"
+#include "ThreadGlobalData.h"
 #include <wtf/Assertions.h>
+#include <wtf/Threading.h>
 
 using std::auto_ptr;
 using std::min;
@@ -43,8 +45,10 @@ namespace WebCore {
 
 const size_t ConversionBufferSize = 16384;
 
-static TECObjectRef cachedConverterTEC;
-static TECTextEncodingID cachedConverterEncoding = invalidEncoding;
+static TECConverterWrapper& cachedConverterTEC()
+{
+    return threadGlobalData().cachedConverterTEC();
+}
 
 void TextCodecMac::registerEncodingNames(EncodingNameRegistrar registrar)
 {
@@ -78,7 +82,6 @@ void TextCodecMac::registerCodecs(TextCodecRegistrar registrar)
 
 TextCodecMac::TextCodecMac(TECTextEncodingID encoding)
     : m_encoding(encoding)
-    , m_error(false)
     , m_numBufferedBytes(0)
     , m_converterTEC(0)
 {
@@ -92,22 +95,26 @@ TextCodecMac::~TextCodecMac()
 void TextCodecMac::releaseTECConverter() const
 {
     if (m_converterTEC) {
-        if (cachedConverterTEC != 0)
-            TECDisposeConverter(cachedConverterTEC);
-        cachedConverterTEC = m_converterTEC;
-        cachedConverterEncoding = m_encoding;
+        TECConverterWrapper& cachedConverter = cachedConverterTEC();
+        if (cachedConverter.converter)
+            TECDisposeConverter(cachedConverter.converter);
+        cachedConverter.converter = m_converterTEC;
+        cachedConverter.encoding = m_encoding;
         m_converterTEC = 0;
     }
 }
 
 OSStatus TextCodecMac::createTECConverter() const
 {
-    bool cachedEncodingEqual = cachedConverterEncoding == m_encoding;
-    cachedConverterEncoding = invalidEncoding;
+    TECConverterWrapper& cachedConverter = cachedConverterTEC();
 
-    if (cachedEncodingEqual && cachedConverterTEC) {
-        m_converterTEC = cachedConverterTEC;
-        cachedConverterTEC = 0;
+    bool cachedEncodingEqual = cachedConverter.encoding == m_encoding;
+    cachedConverter.encoding = invalidEncoding;
+
+    if (cachedEncodingEqual && cachedConverter.converter) {
+        m_converterTEC = cachedConverter.converter;
+        cachedConverter.converter = 0;
+
         TECClearConverterContextInfo(m_converterTEC);
     } else {
         OSStatus status = TECCreateConverter(&m_converterTEC, m_encoding,
@@ -117,7 +124,7 @@ OSStatus TextCodecMac::createTECConverter() const
 
         TECSetBasicOptions(m_converterTEC, kUnicodeForceASCIIRangeMask);
     }
-    
+
     return noErr;
 }
 
@@ -179,16 +186,15 @@ OSStatus TextCodecMac::decode(const unsigned char* inputBuffer, int inputBufferL
     }
 
     // Work around bug 3351093, where sometimes we get kTECBufferBelowMinimumSizeErr instead of kTECOutputBufferFullStatus.
-    if (status == kTECBufferBelowMinimumSizeErr && bytesWritten != 0) {
+    if (status == kTECBufferBelowMinimumSizeErr && bytesWritten != 0)
         status = kTECOutputBufferFullStatus;
-    }
 
     inputLength = bytesRead;
     outputLength = bytesWritten;
     return status;
 }
 
-String TextCodecMac::decode(const char* bytes, size_t length, bool flush)
+String TextCodecMac::decode(const char* bytes, size_t length, bool flush, bool stopOnError, bool& sawError)
 {
     // Get a converter for the passed-in encoding.
     if (!m_converterTEC && createTECConverter() != noErr)
@@ -201,7 +207,7 @@ String TextCodecMac::decode(const char* bytes, size_t length, bool flush)
     bool bufferWasFull = false;
     UniChar buffer[ConversionBufferSize];
 
-    while (sourceLength || bufferWasFull) {
+    while ((sourceLength || bufferWasFull) && !sawError) {
         int bytesRead = 0;
         int bytesWritten = 0;
         OSStatus status = decode(sourcePointer, sourceLength, bytesRead, buffer, sizeof(buffer), bytesWritten);
@@ -217,6 +223,10 @@ String TextCodecMac::decode(const char* bytes, size_t length, bool flush)
             case kTextUndefinedElementErr:
                 // FIXME: Put FFFD character into the output string in this case?
                 TECClearConverterContextInfo(m_converterTEC);
+                if (stopOnError) {
+                    sawError = true;
+                    break;
+                }
                 if (sourceLength) {
                     sourcePointer += 1;
                     sourceLength -= 1;
@@ -236,13 +246,12 @@ String TextCodecMac::decode(const char* bytes, size_t length, bool flush)
                 break;
             }
             default:
-                LOG_ERROR("text decoding failed with error %ld", static_cast<long>(status));
-                m_error = true;
+                sawError = true;
                 return String();
         }
 
         ASSERT(!(bytesWritten % sizeof(UChar)));
-        appendOmittingBOM(result, buffer, bytesWritten / sizeof(UChar));
+        result.append(buffer, bytesWritten / sizeof(UChar));
 
         bufferWasFull = status == kTECOutputBufferFullStatus;
     }
@@ -251,7 +260,7 @@ String TextCodecMac::decode(const char* bytes, size_t length, bool flush)
         unsigned long bytesWritten = 0;
         TECFlushText(m_converterTEC, reinterpret_cast<unsigned char*>(buffer), sizeof(buffer), &bytesWritten);
         ASSERT(!(bytesWritten % sizeof(UChar)));
-        appendOmittingBOM(result, buffer, bytesWritten / sizeof(UChar));
+        result.append(buffer, bytesWritten / sizeof(UChar));
     }
 
     String resultString = String::adopt(result);
@@ -266,7 +275,7 @@ String TextCodecMac::decode(const char* bytes, size_t length, bool flush)
     return resultString;
 }
 
-CString TextCodecMac::encode(const UChar* characters, size_t length, bool allowEntities)
+CString TextCodecMac::encode(const UChar* characters, size_t length, UnencodableHandling handling)
 {
     // FIXME: We should really use TEC here instead of CFString for consistency with the other direction.
 
@@ -280,7 +289,7 @@ CString TextCodecMac::encode(const UChar* characters, size_t length, bool allowE
     CFIndex charactersLeft = CFStringGetLength(cfs);
     Vector<char> result;
     size_t size = 0;
-    UInt8 lossByte = allowEntities ? 0 : '?';
+    UInt8 lossByte = handling == QuestionMarksForUnencodables ? '?' : 0;
     while (charactersLeft > 0) {
         CFRange range = CFRangeMake(startPos, charactersLeft);
         CFIndex bufferLength;
@@ -303,11 +312,10 @@ CString TextCodecMac::encode(const UChar* characters, size_t length, bool allowE
                     ++charactersConverted;
                 }
             }
-            char entityBuffer[16];
-            sprintf(entityBuffer, "&#%u;", badChar);
-            size_t entityLength = strlen(entityBuffer);
+            UnencodableReplacementArray entity;
+            int entityLength = getUnencodableReplacement(badChar, handling, entity);
             result.grow(size + entityLength);
-            memcpy(result.data() + size, entityBuffer, entityLength);
+            memcpy(result.data() + size, entity, entityLength);
             size += entityLength;
         }
 

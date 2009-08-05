@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -318,7 +318,7 @@ IOUSBMassStorageClass::BulkOnlyReceiveCSWPacket(
 						BulkOnlyRequestBlock *		boRequestBlock,
 						UInt32						nextExecutionState )
 {
-	IOReturn 			status;
+	IOReturn 			status = kIOReturnInternalError;
 
 	// Set our Bulk-Only phase descriptor.
 	require ( ( fBulkOnlyCSWMemoryDescriptor != NULL ), Exit );
@@ -358,6 +358,8 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion(
 	bool			commandInProgress = false;
 
 
+	STATUS_LOG(( 4, "%s[%p]: BulkOnlyExecuteCommandCompletion Entered with boRequestBlock=%p resultingStatus=0x%x", getName(), this, boRequestBlock, resultingStatus ));
+
 	if ( ( boRequestBlock->request == NULL ) || ( fBulkOnlyCommandStructInUse == false ) )
 	{ 
 		// The request field is NULL, this appears to  be a double callback, do nothing.
@@ -379,6 +381,7 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion(
 		CompleteSCSICommand( request, status );
 		return;
 	}		
+
 	
 	if ( ( resultingStatus == kIOReturnNotResponding ) || ( resultingStatus == kIOReturnAborted ) )
 	{
@@ -387,7 +390,7 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion(
 		
 		// The transfer failed mid-transfer or was aborted by the USB layer. Either way the device will
         // be non-responsive until we reset it, or we discover it has been disconnected.
-		FinishDeviceRecovery ( resultingStatus );
+		ResetDeviceNow ( false );
 		commandInProgress = true; 
 		goto Exit;
 		
@@ -395,46 +398,57 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion(
 	
 	switch( boRequestBlock->currentState )
 	{
+	
 		case kBulkOnlyCommandSent:
 		{
+		
    			STATUS_LOG(( 5, "%s[%p]: kBulkOnlyCommandSent returned %x", getName(), this, resultingStatus ));
-			
-			if(( resultingStatus == kIOReturnDeviceError )
-				|| ( resultingStatus == kIOReturnNotResponding )
-                || ( resultingStatus == kIOUSBHighSpeedSplitError ))
-			{
-				// Was there a device error? The device could have been removed or lost power.
-                
-				// An error occurred, probably a timeout error,
-				// and the command was not successfully sent to the device,
-				status = StartDeviceRecovery();
-				if ( status == kIOReturnSuccess )
-				{
-					commandInProgress = true;
-				}
-				break;
-			}
 			
 			if ( resultingStatus == kIOUSBPipeStalled )
 			{
 			
-				// The host is reporting a pipe stall. We'll need to address this if we ever wish to attempt a retry.
-				// We're relying on higher elements of the storage stack to iniate the retry. 
-				boRequestBlock->currentState = kBulkOnlyCheckCBWBulkStall;
-				status = GetStatusEndpointStatus( GetBulkOutPipe(), &boRequestBlock->boGetStatusBuffer, &boRequestBlock->boCompletion );
+				// The device is so far gone that we couldn't even retry the CSW. Reset time.
+				if ( fUseUSBResetNotBOReset )
+				{
+				
+					// By passing this to Finish device recovery we ensure that the driver is still active,
+					// and that the device is still connected to the Mac.
+					ResetDeviceNow ( false );
+					status = kIOReturnSuccess;
+					
+				}
+				else
+				{
+				
+					// The host is reporting a pipe stall. We'll need to address this if we ever wish to attempt a retry.
+					// We're relying on higher elements of the storage stack to iniate the retry. 
+					boRequestBlock->currentState = kBulkOnlyCheckCBWBulkStall;
+					status = GetStatusEndpointStatus( GetBulkOutPipe(), &boRequestBlock->boGetStatusBuffer, &boRequestBlock->boCompletion );
+
+				}
+			
 				if ( status == kIOReturnSuccess )
 				{
 					commandInProgress = true;
 				}
 				break;
+				
 			}
 			
 			if ( resultingStatus != kIOReturnSuccess )
 			{
+                
 				// An error occurred, probably a timeout error,
 				// and the command was not successfully sent to the device.
-				status = resultingStatus;
+				ResetDeviceNow ( false );
+				status = kIOReturnSuccess;
+                
+				if( status == kIOReturnSuccess )
+				{
+					commandInProgress = true;
+				}
 				break;
+                
 			}
 			
 			// If there is to be no data transfer then we are done and can return to the caller.
@@ -461,6 +475,7 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion(
 				}
 				
 			}
+
 		}
 		break;
 		
@@ -548,10 +563,8 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion(
 					
 				// Reset the device. We have to do a full device reset since a fair quantity of
 				// stellar USB devices don't properly handle a mid I/O Bulk-Only device reset.
-				FinishDeviceRecovery ( kIOReturnError );
-				
-				// Since commandInProgress is false, we'll fall through and complete the command
-				// with an error.
+				ResetDeviceNow ( false );
+				commandInProgress = true;
 		
 			}
 			else
@@ -565,7 +578,8 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion(
                 {
                 	// Was there a device error? The device could have been removed or lost power.
            
-                    status = StartDeviceRecovery();
+                    ResetDeviceNow ( false );
+                    status = kIOReturnSuccess;
                     if ( status == kIOReturnSuccess )
                     {
                         commandInProgress = true;
@@ -573,12 +587,27 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion(
                 }
 				else if ( resultingStatus == kIOUSBTransactionTimeout )
 				{
-					status = BulkDeviceResetDevice( boRequestBlock, kBulkOnlyResetCompleted );
+				
+					// The device is so far gone that we couldn't even retry the CSW. Reset time.
+                    if ( fUseUSBResetNotBOReset )
+                    {
+                    
+                        // By passing this to Finish device recovery we ensure that the driver is still active,
+                        // and that the device is still connected to the Mac.
+                        ResetDeviceNow ( false );
+                        status = kIOReturnSuccess;
+                        
+                    }
+                    else
+                    {
+                        status = BulkDeviceResetDevice( boRequestBlock, kBulkOnlyResetCompleted );
+                    }
 					
 					if( status == kIOReturnSuccess )
 					{
 						commandInProgress = true;
 					}
+					
 				}
                 else
                 {
@@ -724,7 +753,7 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion(
                     
                         // By passing this to Finish device recovery we ensure that the driver is still active,
                         // and that the device is still connected to the Mac.
-                        FinishDeviceRecovery ( kIOReturnError );
+                        ResetDeviceNow ( false );
                         status = kIOReturnSuccess;
                         
                     }
@@ -739,6 +768,7 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion(
 				{
 					commandInProgress = true;
 				}
+                
 			}
 			else if ( ( boRequestBlock->boCSW.cswTag == boRequestBlock->boCBW.cbwTag ) || fKnownCSWTagMismatchIssues ) 
 			{
@@ -773,7 +803,7 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion(
                             
                             // By passing this to Finish device recovery we ensure that the driver is still active,
                             // and that the device is still connected to the Mac.
-                            FinishDeviceRecovery ( kIOReturnError );
+                            ResetDeviceNow ( false );
                             status = kIOReturnSuccess;
                             
                         }
@@ -820,7 +850,7 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion(
                 
                     // By passing this to Finish device recovery we ensure that the driver is still active,
                     // and that the device is still connected to the Mac.
-                    FinishDeviceRecovery ( kIOReturnError );
+                    ResetDeviceNow ( false );
                     status = kIOReturnSuccess;
                     
                 }
@@ -859,7 +889,7 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion(
 			{
 			
 				// The Bulk-Only Reset failed. Try to recover the device.
-				FinishDeviceRecovery( resultingStatus );
+				ResetDeviceNow ( false );
 				commandInProgress = true;
 				
 				break;
@@ -914,4 +944,5 @@ Exit:
 		ReleaseBulkOnlyRequestBlock( boRequestBlock );
 		CompleteSCSICommand( request, status );
 	}
+	STATUS_LOG(( 5, "%s[%p]: BulkOnlyExecuteCommandCompletion Returning", getName(), this ));
 }

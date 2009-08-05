@@ -25,43 +25,39 @@
 #if ENABLE(SVG) && ENABLE(SVG_FILTERS)
 #include "SVGFETurbulenceElement.h"
 
+#include "MappedAttribute.h"
 #include "SVGParserUtilities.h"
 #include "SVGResourceFilter.h"
 
 namespace WebCore {
 
+char SVGBaseFrequencyXIdentifier[] = "SVGBaseFrequencyX";
+char SVGBaseFrequencyYIdentifier[] = "SVGBaseFrequencyY";
+
 SVGFETurbulenceElement::SVGFETurbulenceElement(const QualifiedName& tagName, Document* doc)
     : SVGFilterPrimitiveStandardAttributes(tagName, doc)
-    , m_baseFrequencyX(0.0f)
-    , m_baseFrequencyY(0.0f)
-    , m_numOctaves(1)
-    , m_seed(0.0f)
-    , m_stitchTiles(SVG_STITCHTYPE_NOSTITCH)
-    , m_type(SVG_TURBULENCE_TYPE_TURBULENCE)
+    , m_baseFrequencyX(this, SVGNames::baseFrequencyAttr)
+    , m_baseFrequencyY(this, SVGNames::baseFrequencyAttr)
+    , m_numOctaves(this, SVGNames::numOctavesAttr, 1)
+    , m_seed(this, SVGNames::seedAttr)
+    , m_stitchTiles(this, SVGNames::stitchTilesAttr, SVG_STITCHTYPE_NOSTITCH)
+    , m_type(this, SVGNames::typeAttr, FETURBULENCE_TYPE_TURBULENCE)
     , m_filterEffect(0)
 {
 }
 
 SVGFETurbulenceElement::~SVGFETurbulenceElement()
 {
-    delete m_filterEffect;
 }
-
-ANIMATED_PROPERTY_DEFINITIONS(SVGFETurbulenceElement, float, Number, number, BaseFrequencyX, baseFrequencyX, "baseFrequencyX", m_baseFrequencyX)
-ANIMATED_PROPERTY_DEFINITIONS(SVGFETurbulenceElement, float, Number, number, BaseFrequencyY, baseFrequencyY, "baseFrequencyY", m_baseFrequencyY)
-ANIMATED_PROPERTY_DEFINITIONS(SVGFETurbulenceElement, float, Number, number, Seed, seed, SVGNames::seedAttr, m_seed)
-ANIMATED_PROPERTY_DEFINITIONS(SVGFETurbulenceElement, long, Integer, integer, NumOctaves, numOctaves, SVGNames::numOctavesAttr, m_numOctaves)
-ANIMATED_PROPERTY_DEFINITIONS(SVGFETurbulenceElement, int, Enumeration, enumeration, StitchTiles, stitchTiles, SVGNames::stitchTilesAttr, m_stitchTiles)
-ANIMATED_PROPERTY_DEFINITIONS(SVGFETurbulenceElement, int, Enumeration, enumeration, Type, type, SVGNames::typeAttr, m_type)
 
 void SVGFETurbulenceElement::parseMappedAttribute(MappedAttribute* attr)
 {
     const String& value = attr->value();
     if (attr->name() == SVGNames::typeAttr) {
         if (value == "fractalNoise")
-            setTypeBaseValue(SVG_TURBULENCE_TYPE_FRACTALNOISE);
+            setTypeBaseValue(FETURBULENCE_TYPE_FRACTALNOISE);
         else if (value == "turbulence")
-            setTypeBaseValue(SVG_TURBULENCE_TYPE_TURBULENCE);
+            setTypeBaseValue(FETURBULENCE_TYPE_TURBULENCE);
     } else if (attr->name() == SVGNames::stitchTilesAttr) {
         if (value == "stitch")
             setStitchTilesBaseValue(SVG_STITCHTYPE_STITCH);
@@ -76,30 +72,26 @@ void SVGFETurbulenceElement::parseMappedAttribute(MappedAttribute* attr)
     } else if (attr->name() == SVGNames::seedAttr)
         setSeedBaseValue(value.toFloat());
     else if (attr->name() == SVGNames::numOctavesAttr)
-        setNumOctavesBaseValue(value.deprecatedString().toUInt());
+        setNumOctavesBaseValue(value.toUIntStrict());
     else
         SVGFilterPrimitiveStandardAttributes::parseMappedAttribute(attr);
 }
 
-SVGFETurbulence* SVGFETurbulenceElement::filterEffect(SVGResourceFilter* filter) const
+SVGFilterEffect* SVGFETurbulenceElement::filterEffect(SVGResourceFilter* filter) const
 {
-    
-    if (!m_filterEffect)
-        m_filterEffect = new SVGFETurbulence(filter);
-    
-    m_filterEffect->setType((SVGTurbulanceType) type());
-    m_filterEffect->setBaseFrequencyX(baseFrequencyX());
-    m_filterEffect->setBaseFrequencyY(baseFrequencyY());
-    m_filterEffect->setNumOctaves(numOctaves());
-    m_filterEffect->setSeed(seed());
-    m_filterEffect->setStitchTiles(stitchTiles() == SVG_STITCHTYPE_STITCH);
+    ASSERT_NOT_REACHED();
+    return 0;
+}
 
-    setStandardAttributes(m_filterEffect); 
-    return m_filterEffect;
+bool SVGFETurbulenceElement::build(FilterBuilder* builder)
+{
+    RefPtr<FilterEffect> addedEffect = FETurbulence::create(static_cast<TurbulanceType> (type()), baseFrequencyX(), 
+                                        baseFrequencyY(), numOctaves(), seed(), stitchTiles() == SVG_STITCHTYPE_STITCH);
+    builder->add(result(), addedEffect.release());
+
+    return true;
 }
 
 }
 
 #endif // ENABLE(SVG)
-
-// vim:ts=4:noet

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2003-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,11 +34,13 @@
 extern "C" {
 #endif
 
-/* Open a given named name. */
+/* Open a given named keychain. */
 extern SecKeychainRef keychain_open(const char *name);
 
 /* Return either NULL if argc is 0, or a SecKeychainRef if argc is 1 or a CFArrayRef of SecKeychainRefs if argc is greater than 1. */
 extern CFTypeRef keychain_create_array(int argc, char * const *argv);
+
+extern int parse_fourcharcode(const char *name, UInt32 *code);
 
 extern int print_keychain_name(FILE *stream, SecKeychainRef keychain);
 
@@ -49,8 +51,14 @@ extern void print_buffer(FILE *stream, UInt32 length, const void *data);
 extern void print_buffer_pem(FILE *stream, const char *headerString, UInt32 length, const void *data);
 
 extern void print_uint32(FILE* stream, uint32 n);
+	
+extern unsigned char hexValue(char c);
 
-void check_obsolete_keychain(const char *kcName);
+extern void fromHex(const char *hexDigits, CSSM_DATA *data);
+	
+extern void safe_CFRelease(void *cfTypeRefPtr);
+
+extern void check_obsolete_keychain(const char *kcName);
 
 #ifdef __cplusplus
 }

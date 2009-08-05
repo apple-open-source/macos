@@ -1,7 +1,6 @@
-// -*- c-basic-offset: 2 -*-
 /*
- *  This file is part of the KDE libraries
  *  Copyright (C) 2006 George Staikos <staikos@kde.org>
+ *  Copyright (C) 2006, 2008, 2009 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -20,10 +19,10 @@
  *
  */
 
-#ifndef KJS_UNICODE_H
-#define KJS_UNICODE_H
+#ifndef WTF_UNICODE_H
+#define WTF_UNICODE_H
 
-#include <wtf/Platform.h>
+#include <wtf/Assertions.h>
 
 #if USE(QT4_UNICODE)
 #include "qt4/UnicodeQt4.h"
@@ -33,5 +32,6 @@
 #error "Unknown Unicode implementation"
 #endif
 
-#endif
-// vim: ts=2 sw=2 et
+COMPILE_ASSERT(sizeof(UChar) == 2, UCharIsTwoBytes);
+
+#endif // WTF_UNICODE_H

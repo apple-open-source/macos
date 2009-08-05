@@ -44,10 +44,14 @@ void DatabaseAuthorizer::reset()
 {
     m_lastActionWasInsert = false;
     m_lastActionChangedDatabase = false;
+    m_readOnly = false;
 }
 
 int DatabaseAuthorizer::createTable(const String& tableName)
 {
+    if (m_readOnly && m_securityEnabled)
+        return SQLAuthDeny;
+
     m_lastActionChangedDatabase = true;
     return denyBasedOnTableName(tableName);
 }
@@ -59,6 +63,9 @@ int DatabaseAuthorizer::createTempTable(const String& tableName)
 
 int DatabaseAuthorizer::dropTable(const String& tableName)
 {
+    if (m_readOnly && m_securityEnabled)
+        return SQLAuthDeny;
+
     return denyBasedOnTableName(tableName);
 }
 
@@ -67,79 +74,109 @@ int DatabaseAuthorizer::dropTempTable(const String& tableName)
     return denyBasedOnTableName(tableName);
 }
 
-int DatabaseAuthorizer::allowAlterTable(const String& databaseName, const String& tableName)
+int DatabaseAuthorizer::allowAlterTable(const String&, const String& tableName)
 {
+    if (m_readOnly && m_securityEnabled)
+        return SQLAuthDeny;
+
     m_lastActionChangedDatabase = true;
     return denyBasedOnTableName(tableName);
 }
 
-int DatabaseAuthorizer::createIndex(const String& indexName, const String& tableName)
+int DatabaseAuthorizer::createIndex(const String&, const String& tableName)
 {
+    if (m_readOnly && m_securityEnabled)
+        return SQLAuthDeny;
+
     m_lastActionChangedDatabase = true;
     return denyBasedOnTableName(tableName);
 }
 
-int DatabaseAuthorizer::createTempIndex(const String& indexName, const String& tableName)
+int DatabaseAuthorizer::createTempIndex(const String&, const String& tableName)
 {
     return denyBasedOnTableName(tableName);
 }
 
-int DatabaseAuthorizer::dropIndex(const String& indexName, const String& tableName)
+int DatabaseAuthorizer::dropIndex(const String&, const String& tableName)
+{
+    if (m_readOnly && m_securityEnabled)
+        return SQLAuthDeny;
+
+    return denyBasedOnTableName(tableName);
+}
+
+int DatabaseAuthorizer::dropTempIndex(const String&, const String& tableName)
 {
     return denyBasedOnTableName(tableName);
 }
 
-int DatabaseAuthorizer::dropTempIndex(const String& indexName, const String& tableName)
+int DatabaseAuthorizer::createTrigger(const String&, const String& tableName)
 {
-    return denyBasedOnTableName(tableName);
-}
+    if (m_readOnly && m_securityEnabled)
+        return SQLAuthDeny;
 
-int DatabaseAuthorizer::createTrigger(const String& triggerName, const String& tableName)
-{
     m_lastActionChangedDatabase = true;
     return denyBasedOnTableName(tableName);
 }
 
-int DatabaseAuthorizer::createTempTrigger(const String& triggerName, const String& tableName)
+int DatabaseAuthorizer::createTempTrigger(const String&, const String& tableName)
 {
     return denyBasedOnTableName(tableName);
 }
 
-int DatabaseAuthorizer::dropTrigger(const String& triggerName, const String& tableName)
+int DatabaseAuthorizer::dropTrigger(const String&, const String& tableName)
+{
+    if (m_readOnly && m_securityEnabled)
+        return SQLAuthDeny;
+
+    return denyBasedOnTableName(tableName);
+}
+
+int DatabaseAuthorizer::dropTempTrigger(const String&, const String& tableName)
 {
     return denyBasedOnTableName(tableName);
 }
 
-int DatabaseAuthorizer::dropTempTrigger(const String& triggerName, const String& tableName)
+int DatabaseAuthorizer::createVTable(const String&, const String&)
 {
-    return denyBasedOnTableName(tableName);
-}
+    if (m_readOnly && m_securityEnabled)
+        return SQLAuthDeny;
 
-int DatabaseAuthorizer::createVTable(const String& tableName, const String& moduleName)
-{
     m_lastActionChangedDatabase = true;
     return m_securityEnabled ? SQLAuthDeny : SQLAuthAllow;
 }
 
-int DatabaseAuthorizer::dropVTable(const String& tableName, const String& moduleName)
+int DatabaseAuthorizer::dropVTable(const String&, const String&)
 {
+    if (m_readOnly && m_securityEnabled)
+        return SQLAuthDeny;
+
     return m_securityEnabled ? SQLAuthDeny : SQLAuthAllow;
 }
 
 int DatabaseAuthorizer::allowDelete(const String& tableName)
 {
+    if (m_readOnly && m_securityEnabled)
+        return SQLAuthDeny;
+
     return denyBasedOnTableName(tableName);
 }
 
 int DatabaseAuthorizer::allowInsert(const String& tableName)
 {
+    if (m_readOnly && m_securityEnabled)
+        return SQLAuthDeny;
+
     m_lastActionChangedDatabase = true;
     m_lastActionWasInsert = true;
     return denyBasedOnTableName(tableName);
 }
 
-int DatabaseAuthorizer::allowUpdate(const String& tableName, const String& columnName)
+int DatabaseAuthorizer::allowUpdate(const String& tableName, const String&)
 {
+    if (m_readOnly && m_securityEnabled)
+        return SQLAuthDeny;
+
     m_lastActionChangedDatabase = true;
     return denyBasedOnTableName(tableName);
 }
@@ -149,7 +186,7 @@ int DatabaseAuthorizer::allowTransaction()
     return m_securityEnabled ? SQLAuthDeny : SQLAuthAllow;
 }
 
-int DatabaseAuthorizer::allowRead(const String& tableName, const String& columnName)
+int DatabaseAuthorizer::allowRead(const String& tableName, const String&)
 {
     return denyBasedOnTableName(tableName);
 }
@@ -159,22 +196,22 @@ int DatabaseAuthorizer::allowAnalyze(const String& tableName)
     return denyBasedOnTableName(tableName);
 }
 
-int DatabaseAuthorizer::allowPragma(const String& pragmaName, const String& firstArgument)
+int DatabaseAuthorizer::allowPragma(const String&, const String&)
 {
     return m_securityEnabled ? SQLAuthDeny : SQLAuthAllow;
 }
 
-int DatabaseAuthorizer::allowAttach(const String& filename)
+int DatabaseAuthorizer::allowAttach(const String&)
 {
     return m_securityEnabled ? SQLAuthDeny : SQLAuthAllow;
 }
 
-int DatabaseAuthorizer::allowDetach(const String& databaseName)
+int DatabaseAuthorizer::allowDetach(const String&)
 {
     return m_securityEnabled ? SQLAuthDeny : SQLAuthAllow;
 }
 
-int DatabaseAuthorizer::allowFunction(const String& functionName)
+int DatabaseAuthorizer::allowFunction(const String&)
 {
     // FIXME: Are there any of these we need to prevent?  One might guess current_date, current_time, current_timestamp because
     // they would violate the "sandbox environment" part of 4.11.3, but scripts can generate the local client side information via
@@ -190,6 +227,11 @@ void DatabaseAuthorizer::disable()
 void DatabaseAuthorizer::enable()
 {
     m_securityEnabled = true;
+}
+
+void DatabaseAuthorizer::setReadOnly()
+{
+    m_readOnly = true;
 }
 
 int DatabaseAuthorizer::denyBasedOnTableName(const String& tableName)

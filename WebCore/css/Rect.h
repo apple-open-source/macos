@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1999-2003 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -22,16 +22,12 @@
 #define Rect_h
 
 #include "CSSPrimitiveValue.h"
-#include <wtf/RefCounted.h>
-#include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
 
-    class Rect : public RefCounted<Rect> {
+    class RectBase {
     public:
-        virtual ~Rect() { }
-
         CSSPrimitiveValue* top() const { return m_top.get(); }
         CSSPrimitiveValue* right() const { return m_right.get(); }
         CSSPrimitiveValue* bottom() const { return m_bottom.get(); }
@@ -43,10 +39,22 @@ namespace WebCore {
         void setLeft(PassRefPtr<CSSPrimitiveValue> left) { m_left = left; }
 
     protected:
+        RectBase() { }
+        ~RectBase() { }
+
+    private:
         RefPtr<CSSPrimitiveValue> m_top;
         RefPtr<CSSPrimitiveValue> m_right;
         RefPtr<CSSPrimitiveValue> m_bottom;
         RefPtr<CSSPrimitiveValue> m_left;
+    };
+
+    class Rect : public RectBase, public RefCounted<Rect> {
+    public:
+        static PassRefPtr<Rect> create() { return adoptRef(new Rect); }
+
+    private:
+        Rect() { }
     };
 
 } // namespace WebCore

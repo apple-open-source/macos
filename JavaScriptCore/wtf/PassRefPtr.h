@@ -1,4 +1,3 @@
-// -*- mode: c++; c-basic-offset: 4 -*-
 /*
  *  Copyright (C) 2005, 2006, 2007 Apple Inc. All rights reserved.
  *
@@ -41,7 +40,7 @@ namespace WTF {
         PassRefPtr(const PassRefPtr& o) : m_ptr(o.releaseRef()) {}
         template <typename U> PassRefPtr(const PassRefPtr<U>& o) : m_ptr(o.releaseRef()) { }
 
-        ALWAYS_INLINE ~PassRefPtr() { if (T* ptr = m_ptr) ptr->deref(); }
+        ALWAYS_INLINE ~PassRefPtr() { if (UNLIKELY(m_ptr != 0)) m_ptr->deref(); }
         
         template <class U> 
         PassRefPtr(const RefPtr<U>& o) : m_ptr(o.get()) { if (T* ptr = m_ptr) ptr->ref(); }
@@ -57,9 +56,12 @@ namespace WTF {
         bool operator!() const { return !m_ptr; }
 
         // This conversion operator allows implicit conversion to bool but not to other integer types.
+#if COMPILER(WINSCW)
+        operator bool() const { return m_ptr; }
+#else
         typedef T* PassRefPtr::*UnspecifiedBoolType;
         operator UnspecifiedBoolType() const { return m_ptr ? &PassRefPtr::m_ptr : 0; }
-        
+#endif
         PassRefPtr& operator=(T*);
         PassRefPtr& operator=(const PassRefPtr&);
         template <typename U> PassRefPtr& operator=(const PassRefPtr<U>&);

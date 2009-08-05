@@ -1,5 +1,6 @@
 /*
     Copyright (C) 2006 Apple Computer, Inc.
+              (C) 2008 Nikolas Zimmermann <zimmermann@kde.org>
 
     This file is part of the WebKit project
 
@@ -25,10 +26,10 @@
 #include "SVGForeignObjectElement.h"
 
 #include "CSSPropertyNames.h"
+#include "MappedAttribute.h"
 #include "RenderForeignObject.h"
-#include "SVGNames.h"
 #include "SVGLength.h"
-
+#include "SVGNames.h"
 #include <wtf/Assertions.h>
 
 namespace WebCore {
@@ -38,10 +39,10 @@ SVGForeignObjectElement::SVGForeignObjectElement(const QualifiedName& tagName, D
     , SVGTests()
     , SVGLangSpace()
     , SVGExternalResourcesRequired()
-    , m_x(this, LengthModeWidth)
-    , m_y(this, LengthModeHeight)
-    , m_width(this, LengthModeWidth)
-    , m_height(this, LengthModeHeight)
+    , m_x(this, SVGNames::xAttr, LengthModeWidth)
+    , m_y(this, SVGNames::yAttr, LengthModeHeight)
+    , m_width(this, SVGNames::widthAttr, LengthModeWidth)
+    , m_height(this, SVGNames::heightAttr, LengthModeHeight)
 {
 }
 
@@ -49,25 +50,18 @@ SVGForeignObjectElement::~SVGForeignObjectElement()
 {
 }
 
-ANIMATED_PROPERTY_DEFINITIONS(SVGForeignObjectElement, SVGLength, Length, length, X, x, SVGNames::xAttr, m_x)
-ANIMATED_PROPERTY_DEFINITIONS(SVGForeignObjectElement, SVGLength, Length, length, Y, y, SVGNames::yAttr, m_y)
-ANIMATED_PROPERTY_DEFINITIONS(SVGForeignObjectElement, SVGLength, Length, length, Width, width, SVGNames::widthAttr, m_width)
-ANIMATED_PROPERTY_DEFINITIONS(SVGForeignObjectElement, SVGLength, Length, length, Height, height, SVGNames::heightAttr, m_height)
-
-void SVGForeignObjectElement::parseMappedAttribute(MappedAttribute *attr)
+void SVGForeignObjectElement::parseMappedAttribute(MappedAttribute* attr)
 {
     const AtomicString& value = attr->value();
     if (attr->name() == SVGNames::xAttr)
-        setXBaseValue(SVGLength(this, LengthModeWidth, value));
+        setXBaseValue(SVGLength(LengthModeWidth, value));
     else if (attr->name() == SVGNames::yAttr)
-        setYBaseValue(SVGLength(this, LengthModeHeight, value));
-    else if (attr->name() == SVGNames::widthAttr) {
-        setWidthBaseValue(SVGLength(this, LengthModeWidth, value));
-        addCSSProperty(attr, CSS_PROP_WIDTH, value);
-    } else if (attr->name() == SVGNames::heightAttr) {
-        setHeightBaseValue(SVGLength(this, LengthModeHeight, value));
-        addCSSProperty(attr, CSS_PROP_HEIGHT, value);
-    } else {
+        setYBaseValue(SVGLength(LengthModeHeight, value));
+    else if (attr->name() == SVGNames::widthAttr)
+        setWidthBaseValue(SVGLength(LengthModeWidth, value));
+    else if (attr->name() == SVGNames::heightAttr)
+        setHeightBaseValue(SVGLength(LengthModeHeight, value));
+    else {
         if (SVGTests::parseMappedAttribute(attr))
             return;
         if (SVGLangSpace::parseMappedAttribute(attr))
@@ -78,7 +72,86 @@ void SVGForeignObjectElement::parseMappedAttribute(MappedAttribute *attr)
     }
 }
 
-RenderObject* SVGForeignObjectElement::createRenderer(RenderArena* arena, RenderStyle* style)
+// TODO: Move this function in some SVG*Element base class, as SVGSVGElement / SVGImageElement will need the same logic!
+
+// This function mimics addCSSProperty and StyledElement::attributeChanged.
+// In HTML code, you'd always call addCSSProperty from your derived parseMappedAttribute()
+// function - though in SVG code we need to move this logic into svgAttributeChanged, in
+// order to support SVG DOM changes (which don't use the parseMappedAttribute/attributeChanged).
+// If we'd ignore SVG DOM, we could use _exactly_ the same logic as HTML.
+static inline void addCSSPropertyAndNotifyAttributeMap(StyledElement* element, const QualifiedName& name, int cssProperty, const String& value)
+{
+    ASSERT(element);
+
+    if (!element)
+        return;
+
+    NamedMappedAttrMap* attrs = element->mappedAttributes();
+    ASSERT(attrs);
+
+    if (!attrs)
+        return;
+
+    Attribute* attr = attrs->getAttributeItem(name);
+    if (!attr || !attr->isMappedAttribute())
+        return;
+
+    MappedAttribute* mappedAttr = static_cast<MappedAttribute*>(attr);
+
+    // This logic is only meant to be used for entries that have to be parsed and are mapped to eNone. Assert that.
+    MappedAttributeEntry entry;
+    bool needToParse = element->mapToEntry(mappedAttr->name(), entry);
+
+    ASSERT(needToParse);
+    ASSERT(entry == eNone);
+
+    if (!needToParse || entry != eNone) 
+        return;
+
+    if (mappedAttr->decl()) {
+        mappedAttr->setDecl(0);
+        attrs->declRemoved();
+    }
+
+    element->setNeedsStyleRecalc();
+    element->addCSSProperty(mappedAttr, cssProperty, value);
+
+    if (CSSMappedAttributeDeclaration* decl = mappedAttr->decl()) {
+        // Add the decl to the table in the appropriate spot.
+        element->setMappedAttributeDecl(entry, mappedAttr, decl);
+
+        decl->setMappedState(entry, mappedAttr->name(), mappedAttr->value());
+        decl->setParent(0);
+        decl->setNode(0);
+
+        attrs->declAdded();
+    }
+}
+
+void SVGForeignObjectElement::svgAttributeChanged(const QualifiedName& attrName)
+{
+    SVGStyledTransformableElement::svgAttributeChanged(attrName);
+
+    if (attrName == SVGNames::widthAttr) {
+        addCSSPropertyAndNotifyAttributeMap(this, attrName, CSSPropertyWidth, width().valueAsString());
+        return;
+    } else if (attrName == SVGNames::heightAttr) {
+        addCSSPropertyAndNotifyAttributeMap(this, attrName, CSSPropertyHeight, height().valueAsString());
+        return;
+    }
+
+    if (!renderer())
+        return;
+
+    if (attrName == SVGNames::xAttr || attrName == SVGNames::yAttr ||
+        SVGTests::isKnownAttribute(attrName) ||
+        SVGLangSpace::isKnownAttribute(attrName) ||
+        SVGExternalResourcesRequired::isKnownAttribute(attrName) ||
+        SVGStyledTransformableElement::isKnownAttribute(attrName))
+        renderer()->setNeedsLayout(true);
+}
+
+RenderObject* SVGForeignObjectElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
     return new (arena) RenderForeignObject(this);
 }
@@ -92,5 +165,3 @@ bool SVGForeignObjectElement::childShouldCreateRenderer(Node* child) const
 } // namespace WebCore
 
 #endif // ENABLE(SVG) && ENABLE(SVG_FOREIGN_OBJECT)
-
-// vim:ts=4:noet

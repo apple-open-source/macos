@@ -17,11 +17,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>158.10.0</string>
+	<string>158.10.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>158.10.0</string>
+	<string>158.10.5</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSmartBatteryManager</key>

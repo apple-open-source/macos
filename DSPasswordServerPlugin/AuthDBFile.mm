@@ -4127,9 +4127,13 @@ extern "C" {
 	
 	offset = [self historySlotToOffset:inPasswordRec->slot];
 	
-    // validate
     sprintf( historyPath, "%s/%s", mDirPathStr, kPWHistoryFileName );	
-	fp = fopen( historyPath, "w+" );
+
+	// Use open(2) so the file will get created if needed, but not truncated.
+	int fd = open( historyPath, O_RDWR|O_CREAT );
+	if (fd >= 0) {
+		fp = fdopen( fd, "r+" );
+	}
 	if ( fp == NULL ) {
 		err = errno;
 		if ( err == 0 )

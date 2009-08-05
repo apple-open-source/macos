@@ -31,22 +31,20 @@ namespace WebCore {
         SVGFEDisplacementMapElement(const QualifiedName& tagName, Document*);
         virtual ~SVGFEDisplacementMapElement();
         
-        static SVGChannelSelectorType stringToChannel(const String&);
+        static ChannelSelectorType stringToChannel(const String&);
         
         virtual void parseMappedAttribute(MappedAttribute*);
-        virtual SVGFEDisplacementMap* filterEffect(SVGResourceFilter*) const;
+        virtual SVGFilterEffect* filterEffect(SVGResourceFilter*) const;
+        bool build(FilterBuilder*);
         
-    protected:
-        virtual const SVGElement* contextElement() const { return this; }
-
     private:
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFEDisplacementMapElement, String, String, In1, in1)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFEDisplacementMapElement, String, String, In2, in2)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFEDisplacementMapElement, int, int, XChannelSelector, xChannelSelector)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFEDisplacementMapElement, int, int, YChannelSelector, yChannelSelector)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFEDisplacementMapElement, float, float, Scale, scale)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGFEDisplacementMapElement, SVGNames::feDisplacementMapTagString, SVGNames::inAttrString, String, In1, in1)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGFEDisplacementMapElement, SVGNames::feDisplacementMapTagString, SVGNames::in2AttrString, String, In2, in2)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGFEDisplacementMapElement, SVGNames::feDisplacementMapTagString, SVGNames::xChannelSelectorAttrString, int, XChannelSelector, xChannelSelector)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGFEDisplacementMapElement, SVGNames::feDisplacementMapTagString, SVGNames::yChannelSelectorAttrString, int, YChannelSelector, yChannelSelector)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGFEDisplacementMapElement, SVGNames::feDisplacementMapTagString, SVGNames::scaleAttrString, float, Scale, scale)
 
-        mutable SVGFEDisplacementMap* m_filterEffect;
+        mutable RefPtr<FEDisplacementMap> m_filterEffect;
     };
 
 } // namespace WebCore

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2008 Apple Computer, Inc.  All rights reserved.
  * Copyright (C) 2007 Alp Toker <alp@atoker.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,68 +27,43 @@
 #ifndef CanvasGradient_h
 #define CanvasGradient_h
 
-#include "FloatPoint.h"
+#include "Gradient.h"
+#include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
-#include <wtf/Vector.h>
-
-#if PLATFORM(CG)
-typedef struct CGShading* CGShadingRef;
-#elif PLATFORM(QT)
-class QGradient;
-#elif PLATFORM(CAIRO)
-typedef struct _cairo_pattern cairo_pattern_t;
-#endif
 
 namespace WebCore {
 
     class String;
 
+    typedef int ExceptionCode;
+
     class CanvasGradient : public RefCounted<CanvasGradient> {
     public:
-        CanvasGradient(const FloatPoint& p0, const FloatPoint& p1);
-        CanvasGradient(const FloatPoint& p0, float r0, const FloatPoint& p1, float r1);
-        ~CanvasGradient();
+        static PassRefPtr<CanvasGradient> create(const FloatPoint& p0, const FloatPoint& p1)
+        {
+            return adoptRef(new CanvasGradient(p0, p1));
+        }
+        static PassRefPtr<CanvasGradient> create(const FloatPoint& p0, float r0, const FloatPoint& p1, float r1)
+        {
+            return adoptRef(new CanvasGradient(p0, r0, p1, r1));
+        }
+        
+        Gradient* gradient() const { return m_gradient.get(); }
 
-        void addColorStop(float, const String& color);
+        void addColorStop(float value, const String& color, ExceptionCode&);
 
-        void getColor(float value, float* r, float* g, float* b, float* a);
+        void getColor(float value, float* r, float* g, float* b, float* a) const { m_gradient->getColor(value, r, g, b, a); }
 
-#if PLATFORM(CG)
-        CGShadingRef platformShading();
-#elif PLATFORM(QT)
-        QGradient *platformShading();
-#elif PLATFORM(CAIRO)
-        cairo_pattern_t* platformShading();
+#if ENABLE(DASHBOARD_SUPPORT)
+        void setDashboardCompatibilityMode() { m_dashbardCompatibilityMode = true; }
 #endif
-
-        struct ColorStop {
-            float stop;
-            float red;
-            float green;
-            float blue;
-            float alpha;
-            
-            ColorStop() : stop(0), red(0), green(0), blue(0), alpha(0) { }
-            ColorStop(float s, float r, float g, float b, float a) : stop(s), red(r), green(g), blue(b), alpha(a) { }
-        };
 
     private:
-        int findStop(float value) const;
-
-        bool m_radial;
-        FloatPoint m_p0, m_p1;
-        float m_r0, m_r1;
-        mutable Vector<ColorStop> m_stops;
-        mutable bool m_stopsSorted;
-        mutable int m_lastStop;
-
-#if PLATFORM(CG)
-        CGShadingRef m_shading;
-#elif PLATFORM(QT)
-        QGradient *m_shading;
-#elif PLATFORM(CAIRO)
-        cairo_pattern_t* m_shading;
-#endif
+        CanvasGradient(const FloatPoint& p0, const FloatPoint& p1);
+        CanvasGradient(const FloatPoint& p0, float r0, const FloatPoint& p1, float r1);
+        
+        RefPtr<Gradient> m_gradient;
+        bool m_dashbardCompatibilityMode;
     };
 
 } //namespace

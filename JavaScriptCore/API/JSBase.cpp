@@ -1,4 +1,3 @@
-// -*- mode: c++; c-basic-offset: 4 -*-
 /*
  * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
  *
@@ -21,67 +20,97 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
 #include "JSBase.h"
+#include "JSBasePrivate.h"
 
 #include "APICast.h"
-#include <kjs/ExecState.h>
-#include <kjs/JSGlobalObject.h>
-#include <kjs/JSLock.h>
-#include <kjs/interpreter.h>
-#include <kjs/object.h>
+#include "Completion.h"
+#include "OpaqueJSString.h"
+#include "SourceCode.h"
+#include <interpreter/CallFrame.h>
+#include <runtime/InitializeThreading.h>
+#include <runtime/Completion.h>
+#include <runtime/JSGlobalObject.h>
+#include <runtime/JSLock.h>
+#include <runtime/JSObject.h>
 
-using namespace KJS;
+using namespace JSC;
 
 JSValueRef JSEvaluateScript(JSContextRef ctx, JSStringRef script, JSObjectRef thisObject, JSStringRef sourceURL, int startingLineNumber, JSValueRef* exception)
 {
-    JSLock lock;
     ExecState* exec = toJS(ctx);
+    exec->globalData().heap.registerThread();
+    JSLock lock(exec);
+
     JSObject* jsThisObject = toJS(thisObject);
-    UString::Rep* scriptRep = toJS(script);
-    UString::Rep* sourceURLRep = sourceURL ? toJS(sourceURL) : &UString::Rep::null;
-    // Interpreter::evaluate sets "this" to the global object if it is NULL
-    Completion completion = Interpreter::evaluate(exec->dynamicGlobalObject()->globalExec(), UString(sourceURLRep), startingLineNumber, UString(scriptRep), jsThisObject);
+
+    // evaluate sets "this" to the global object if it is NULL
+    JSGlobalObject* globalObject = exec->dynamicGlobalObject();
+    SourceCode source = makeSource(script->ustring(), sourceURL->ustring(), startingLineNumber);
+    Completion completion = evaluate(globalObject->globalExec(), globalObject->globalScopeChain(), source, jsThisObject);
 
     if (completion.complType() == Throw) {
         if (exception)
-            *exception = toRef(completion.value());
+            *exception = toRef(exec, completion.value());
         return 0;
     }
-    
+
     if (completion.value())
-        return toRef(completion.value());
+        return toRef(exec, completion.value());
     
     // happens, for example, when the only statement is an empty (';') statement
-    return toRef(jsUndefined());
+    return toRef(exec, jsUndefined());
 }
 
 bool JSCheckScriptSyntax(JSContextRef ctx, JSStringRef script, JSStringRef sourceURL, int startingLineNumber, JSValueRef* exception)
 {
-    JSLock lock;
-
     ExecState* exec = toJS(ctx);
-    UString::Rep* scriptRep = toJS(script);
-    UString::Rep* sourceURLRep = sourceURL ? toJS(sourceURL) : &UString::Rep::null;
-    Completion completion = Interpreter::checkSyntax(exec->dynamicGlobalObject()->globalExec(), UString(sourceURLRep), startingLineNumber, UString(scriptRep));
+    exec->globalData().heap.registerThread();
+    JSLock lock(exec);
+
+    SourceCode source = makeSource(script->ustring(), sourceURL->ustring(), startingLineNumber);
+    Completion completion = checkSyntax(exec->dynamicGlobalObject()->globalExec(), source);
     if (completion.complType() == Throw) {
         if (exception)
-            *exception = toRef(completion.value());
+            *exception = toRef(exec, completion.value());
         return false;
     }
     
     return true;
 }
 
-void JSGarbageCollect(JSContextRef)
+void JSGarbageCollect(JSContextRef ctx)
 {
-    JSLock lock;
-    if (!Collector::isBusy())
-        Collector::collect();
+    // We used to recommend passing NULL as an argument here, which caused the only heap to be collected.
+    // As there is no longer a shared heap, the previously recommended usage became a no-op (but the GC
+    // will happen when the context group is destroyed).
+    // Because the function argument was originally ignored, some clients may pass their released context here,
+    // in which case there is a risk of crashing if another thread performs GC on the same heap in between.
+    if (!ctx)
+        return;
+
+    ExecState* exec = toJS(ctx);
+    JSGlobalData& globalData = exec->globalData();
+
+    JSLock lock(globalData.isSharedInstance);
+
+    if (!globalData.heap.isBusy())
+        globalData.heap.collect();
+
     // FIXME: Perhaps we should trigger a second mark and sweep
     // once the garbage collector is done if this is called when
     // the collector is busy.
+}
+
+void JSReportExtraMemoryCost(JSContextRef ctx, size_t size)
+{
+    ExecState* exec = toJS(ctx);
+    exec->globalData().heap.registerThread();
+    JSLock lock(exec);
+
+    exec->globalData().heap.reportExtraMemoryCost(size);
 }

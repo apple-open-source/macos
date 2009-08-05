@@ -49,9 +49,6 @@ public:
     virtual bool isFrameOwnerElement() const { return true; }
     virtual bool isKeyboardFocusable(KeyboardEvent*) const { return m_contentFrame; }
     
-    bool createdByParser() const { return m_createdByParser; }
-    void setCreatedByParser(bool createdByParser) { m_createdByParser = createdByParser; }
-
     virtual ScrollbarMode scrollingMode() const { return ScrollbarAuto; }
 
 #if ENABLE(SVG)
@@ -61,7 +58,6 @@ public:
 private:
     friend class Frame;
     Frame* m_contentFrame;
-    bool m_createdByParser;
 };
 
 } // namespace WebCore

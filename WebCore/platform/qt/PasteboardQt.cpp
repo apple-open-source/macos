@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2006 Zack Rusin <zack@kde.org>
  * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
- * Copyright (C) 2007 Trolltech ASA
+ * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,6 +30,7 @@
 
 #include "DocumentFragment.h"
 #include "Editor.h"
+#include "Frame.h"
 #include "Image.h"
 #include "markup.h"
 #include "RenderImage.h"
@@ -43,8 +44,9 @@
 #define methodDebug() qDebug() << "PasteboardQt: " << __FUNCTION__;
 
 namespace WebCore {
-
-Pasteboard::Pasteboard()
+    
+Pasteboard::Pasteboard() 
+    : m_selectionMode(false)
 {
 }
 
@@ -62,8 +64,16 @@ void Pasteboard::writeSelection(Range* selectedRange, bool, Frame* frame)
     QString text = frame->selectedText();
     text.replace(QChar(0xa0), QLatin1Char(' '));
     md->setText(text);
-    md->setHtml(createMarkup(selectedRange, 0, AnnotateForInterchange));
-    QApplication::clipboard()->setMimeData(md);
+
+    QString html = QLatin1String("<html><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\" /></head><body>");
+    html += createMarkup(selectedRange, 0, AnnotateForInterchange);
+    html += QLatin1String("</body></html>");
+    md->setHtml(html);
+
+#ifndef QT_NO_CLIPBOARD
+    QApplication::clipboard()->setMimeData(md, m_selectionMode ? 
+            QClipboard::Selection : QClipboard::Clipboard);
+#endif
 }
 
 bool Pasteboard::canSmartReplace()
@@ -73,13 +83,20 @@ bool Pasteboard::canSmartReplace()
 
 String Pasteboard::plainText(Frame*)
 {
-    return QApplication::clipboard()->text();
+#ifndef QT_NO_CLIPBOARD
+    return QApplication::clipboard()->text(m_selectionMode ? 
+            QClipboard::Selection : QClipboard::Clipboard);
+#else
+    return String();
+#endif
 }
 
 PassRefPtr<DocumentFragment> Pasteboard::documentFragment(Frame* frame, PassRefPtr<Range> context,
                                                           bool allowPlainText, bool& chosePlainText)
 {
-    const QMimeData* mimeData = QApplication::clipboard()->mimeData();
+#ifndef QT_NO_CLIPBOARD
+    const QMimeData* mimeData = QApplication::clipboard()->mimeData(
+            m_selectionMode ? QClipboard::Selection : QClipboard::Clipboard);
 
     chosePlainText = false;
 
@@ -98,7 +115,7 @@ PassRefPtr<DocumentFragment> Pasteboard::documentFragment(Frame* frame, PassRefP
         if (fragment)
             return fragment.release();
     }
-
+#endif
     return 0;
 }
 
@@ -106,32 +123,50 @@ void Pasteboard::writeURL(const KURL& _url, const String&, Frame*)
 {
     ASSERT(!_url.isEmpty());
 
+#ifndef QT_NO_CLIPBOARD
     QMimeData* md = new QMimeData;
     QString url = _url.string();
     md->setText(url);
     md->setUrls(QList<QUrl>() << QUrl(url));
-    QApplication::clipboard()->setMimeData(md, QClipboard::Clipboard);
+    QApplication::clipboard()->setMimeData(md, m_selectionMode ?
+            QClipboard::Selection : QClipboard::Clipboard);
+#endif
 }
 
 void Pasteboard::writeImage(Node* node, const KURL&, const String&)
 {
     ASSERT(node && node->renderer() && node->renderer()->isImage());
 
+#ifndef QT_NO_CLIPBOARD
     CachedImage* cachedImage = static_cast<RenderImage*>(node->renderer())->cachedImage();
     ASSERT(cachedImage);
 
     Image* image = cachedImage->image();
     ASSERT(image);
 
-    QPixmap* pixmap = image->getPixmap();
+    QPixmap* pixmap = image->nativeImageForCurrentFrame();
     ASSERT(pixmap);
 
     QApplication::clipboard()->setPixmap(*pixmap, QClipboard::Clipboard);
+#endif
 }
 
+/* This function is called from Editor::tryDHTMLCopy before actually set the clipboard
+ * It introduce a race condition with klipper, which will try to grab the clipboard 
+ * It's not required to clear it anyway, since QClipboard take care about replacing the clipboard
+ */
 void Pasteboard::clear()
 {
-    QApplication::clipboard()->clear();
+}
+
+bool Pasteboard::isSelectionMode() const
+{
+    return m_selectionMode;
+}
+
+void Pasteboard::setSelectionMode(bool selectionMode)
+{
+    m_selectionMode = selectionMode;
 }
 
 }

@@ -1267,9 +1267,11 @@ IOUSBDeviceClass::DeviceRequestAsync(IOUSBDevRequestTO *req, IOAsyncCallback1 ca
 IOReturn 
 IOUSBDeviceClass::CreateInterfaceIterator(IOUSBFindInterfaceRequest *intfReq, io_iterator_t *iter)
 {
-	size_t				len = sizeof(io_iterator_t);
-	size_t				inSize = sizeof(IOUSBFindInterfaceRequest);
-    IOReturn			ret = kIOReturnSuccess;
+    uint64_t		input[4];
+    uint32_t		len = 1;
+    IOReturn		ret = kIOReturnSuccess;
+	uint64_t		output[1];
+	
 
     ATTACHEDCHECK(); 
 	DEBUGPRINT("+IOUSBDeviceClass[%p]::CreateInterfaceIteratorXX  bInterfaceClass 0x%x, bInterfaceSubClass = 0x%x, bInterfaceProtocol = 0x%x, bAlternateSetting = 0x%x\n", this,
@@ -1279,10 +1281,12 @@ IOUSBDeviceClass::CreateInterfaceIterator(IOUSBFindInterfaceRequest *intfReq, io
 			   intfReq->bAlternateSetting);
 	
 	
-#if !TARGET_OS_EMBEDDED
-#endif
-	
-	ret = IOConnectCallStructMethod( fConnection, kUSBDeviceUserClientCreateInterfaceIterator,  intfReq, inSize, iter, &len);
+	input[0] = (uint64_t) intfReq->bInterfaceClass;
+	input[1] = (uint64_t) intfReq->bInterfaceSubClass;
+	input[2] = (uint64_t) intfReq->bInterfaceProtocol;
+	input[3] = (uint64_t) intfReq->bAlternateSetting;
+
+	ret = IOConnectCallScalarMethod(fConnection, kUSBDeviceUserClientCreateInterfaceIterator, input, 4, output, &len);
     if (ret == MACH_SEND_INVALID_DEST)
     {
 		DEBUGPRINT("-IOUSBDeviceClass::CreateInterfaceIterator   IOConnectCallStructMethod returned MACH_SEND_INVALID_DEST\n");
@@ -1291,10 +1295,11 @@ IOUSBDeviceClass::CreateInterfaceIterator(IOUSBFindInterfaceRequest *intfReq, io
 		ret = kIOReturnNoDevice;
     }
 	
-	
-#if !TARGET_OS_EMBEDDED
-#endif
-	
+	if ( ret == kIOReturnSuccess)
+	{
+		*iter = (io_iterator_t) output[0];
+	}
+		
 	DEBUGPRINT("-IOUSBDeviceClass::CreateInterfaceIterator returning error 0x%x (%d), iterator: 0x%x\n", ret, ret, *iter);
     return ret;
 }

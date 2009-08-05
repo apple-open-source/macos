@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2009 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,14 +26,19 @@
 #ifndef DOMWindow_h
 #define DOMWindow_h
 
+#include "EventTarget.h"
+#include "KURL.h"
 #include "PlatformString.h"
-#include <wtf/RefCounted.h>
+#include "RegisteredEventListener.h"
+#include "SecurityOrigin.h"
 #include <wtf/Forward.h>
+#include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
 
     class BarInfo;
+    class BeforeUnloadEvent;
     class CSSRuleList;
     class CSSStyleDeclaration;
     class Console;
@@ -41,24 +46,61 @@ namespace WebCore {
     class Database;
     class Document;
     class Element;
+    class Event;
+    class EventListener;
     class FloatRect;
     class Frame;
     class History;
+    class Location;
+    class MessagePort;
+    class Navigator;
+    class Node;
+    class PostMessageTimer;
+    class ScheduledAction;
     class Screen;
+    class WebKitPoint;
+
+#if ENABLE(DOM_STORAGE)
+    class SessionStorage;
+    class Storage;
+#endif
+
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+    class DOMApplicationCache;
+#endif
 
     typedef int ExceptionCode;
 
-    class DOMWindow : public RefCounted<DOMWindow> {
+    class DOMWindow : public RefCounted<DOMWindow>, public EventTarget {
     public:
-        DOMWindow(Frame*);
+        static PassRefPtr<DOMWindow> create(Frame* frame) { return adoptRef(new DOMWindow(frame)); }
         virtual ~DOMWindow();
 
-        Frame* frame() { return m_frame; }
+        virtual DOMWindow* toDOMWindow() { return this; }
+        virtual ScriptExecutionContext* scriptExecutionContext() const;
+
+        Frame* frame() const { return m_frame; }
         void disconnectFrame();
 
         void clear();
 
+        void setSecurityOrigin(SecurityOrigin* securityOrigin) { m_securityOrigin = securityOrigin; }
+        SecurityOrigin* securityOrigin() const { return m_securityOrigin.get(); }
+
+        void setURL(const KURL& url) { m_url = url; }
+        KURL url() const { return m_url; }
+
+        unsigned pendingUnloadEventListeners() const;
+
+        static bool dispatchAllPendingBeforeUnloadEvents();
+        static void dispatchAllPendingUnloadEvents();
+
         static void adjustWindowRect(const FloatRect& screen, FloatRect& window, const FloatRect& pendingChanges);
+        static void parseModalDialogFeatures(const String& featuresArg, HashMap<String, String>& map);
+
+        static bool allowPopUp(Frame* activeFrame);
+        static bool canShowModalDialog(const Frame*);
+        static bool canShowModalDialogNow(const Frame*);
 
         // DOM Level 0
         Screen* screen() const;
@@ -69,6 +111,9 @@ namespace WebCore {
         BarInfo* scrollbars() const;
         BarInfo* statusbar() const;
         BarInfo* toolbar() const;
+        Navigator* navigator() const;
+        Navigator* clientInformation() const { return navigator(); }
+        Location* location() const;
 
         DOMSelection* getSelection();
 
@@ -135,16 +180,28 @@ namespace WebCore {
         PassRefPtr<CSSRuleList> getMatchedCSSRules(Element*, const String& pseudoElt, bool authorOnly = true) const;
         double devicePixelRatio() const;
 
+        PassRefPtr<WebKitPoint> webkitConvertPointFromPageToNode(Node* node, const WebKitPoint* p) const;
+        PassRefPtr<WebKitPoint> webkitConvertPointFromNodeToPage(Node* node, const WebKitPoint* p) const;        
+
 #if ENABLE(DATABASE)
         // HTML 5 client-side database
         PassRefPtr<Database> openDatabase(const String& name, const String& version, const String& displayName, unsigned long estimatedSize, ExceptionCode&);
 #endif
 
-        Console* console() const;
-        
-#if ENABLE(CROSS_DOCUMENT_MESSAGING)
-        void postMessage(const String& message, const String& domain, const String& uri, DOMWindow* source) const;
+#if ENABLE(DOM_STORAGE)
+        // HTML 5 key/value storage
+        Storage* sessionStorage() const;
+        Storage* localStorage() const;
 #endif
+
+        Console* console() const;
+
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+        DOMApplicationCache* applicationCache() const;
+#endif
+
+        void postMessage(const String& message, MessagePort*, const String& targetOrigin, DOMWindow* source, ExceptionCode&);
+        void postMessageTimerFired(PostMessageTimer*);
 
         void scrollBy(int x, int y) const;
         void scrollTo(int x, int y) const;
@@ -156,7 +213,132 @@ namespace WebCore {
         void resizeBy(float x, float y) const;
         void resizeTo(float width, float height) const;
 
+        // Timers
+        int setTimeout(ScheduledAction*, int timeout);
+        void clearTimeout(int timeoutId);
+        int setInterval(ScheduledAction*, int timeout);
+        void clearInterval(int timeoutId);
+
+        // Events
+        // EventTarget API
+        virtual void addEventListener(const AtomicString& eventType, PassRefPtr<EventListener>, bool useCapture);
+        virtual void removeEventListener(const AtomicString& eventType, EventListener*, bool useCapture);
+        virtual bool dispatchEvent(PassRefPtr<Event>, ExceptionCode&);
+
+        void handleEvent(Event*, bool useCapture, RegisteredEventListenerVector* = 0);
+
+        void dispatchEvent(const AtomicString& eventType, bool canBubble, bool cancelable);
+        void dispatchLoadEvent();
+        void dispatchUnloadEvent(RegisteredEventListenerVector* = 0);
+        PassRefPtr<BeforeUnloadEvent> dispatchBeforeUnloadEvent(RegisteredEventListenerVector* = 0);
+
+        // Used for legacy "onEvent" property APIs.
+        void setAttributeEventListener(const AtomicString& eventType, PassRefPtr<EventListener>);
+        void clearAttributeEventListener(const AtomicString& eventType);
+        EventListener* getAttributeEventListener(const AtomicString& eventType) const;
+
+        const RegisteredEventListenerVector& eventListeners() const { return m_eventListeners; }
+        bool hasEventListener(const AtomicString& eventType);
+        void removeAllEventListeners();
+        
+        EventListener* onabort() const;
+        void setOnabort(PassRefPtr<EventListener>);
+        EventListener* onblur() const;
+        void setOnblur(PassRefPtr<EventListener>);
+        EventListener* onchange() const;
+        void setOnchange(PassRefPtr<EventListener>);
+        EventListener* onclick() const;
+        void setOnclick(PassRefPtr<EventListener>);
+        EventListener* ondblclick() const;
+        void setOndblclick(PassRefPtr<EventListener>);
+        EventListener* onerror() const;
+        void setOnerror(PassRefPtr<EventListener>);
+        EventListener* onfocus() const;
+        void setOnfocus(PassRefPtr<EventListener>);
+        EventListener* onkeydown() const;
+        void setOnkeydown(PassRefPtr<EventListener>);
+        EventListener* onkeypress() const;
+        void setOnkeypress(PassRefPtr<EventListener>);
+        EventListener* onkeyup() const;
+        void setOnkeyup(PassRefPtr<EventListener>);
+        EventListener* onload() const;
+        void setOnload(PassRefPtr<EventListener>);
+        EventListener* onmousedown() const;
+        void setOnmousedown(PassRefPtr<EventListener>);
+        EventListener* onmousemove() const;
+        void setOnmousemove(PassRefPtr<EventListener>);
+        EventListener* onmouseout() const;
+        void setOnmouseout(PassRefPtr<EventListener>);
+        EventListener* onmouseover() const;
+        void setOnmouseover(PassRefPtr<EventListener>);
+        EventListener* onmouseup() const;
+        void setOnmouseup(PassRefPtr<EventListener>);
+        EventListener* onmousewheel() const;
+        void setOnmousewheel(PassRefPtr<EventListener>);
+        EventListener* onreset() const;
+        void setOnreset(PassRefPtr<EventListener>);
+        EventListener* onresize() const;
+        void setOnresize(PassRefPtr<EventListener>);
+        EventListener* onscroll() const;
+        void setOnscroll(PassRefPtr<EventListener>);
+        EventListener* onsearch() const;
+        void setOnsearch(PassRefPtr<EventListener>);
+        EventListener* onselect() const;
+        void setOnselect(PassRefPtr<EventListener>);
+        EventListener* onsubmit() const;
+        void setOnsubmit(PassRefPtr<EventListener>);
+        EventListener* onunload() const;
+        void setOnunload(PassRefPtr<EventListener>);
+        EventListener* onbeforeunload() const;
+        void setOnbeforeunload(PassRefPtr<EventListener>);
+        EventListener* onwebkitanimationstart() const;
+        void setOnwebkitanimationstart(PassRefPtr<EventListener>);
+        EventListener* onwebkitanimationiteration() const;
+        void setOnwebkitanimationiteration(PassRefPtr<EventListener>);
+        EventListener* onwebkitanimationend() const;
+        void setOnwebkitanimationend(PassRefPtr<EventListener>);
+        EventListener* onwebkittransitionend() const;
+        void setOnwebkittransitionend(PassRefPtr<EventListener>);
+
+        void captureEvents();
+        void releaseEvents();
+
+        // These methods are used for GC marking. See JSDOMWindow::mark() in
+        // JSDOMWindowCustom.cpp.
+        Screen* optionalScreen() const { return m_screen.get(); }
+        DOMSelection* optionalSelection() const { return m_selection.get(); }
+        History* optionalHistory() const { return m_history.get(); }
+        BarInfo* optionalLocationbar() const { return m_locationbar.get(); }
+        BarInfo* optionalMenubar() const { return m_menubar.get(); }
+        BarInfo* optionalPersonalbar() const { return m_personalbar.get(); }
+        BarInfo* optionalScrollbars() const { return m_scrollbars.get(); }
+        BarInfo* optionalStatusbar() const { return m_statusbar.get(); }
+        BarInfo* optionalToolbar() const { return m_toolbar.get(); }
+        Console* optionalConsole() const { return m_console.get(); }
+        Navigator* optionalNavigator() const { return m_navigator.get(); }
+        Location* optionalLocation() const { return m_location.get(); }
+#if ENABLE(DOM_STORAGE)
+        Storage* optionalSessionStorage() const { return m_sessionStorage.get(); }
+        Storage* optionalLocalStorage() const { return m_localStorage.get(); }
+#endif
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+        DOMApplicationCache* optionalApplicationCache() const { return m_applicationCache.get(); }
+#endif
+
+        using RefCounted<DOMWindow>::ref;
+        using RefCounted<DOMWindow>::deref;
+
     private:
+        DOMWindow(Frame*);
+
+        virtual void refEventTarget() { ref(); }
+        virtual void derefEventTarget() { deref(); }
+
+        void dispatchEventWithDocumentAsTarget(PassRefPtr<Event>, RegisteredEventListenerVector* = 0);
+
+        RefPtr<SecurityOrigin> m_securityOrigin;
+        KURL m_url;
+
         Frame* m_frame;
         mutable RefPtr<Screen> m_screen;
         mutable RefPtr<DOMSelection> m_selection;
@@ -168,8 +350,19 @@ namespace WebCore {
         mutable RefPtr<BarInfo> m_statusbar;
         mutable RefPtr<BarInfo> m_toolbar;
         mutable RefPtr<Console> m_console;
+        mutable RefPtr<Navigator> m_navigator;
+        mutable RefPtr<Location> m_location;
+#if ENABLE(DOM_STORAGE)
+        mutable RefPtr<Storage> m_sessionStorage;
+        mutable RefPtr<Storage> m_localStorage;
+#endif
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+        mutable RefPtr<DOMApplicationCache> m_applicationCache;
+#endif
+
+        RegisteredEventListenerVector m_eventListeners;
     };
 
 } // namespace WebCore
 
-#endif
+#endif // DOMWindow_h

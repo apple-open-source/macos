@@ -35,6 +35,8 @@ module html {
                  attribute [ConvertNullToNullString] DOMString dir;
                  attribute [ConvertNullToNullString] DOMString className;
 
+                 attribute long            tabIndex;
+
         // Extensions
                  attribute [ConvertNullToNullString] DOMString innerHTML
                      setter raises(DOMException);
@@ -45,12 +47,22 @@ module html {
                  attribute [ConvertNullToNullString] DOMString outerText
                      setter raises(DOMException);
 
+        Element insertAdjacentElement(in DOMString where,
+                                      in Element element)
+            raises(DOMException);
+        void insertAdjacentHTML(in DOMString where,
+                                in DOMString html)
+            raises(DOMException);
+        void insertAdjacentText(in DOMString where,
+                                in DOMString text)
+            raises(DOMException);
+
         readonly attribute HTMLCollection children;
 
                  attribute [ConvertNullToNullString] DOMString contentEditable;
         readonly attribute boolean isContentEditable;
 
-#if defined(LANGUAGE_OBJECTIVE_C)
+#if defined(LANGUAGE_OBJECTIVE_C) && LANGUAGE_OBJECTIVE_C
         readonly attribute DOMString titleDisplayString;
 #endif
     };

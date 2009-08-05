@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2006 Zack Rusin <zack@kde.org>
  * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
- * Copyright (C) 2007 Trolltech ASA
+ * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,7 +36,9 @@ struct ExtensionMap {
 };
 static const ExtensionMap extensionMap [] = {
     { "bmp", "image/bmp" },
+    { "css", "text/css" },
     { "gif", "image/gif" },
+    { "htm", "text/html" },
     { "html", "text/html" },
     { "ico", "image/x-icon" },   
     { "jpeg", "image/jpeg" },

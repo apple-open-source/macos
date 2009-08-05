@@ -56,83 +56,96 @@ void DOMSelection::disconnectFrame()
     m_frame = 0;
 }
 
+const VisibleSelection& DOMSelection::visibleSelection() const
+{
+    ASSERT(m_frame);
+    return m_frame->selection()->selection();
+}
+
+static Position anchorPosition(const VisibleSelection& selection)
+{
+    Position anchor = selection.isBaseFirst() ? selection.start() : selection.end();
+    return rangeCompliantEquivalent(anchor);
+}
+
+static Position focusPosition(const VisibleSelection& selection)
+{
+    Position focus = selection.isBaseFirst() ? selection.end() : selection.start();
+    return rangeCompliantEquivalent(focus);
+}
+
+static Position basePosition(const VisibleSelection& selection)
+{
+    return rangeCompliantEquivalent(selection.base());
+}
+
+static Position extentPosition(const VisibleSelection& selection)
+{
+    return rangeCompliantEquivalent(selection.extent());
+}
+
 Node* DOMSelection::anchorNode() const
 {
     if (!m_frame)
         return 0;
-
-    const Selection& selection = m_frame->selectionController()->selection();
-    Position anchor = selection.isBaseFirst() ? selection.start() : selection.end();
-    anchor = rangeCompliantEquivalent(anchor);
-    return anchor.node();
-}
-
-Node* DOMSelection::baseNode() const
-{
-    if (!m_frame)
-        return 0;
-    return rangeCompliantEquivalent(m_frame->selectionController()->selection().base()).node();
+    return anchorPosition(visibleSelection()).node();
 }
 
 int DOMSelection::anchorOffset() const
 {
     if (!m_frame)
         return 0;
-
-    const Selection& selection = m_frame->selectionController()->selection();
-    Position anchor = selection.isBaseFirst() ? selection.start() : selection.end();
-    anchor = rangeCompliantEquivalent(anchor);
-    return anchor.offset();
-}
-
-int DOMSelection::baseOffset() const
-{
-    if (!m_frame)
-        return 0;
-    return rangeCompliantEquivalent(m_frame->selectionController()->selection().base()).offset();
+    return anchorPosition(visibleSelection()).deprecatedEditingOffset();
 }
 
 Node* DOMSelection::focusNode() const
 {
     if (!m_frame)
         return 0;
-
-    const Selection& selection = m_frame->selectionController()->selection();
-    Position focus = selection.isBaseFirst() ? selection.end() : selection.start();
-    focus = rangeCompliantEquivalent(focus);
-    return focus.node();
-}
-
-Node* DOMSelection::extentNode() const
-{
-    if (!m_frame)
-        return 0;
-    return rangeCompliantEquivalent(m_frame->selectionController()->selection().extent()).node();
+    return focusPosition(visibleSelection()).node();
 }
 
 int DOMSelection::focusOffset() const
 {
     if (!m_frame)
         return 0;
+    return focusPosition(visibleSelection()).deprecatedEditingOffset();
+}
 
-    const Selection& selection = m_frame->selectionController()->selection();
-    Position focus = selection.isBaseFirst() ? selection.end() : selection.start();
-    focus = rangeCompliantEquivalent(focus);
-    return focus.offset();
+Node* DOMSelection::baseNode() const
+{
+    if (!m_frame)
+        return 0;
+    return basePosition(visibleSelection()).node();
+}
+
+int DOMSelection::baseOffset() const
+{
+    if (!m_frame)
+        return 0;
+    return basePosition(visibleSelection()).deprecatedEditingOffset();
+}
+
+
+Node* DOMSelection::extentNode() const
+{
+    if (!m_frame)
+        return 0;
+    return extentPosition(visibleSelection()).node();
 }
 
 int DOMSelection::extentOffset() const
 {
     if (!m_frame)
         return 0;
-    return rangeCompliantEquivalent(m_frame->selectionController()->selection().extent()).offset();
+    return extentPosition(visibleSelection()).deprecatedEditingOffset();
 }
 
 bool DOMSelection::isCollapsed() const
 {
     if (!m_frame)
         return false;
-    return !m_frame->selectionController()->isRange();
+    return !m_frame->selection()->isRange();
 }
 
 String DOMSelection::type() const
@@ -140,11 +153,14 @@ String DOMSelection::type() const
     if (!m_frame)
         return String();
 
-    SelectionController* selectionController = m_frame->selectionController();
+    SelectionController* selection = m_frame->selection();
 
-    if (selectionController->isNone())
+    // This is a WebKit DOM extension, incompatible with an IE extension
+    // IE has this same attribute, but returns "none", "text" and "control"
+    // http://msdn.microsoft.com/en-us/library/ms534692(VS.85).aspx
+    if (selection->isNone())
         return "None";
-    if (selectionController->isCaret())
+    if (selection->isCaret())
         return "Caret";
     return "Range";
 }
@@ -153,7 +169,7 @@ int DOMSelection::rangeCount() const
 {
     if (!m_frame)
         return 0;
-    return m_frame->selectionController()->isNone() ? 0 : 1;
+    return m_frame->selection()->isNone() ? 0 : 1;
 }
 
 void DOMSelection::collapse(Node* node, int offset, ExceptionCode& ec)
@@ -165,7 +181,7 @@ void DOMSelection::collapse(Node* node, int offset, ExceptionCode& ec)
         ec = INDEX_SIZE_ERR;
         return;
     }
-    m_frame->selectionController()->moveTo(VisiblePosition(node, offset, DOWNSTREAM));
+    m_frame->selection()->moveTo(VisiblePosition(node, offset, DOWNSTREAM));
 }
 
 void DOMSelection::collapseToEnd()
@@ -173,8 +189,8 @@ void DOMSelection::collapseToEnd()
     if (!m_frame)
         return;
 
-    const Selection& selection = m_frame->selectionController()->selection();
-    m_frame->selectionController()->moveTo(VisiblePosition(selection.end(), DOWNSTREAM));
+    const VisibleSelection& selection = m_frame->selection()->selection();
+    m_frame->selection()->moveTo(VisiblePosition(selection.end(), DOWNSTREAM));
 }
 
 void DOMSelection::collapseToStart()
@@ -182,15 +198,15 @@ void DOMSelection::collapseToStart()
     if (!m_frame)
         return;
 
-    const Selection& selection = m_frame->selectionController()->selection();
-    m_frame->selectionController()->moveTo(VisiblePosition(selection.start(), DOWNSTREAM));
+    const VisibleSelection& selection = m_frame->selection()->selection();
+    m_frame->selection()->moveTo(VisiblePosition(selection.start(), DOWNSTREAM));
 }
 
 void DOMSelection::empty()
 {
     if (!m_frame)
         return;
-    m_frame->selectionController()->moveTo(VisiblePosition());
+    m_frame->selection()->moveTo(VisiblePosition());
 }
 
 void DOMSelection::setBaseAndExtent(Node* baseNode, int baseOffset, Node* extentNode, int extentOffset, ExceptionCode& ec)
@@ -205,7 +221,7 @@ void DOMSelection::setBaseAndExtent(Node* baseNode, int baseOffset, Node* extent
     VisiblePosition visibleBase = VisiblePosition(baseNode, baseOffset, DOWNSTREAM);
     VisiblePosition visibleExtent = VisiblePosition(extentNode, extentOffset, DOWNSTREAM);
     
-    m_frame->selectionController()->moveTo(visibleBase, visibleExtent);
+    m_frame->selection()->moveTo(visibleBase, visibleExtent);
 }
 
 void DOMSelection::setPosition(Node* node, int offset, ExceptionCode& ec)
@@ -216,7 +232,7 @@ void DOMSelection::setPosition(Node* node, int offset, ExceptionCode& ec)
         ec = INDEX_SIZE_ERR;
         return;
     }
-    m_frame->selectionController()->moveTo(VisiblePosition(node, offset, DOWNSTREAM));
+    m_frame->selection()->moveTo(VisiblePosition(node, offset, DOWNSTREAM));
 }
 
 void DOMSelection::modify(const String& alterString, const String& directionString, const String& granularityString)
@@ -224,52 +240,49 @@ void DOMSelection::modify(const String& alterString, const String& directionStri
     if (!m_frame)
         return;
 
-    String alterStringLower = alterString.lower();
     SelectionController::EAlteration alter;
-    if (alterStringLower == "extend")
+    if (equalIgnoringCase(alterString, "extend"))
         alter = SelectionController::EXTEND;
-    else if (alterStringLower == "move")
+    else if (equalIgnoringCase(alterString, "move"))
         alter = SelectionController::MOVE;
     else 
         return;
     
-    String directionStringLower = directionString.lower();
     SelectionController::EDirection direction;
-    if (directionStringLower == "forward")
+    if (equalIgnoringCase(directionString, "forward"))
         direction = SelectionController::FORWARD;
-    else if (directionStringLower == "backward")
+    else if (equalIgnoringCase(directionString, "backward"))
         direction = SelectionController::BACKWARD;
-    else if (directionStringLower == "left")
+    else if (equalIgnoringCase(directionString, "left"))
         direction = SelectionController::LEFT;
-    else if (directionStringLower == "right")
+    else if (equalIgnoringCase(directionString, "right"))
         direction = SelectionController::RIGHT;
     else
         return;
         
-    String granularityStringLower = granularityString.lower();
     TextGranularity granularity;
-    if (granularityStringLower == "character")
+    if (equalIgnoringCase(granularityString, "character"))
         granularity = CharacterGranularity;
-    else if (granularityStringLower == "word")
+    else if (equalIgnoringCase(granularityString, "word"))
         granularity = WordGranularity;
-    else if (granularityStringLower == "sentence")
+    else if (equalIgnoringCase(granularityString, "sentence"))
         granularity = SentenceGranularity;
-    else if (granularityStringLower == "line")
+    else if (equalIgnoringCase(granularityString, "line"))
         granularity = LineGranularity;
-    else if (granularityStringLower == "paragraph")
+    else if (equalIgnoringCase(granularityString, "paragraph"))
         granularity = ParagraphGranularity;
-    else if (granularityStringLower == "lineboundary")
+    else if (equalIgnoringCase(granularityString, "lineboundary"))
         granularity = LineBoundary;
-    else if (granularityStringLower == "sentenceboundary")
+    else if (equalIgnoringCase(granularityString, "sentenceboundary"))
         granularity = SentenceBoundary;
-    else if (granularityStringLower == "paragraphboundary")
+    else if (equalIgnoringCase(granularityString, "paragraphboundary"))
         granularity = ParagraphBoundary;
-    else if (granularityStringLower == "documentboundary")
+    else if (equalIgnoringCase(granularityString, "documentboundary"))
         granularity = DocumentBoundary;
     else
         return;
 
-    m_frame->selectionController()->modify(alter, direction, granularity, false);
+    m_frame->selection()->modify(alter, direction, granularity, false);
 }
 
 void DOMSelection::extend(Node* node, int offset, ExceptionCode& ec)
@@ -286,9 +299,9 @@ void DOMSelection::extend(Node* node, int offset, ExceptionCode& ec)
         return;
     }
 
-    SelectionController* selectionController = m_frame->selectionController();
-    selectionController->expandUsingGranularity(CharacterGranularity);
-    selectionController->setExtent(VisiblePosition(node, offset, DOWNSTREAM));
+    SelectionController* selection = m_frame->selection();
+    selection->expandUsingGranularity(CharacterGranularity);
+    selection->setExtent(VisiblePosition(node, offset, DOWNSTREAM));
 }
 
 PassRefPtr<Range> DOMSelection::getRangeAt(int index, ExceptionCode& ec)
@@ -301,15 +314,18 @@ PassRefPtr<Range> DOMSelection::getRangeAt(int index, ExceptionCode& ec)
         return 0;
     }
 
-    const Selection& selection = m_frame->selectionController()->selection();
-    return selection.toRange();
+    // If you're hitting this, you've added broken multi-range selection support
+    ASSERT(rangeCount() == 1);
+
+    const VisibleSelection& selection = m_frame->selection()->selection();
+    return selection.firstRange();
 }
 
 void DOMSelection::removeAllRanges()
 {
     if (!m_frame)
         return;
-    m_frame->selectionController()->clear();
+    m_frame->selection()->clear();
 }
 
 void DOMSelection::addRange(Range* r)
@@ -319,34 +335,34 @@ void DOMSelection::addRange(Range* r)
     if (!r)
         return;
 
-    SelectionController* selectionController = m_frame->selectionController();
+    SelectionController* selection = m_frame->selection();
     
-    if (selectionController->isNone()) {
-        selectionController->setSelection(Selection(r));
+    if (selection->isNone()) {
+        selection->setSelection(VisibleSelection(r));
         return;
     }
 
-    RefPtr<Range> range = selectionController->selection().toRange();
+    RefPtr<Range> range = selection->selection().toNormalizedRange();
     ExceptionCode ec = 0;
     if (r->compareBoundaryPoints(Range::START_TO_START, range.get(), ec) == -1) {
         // We don't support discontiguous selection. We don't do anything if r and range don't intersect.
-        if (r->compareBoundaryPoints(Range::END_TO_START, range.get(), ec) > -1) {
+        if (r->compareBoundaryPoints(Range::START_TO_END, range.get(), ec) > -1) {
             if (r->compareBoundaryPoints(Range::END_TO_END, range.get(), ec) == -1)
                 // The original range and r intersect.
-                selectionController->setSelection(Selection(r->startPosition(), range->endPosition(), DOWNSTREAM));
+                selection->setSelection(VisibleSelection(r->startPosition(), range->endPosition(), DOWNSTREAM));
             else
                 // r contains the original range.
-                selectionController->setSelection(Selection(r));
+                selection->setSelection(VisibleSelection(r));
         }
     } else {
         // We don't support discontiguous selection. We don't do anything if r and range don't intersect.
-        if (r->compareBoundaryPoints(Range::START_TO_END, range.get(), ec) < 1) {
+        if (r->compareBoundaryPoints(Range::END_TO_START, range.get(), ec) < 1) {
             if (r->compareBoundaryPoints(Range::END_TO_END, range.get(), ec) == -1)
                 // The original range contains r.
-                selectionController->setSelection(Selection(range.get()));
+                selection->setSelection(VisibleSelection(range.get()));
             else
                 // The original range and r intersect.
-                selectionController->setSelection(Selection(range->startPosition(), r->endPosition(), DOWNSTREAM));
+                selection->setSelection(VisibleSelection(range->startPosition(), r->endPosition(), DOWNSTREAM));
         }
     }
 }
@@ -356,15 +372,15 @@ void DOMSelection::deleteFromDocument()
     if (!m_frame)
         return;
 
-    SelectionController* selectionController = m_frame->selectionController();
+    SelectionController* selection = m_frame->selection();
 
-    if (selectionController->isNone())
+    if (selection->isNone())
         return;
 
     if (isCollapsed())
-        selectionController->modify(SelectionController::EXTEND, SelectionController::BACKWARD, CharacterGranularity);
+        selection->modify(SelectionController::EXTEND, SelectionController::BACKWARD, CharacterGranularity);
 
-    RefPtr<Range> selectedRange = selectionController->selection().toRange();
+    RefPtr<Range> selectedRange = selection->selection().toNormalizedRange();
 
     ExceptionCode ec = 0;
     selectedRange->deleteContents(ec);
@@ -379,14 +395,14 @@ bool DOMSelection::containsNode(const Node* n, bool allowPartial) const
     if (!m_frame)
         return false;
 
-    SelectionController* selectionController = m_frame->selectionController();
+    SelectionController* selection = m_frame->selection();
 
-    if (!n || selectionController->isNone())
+    if (!n || selection->isNone())
         return false;
 
     Node* parentNode = n->parentNode();
     unsigned nodeIndex = n->nodeIndex();
-    RefPtr<Range> selectedRange = selectionController->selection().toRange();
+    RefPtr<Range> selectedRange = selection->selection().toNormalizedRange();
 
     if (!parentNode)
         return false;
@@ -421,7 +437,7 @@ String DOMSelection::toString()
     if (!m_frame)
         return String();
 
-    return plainText(m_frame->selectionController()->selection().toRange().get());
+    return plainText(m_frame->selection()->selection().toNormalizedRange().get());
 }
 
 } // namespace WebCore

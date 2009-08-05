@@ -51,6 +51,11 @@
 //
 //================================================================================================
 //
+/*!
+ @class IOUSBDeviceUserClientV2
+ @abstract Connection to the IOUSBDevice objects from user space.
+ @discussion This class can be overriden to provide for specific behaviors.
+ */
 class IOUSBDeviceUserClientV2 : public IOUserClient
 {
     OSDeclareDefaultStructors(IOUSBDeviceUserClientV2)
@@ -190,7 +195,9 @@ public:
 
     // padding methods
     //
-    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2,	 0);
+    OSMetaClassDeclareReservedUsed(IOUSBDeviceUserClientV2,	 0);
+	virtual IOReturn					CreateInterfaceIterator(IOUSBFindInterfaceRequest *reqIn, uint64_t *returnIter);
+
     OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2,  1);
     OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2,  2);
     OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2,  3);

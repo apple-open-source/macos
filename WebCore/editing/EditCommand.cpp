@@ -41,16 +41,13 @@
 
 namespace WebCore {
 
-using namespace EventNames;
-
 EditCommand::EditCommand(Document* document) 
     : m_document(document)
     , m_parent(0)
 {
     ASSERT(m_document);
     ASSERT(m_document->frame());
-    DeleteButtonController* deleteButton = m_document->frame()->editor()->deleteButtonController();
-    setStartingSelection(avoidIntersectionWithNode(m_document->frame()->selectionController()->selection(), deleteButton ? deleteButton->containerElement() : 0));
+    setStartingSelection(avoidIntersectionWithNode(m_document->frame()->selection()->selection(), m_document->frame()->editor()->deleteButtonController()->containerElement()));
     setEndingSelection(m_startingSelection);
 }
 
@@ -94,17 +91,12 @@ void EditCommand::apply()
     doApply();
     deleteButtonController->enable();
 
-    // FIXME: Improve typing style.
-    // See this bug: <rdar://problem/3769899> Implementation of typing style needs improvement
-    if (!preservesTypingStyle()) {
-        setTypingStyle(0);
-        if (!m_parent)
-            frame->editor()->setRemovedAnchor(0);
-    }
-
     if (!m_parent) {
         updateLayout();
-        frame->editor()->appliedEditing(this);
+        // Only need to call appliedEditing for top-level commands, and TypingCommands do it on their
+        // own (see TypingCommand::typingAddedToOpenCommand).
+        if (!isTypingCommand())
+            frame->editor()->appliedEditing(this);
     }
 }
 
@@ -168,7 +160,7 @@ EditAction EditCommand::editingAction() const
     return EditActionUnspecified;
 }
 
-void EditCommand::setStartingSelection(const Selection& s)
+void EditCommand::setStartingSelection(const VisibleSelection& s)
 {
     Element* root = s.rootEditableElement();
     for (EditCommand* cmd = this; ; cmd = cmd->m_parent) {
@@ -179,27 +171,13 @@ void EditCommand::setStartingSelection(const Selection& s)
     }
 }
 
-void EditCommand::setEndingSelection(const Selection &s)
+void EditCommand::setEndingSelection(const VisibleSelection &s)
 {
     Element* root = s.rootEditableElement();
     for (EditCommand* cmd = this; cmd; cmd = cmd->m_parent) {
         cmd->m_endingSelection = s;
         cmd->m_endingRootEditableElement = root;
     }
-}
-
-void EditCommand::setTypingStyle(PassRefPtr<CSSMutableStyleDeclaration> style)
-{
-    // FIXME: Improve typing style.
-    // See this bug: <rdar://problem/3769899> Implementation of typing style needs improvement
-    if (!m_parent) {
-        // Special more-efficient case for where there's only one command that
-        // takes advantage of the ability of PassRefPtr to pass its ref to a RefPtr.
-        m_typingStyle = style;
-        return;
-    }
-    for (EditCommand* cmd = this; cmd; cmd = cmd->m_parent)
-        cmd->m_typingStyle = style.get(); // must use get() to avoid setting parent styles to 0
 }
 
 bool EditCommand::preservesTypingStyle() const
@@ -221,8 +199,8 @@ PassRefPtr<CSSMutableStyleDeclaration> EditCommand::styleAtPosition(const Positi
 {
     RefPtr<CSSMutableStyleDeclaration> style = positionBeforeTabSpan(pos).computedStyle()->copyInheritableProperties();
  
-    // FIXME: Improve typing style.
-    // See this bug: <rdar://problem/3769899> Implementation of typing style needs improvement
+    // FIXME: It seems misleading to also include the typing style when returning the style at some arbitrary
+    // position in the document.
     CSSMutableStyleDeclaration* typingStyle = document()->frame()->typingStyle();
     if (typingStyle)
         style->merge(typingStyle);

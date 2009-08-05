@@ -1,10 +1,8 @@
-/**
- * This file is part of the DOM implementation for KDE.
- *
+/*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Stefan Schimanski (1Stein@gmx.de)
- * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
+ * Copyright (C) 2004, 2005, 2006, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,31 +19,34 @@
  * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301, USA.
  */
+
 #include "config.h"
 #include "HTMLParamElement.h"
 
 #include "Document.h"
 #include "HTMLNames.h"
+#include "MappedAttribute.h"
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLParamElement::HTMLParamElement(Document *doc)
-    : HTMLElement(paramTag, doc)
+HTMLParamElement::HTMLParamElement(const QualifiedName& tagName, Document* doc)
+    : HTMLElement(tagName, doc)
 {
+    ASSERT(hasTagName(paramTag));
 }
 
 HTMLParamElement::~HTMLParamElement()
 {
 }
 
-void HTMLParamElement::parseMappedAttribute(MappedAttribute *attr)
+void HTMLParamElement::parseMappedAttribute(MappedAttribute* attr)
 {
     if (attr->name() == idAttr) {
         // Must call base class so that hasID bit gets set.
         HTMLElement::parseMappedAttribute(attr);
-        if (document()->htmlMode() != Document::XHtml)
+        if (document()->isHTMLDocument())
             return;
         m_name = attr->value();
     } else if (attr->name() == nameAttr) {
@@ -56,20 +57,20 @@ void HTMLParamElement::parseMappedAttribute(MappedAttribute *attr)
         HTMLElement::parseMappedAttribute(attr);
 }
 
-bool HTMLParamElement::isURLAttribute(Attribute *attr) const
+bool HTMLParamElement::isURLAttribute(Attribute* attr) const
 {
     if (attr->name() == valueAttr) {
-        Attribute *attr = attributes()->getAttributeItem(nameAttr);
+        Attribute* attr = attributes()->getAttributeItem(nameAttr);
         if (attr) {
-            String value = attr->value().domString().lower();
-            if (value == "src" || value == "movie" || value == "data")
+            const AtomicString& value = attr->value();
+            if (equalIgnoringCase(value, "data") || equalIgnoringCase(value, "movie") || equalIgnoringCase(value, "src"))
                 return true;
         }
     }
     return false;
 }
 
-void HTMLParamElement::setName(const String &value)
+void HTMLParamElement::setName(const String& value)
 {
     setAttribute(nameAttr, value);
 }
@@ -79,12 +80,12 @@ String HTMLParamElement::type() const
     return getAttribute(typeAttr);
 }
 
-void HTMLParamElement::setType(const String &value)
+void HTMLParamElement::setType(const String& value)
 {
     setAttribute(typeAttr, value);
 }
 
-void HTMLParamElement::setValue(const String &value)
+void HTMLParamElement::setValue(const String& value)
 {
     setAttribute(valueAttr, value);
 }
@@ -94,9 +95,21 @@ String HTMLParamElement::valueType() const
     return getAttribute(valuetypeAttr);
 }
 
-void HTMLParamElement::setValueType(const String &value)
+void HTMLParamElement::setValueType(const String& value)
 {
     setAttribute(valuetypeAttr, value);
+}
+
+void HTMLParamElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const
+{
+    HTMLElement::addSubresourceAttributeURLs(urls);
+
+    if (!equalIgnoringCase(name(), "data") &&
+        !equalIgnoringCase(name(), "movie") &&
+        !equalIgnoringCase(name(), "src"))
+        return;
+    
+    addSubresourceURL(urls, document()->completeURL(value()));
 }
 
 }

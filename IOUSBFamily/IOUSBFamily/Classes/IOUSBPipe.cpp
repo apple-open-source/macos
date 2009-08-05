@@ -821,6 +821,21 @@ IOUSBPipe::ClearPipeStall(bool withDeviceRequest)
         return kIOReturnSuccess;
     }
     
+	if ( !_device )
+	{
+        USBLog(2, "IOUSBPipe[%p]::ClearPipeStall  no _device", this);
+        return kIOReturnNotPermitted;
+	}
+	
+	if ( _device->isInactive() )
+	{
+        USBLog(6, "IOUSBPipe[%p]::ClearPipeStall  _device is inActive(), so returning success", this);
+        return kIOReturnSuccess;
+	}
+		
+	// Make sure our device doesn't go away
+	_device->retain();
+
     err = _controller->ClearPipeStall(_address, &_endpoint);
 
     if (_device->GetSpeed() == kUSBDeviceSpeedHigh)
@@ -899,7 +914,10 @@ IOUSBPipe::ClearPipeStall(bool withDeviceRequest)
 		err = _controller->DeviceRequest(&request, &tap, _address, 0, kUSBDefaultControlNoDataTimeoutMS, kUSBDefaultControlCompletionTimeoutMS);
 
     }
-    return err;
+
+	_device->release();
+	
+	return err;
 }
 
 

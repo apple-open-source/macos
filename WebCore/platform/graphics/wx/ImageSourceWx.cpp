@@ -30,12 +30,16 @@
 #include "GIFImageDecoder.h"
 #include "ICOImageDecoder.h"
 #include "JPEGImageDecoder.h"
+#include "NotImplemented.h"
 #include "PNGImageDecoder.h"
 #include "SharedBuffer.h"
 #include "XBMImageDecoder.h"
 
 #include <wx/defs.h>
 #include <wx/bitmap.h>
+#if USE(WXGC)
+#include <wx/graphics.h>
+#endif
 #include <wx/image.h>
 #include <wx/rawbmp.h>
 
@@ -92,7 +96,7 @@ ImageSource::ImageSource()
 
 ImageSource::~ImageSource()
 {
-    delete m_decoder;
+    clear(true);
 }
 
 bool ImageSource::initialized() const
@@ -128,12 +132,23 @@ IntSize ImageSource::size() const
     return m_decoder->size();
 }
 
+IntSize ImageSource::frameSizeAtIndex(size_t) const
+{
+    return size();
+}
+
 int ImageSource::repetitionCount()
 {
     if (!m_decoder)
         return cAnimationNone;
 
     return m_decoder->repetitionCount();
+}
+
+String ImageSource::filenameExtension() const
+{
+    notImplemented();
+    return String();
 }
 
 size_t ImageSource::frameCount() const
@@ -147,10 +162,18 @@ bool ImageSource::frameIsCompleteAtIndex(size_t index)
     return (m_decoder && m_decoder->frameBufferAtIndex(index) != 0);
 }
 
-void ImageSource::clear()
+void ImageSource::clear(bool destroyAll, size_t clearBeforeFrame, SharedBuffer* data, bool allDataReceived)
 {
-    delete  m_decoder;
+    if (!destroyAll) {
+        if (m_decoder)
+            m_decoder->clearFrameBufferCache(clearBeforeFrame);
+        return;
+    }
+
+    delete m_decoder;
     m_decoder = 0;
+    if (data)
+        setData(data, allDataReceived);
 }
 
 NativeImagePtr ImageSource::createFrameAtIndex(size_t index)
@@ -200,10 +223,18 @@ NativeImagePtr ImageSource::createFrameAtIndex(size_t index)
         }
 
     }
-
+#if !wxCHECK_VERSION(2,9,0)
     bmp->UseAlpha();
+#endif
     ASSERT(bmp->IsOk());
+
+#if USE(WXGC)
+    wxGraphicsBitmap* bitmap =  new wxGraphicsBitmap(wxGraphicsRenderer::GetDefaultRenderer()->CreateBitmap(*bmp));
+    delete bmp;
+    return bitmap;
+#else
     return bmp;
+#endif
 }
 
 float ImageSource::frameDurationAtIndex(size_t index)
@@ -215,7 +246,13 @@ float ImageSource::frameDurationAtIndex(size_t index)
     if (!buffer || buffer->status() == RGBA32Buffer::FrameEmpty)
         return 0;
 
-    return buffer->duration() / 1000.0f;
+    float duration = buffer->duration() / 1000.0f;
+
+    // Follow other ports (and WinIE's) behavior to slow annoying ads that
+    // specify a 0 duration.
+    if (duration < 0.051f)
+        return 0.100f;
+    return duration;
 }
 
 bool ImageSource::frameHasAlphaAtIndex(size_t index)

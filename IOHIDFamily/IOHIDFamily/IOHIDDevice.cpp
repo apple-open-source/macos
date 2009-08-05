@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2009 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -642,38 +642,63 @@ IOReturn IOHIDDevice::newUserClient( task_t          owningTask,
                                      IOUserClient ** handler )
 {
     // RY: This is really skanky.  Apparently there are some subclasses out there
-    // that want all the benefits of IOHIDDevice w/o supporting the default HID 
+    // that want all the benefits of IOHIDDevice w/o supporting the default HID
     // User Client.  I know!  Shocking!  Anyway, passing a type known only to the
     // default hid clients to ensure that at least connect to our correct client.
     if ( type == kIOHIDLibUserClientConnectManager ) {
-        if ( properties )
+    	if (isInactive()) {
+			IOLog("IOHIDDevice::newUserClient called on an inactive device\n");
+    		*handler = NULL;
+    		return kIOReturnNotReady;
+    	}
+    
+        if ( properties ) {
             properties->setObject(kIOUserClientCrossEndianCompatibleKey, kOSBooleanTrue);
-            
-        IOUserClient * client = new IOHIDLibUserClient;
+        }
         
-        if ( !client->initWithTask(owningTask, security_id, type, properties) ) {
-            client->release();
-            return kIOReturnBadArgument;
-        }
-
-        if ( !client->attach(this) ) {
-            client->release();
-            return kIOReturnUnsupported;
-        }
-
-        if ( !client->start(this) ) {
-            client->detach(this);
-            client->release();
-            return kIOReturnUnsupported;
-        }
-
-        *handler = client;
-        
-        return kIOReturnSuccess;
-
+        IOWorkLoop *loop = getWorkLoop();
+        IOReturn result = kIOReturnNotReady;
+        if (loop) {
+        	result = loop->runAction(OSMemberFunctionCast(IOWorkLoop::Action, this, &IOHIDDevice::newUserClientGated),
+                          this, owningTask, security_id, properties, handler);
+		}
+		else {
+			IOLog("IOHIDDevice::newUserClient failed to get a workloop\n");
+		}
+        return result;
     }
-        
+    
     return super::newUserClient(owningTask, security_id, type, properties, handler);
+}
+
+IOReturn IOHIDDevice::newUserClientGated(	task_t          owningTask,
+											void *          security_id,
+											OSDictionary *  properties,
+											IOUserClient ** handler )
+{
+
+    IOUserClient * client = new IOHIDLibUserClient;
+    
+    if ( !client->initWithTask(owningTask, security_id, kIOHIDLibUserClientConnectManager, properties) ) {
+        client->release();
+        return kIOReturnBadArgument;
+    }
+    
+    if ( !client->attach(this) ) {
+        client->release();
+        return kIOReturnUnsupported;
+    }
+    
+    if ( !client->start(this) ) {
+        client->detach(this);
+        client->release();
+        return kIOReturnUnsupported;
+    }
+    
+    *handler = client;
+    
+    return kIOReturnSuccess;
+    
 }
 
 //---------------------------------------------------------------------------

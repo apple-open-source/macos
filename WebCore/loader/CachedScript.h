@@ -1,10 +1,8 @@
 /*
-    This file is part of the KDE libraries
-
     Copyright (C) 1998 Lars Knoll (knoll@mpi-hd.mpg.de)
     Copyright (C) 2001 Dirk Mueller <mueller@kde.org>
     Copyright (C) 2006 Samuel Weinig (sam.weinig@gmail.com)
-    Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
+    Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -29,20 +27,22 @@
 #define CachedScript_h
 
 #include "CachedResource.h"
-#include "TextEncoding.h"
+#include "Timer.h"
 
 namespace WebCore {
 
     class DocLoader;
+    class TextResourceDecoder;
 
     class CachedScript : public CachedResource {
     public:
-        CachedScript(DocLoader*, const String& url, const String& charset);
+        CachedScript(const String& url, const String& charset);
         virtual ~CachedScript();
 
-        const String& script() const { return m_script; }
+        const String& script();
 
-        virtual void ref(CachedResourceClient*);
+        virtual void didAddClient(CachedResourceClient*);
+        virtual void allClientsRemoved();
 
         virtual void setEncoding(const String&);
         virtual String encoding() const;
@@ -53,9 +53,14 @@ namespace WebCore {
 
         void checkNotify();
 
+        virtual void destroyDecodedData();
+
     private:
+        void decodedDataDeletionTimerFired(Timer<CachedScript>*);
+
         String m_script;
-        TextEncoding m_encoding;
+        RefPtr<TextResourceDecoder> m_decoder;
+        Timer<CachedScript> m_decodedDataDeletionTimer;
     };
 }
 

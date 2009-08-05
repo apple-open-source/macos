@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,14 +25,20 @@
 
 #include "config.h"
 #include "ImageSource.h"
-#include "SharedBuffer.h"
 
 #if PLATFORM(CG)
+#include "ImageSourceCG.h"
 
 #include "IntSize.h"
+#include "MIMETypeRegistry.h"
+#include "SharedBuffer.h"
 #include <ApplicationServices/ApplicationServices.h>
+#include <wtf/UnusedParam.h>
 
 namespace WebCore {
+
+static const CFStringRef kCGImageSourceShouldPreferRGB32 = CFSTR("kCGImageSourceShouldPreferRGB32");
+static const CFStringRef kCGImageSourceDoNotCacheImageBlocks = CFSTR("kCGImageSourceDoNotCacheImageBlocks");
 
 ImageSource::ImageSource()
     : m_decoder(0)
@@ -41,27 +47,43 @@ ImageSource::ImageSource()
 
 ImageSource::~ImageSource()
 {
-    clear();
+    clear(true);
 }
 
-void ImageSource::clear()
+void ImageSource::clear(bool destroyAllFrames, size_t, SharedBuffer* data, bool allDataReceived)
 {
+#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+    // Recent versions of ImageIO discard previously decoded image frames if the client
+    // application no longer holds references to them, so there's no need to throw away
+    // the decoder unless we're explicitly asked to destroy all of the frames.
+
+    if (!destroyAllFrames)
+        return;
+#else
+    // Older versions of ImageIO hold references to previously decoded image frames.
+    // There is no API to selectively release some of the frames it is holding, and
+    // if we don't release the frames we use too much memory on large images.
+    // Destroying the decoder is the only way to release previous frames.
+
+    UNUSED_PARAM(destroyAllFrames);
+#endif
+
     if (m_decoder) {
         CFRelease(m_decoder);
         m_decoder = 0;
     }
+    if (data)
+        setData(data, allDataReceived);
 }
 
-const CFStringRef kCGImageSourceShouldPreferRGB32 = CFSTR("kCGImageSourceShouldPreferRGB32");
-
-CFDictionaryRef imageSourceOptions()
+static CFDictionaryRef imageSourceOptions()
 {
     static CFDictionaryRef options;
     
     if (!options) {
-        const void *keys[2] = { kCGImageSourceShouldCache, kCGImageSourceShouldPreferRGB32 };
-        const void *values[2] = { kCFBooleanTrue, kCFBooleanTrue };
-        options = CFDictionaryCreate(NULL, keys, values, 2, 
+        const void* keys[3] = { kCGImageSourceShouldCache, kCGImageSourceShouldPreferRGB32, kCGImageSourceDoNotCacheImageBlocks };
+        const void* values[3] = { kCFBooleanTrue, kCFBooleanTrue, kCFBooleanTrue };
+        options = CFDictionaryCreate(NULL, keys, values, 3, 
             &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     }
     return options;
@@ -89,6 +111,14 @@ void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
     CFRelease(cfData);
 }
 
+String ImageSource::filenameExtension() const
+{
+    if (!m_decoder)
+        return String();
+    CFStringRef imageSourceType = CGImageSourceGetType(m_decoder);
+    return WebCore::preferredExtensionForImageSourceType(imageSourceType);
+}
+
 bool ImageSource::isSizeAvailable()
 {
     bool result = false;
@@ -108,10 +138,10 @@ bool ImageSource::isSizeAvailable()
     return result;
 }
 
-IntSize ImageSource::size() const
+IntSize ImageSource::frameSizeAtIndex(size_t index) const
 {
     IntSize result;
-    CFDictionaryRef properties = CGImageSourceCopyPropertiesAtIndex(m_decoder, 0, imageSourceOptions());
+    CFDictionaryRef properties = CGImageSourceCopyPropertiesAtIndex(m_decoder, index, imageSourceOptions());
     if (properties) {
         int w = 0, h = 0;
         CFNumberRef num = (CFNumberRef)CFDictionaryGetValue(properties, kCGImagePropertyPixelWidth);
@@ -120,16 +150,23 @@ IntSize ImageSource::size() const
         num = (CFNumberRef)CFDictionaryGetValue(properties, kCGImagePropertyPixelHeight);
         if (num)
             CFNumberGetValue(num, kCFNumberIntType, &h);
-        result = IntSize(w, h);            
+        result = IntSize(w, h);
         CFRelease(properties);
     }
     return result;
 }
 
+IntSize ImageSource::size() const
+{
+    return frameSizeAtIndex(0);
+}
+
 int ImageSource::repetitionCount()
 {
     int result = cAnimationLoopOnce; // No property means loop once.
-        
+    if (!initialized())
+        return result;
+
     // A property with value 0 means loop forever.
     CFDictionaryRef properties = CGImageSourceCopyProperties(m_decoder, imageSourceOptions());
     if (properties) {
@@ -154,7 +191,23 @@ size_t ImageSource::frameCount() const
 
 CGImageRef ImageSource::createFrameAtIndex(size_t index)
 {
-    return CGImageSourceCreateImageAtIndex(m_decoder, index, imageSourceOptions());
+    if (!initialized())
+        return 0;
+
+    CGImageRef image = CGImageSourceCreateImageAtIndex(m_decoder, index, imageSourceOptions());
+    CFStringRef imageUTI = CGImageSourceGetType(m_decoder);
+    static const CFStringRef xbmUTI = CFSTR("public.xbitmap-image");
+    if (!imageUTI || !CFEqual(imageUTI, xbmUTI))
+        return image;
+    
+    // If it is an xbm image, mask out all the white areas to render them transparent.
+    const CGFloat maskingColors[6] = {255, 255,  255, 255, 255, 255};
+    CGImageRef maskedImage = CGImageCreateWithMaskingColors(image, maskingColors);
+    if (!maskedImage)
+        return image;
+        
+    CGImageRelease(image);
+    return maskedImage; 
 }
 
 bool ImageSource::frameIsCompleteAtIndex(size_t index)
@@ -164,6 +217,9 @@ bool ImageSource::frameIsCompleteAtIndex(size_t index)
 
 float ImageSource::frameDurationAtIndex(size_t index)
 {
+    if (!initialized())
+        return 0;
+
     float duration = 0;
     CFDictionaryRef properties = CGImageSourceCopyPropertiesAtIndex(m_decoder, index, imageSourceOptions());
     if (properties) {
@@ -184,7 +240,7 @@ float ImageSource::frameDurationAtIndex(size_t index)
     return duration;
 }
 
-bool ImageSource::frameHasAlphaAtIndex(size_t index)
+bool ImageSource::frameHasAlphaAtIndex(size_t)
 {
     // Might be interesting to do this optimization on Mac some day, but for now we're just using this
     // for the Cairo source, since it uses our decoders, and our decoders can answer this question.

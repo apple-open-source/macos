@@ -23,13 +23,15 @@
  * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301, USA.
  */
+
 #include "config.h"
 #include "HTMLTableColElement.h"
 
 #include "CSSPropertyNames.h"
 #include "HTMLNames.h"
-#include "RenderTableCol.h"
 #include "HTMLTableElement.h"
+#include "MappedAttribute.h"
+#include "RenderTableCol.h"
 #include "Text.h"
 
 namespace WebCore {
@@ -80,7 +82,7 @@ void HTMLTableColElement::parseMappedAttribute(MappedAttribute *attr)
             static_cast<RenderTableCol*>(renderer())->updateFromElement();
     } else if (attr->name() == widthAttr) {
         if (!attr->value().isEmpty())
-            addCSSLength(attr, CSS_PROP_WIDTH, attr->value());
+            addCSSLength(attr, CSSPropertyWidth, attr->value());
     } else
         HTMLTablePartElement::parseMappedAttribute(attr);
 }

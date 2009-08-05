@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,10 +28,14 @@
 
 #if ENABLE(VIDEO)
 
-#include "MediaPlayer.h"
+#include "MediaPlayerPrivate.h"
 #include "Timer.h"
 #include <QTMovieWin.h>
 #include <wtf/OwnPtr.h>
+
+#ifndef DRAW_FRAME_RATE
+#define DRAW_FRAME_RATE 0
+#endif
 
 namespace WebCore {
 
@@ -40,9 +44,10 @@ class IntSize;
 class IntRect;
 class String;
 
-class MediaPlayerPrivate : QTMovieWinClient, Noncopyable {
+class MediaPlayerPrivate : public MediaPlayerPrivateInterface, public QTMovieWinClient {
 public:
-    MediaPlayerPrivate(MediaPlayer*);
+    static void registerMediaEngine(MediaEngineRegistrar);
+
     ~MediaPlayerPrivate();
     
     IntSize naturalSize() const;
@@ -77,40 +82,52 @@ public:
     unsigned totalBytes() const;
     
     void setVisible(bool);
-    void setRect(const IntRect&);
+    void setSize(const IntSize&);
     
     void loadStateChanged();
     void didEnd();
     
     void paint(GraphicsContext*, const IntRect&);
     
-    static void getSupportedTypes(HashSet<String>& types);
-    static bool isAvailable();
 
 private:
+    MediaPlayerPrivate(MediaPlayer*);
+
     void updateStates();
     void doSeek();
     void cancelSeek();
     void seekTimerFired(Timer<MediaPlayerPrivate>*);
-    void endPointTimerFired(Timer<MediaPlayerPrivate>*);
     float maxTimeLoaded() const;
-    void startEndPointTimerIfNeeded();
+    void sawUnsupportedTracks();
 
     virtual void movieEnded(QTMovieWin*);
     virtual void movieLoadStateChanged(QTMovieWin*);
     virtual void movieTimeChanged(QTMovieWin*);
     virtual void movieNewImageAvailable(QTMovieWin*);
-      
+
+    // engine support
+    static MediaPlayerPrivateInterface* create(MediaPlayer*);
+    static void getSupportedTypes(HashSet<String>& types);
+    static MediaPlayer::SupportsType supportsType(const String& type, const String& codecs);
+    static bool isAvailable();
+
     MediaPlayer* m_player;
     OwnPtr<QTMovieWin> m_qtMovie;
     float m_seekTo;
     float m_endTime;
     Timer<MediaPlayerPrivate> m_seekTimer;
-    Timer<MediaPlayerPrivate> m_endPointTimer;
     MediaPlayer::NetworkState m_networkState;
     MediaPlayer::ReadyState m_readyState;
+    unsigned m_enabledTrackCount;
+    unsigned m_totalTrackCount;
+    bool m_hasUnsupportedTracks;
     bool m_startedPlaying;
     bool m_isStreaming;
+#if DRAW_FRAME_RATE
+    int m_frameCountWhilePlaying;
+    int m_timeStartedPlaying;
+    int m_timeStoppedPlaying;
+#endif
 };
 
 }

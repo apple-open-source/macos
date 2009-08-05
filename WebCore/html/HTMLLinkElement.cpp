@@ -1,10 +1,8 @@
-/**
- * This file is part of the DOM implementation for KDE.
- *
+/*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2003 Apple Computer, Inc.
+ * Copyright (C) 2003, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,39 +19,48 @@
  * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301, USA.
  */
+
 #include "config.h"
 #include "HTMLLinkElement.h"
 
 #include "CSSHelper.h"
 #include "CachedCSSStyleSheet.h"
+#include "DNS.h"
 #include "DocLoader.h"
 #include "Document.h"
 #include "Frame.h"
 #include "FrameLoader.h"
+#include "FrameLoaderClient.h"
 #include "FrameTree.h"
 #include "HTMLNames.h"
+#include "MappedAttribute.h"
 #include "MediaList.h"
 #include "MediaQueryEvaluator.h"
+#include "Page.h"
+#include "Settings.h"
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLLinkElement::HTMLLinkElement(Document *doc)
-    : HTMLElement(linkTag, doc)
+HTMLLinkElement::HTMLLinkElement(const QualifiedName& qName, Document *doc, bool createdByParser)
+    : HTMLElement(qName, doc)
     , m_cachedSheet(0)
     , m_disabledState(0)
     , m_loading(false)
     , m_alternate(false)
     , m_isStyleSheet(false)
     , m_isIcon(false)
+    , m_isDNSPrefetch(false)
+    , m_createdByParser(createdByParser)
 {
+    ASSERT(hasTagName(linkTag));
 }
 
 HTMLLinkElement::~HTMLLinkElement()
 {
     if (m_cachedSheet) {
-        m_cachedSheet->deref(this);
+        m_cachedSheet->removeClient(this);
         if (m_loading && !isDisabled() && !isAlternate())
             document()->removePendingSheet();
     }
@@ -105,7 +112,7 @@ StyleSheet* HTMLLinkElement::sheet() const
 void HTMLLinkElement::parseMappedAttribute(MappedAttribute *attr)
 {
     if (attr->name() == relAttr) {
-        tokenizeRelAttribute(attr->value());
+        tokenizeRelAttribute(attr->value(), m_isStyleSheet, m_alternate, m_isIcon, m_isDNSPrefetch);
         process();
     } else if (attr->name() == hrefAttr) {
         m_url = document()->completeURL(parseURL(attr->value()));
@@ -114,7 +121,7 @@ void HTMLLinkElement::parseMappedAttribute(MappedAttribute *attr)
         m_type = attr->value();
         process();
     } else if (attr->name() == mediaAttr) {
-        m_media = attr->value().domString().lower();
+        m_media = attr->value().string().lower();
         process();
     } else if (attr->name() == disabledAttr) {
         setDisabledState(!attr->isNull());
@@ -125,28 +132,35 @@ void HTMLLinkElement::parseMappedAttribute(MappedAttribute *attr)
     }
 }
 
-void HTMLLinkElement::tokenizeRelAttribute(const AtomicString& relStr)
+void HTMLLinkElement::tokenizeRelAttribute(const AtomicString& rel, bool& styleSheet, bool& alternate, bool& icon, bool& dnsPrefetch)
 {
-    m_isStyleSheet = m_isIcon = m_alternate = false;
-    String rel = relStr.domString().lower();
-    if (rel == "stylesheet")
-        m_isStyleSheet = true;
-    else if (rel == "icon" || rel == "shortcut icon")
-        m_isIcon = true;
-    else if (rel == "alternate stylesheet" || rel == "stylesheet alternate")
-        m_isStyleSheet = m_alternate = true;
-    else {
+    styleSheet = false;
+    icon = false; 
+    alternate = false;
+    dnsPrefetch = false;
+    if (equalIgnoringCase(rel, "stylesheet"))
+        styleSheet = true;
+    else if (equalIgnoringCase(rel, "icon") || equalIgnoringCase(rel, "shortcut icon"))
+        icon = true;
+    else if (equalIgnoringCase(rel, "dns-prefetch"))
+        dnsPrefetch = true;
+    else if (equalIgnoringCase(rel, "alternate stylesheet") || equalIgnoringCase(rel, "stylesheet alternate")) {
+        styleSheet = true;
+        alternate = true;
+    } else {
         // Tokenize the rel attribute and set bits based on specific keywords that we find.
-        rel.replace('\n', ' ');
-        Vector<String> list = rel.split(' ');
+        String relString = rel.string();
+        relString.replace('\n', ' ');
+        Vector<String> list;
+        relString.split(' ', list);
         Vector<String>::const_iterator end = list.end();
         for (Vector<String>::const_iterator it = list.begin(); it != end; ++it) {
-            if (*it == "stylesheet")
-                m_isStyleSheet = true;
-            else if (*it == "alternate")
-                m_alternate = true;
-            else if (*it == "icon")
-                m_isIcon = true;
+            if (equalIgnoringCase(*it, "stylesheet"))
+                styleSheet = true;
+            else if (equalIgnoringCase(*it, "alternate"))
+                alternate = true;
+            else if (equalIgnoringCase(*it, "icon"))
+                icon = true;
         }
     }
 }
@@ -160,19 +174,22 @@ void HTMLLinkElement::process()
 
     // IE extension: location of small icon for locationbar / bookmarks
     // We'll record this URL per document, even if we later only use it in top level frames
-    if (m_isIcon && !m_url.isEmpty())
-        document()->setIconURL(m_url, type);
+    if (m_isIcon && m_url.isValid() && !m_url.isEmpty())
+        document()->setIconURL(m_url.string(), type);
+
+    if (m_isDNSPrefetch && m_url.isValid() && !m_url.isEmpty())
+        prefetchDNS(m_url.host());
 
     // Stylesheet
     // This was buggy and would incorrectly match <link rel="alternate">, which has a different specified meaning. -dwh
-    if (m_disabledState != 2 && (type.contains("text/css") || m_isStyleSheet) && document()->frame()) {
+    if (m_disabledState != 2 && m_isStyleSheet && document()->frame() && m_url.isValid()) {
         // no need to load style sheets which aren't for the screen output
         // ### there may be in some situations e.g. for an editor or script to manipulate
         // also, don't load style sheets for standalone documents
         MediaQueryEvaluator allEval(true);
         MediaQueryEvaluator screenEval("screen", true);
         MediaQueryEvaluator printEval("print", true);
-        RefPtr<MediaList> media = new MediaList((CSSStyleSheet*)0, m_media, true);
+        RefPtr<MediaList> media = MediaList::createAllowingDescriptionSyntax(m_media);
         if (allEval.eval(media.get()) || screenEval.eval(media.get()) || printEval.eval(media.get())) {
 
             // Add ourselves as a pending sheet, but only if we aren't an alternate 
@@ -187,12 +204,12 @@ void HTMLLinkElement::process()
             if (m_cachedSheet) {
                 if (m_loading)
                     document()->removePendingSheet();
-                m_cachedSheet->deref(this);
+                m_cachedSheet->removeClient(this);
             }
             m_loading = true;
-            m_cachedSheet = document()->docLoader()->requestCSSStyleSheet(m_url, chset);
+            m_cachedSheet = document()->docLoader()->requestCSSStyleSheet(m_url.string(), chset);
             if (m_cachedSheet)
-                m_cachedSheet->ref(this);
+                m_cachedSheet->addClient(this);
             else if (!isAlternate()) { // request may have been denied if stylesheet is local and document is remote.
                 m_loading = false;
                 document()->removePendingSheet();
@@ -208,22 +225,43 @@ void HTMLLinkElement::process()
 void HTMLLinkElement::insertedIntoDocument()
 {
     HTMLElement::insertedIntoDocument();
+    document()->addStyleSheetCandidateNode(this, m_createdByParser);
     process();
 }
 
 void HTMLLinkElement::removedFromDocument()
 {
     HTMLElement::removedFromDocument();
-    process();
+
+    // FIXME: It's terrible to do a synchronous update of the style selector just because a <style> or <link> element got removed.
+    if (document()->renderer()) {
+        document()->removeStyleSheetCandidateNode(this);
+        document()->updateStyleSelector();
+    }
 }
 
-void HTMLLinkElement::setCSSStyleSheet(const String& url, const String& charset, const String& sheetStr)
+void HTMLLinkElement::finishParsingChildren()
 {
-    m_sheet = new CSSStyleSheet(this, url, charset);
-    m_sheet->parseString(sheetStr, !document()->inCompatMode());
+    m_createdByParser = false;
+    HTMLElement::finishParsingChildren();
+}
+
+void HTMLLinkElement::setCSSStyleSheet(const String& url, const String& charset, const CachedCSSStyleSheet* sheet)
+{
+    m_sheet = CSSStyleSheet::create(this, url, charset);
+
+    bool strictParsing = !document()->inCompatMode();
+    bool enforceMIMEType = strictParsing;
+
+    // Check to see if we should enforce the MIME type of the CSS resource in strict mode.
+    // Running in iWeb 2 is one example of where we don't want to - <rdar://problem/6099748>
+    if (enforceMIMEType && document()->page() && !document()->page()->settings()->enforceCSSMIMETypeInStrictMode())
+        enforceMIMEType = false;
+
+    m_sheet->parseString(sheet->sheetText(enforceMIMEType), strictParsing);
     m_sheet->setTitle(title());
 
-    RefPtr<MediaList> media = new MediaList((CSSStyleSheet*)0, m_media, true);
+    RefPtr<MediaList> media = MediaList::createAllowingDescriptionSyntax(m_media);
     m_sheet->setMedia(media.get());
 
     m_loading = false;
@@ -273,7 +311,7 @@ void HTMLLinkElement::setCharset(const String& value)
     setAttribute(charsetAttr, value);
 }
 
-String HTMLLinkElement::href() const
+KURL HTMLLinkElement::href() const
 {
     return document()->completeURL(getAttribute(hrefAttr));
 }
@@ -341,6 +379,25 @@ String HTMLLinkElement::type() const
 void HTMLLinkElement::setType(const String& value)
 {
     setAttribute(typeAttr, value);
+}
+
+void HTMLLinkElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const
+{
+    HTMLElement::addSubresourceAttributeURLs(urls);
+
+    // Favicons are handled by a special case in LegacyWebArchive::create()
+    if (m_isIcon)
+        return;
+
+    if (!m_isStyleSheet)
+        return;
+    
+    // Append the URL of this link element.
+    addSubresourceURL(urls, href());
+    
+    // Walk the URLs linked by the linked-to stylesheet.
+    if (StyleSheet* styleSheet = const_cast<HTMLLinkElement*>(this)->sheet())
+        styleSheet->addSubresourceStyleURLs(urls);
 }
 
 }

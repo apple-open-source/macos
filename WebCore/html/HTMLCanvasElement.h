@@ -27,86 +27,104 @@
 #ifndef HTMLCanvasElement_h
 #define HTMLCanvasElement_h
 
+#include "TransformationMatrix.h"
+#include "FloatRect.h"
 #include "HTMLElement.h"
 #include "IntSize.h"
-
-#if PLATFORM(CG)
-// FIXME: CG-specific parts need to move to the platform directory.
-typedef struct CGContext* CGContextRef;
-typedef struct CGImage* CGImageRef;
-#elif PLATFORM(QT)
-class QImage;
-class QPainter;
-#elif PLATFORM(CAIRO)
-typedef struct _cairo_surface cairo_surface_t;
-#endif
 
 namespace WebCore {
 
 class CanvasRenderingContext2D;
 typedef CanvasRenderingContext2D CanvasRenderingContext;
+class FloatPoint;
 class FloatRect;
+class FloatSize;
 class GraphicsContext;
+class HTMLCanvasElement;
+class ImageBuffer;
+class IntPoint;
+class IntSize;
+
+class CanvasObserver {
+public:
+    virtual ~CanvasObserver() {};
+
+    virtual void canvasChanged(HTMLCanvasElement*, const FloatRect& changedRect) = 0;
+    virtual void canvasResized(HTMLCanvasElement*) = 0;
+    virtual void canvasDestroyed(HTMLCanvasElement*) = 0;
+};
 
 class HTMLCanvasElement : public HTMLElement {
 public:
-    HTMLCanvasElement(Document*);
+    HTMLCanvasElement(const QualifiedName&, Document*);
     virtual ~HTMLCanvasElement();
 
+#if ENABLE(DASHBOARD_SUPPORT)
     virtual HTMLTagStatus endTagRequirement() const;
     virtual int tagPriority() const;
+#endif
 
     int width() const { return m_size.width(); }
     int height() const { return m_size.height(); }
     void setWidth(int);
     void setHeight(int);
 
+    String toDataURL(const String& mimeType, ExceptionCode&);
+
     CanvasRenderingContext* getContext(const String&);
-    // FIXME: Web Applications 1.0 describes a toDataURL function.
 
     virtual void parseMappedAttribute(MappedAttribute*);
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
 
     IntSize size() const { return m_size; }
+    void setSize(const IntSize& size)
+    { 
+        if (size == m_size)
+            return;
+        m_ignoreReset = true; 
+        setWidth(size.width());
+        setHeight(size.height());
+        m_ignoreReset = false;
+        reset();
+    }
+
     void willDraw(const FloatRect&);
 
     void paint(GraphicsContext*, const IntRect&);
 
     GraphicsContext* drawingContext() const;
 
-#if PLATFORM(CG)
-    CGImageRef createPlatformImage() const;
-#elif PLATFORM(QT)
-    QImage createPlatformImage() const;
-#elif PLATFORM(CAIRO)
-    cairo_surface_t* createPlatformImage() const;
-#endif
+    ImageBuffer* buffer() const;
 
+    IntRect convertLogicalToDevice(const FloatRect&) const;
+    IntSize convertLogicalToDevice(const FloatSize&) const;
+    IntPoint convertLogicalToDevice(const FloatPoint&) const;
+
+    void setOriginTainted() { m_originClean = false; } 
+    bool originClean() const { return m_originClean; }
+
+    static const float MaxCanvasArea;
+
+    void setObserver(CanvasObserver* o) { m_observer = o; }
+
+    TransformationMatrix baseTransform() const;
 private:
-    void createDrawingContext() const;
+    void createImageBuffer() const;
     void reset();
 
     bool m_rendererIsCanvas;
 
-    RefPtr<CanvasRenderingContext2D> m_2DContext;
-    IntSize m_size;
+    OwnPtr<CanvasRenderingContext2D> m_2DContext;
+    IntSize m_size;    
+    CanvasObserver* m_observer;
 
-    // FIXME: Web Applications 1.0 describes a security feature where we track
-    // if we ever drew any images outside the domain, so we can disable toDataURL.
+    bool m_originClean;
+    bool m_ignoreReset;
+    FloatRect m_dirtyRect;
 
-    mutable bool m_createdDrawingContext;
-#if PLATFORM(CG)
-    mutable void* m_data;
-#elif PLATFORM(QT)
-    mutable QImage* m_data;
-    mutable QPainter* m_painter;
-#elif PLATFORM(CAIRO)
-    mutable void* m_data;
-    mutable cairo_surface_t* m_surface;
-#else
-    mutable void* m_data;
-#endif
-    mutable GraphicsContext* m_drawingContext;
+    // m_createdImageBuffer means we tried to malloc the buffer.  We didn't necessarily get it.
+    mutable bool m_createdImageBuffer;
+    mutable OwnPtr<ImageBuffer> m_imageBuffer;
 };
 
 } //namespace

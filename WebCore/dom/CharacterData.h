@@ -23,14 +23,14 @@
 #ifndef CharacterData_h
 #define CharacterData_h
 
-#include "EventTargetNode.h"
+#include "Node.h"
 
 namespace WebCore {
 
-class CharacterData : public EventTargetNode {
+class CharacterData : public Node {
 public:
-    CharacterData(Document*, const String& text);
-    CharacterData(Document*);
+    CharacterData(Document*, const String& text, bool isText = false);
+    CharacterData(Document*, bool isText = false);
     virtual ~CharacterData();
 
     // DOM methods & attributes for CharacterData
@@ -56,19 +56,17 @@ public:
     virtual bool isCharacterDataNode() const { return true; }
     virtual int maxCharacterOffset() const;
     StringImpl* string() { return m_data.get(); }
-    virtual void checkCharDataOperation(unsigned offset, ExceptionCode&);
 
     virtual bool offsetInCharacters() const;
     virtual bool rendererIsNeeded(RenderStyle*);
-    
-#ifndef NDEBUG
-    virtual void dump(TextStream*, DeprecatedString indent = "") const;
-#endif
 
 protected:
     RefPtr<StringImpl> m_data;
 
     void dispatchModifiedEvent(StringImpl* oldValue);
+
+private:
+    void checkCharDataOperation(unsigned offset, ExceptionCode&);
 };
 
 } // namespace WebCore

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2003-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,13 +31,16 @@
 #include <Security/SecACL.h>
 #include <Security/SecTrustedApplication.h>
 #include <Security/SecKeychainItem.h>
-#include <Security/SecTrustedApplicationPriv.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/param.h>
 #include <libkern/OSByteOrder.h>
 
 #include "readline.h"
+
+// SecTrustedApplicationValidateWithPath
+#include <Security/SecTrustedApplicationPriv.h>
+
 
 void check_obsolete_keychain(const char *kcName)
 {
@@ -147,6 +150,33 @@ keychain_create_array(int argc, char * const *argv)
 
 		return keychains;
 	}
+}
+
+int
+parse_fourcharcode(const char *name, UInt32 *code)
+{
+	UInt32 cc = 0;
+	int len = (name) ? strlen(name) : 0;
+	
+	// error check the name
+	if (len != 4)
+	{
+		fprintf(stderr, "Error: four-character types must be exactly 4 characters long.\n");
+		if (len == 3) {
+			fprintf(stderr, "(Try \"%s \" instead of \"%s\")\n", name, name);
+		}
+		return 1;
+	}
+	
+	int i;
+	for (i = 0; i < 4; ++i)
+	{
+		cc = (cc << 8) | name[i];
+	}
+	
+	*code = cc; // note: this is in host byte order, suitable for passing to APIs
+	
+	return 0;
 }
 
 int
@@ -368,7 +398,7 @@ print_access(FILE *stream, SecAccessRef access, Boolean interactive)
 				if ((status = SecTrustedApplicationValidateWithPath(app, (const char *)bytes)) == noErr) {
 					fprintf(stream, " (OK)");
 				} else {
-					fprintf(stream, " (status %ld)", status);
+					fprintf(stream, " (status %d)", (int)status);
 				}
 				fprintf(stream, "\n");
 			} else {
@@ -543,7 +573,7 @@ print_keychain_item_attributes(FILE *stream, SecKeychainItemRef item, Boolean sh
 			fputs("<complex>", stream);
 			break;
 		default:
-			fprintf(stream, "<format: %ld>", format);
+			fprintf(stream, "<format: %d>", (int)format);
 			break;
 		}
 		fputs("=", stream);
@@ -756,6 +786,40 @@ print_uint32(FILE *stream, uint32 n)
 {
 	n = OSSwapHostToBigInt32 (n);
 	print_buffer(stream, sizeof(UInt32), &n);
+}
+
+unsigned char
+hexValue(char c)
+{
+	static const char digits[] = "0123456789abcdef";
+	char *p;
+	if (p = strchr(digits, tolower(c)))
+		return p - digits;
+	else
+		return 0;
+}
+
+void
+fromHex(const char *hexDigits, CSSM_DATA *data)
+{
+	size_t bytes = strlen(hexDigits) / 2;	// (discards malformed odd end)
+	if (bytes > data->Length)
+		return;
+	//	length(bytes);	// (will assert if we try to grow it)
+	size_t n;
+	for (n = 0; n < bytes; n++) {
+		data->Data[n] = (uint8)(hexValue(hexDigits[2*n]) << 4 | hexValue(hexDigits[2*n+1]));
+	}
+}
+
+void
+safe_CFRelease(void *cfTypeRefPtr)
+{
+	CFTypeRef *obj = (CFTypeRef *)cfTypeRefPtr;
+	if (obj && *obj) {
+		CFRelease(*obj);
+		*obj = NULL;
+	}
 }
 
 /*

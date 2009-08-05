@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -28,10 +28,6 @@
 
 namespace WebCore {
 
-Icon::Icon()
-{
-}
-
 Icon::Icon(NSImage *image)
     : m_nsImage(image)
 {
@@ -43,7 +39,7 @@ Icon::~Icon()
 {
 }
 
-PassRefPtr<Icon> Icon::newIconForFile(const String& filename)
+PassRefPtr<Icon> Icon::createIconForFile(const String& filename)
 {
     // Don't pass relative filenames -- we don't want a result that depends on the current directory.
     // Need 0U here to disambiguate String::operator[] from operator(NSString*, int)[]
@@ -54,7 +50,23 @@ PassRefPtr<Icon> Icon::newIconForFile(const String& filename)
     if (!image)
         return 0;
 
-    return new Icon(image);
+    return adoptRef(new Icon(image));
+}
+
+PassRefPtr<Icon> Icon::createIconForFiles(const Vector<String>& filenames)
+{
+    if (filenames.isEmpty())
+        return 0;
+#ifdef BUILDING_ON_TIGER
+    // FIXME: find a better image to use on Tiger.
+    return createIconForFile(filenames[0]);
+#else
+    NSImage* image = [NSImage imageNamed:NSImageNameMultipleDocuments];
+    if (!image)
+        return 0;
+
+    return adoptRef(new Icon(image));
+#endif
 }
 
 void Icon::paint(GraphicsContext* context, const IntRect& rect)

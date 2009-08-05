@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2007 Trolltech ASA
+    Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -25,19 +25,25 @@
 #include "FontPlatformData.h"
 #include "SharedBuffer.h"
 #include <QFontDatabase>
+#include <QStringList>
 
 namespace WebCore {
 
 FontCustomPlatformData::~FontCustomPlatformData()
 {
-    QFontDatabase::removeApplicationFont(handle);
+    QFontDatabase::removeApplicationFont(m_handle);
 }
 
-FontPlatformData FontCustomPlatformData::fontPlatformData(int size, bool bold, bool italic)
+FontPlatformData FontCustomPlatformData::fontPlatformData(int size, bool bold, bool italic, FontRenderingMode)
 {
-    FontPlatformData result;
-    result.handle = handle;
-    return result;
+    QFont font;
+    font.setFamily(QFontDatabase::applicationFontFamilies(m_handle)[0]);
+    font.setPixelSize(size);
+    if (bold)
+        font.setWeight(QFont::Bold);
+    font.setItalic(italic);
+
+    return FontPlatformData(font, bold);
 }
 
 FontCustomPlatformData* createFontCustomPlatformData(SharedBuffer* buffer)
@@ -47,8 +53,11 @@ FontCustomPlatformData* createFontCustomPlatformData(SharedBuffer* buffer)
     int id = QFontDatabase::addApplicationFontFromData(QByteArray(buffer->data(), buffer->size()));
     if (id == -1)
         return 0;
+
+    Q_ASSERT(QFontDatabase::applicationFontFamilies(id).size() > 0);
+
     FontCustomPlatformData *data = new FontCustomPlatformData;
-    data->handle = id;
+    data->m_handle = id;
     return data;
 }
 

@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2004, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,16 +23,15 @@
 #ifndef HTMLObjectElement_h
 #define HTMLObjectElement_h
 
-#include "HTMLPlugInElement.h"
-#include <wtf/OwnPtr.h>
+#include "HTMLPlugInImageElement.h"
 
 namespace WebCore {
 
-class HTMLImageLoader;
+class KURL;
 
-class HTMLObjectElement : public HTMLPlugInElement {
+class HTMLObjectElement : public HTMLPlugInImageElement {
 public:
-    HTMLObjectElement(Document*, bool createdByParser);
+    HTMLObjectElement(const QualifiedName&, Document*, bool createdByParser);
     ~HTMLObjectElement();
 
     virtual int tagPriority() const { return 5; }
@@ -40,6 +39,7 @@ public:
     virtual void parseMappedAttribute(MappedAttribute*);
 
     virtual void attach();
+    virtual bool canLazyAttach() { return false; }
     virtual bool rendererIsNeeded(RenderStyle*);
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
     virtual void finishParsingChildren();
@@ -48,7 +48,7 @@ public:
     virtual void removedFromDocument();
     
     virtual void recalcStyle(StyleChange);
-    virtual void childrenChanged(bool changedByParser = false);
+    virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
 
     virtual bool isURLAttribute(Attribute*) const;
     virtual const QualifiedName& imageSourceAttributeName() const;
@@ -56,13 +56,9 @@ public:
     virtual void updateWidget();
     void setNeedWidgetUpdate(bool needWidgetUpdate) { m_needWidgetUpdate = needWidgetUpdate; }
 
-    bool isImageType();
-
     void renderFallbackContent();
 
-#if USE(JAVASCRIPTCORE_BINDINGS)
-    virtual KJS::Bindings::Instance* getInstance() const;
-#endif
+    virtual RenderWidget* renderWidgetForJSBindings() const;
 
     String archive() const;
     void setArchive(const String&);
@@ -79,7 +75,7 @@ public:
     String codeType() const;
     void setCodeType(const String&);
     
-    String data() const;
+    KURL data() const;
     void setData(const String&);
 
     bool declare() const;
@@ -90,8 +86,6 @@ public:
 
     String standby() const;
     void setStandby(const String&);
-
-    void setTabIndex(int);
 
     String type() const;
     void setType(const String&);
@@ -104,19 +98,20 @@ public:
 
     bool isDocNamedItem() const { return m_docNamedItem; }
 
+    const String& classId() const { return m_classId; }
+
     bool containsJavaApplet() const;
 
-    String m_serviceType;
-    String m_url;
-    String m_classId;
-    bool m_needWidgetUpdate : 1;
-    bool m_useFallbackContent : 1;
-    OwnPtr<HTMLImageLoader> m_imageLoader;
+    virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
 
 private:
     void updateDocNamedItem();
-    String oldIdAttr;
-    bool m_docNamedItem;
+
+    AtomicString m_id;
+    String m_classId;
+    bool m_docNamedItem : 1;
+    bool m_needWidgetUpdate : 1;
+    bool m_useFallbackContent : 1;
 };
 
 }

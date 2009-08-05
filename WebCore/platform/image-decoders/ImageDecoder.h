@@ -28,6 +28,7 @@
 
 #include "IntRect.h"
 #include "ImageSource.h"
+#include "PlatformString.h"
 #include "SharedBuffer.h"
 #include <wtf/Vector.h>
 
@@ -53,6 +54,15 @@ public:
     RGBA32Buffer() : m_height(0), m_status(FrameEmpty), m_duration(0),
                      m_disposalMethod(DisposeNotSpecified), m_hasAlpha(false)
     {} 
+
+    void clear() {
+      m_bytes.clear();
+      m_status = FrameEmpty;
+      // NOTE: Do not reset other members here; clearFrameBufferCache() calls
+      // this to free the bitmap data, but other functions like
+      // initFrameBuffer() and frameComplete() may still need to read other
+      // metadata out of this frame later.
+    }
 
     const RGBA32Array& bytes() const { return m_bytes; }
     RGBA32Array& bytes() { return m_bytes; }
@@ -107,6 +117,9 @@ public:
     ImageDecoder() :m_sizeAvailable(false), m_failed(false) {}
     virtual ~ImageDecoder() {}
 
+    // The the filename extension usually associated with an undecoded image of this type.
+    virtual String filenameExtension() const = 0;
+
     // All specific decoder plugins must do something with the data they are given.
     virtual void setData(SharedBuffer* data, bool allDataReceived) { m_data = data; }
 
@@ -134,6 +147,14 @@ public:
 
     bool failed() const { return m_failed; }
     void setFailed() { m_failed = true; }
+
+    // Wipe out frames in the frame buffer cache before |clearBeforeFrame|,
+    // assuming this can be done without breaking decoding.  Different decoders
+    // place different restrictions on what frames are safe to destroy, so this
+    // is left to them to implement.
+    // For convenience's sake, we provide a default (empty) implementation,
+    // since in practice only GIFs will ever use this.
+    virtual void clearFrameBufferCache(size_t clearBeforeFrame) { }
 
 protected:
     RefPtr<SharedBuffer> m_data; // The encoded data.

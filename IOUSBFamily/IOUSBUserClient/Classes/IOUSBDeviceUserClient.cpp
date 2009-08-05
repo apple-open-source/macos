@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc. All rights reserved.
+ * Copyright © 1998-2009 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -158,8 +158,8 @@ IOUSBDeviceUserClientV2::sMethods[kIOUSBLibDeviceUserClientNumCommands] = {
     },
     {	//    kUSBDeviceUserClientCreateInterfaceIterator
 		(IOExternalMethodAction) &IOUSBDeviceUserClientV2::_CreateInterfaceIterator,
-		0, sizeof(IOUSBFindInterfaceRequest),
-		0, sizeof(io_iterator_t)
+		4, 0,
+		1, 0
     },
     {	//    kUSBDeviceUserClientResetDevice
 		(IOExternalMethodAction) &IOUSBDeviceUserClientV2::_ResetDevice,
@@ -245,6 +245,7 @@ IOReturn IOUSBDeviceUserClientV2::externalMethod(
 IOReturn 
 IOUSBDeviceUserClientV2::_SetAsyncPort(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments)
 {
+#pragma unused (reference)
 	USBLog(7,"+IOUSBDeviceUserClientV2::_SetAsyncPort");
     return target->SetAsyncPort(arguments->asyncWakePort);
 }
@@ -281,6 +282,7 @@ IOUSBDeviceUserClientV2::ReqComplete(void *obj, void *param, IOReturn res, UInt3
     {
         args[0] = 0;
     }
+
     if (pb->fMem)
     {
 		pb->fMem->complete();
@@ -445,6 +447,7 @@ ErrorExit:
 
 IOReturn IOUSBDeviceUserClientV2::_open(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments)
 {
+#pragma unused (reference)
     return target->open((bool)arguments->scalarInput[0]);
 }
 
@@ -479,6 +482,7 @@ IOUSBDeviceUserClientV2::open(bool seize)
 
 IOReturn IOUSBDeviceUserClientV2::_close(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments)
 {
+#pragma unused (reference, arguments)
     return target->close();
 }
 
@@ -521,6 +525,7 @@ IOUSBDeviceUserClientV2::close()
 
 IOReturn IOUSBDeviceUserClientV2::_DeviceRequestIn(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments)
 {
+#pragma unused (reference)
 	IOReturn								ret;
 
     USBLog(7, "+IOUSBDeviceUserClientV2[%p]::_DeviceRequestIn",  target);
@@ -596,7 +601,6 @@ IOReturn
 IOUSBDeviceUserClientV2::DeviceRequestIn(UInt8 bmRequestType,  UInt8 bRequest, UInt16 wValue, UInt16 wIndex, mach_vm_size_t size, mach_vm_address_t buffer, UInt32 noDataTimeout, UInt32 completionTimeout, IOUSBCompletion * completion)
 {
 	IOReturn				ret = kIOReturnSuccess;
-	IOUSBDevRequest			req;
 	IOMemoryDescriptor *	mem = NULL;
 	
 	USBLog(7, "IOUSBDeviceUserClientV2::DeviceRequestIn (Async) : bmRequestType = 0x%2.2x bRequest = 0x%2.2x wValue = 0x%4.4x wIndex = 0x%4.4x, noDataTimeout = %d completionTimeout = %d",
@@ -679,7 +683,6 @@ IOUSBDeviceUserClientV2::DeviceRequestIn(UInt8 bmRequestType,  UInt8 bRequest, U
 {
 	IOReturn				ret = kIOReturnSuccess;
 	IOUSBDevRequest			req;
-	IOMemoryDescriptor *	mem = NULL;
 	
 	USBLog(7, "IOUSBDeviceUserClientV2::DeviceRequestIn < 4K : bmRequestType = 0x%2.2x bRequest = 0x%2.2x wValue = 0x%4.4x wIndex = 0x%4.4x wLength = 0x%4.4x noDataTimeout = %d completionTimeout = %d",
 		   bmRequestType,
@@ -802,6 +805,7 @@ IOUSBDeviceUserClientV2::DeviceRequestIn(UInt8 bmRequestType,  UInt8 bRequest, U
 IOReturn 
 IOUSBDeviceUserClientV2::_DeviceRequestOut(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments)
 {
+#pragma unused (reference)
 	IOReturn								ret;
 
     USBLog(7, "+IOUSBDeviceUserClientV2[%p]::_DeviceRequestOut  ", target);
@@ -880,7 +884,6 @@ IOReturn
 IOUSBDeviceUserClientV2::DeviceRequestOut(UInt8 bmRequestType,  UInt8 bRequest, UInt16 wValue, UInt16 wIndex, mach_vm_size_t size, mach_vm_address_t buffer, UInt32 noDataTimeout, UInt32 completionTimeout, IOUSBCompletion * completion)
 {
 	IOReturn				ret = kIOReturnSuccess;
-	IOUSBDevRequest			req;
 	IOMemoryDescriptor *	mem = NULL;
 	
 	USBLog(7, "IOUSBDeviceUserClientV2::DeviceRequestOut (Async) : bmRequestType = 0x%2.2x bRequest = 0x%2.2x wValue = 0x%4.4x wIndex = 0x%4.4x, noDataTimeout = %d completionTimeout = %d",
@@ -961,7 +964,6 @@ IOUSBDeviceUserClientV2::DeviceRequestOut(UInt8 bmRequestType,  UInt8 bRequest, 
 {
 	IOReturn				ret = kIOReturnSuccess;
 	IOUSBDevRequest			req;
-	IOMemoryDescriptor *	mem = NULL;
 	
 	USBLog(7, "IOUSBDeviceUserClientV2::DeviceRequestOut < 4K : bmRequestType = 0x%2.2x bRequest = 0x%2.2x wValue = 0x%4.4x wIndex = 0x%4.4x wLength = 0x%4.4x noDataTimeout = %d completionTimeout = %d",
 		   bmRequestType,
@@ -1063,7 +1065,8 @@ IOUSBDeviceUserClientV2::DeviceRequestOut(UInt8 bmRequestType,  UInt8 bRequest, 
 
 IOReturn IOUSBDeviceUserClientV2::_SetConfiguration(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments)
 {
-    USBLog(7, "+IOUSBDeviceUserClientV2[%p]::_SetConfiguration", target);
+#pragma unused (reference)
+    USBLog(7, "+%s[%p]::_SetConfiguration", target->getName(), target);
     return target->SetConfiguration((UInt8)arguments->scalarInput[0]);
 }
 
@@ -1091,7 +1094,8 @@ IOUSBDeviceUserClientV2::SetConfiguration(UInt8 configIndex)
 
 IOReturn IOUSBDeviceUserClientV2::_GetConfiguration(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments)
 {
-    USBLog(7, "+IOUSBDeviceUserClientV2[%p]::_GetConfiguration", target);
+#pragma unused (reference)
+    USBLog(7, "+%s[%p]::_GetConfiguration", target->getName(), target);
     return target->GetConfiguration(&(arguments->scalarOutput[0]));
 }
 
@@ -1126,7 +1130,9 @@ IOUSBDeviceUserClientV2::GetConfiguration(uint64_t *configValue)
 IOReturn 
 IOUSBDeviceUserClientV2::_GetConfigDescriptor(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments)
 {
+#pragma unused (reference)
 	USBLog(7, "+IOUSBDeviceUserClientV2[%p]::_GetConfigDescriptor", target);
+
     if ( arguments->structureOutputDescriptor ) 
         return target->GetConfigDescriptor((UInt8)arguments->scalarInput[0], arguments->structureOutputDescriptor, &(arguments->structureOutputDescriptorSize));
     else
@@ -1231,6 +1237,7 @@ IOUSBDeviceUserClientV2::GetConfigDescriptor(UInt8 configIndex, IOMemoryDescript
 #pragma mark State
 IOReturn IOUSBDeviceUserClientV2::_ResetDevice(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments)
 {
+#pragma unused (reference, arguments)
     USBLog(7, "+IOUSBDeviceUserClientV2[%p]::_ResetDevice", target);
 	return target->ResetDevice();
 }  
@@ -1260,6 +1267,7 @@ IOUSBDeviceUserClientV2::ResetDevice()
 
 IOReturn IOUSBDeviceUserClientV2::_SuspendDevice(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments)
 {
+#pragma unused (reference)
 	USBLog(7, "+IOUSBDeviceUserClientV2[%p]::_SuspendDevice", target);
     return target->SuspendDevice((bool)arguments->scalarInput[0]);
 }
@@ -1289,6 +1297,7 @@ IOUSBDeviceUserClientV2::SuspendDevice(bool suspend)
 
 IOReturn IOUSBDeviceUserClientV2::_ReEnumerateDevice(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments)
 {
+#pragma unused (reference)
 	USBLog(7, "+IOUSBDeviceUserClientV2[%p]::_ReEnumerateDevice", target);
     return target->ReEnumerateDevice((UInt32)arguments->scalarInput[0]);
 }
@@ -1320,6 +1329,7 @@ IOUSBDeviceUserClientV2::ReEnumerateDevice(UInt32 options)
 
 IOReturn IOUSBDeviceUserClientV2::_AbortPipeZero(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments)
 {
+#pragma unused (reference, arguments)
 	USBLog(7, "+IOUSBDeviceUserClientV2[%p]::_AbortPipeZero", target);
 	return target->AbortPipeZero();
 }  
@@ -1356,6 +1366,7 @@ IOUSBDeviceUserClientV2::AbortPipeZero(void)
 #pragma mark -
 IOReturn IOUSBDeviceUserClientV2::_GetDeviceInformation(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments)
 {
+#pragma unused (reference)
     USBLog(5, "+IOUSBDeviceUserClientV2[%p]::_GetDeviceInformation", target);
     return target->GetDeviceInformation(&(arguments->scalarOutput[0]));
 }
@@ -1389,6 +1400,7 @@ IOUSBDeviceUserClientV2::GetDeviceInformation(uint64_t *info)
 
 IOReturn IOUSBDeviceUserClientV2::_RequestExtraPower(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments)
 {
+#pragma unused (reference)
     USBLog(5, "+IOUSBDeviceUserClientV2[%p]::_RequestExtraPower", target);
     return target->RequestExtraPower((UInt32)arguments->scalarInput[0], (UInt32)arguments->scalarInput[1], &(arguments->scalarOutput[0]));
 }
@@ -1430,7 +1442,8 @@ IOUSBDeviceUserClientV2::RequestExtraPower(UInt32 type, UInt32 requestedPower, u
 
 IOReturn IOUSBDeviceUserClientV2::_ReturnExtraPower(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments)
 {
-    USBLog(5, "+IOUSBDeviceUserClientV2[%p]::_ReturnExtraPower", target);
+#pragma unused (reference)
+    USBLog(5, "+%s[%p]::_ReturnExtraPower", target->getName(), target);
     return target->ReturnExtraPower((UInt32)arguments->scalarInput[0], (UInt32)arguments->scalarInput[1]);
 }
 
@@ -1466,6 +1479,7 @@ IOUSBDeviceUserClientV2::ReturnExtraPower(UInt32 type, UInt32 returnedPower)
 
 IOReturn IOUSBDeviceUserClientV2::_GetExtraPowerAllocated(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments)
 {
+#pragma unused (reference)
     USBLog(5, "+IOUSBDeviceUserClientV2[%p]::_GetExtraPowerAllocated", target);
     return target->GetExtraPowerAllocated((UInt32)arguments->scalarInput[0], &(arguments->scalarOutput[0]));
 }
@@ -1504,6 +1518,7 @@ IOUSBDeviceUserClientV2::GetExtraPowerAllocated(UInt32 type, uint64_t *powerAllo
 #pragma mark FrameNumber
 IOReturn IOUSBDeviceUserClientV2::_GetFrameNumber(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments)
 {
+#pragma unused (reference)
     USBLog(7, "+IOUSBDeviceUserClientV2[%p]::_GetFrameNumber", target);
 	return target->GetFrameNumber((IOUSBGetFrameStruct *)arguments->structureOutput, (UInt32 *)&(arguments->structureOutputSize));
 }  
@@ -1539,6 +1554,7 @@ IOUSBDeviceUserClientV2::GetFrameNumber(IOUSBGetFrameStruct *data, UInt32 *size)
 
 IOReturn IOUSBDeviceUserClientV2::_GetMicroFrameNumber(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments)
 {
+#pragma unused (reference)
     USBLog(7, "+IOUSBDeviceUserClientV2[%p]::_GetMicroFrameNumber", target);
 	return target->GetMicroFrameNumber((IOUSBGetFrameStruct *)arguments->structureOutput, (UInt32 *)&(arguments->structureOutputSize));
 }  
@@ -1598,6 +1614,7 @@ IOUSBDeviceUserClientV2::GetMicroFrameNumber(IOUSBGetFrameStruct *data, UInt32 *
 
 IOReturn IOUSBDeviceUserClientV2::_GetFrameNumberWithTime(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments)
 {
+#pragma unused (reference)
 	USBLog(7, "+IOUSBDeviceUserClientV2[%p]::_GetFrameNumberWithTime", target);
 	return target->GetFrameNumberWithTime( (IOUSBGetFrameStruct*) arguments->structureOutput, (UInt32 *)&(arguments->structureOutputSize));
 }  
@@ -1640,19 +1657,25 @@ IOUSBDeviceUserClientV2::GetFrameNumberWithTime(IOUSBGetFrameStruct *data, UInt3
 #pragma mark Iterator
 IOReturn IOUSBDeviceUserClientV2::_CreateInterfaceIterator(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments)
 {
-	IOReturn  ret;
+#pragma unused (reference)
+	IOUSBFindInterfaceRequest		reqIn;
+	IOReturn						ret;
 	
-	USBLog(7, "+IOUSBDeviceUserClientV2[%p]::_CreateInterfaceIterator", target);
-	ret = target->CreateInterfaceIterator((IOUSBFindInterfaceRequest *)arguments->structureInput, (io_object_t *)arguments->structureOutput, (IOByteCount) arguments->structureInputSize, (IOByteCount *) &(arguments->structureOutputSize));
-	USBLog(7, "+IOUSBDeviceUserClientV2[%p]::_CreateInterfaceIterator  iterOut: 0x%x, outputSize: %d ", target, * ( uint32_t *)arguments->structureOutput, arguments->structureOutputSize);
+	reqIn.bInterfaceClass = (UInt16)arguments->scalarInput[0];
+	reqIn.bInterfaceSubClass = (UInt16)arguments->scalarInput[1];
+	reqIn.bInterfaceProtocol = (UInt16)arguments->scalarInput[2];
+	reqIn.bAlternateSetting = (UInt16)arguments->scalarInput[3];
+	
+	return target->CreateInterfaceIterator(&reqIn, &(arguments->scalarOutput[0]));
 	
 	return ret;
 }  
 
 IOReturn 
-IOUSBDeviceUserClientV2::CreateInterfaceIterator(IOUSBFindInterfaceRequest *reqIn, io_object_t *iterOut, IOByteCount inCount, IOByteCount *outCount)
+IOUSBDeviceUserClientV2::CreateInterfaceIterator(IOUSBFindInterfaceRequest *reqIn, uint64_t *returnIter)
 {
     OSIterator		*iter;
+	io_object_t		iterOut;
     IOReturn		ret = kIOReturnSuccess;
 	
  	USBLog(7, "+IOUSBDeviceUserClientV2[%p]::CreateInterfaceIterator   bInterfaceClass 0x%x, bInterfaceSubClass = 0x%x, bInterfaceProtocol = 0x%x, bAlternateSetting = 0x%x",  this,
@@ -1671,15 +1694,15 @@ IOUSBDeviceUserClientV2::CreateInterfaceIterator(IOUSBFindInterfaceRequest *reqI
 		
 		if(iter) 
 		{
-			USBLog(7, "IOUSBDeviceUserClientV2[%p]::CreateInterfaceIterator   CreateInterfaceIterator returned %p",  this, iter);
-			*outCount = sizeof(io_object_t);
-			ret = exportObjectToClient(fTask, iter, iterOut);
-			USBLog(7, "IOUSBDeviceUserClientV2[%p]::CreateInterfaceIterator   exportObjectToClient returned 0x%x, iterOut = 0x%x",  this, ret, *(uint32_t*)iterOut);
+			USBLog(8, "IOUSBDeviceUserClientV2[%p]::CreateInterfaceIterator   CreateInterfaceIterator returned %p", this, iter);
+			ret = exportObjectToClient(fTask, iter, &iterOut);
+			*returnIter = (uint64_t) iterOut;
+			USBLog(8, "IOUSBDeviceUserClientV2[%p]::CreateInterfaceIterator   exportObjectToClient returned 0x%x, iterOut = 0x%qx", this, ret, *returnIter);
 		}
 		else
 		{
 			USBLog(5, "IOUSBDeviceUserClientV2[%p]::CreateInterfaceIterator   CreateInterfaceIterator returned NULL",  this);
-			*outCount = 0;
+
 			ret = kIOReturnNoMemory;
 		}
     }
@@ -1848,7 +1871,7 @@ IOUSBDeviceUserClientV2::willTerminate( IOService * provider, IOOptionBits optio
     // we have begun getting our callbacks in order. by the time we get here, the 
     // isInactive flag is set, so we really are marked as being done. we will do in here
     // what we used to do in the message method (this happens first)
-    USBLog(6, "IOUSBDeviceUserClientV2[%p]::willTerminate isInactive = %d",  this, isInactive());
+    USBLog(7, "IOUSBDeviceUserClientV2[%p]::willTerminate isInactive = %d",  this, isInactive());
 
     //  We have seen cases where our fOwner is not valid at this point.  This is strange
     //  but we'll code defensively and only execute if our provider (fOwner) is still around
@@ -1901,6 +1924,7 @@ IOUSBDeviceUserClientV2::didTerminate( IOService * provider, IOOptionBits option
 IOReturn 
 IOUSBDeviceUserClientV2::message( UInt32 type, IOService * provider,  void * argument )
 {
+#pragma unused (provider, argument)
     IOReturn	err = kIOReturnSuccess;
     
     switch ( type )
@@ -1938,6 +1962,7 @@ IOUSBDeviceUserClientV2::DecrementOutstandingIO(void)
 		if (!--fOutstandingIO && fNeedToClose)
 		{
 			USBLog(3, "IOUSBDeviceUserClientV2[%p]::DecrementOutstandingIO isInactive(%s), outstandingIO = %d - closing device",  this, isInactive() ? "true" : "false" , (int)fOutstandingIO);
+			
 			if ( fOwner && fOwner->isOpen(this))
 			{
 				fOwner->close(this);
@@ -1974,7 +1999,8 @@ IOUSBDeviceUserClientV2::IncrementOutstandingIO(void)
 IOReturn
 IOUSBDeviceUserClientV2::ChangeOutstandingIO(OSObject *target, void *param1, void *param2, void *param3, void *param4)
 {
-    IOUSBDeviceUserClientV2 	*me = OSDynamicCast(IOUSBDeviceUserClientV2, target);
+#pragma unused (param2, param3, param4)
+   IOUSBDeviceUserClientV2 	*me = OSDynamicCast(IOUSBDeviceUserClientV2, target);
     UInt32						direction = (uintptr_t)param1;
     
     if (!me)
@@ -2033,6 +2059,7 @@ IOUSBDeviceUserClientV2::GetOutstandingIO()
 IOReturn
 IOUSBDeviceUserClientV2::GetGatedOutstandingIO(OSObject *target, void *param1, void *param2, void *param3, void *param4)
 {
+#pragma unused (param2, param3, param4)
     IOUSBDeviceUserClientV2 *me = OSDynamicCast(IOUSBDeviceUserClientV2, target);
     
     if (!me)
@@ -2051,6 +2078,7 @@ IOUSBDeviceUserClientV2::GetGatedOutstandingIO(OSObject *target, void *param1, v
 void
 IOUSBDeviceUserClientV2::PrintExternalMethodArgs( IOExternalMethodArguments * arguments, UInt32 level )
 {
+#pragma unused (level)
 	USBLog(level,"ExternalMethodArguments\n\tversion:\t0x%x\n\tselector:\t0x%x\n\tasyncWakePort:\t%p\n\tasyncReference:\t%p\n\tasyncReferenceCount:0x%x\n\tscalarInput:\t%p\n\tscalarInputCount:\t0x%x\n\tstructureInput:\t%p\n\tstructureInputSize:\t0x%x\n\tstructureInputMemoryDesc:\t%p\n\tscalarOutput:\t%p\n\tscalarOutputSize:\t0x%x\n\tstructureOutput:\t%p\n\tstructureOutputSize:\t0x%x\n\tstructureOutputDescriptor:\t%p\n\tstructureOutputDescriptorSize:\t0x%x\n",
 	arguments->version,
 	arguments->selector,
@@ -2075,11 +2103,21 @@ IOUSBDeviceUserClientV2::PrintExternalMethodArgs( IOExternalMethodArguments * ar
 		USBLog(level,"\targuments->scalarInput[%d]: 0x%qx", i,  arguments->scalarInput[i]);
 	}
 }
-#pragma mark -
+#pragma mark Deprecated Methods
 
+IOReturn 
+IOUSBDeviceUserClientV2::CreateInterfaceIterator(IOUSBFindInterfaceRequest *reqIn, io_object_t *iterOut, IOByteCount inCount, IOByteCount *outCount)
+{
+#pragma unused (reqIn, iterOut, inCount, outCount)
+	USBLog(3, "%s[%p]::CreateInterfaceIterator called DEPRECATED version of the method", getName(), this);
+	
+	return kIOReturnUnsupported;
+}
+
+#pragma mark Padding Methods
 // padding methods
 //
-OSMetaClassDefineReservedUnused(IOUSBDeviceUserClientV2,  0);
+OSMetaClassDefineReservedUsed(IOUSBDeviceUserClientV2,  0);
 OSMetaClassDefineReservedUnused(IOUSBDeviceUserClientV2,  1);
 OSMetaClassDefineReservedUnused(IOUSBDeviceUserClientV2,  2);
 OSMetaClassDefineReservedUnused(IOUSBDeviceUserClientV2,  3);

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006 Friedemann Kleint <fkleint@trolltech.com>
- * Copyright (C) 2006 Trolltech ASA
+ * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * All rights reserved.
  *
@@ -178,9 +178,27 @@ ImageDecoderQt::ReadContext::IncrementalReadResult
     return IncrementalReadComplete;
 }
 
+ImageDecoderQt* ImageDecoderQt::create(const SharedBuffer& data)
+{
+    // We need at least 4 bytes to figure out what kind of image we're dealing with.
+    if (data.size() < 4)
+        return 0;
 
-// ImageDecoderQt
-ImageDecoderQt::ImageDecoderQt( )
+    QByteArray bytes = QByteArray::fromRawData(data.data(), data.size());
+    QBuffer buffer(&bytes);
+    if (!buffer.open(QBuffer::ReadOnly))
+        return 0;
+
+    QString imageFormat = QString::fromLatin1(QImageReader::imageFormat(&buffer).toLower());
+    if (imageFormat.isEmpty())
+        return 0; // Image format not supported
+
+    return new ImageDecoderQt(imageFormat);
+}
+
+ImageDecoderQt::ImageDecoderQt(const QString &imageFormat)
+    : m_hasAlphaChannel(false)
+    , m_imageFormat(imageFormat)
 {
 }
 
@@ -195,6 +213,7 @@ bool ImageDecoderQt::hasFirstImageHeader() const
 
 void ImageDecoderQt::reset()
 {
+    m_hasAlphaChannel = false;
     m_failed = false;
     m_imageList.clear();
     m_pixmapCache.clear();
@@ -206,12 +225,15 @@ void ImageDecoderQt::reset()
 void ImageDecoderQt::setData(const IncomingData &data, bool allDataReceived)
 {
     reset();
-    ReadContext readContext(data, ReadContext::LoadIncrementally, m_imageList);
+    ReadContext readContext(data, ReadContext::LoadComplete, m_imageList);
 
     if (debugImageDecoderQt)
         qDebug() << " setData " << data.size() << " image bytes, complete=" << allDataReceived;
 
     const  ReadContext::ReadResult readResult =  readContext.read(allDataReceived);
+
+    if (hasFirstImageHeader())
+        m_hasAlphaChannel = m_imageList[0].m_image.hasAlphaChannel();
 
     if (debugImageDecoderQt)
         qDebug()  << " read returns " << readResult;
@@ -254,7 +276,6 @@ int ImageDecoderQt::frameCount() const
     return m_imageList.size();
 }
 
-
 int ImageDecoderQt::repetitionCount() const
 {
     if (debugImageDecoderQt)
@@ -262,10 +283,9 @@ int ImageDecoderQt::repetitionCount() const
     return m_loopCount;
 }
 
-
 bool ImageDecoderQt::supportsAlpha() const
 {
-    return hasFirstImageHeader() && m_imageList[0].m_image.hasAlphaChannel();
+    return m_hasAlphaChannel;
 }
 
 int ImageDecoderQt::duration(size_t index) const
@@ -274,6 +294,13 @@ int ImageDecoderQt::duration(size_t index) const
         return 0;
     return  m_imageList[index].m_duration;
 }
+
+String ImageDecoderQt::filenameExtension() const
+{
+    if (debugImageDecoderQt)
+           qDebug() << " ImageDecoderQt::filenameExtension() returns" << m_imageFormat;
+    return m_imageFormat;
+};
 
 RGBA32Buffer* ImageDecoderQt::frameBufferAtIndex(size_t index)
 {
@@ -292,6 +319,10 @@ QPixmap* ImageDecoderQt::imageAtIndex(size_t index) const
     if (!m_pixmapCache.contains(index)) {
         m_pixmapCache.insert(index,
                              QPixmap::fromImage(m_imageList[index].m_image));
+
+        // store null image since the converted pixmap is already in pixmap cache
+        Q_ASSERT(m_imageList[index].m_imageState == ImageComplete);
+        m_imageList[index].m_image = QImage();
     }
     return  &m_pixmapCache[index];
 }

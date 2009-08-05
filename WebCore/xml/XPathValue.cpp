@@ -33,6 +33,7 @@
 #include "XPathUtil.h"
 
 #include <wtf/MathExtras.h>
+#include <wtf/StdLibExtras.h>
 #include <limits>
 
 using std::numeric_limits;
@@ -45,7 +46,7 @@ const Value::AdoptTag Value::adopt = {};
 const NodeSet& Value::toNodeSet() const
 {
     if (!m_data) {
-        static NodeSet emptyNodeSet;
+        DEFINE_STATIC_LOCAL(NodeSet, emptyNodeSet, ());
         return emptyNodeSet;
     }
 
@@ -55,7 +56,7 @@ const NodeSet& Value::toNodeSet() const
 NodeSet& Value::modifiableNodeSet()
 {
     if (!m_data)
-        m_data = new ValueData;
+        m_data = ValueData::create();
     
     m_type = NodeSetValue;
     return m_data->m_nodeSet;

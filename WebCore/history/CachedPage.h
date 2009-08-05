@@ -26,60 +26,42 @@
 #ifndef CachedPage_h
 #define CachedPage_h
 
-#include "KURL.h"
-#include <wtf/OwnPtr.h>
-
-namespace KJS {    
-    class SavedBuiltins;
-    struct SavedProperties;
-}
+#include "CachedFrame.h"
 
 namespace WebCore {
     
-    class CachedPagePlatformData;
+    class CachedFramePlatformData;
+    class DOMWindow;
     class Document;
     class DocumentLoader;
     class FrameView;
+    class KURL;
     class Node;
     class Page;
-    class PausedTimeouts;
 
 class CachedPage : public RefCounted<CachedPage> {
 public:
     static PassRefPtr<CachedPage> create(Page*);
     ~CachedPage();
-    
-    void clear();
-    Document* document() const { return m_document.get(); }
-    FrameView* view() const { return m_view.get(); }
-    Node* mousePressNode() const { return m_mousePressNode.get(); }
-    const KURL& url() const { return m_URL; }
-    void restore(Page*);
-        
-    void setTimeStamp(double);
-    void setTimeStampToNow();
-    double timeStamp() const;
-    void setDocumentLoader(PassRefPtr<DocumentLoader>);
-    DocumentLoader* documentLoader();
 
-    void setCachedPagePlatformData(CachedPagePlatformData*);
-    CachedPagePlatformData* cachedPagePlatformData();
+    void restore(Page*);
+    void clear();
+
+    Document* document() const { return m_cachedMainFrame->document(); }
+    DocumentLoader* documentLoader() const { return m_cachedMainFrame->documentLoader(); }
+    FrameView* mainFrameView() const { return m_cachedMainFrame->view(); }
+    const KURL& url() const { return m_cachedMainFrame->url(); }
+    DOMWindow* domWindow() const { return m_cachedMainFrame->domWindow(); }
+
+    double timeStamp() const { return m_timeStamp; }
+    
+    CachedFrame* cachedMainFrame() { return m_cachedMainFrame.get(); }
 
 private:
     CachedPage(Page*);
-    RefPtr<DocumentLoader> m_documentLoader;
-    double m_timeStamp;
 
-    RefPtr<Document> m_document;
-    RefPtr<FrameView> m_view;
-    RefPtr<Node> m_mousePressNode;
-    KURL m_URL;
-    OwnPtr<KJS::SavedProperties> m_windowProperties;
-    OwnPtr<KJS::SavedProperties> m_locationProperties;
-    OwnPtr<KJS::SavedProperties> m_windowLocalStorage;
-    OwnPtr<KJS::SavedBuiltins> m_windowBuiltins;
-    OwnPtr<PausedTimeouts> m_pausedTimeouts;
-    OwnPtr<CachedPagePlatformData> m_cachedPagePlatformData;
+    double m_timeStamp;
+    RefPtr<CachedFrame> m_cachedMainFrame;
 };
 
 } // namespace WebCore

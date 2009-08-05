@@ -26,19 +26,21 @@
 #include "SVGStyledTransformableElement.h"
 
 #include "Attr.h"
-#include "RegularExpression.h"
+#include "MappedAttribute.h"
 #include "RenderPath.h"
 #include "SVGDocument.h"
-#include "AffineTransform.h"
 #include "SVGStyledElement.h"
 #include "SVGTransformList.h"
+#include "TransformationMatrix.h"
 
 namespace WebCore {
+
+char SVGStyledTransformableElementIdentifier[] = "SVGStyledTransformableElement";
 
 SVGStyledTransformableElement::SVGStyledTransformableElement(const QualifiedName& tagName, Document* doc)
     : SVGStyledLocatableElement(tagName, doc)
     , SVGTransformable()
-    , m_transform(new SVGTransformList(SVGNames::transformAttr))
+    , m_transform(this, SVGNames::transformAttr, SVGTransformList::create(SVGNames::transformAttr))
 {
 }
 
@@ -46,21 +48,26 @@ SVGStyledTransformableElement::~SVGStyledTransformableElement()
 {
 }
 
-ANIMATED_PROPERTY_DEFINITIONS(SVGStyledTransformableElement, SVGTransformList*, TransformList, transformList, Transform, transform, SVGNames::transformAttr, m_transform.get())
-
-AffineTransform SVGStyledTransformableElement::getCTM() const
+TransformationMatrix SVGStyledTransformableElement::getCTM() const
 {
     return SVGTransformable::getCTM(this);
 }
 
-AffineTransform SVGStyledTransformableElement::getScreenCTM() const
+TransformationMatrix SVGStyledTransformableElement::getScreenCTM() const
 {
     return SVGTransformable::getScreenCTM(this);
 }
 
-AffineTransform SVGStyledTransformableElement::animatedLocalTransform() const
+TransformationMatrix SVGStyledTransformableElement::animatedLocalTransform() const
 {
-    return transform()->concatenate().matrix();
+    return m_supplementalTransform ? transform()->concatenate().matrix() * *m_supplementalTransform : transform()->concatenate().matrix();
+}
+    
+TransformationMatrix* SVGStyledTransformableElement::supplementalTransform()
+{
+    if (!m_supplementalTransform)
+        m_supplementalTransform.set(new TransformationMatrix());
+    return m_supplementalTransform.get();
 }
 
 void SVGStyledTransformableElement::parseMappedAttribute(MappedAttribute* attr)
@@ -100,10 +107,18 @@ FloatRect SVGStyledTransformableElement::getBBox() const
     return SVGTransformable::getBBox(this);
 }
 
-RenderObject* SVGStyledTransformableElement::createRenderer(RenderArena* arena, RenderStyle* style)
+RenderObject* SVGStyledTransformableElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
     // By default, any subclass is expected to do path-based drawing
-    return new (arena) RenderPath(style, this);
+    return new (arena) RenderPath(this);
+}
+
+Path SVGStyledTransformableElement::toClipPath() const
+{
+    Path pathData = toPathData();
+    // FIXME: How do we know the element has done a layout?
+    pathData.transform(animatedLocalTransform());
+    return pathData;
 }
 
 }

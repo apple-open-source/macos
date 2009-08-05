@@ -26,8 +26,9 @@
 #include "config.h"
 
 #include "PluginInfoStore.h"
+#include "PluginMainThreadScheduler.h"
 #include "PluginView.h"
-#include "npapi.h" // #includes <windows.h>
+#include "npruntime_internal.h"
 
 using namespace WebCore;
 
@@ -107,10 +108,8 @@ const char* NPN_UserAgent(NPP instance)
 {
     PluginView* view = pluginViewForInstance(instance);
 
-     // FIXME: Some plug-ins call NPN_UserAgent with a null instance in their NP_initialize function!
-     // We'd need a way to get a user agent without having a frame around.
      if (!view)
-         return 0;
+         return PluginView::userAgentStatic();
  
     return view->userAgent();
 }
@@ -137,6 +136,11 @@ void NPN_ForceRedraw(NPP instance)
 
 NPError NPN_GetValue(NPP instance, NPNVariable variable, void* value)
 {
+    PluginView* view = pluginViewForInstance(instance);
+
+     if (!view)
+         return PluginView::getValueStatic(variable, value);
+
     return pluginViewForInstance(instance)->getValue(variable, value);
 }
 
@@ -157,14 +161,17 @@ void* NPN_GetJavaPeer(NPP instance)
     return 0;
 }
 
-void
-NPN_PushPopupsEnabledState(NPP instance, NPBool enabled)
+void NPN_PushPopupsEnabledState(NPP instance, NPBool enabled)
 {
     pluginViewForInstance(instance)->pushPopupsEnabledState(enabled);
 }
 
-void
-NPN_PopPopupsEnabledState(NPP instance)
+void NPN_PopPopupsEnabledState(NPP instance)
 {
     pluginViewForInstance(instance)->popPopupsEnabledState();
+}
+
+void NPN_PluginThreadAsyncCall(NPP instance, void (*func) (void *), void *userData)
+{
+    PluginMainThreadScheduler::scheduler().scheduleCall(instance, func, userData);
 }

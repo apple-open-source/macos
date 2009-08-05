@@ -25,40 +25,38 @@
 #if ENABLE(SVG) && ENABLE(SVG_FILTERS)
 #include "SVGFEBlendElement.h"
 
+#include "MappedAttribute.h"
 #include "SVGResourceFilter.h"
 
 namespace WebCore {
 
 SVGFEBlendElement::SVGFEBlendElement(const QualifiedName& tagName, Document* doc)
     : SVGFilterPrimitiveStandardAttributes(tagName, doc)
-    , m_mode(SVG_FEBLEND_MODE_NORMAL)
+    , m_in1(this, SVGNames::inAttr)
+    , m_in2(this, SVGNames::in2Attr)
+    , m_mode(this, SVGNames::modeAttr, FEBLEND_MODE_NORMAL)
     , m_filterEffect(0)
 {
 }
 
 SVGFEBlendElement::~SVGFEBlendElement()
 {
-    delete m_filterEffect;
 }
-
-ANIMATED_PROPERTY_DEFINITIONS(SVGFEBlendElement, String, String, string, In1, in1, SVGNames::inAttr, m_in1)
-ANIMATED_PROPERTY_DEFINITIONS(SVGFEBlendElement, String, String, string, In2, in2, SVGNames::in2Attr, m_in2)
-ANIMATED_PROPERTY_DEFINITIONS(SVGFEBlendElement, int, Enumeration, enumeration, Mode, mode, SVGNames::modeAttr, m_mode)
 
 void SVGFEBlendElement::parseMappedAttribute(MappedAttribute* attr)
 {
     const String& value = attr->value();
     if (attr->name() == SVGNames::modeAttr) {
         if (value == "normal")
-            setModeBaseValue(SVG_FEBLEND_MODE_NORMAL);
+            setModeBaseValue(FEBLEND_MODE_NORMAL);
         else if (value == "multiply")
-            setModeBaseValue(SVG_FEBLEND_MODE_MULTIPLY);
+            setModeBaseValue(FEBLEND_MODE_MULTIPLY);
         else if (value == "screen")
-            setModeBaseValue(SVG_FEBLEND_MODE_SCREEN);
+            setModeBaseValue(FEBLEND_MODE_SCREEN);
         else if (value == "darken")
-            setModeBaseValue(SVG_FEBLEND_MODE_DARKEN);
+            setModeBaseValue(FEBLEND_MODE_DARKEN);
         else if (value == "lighten")
-            setModeBaseValue(SVG_FEBLEND_MODE_LIGHTEN);
+            setModeBaseValue(FEBLEND_MODE_LIGHTEN);
     } else if (attr->name() == SVGNames::inAttr)
         setIn1BaseValue(value);
     else if (attr->name() == SVGNames::in2Attr)
@@ -67,16 +65,23 @@ void SVGFEBlendElement::parseMappedAttribute(MappedAttribute* attr)
         SVGFilterPrimitiveStandardAttributes::parseMappedAttribute(attr);
 }
 
-SVGFEBlend* SVGFEBlendElement::filterEffect(SVGResourceFilter* filter) const
+SVGFilterEffect* SVGFEBlendElement::filterEffect(SVGResourceFilter* filter) const
 {
-    if (!m_filterEffect)
-        m_filterEffect = new SVGFEBlend(filter);
-    
-    m_filterEffect->setBlendMode((SVGBlendModeType) mode());
-    m_filterEffect->setIn(in1());
-    m_filterEffect->setIn2(in2());
-    setStandardAttributes(m_filterEffect);
-    return m_filterEffect;
+    ASSERT_NOT_REACHED(); 
+    return 0;
+}
+
+bool SVGFEBlendElement::build(FilterBuilder* builder)
+{
+    FilterEffect* input1 = builder->getEffectById(in1());
+    FilterEffect* input2 = builder->getEffectById(in2());
+
+    if(!input1 || !input2)
+        return false;
+
+    builder->add(result(), FEBlend::create(input1, input2, static_cast<BlendModeType> (mode())));
+
+    return true;
 }
 
 }

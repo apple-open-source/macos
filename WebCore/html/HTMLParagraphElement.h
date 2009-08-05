@@ -1,6 +1,4 @@
 /*
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *
@@ -30,9 +28,9 @@ namespace WebCore {
 
 class HTMLParagraphElement : public HTMLElement {
 public:
-    HTMLParagraphElement(Document*);
+    HTMLParagraphElement(const QualifiedName&, Document*);
 
-    virtual HTMLTagStatus endTagRequirement() const { return TagStatusOptional; }
+    virtual HTMLTagStatus endTagRequirement() const { return TagStatusRequired; }
     virtual int tagPriority() const { return 3; }
     virtual bool checkDTD(const Node* newChild);
 

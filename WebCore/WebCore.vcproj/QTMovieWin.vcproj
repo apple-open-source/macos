@@ -23,7 +23,7 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
-				CommandLine="set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;bash &quot;$(WebKitLibrariesDir)\tools\scripts\auto-version.sh&quot; &quot;$(IntDir)&quot;&#x0D;&#x0A;"
+				CommandLine="set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; grep XX$(ProjectName)XX &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;if errorlevel 1 exit 1&#x0D;&#x0A;echo XX$(ProjectName)XX &gt; &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;&#x0D;&#x0A;bash &quot;$(WebKitLibrariesDir)\tools\scripts\auto-version.sh&quot; &quot;$(IntDir)&quot;&#x0D;&#x0A;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -39,7 +39,7 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="&quot;$(ProjectDir)..\&quot;;&quot;$(ProjectDir)..\ForwardingHeaders&quot;;&quot;$(WebKitLibrariesDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitOutputDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(WebKitOutputDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(WebKitOutputDir)\Include&quot;;&quot;$(ProgramFiles)/QuickTime SDK/cincludes&quot;;&quot;$(WebKitLibrariesDir)\include&quot;"
+				AdditionalIncludeDirectories="&quot;$(ProjectDir)..\&quot;;&quot;$(ProjectDir)..\ForwardingHeaders&quot;;&quot;$(WebKitLibrariesDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitOutputDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(WebKitOutputDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(WebKitOutputDir)\Include&quot;;&quot;$(WebKitLibrariesDir)\QuickTime SDK\CIncludes&quot;;&quot;$(ProgramFiles)/QuickTime SDK/cincludes&quot;;&quot;$(WebKitLibrariesDir)\include&quot;;&quot;$(WebKitLibrariesDir)\Include\CoreFoundation\OSXCompatibilityHeaders&quot;;&quot;$(WebKitLibrariesDir)\Include\CoreFoundation\OSXCompatibilityHeaders\GNUCompatibility&quot;"
 				PreprocessorDefinitions="_USRDLL;QTMOVIEWIN_EXPORTS"
 			/>
 			<Tool
@@ -54,9 +54,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="&quot;$(ProgramFiles)\QuickTime SDK\Libraries\QTMLClient.lib&quot; WTF$(WebKitConfigSuffix).lib winmm.lib pthreadVC2$(LibraryConfigSuffix).lib Msimg32.lib user32.lib advapi32.lib"
+				AdditionalDependencies="QTMLClient.lib WTF$(WebKitConfigSuffix).lib winmm.lib pthreadVC2$(LibraryConfigSuffix).lib Msimg32.lib user32.lib advapi32.lib"
 				OutputFile="$(OutDir)\$(ProjectName)$(WebKitConfigSuffix).dll"
-				AdditionalLibraryDirectories=""
+				AdditionalLibraryDirectories="&quot;$(WebKitLibrariesDir)\QuickTime SDK\Libraries&quot;;&quot;$(ProgramFiles)\QuickTime SDK\Libraries&quot;"
+				IgnoreDefaultLibraryNames="LIBCMT"
 				DelayLoadDLLs=""
 			/>
 			<Tool
@@ -82,7 +83,7 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\QTMovieWin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\win\QTMovieWin.h&quot; &quot;$(WebKitOutputDir)\include\QTMovieWin&quot;&#x0D;&#x0A;"
+				CommandLine="mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\QTMovieWin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\win\QTMovieWin.h&quot; &quot;$(WebKitOutputDir)\include\QTMovieWin&quot;&#x0D;&#x0A;&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; del &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;"
 			/>
 		</Configuration>
 		<Configuration
@@ -94,7 +95,7 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
-				CommandLine="set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;bash &quot;$(WebKitLibrariesDir)\tools\scripts\auto-version.sh&quot; &quot;$(IntDir)&quot;&#x0D;&#x0A;"
+				CommandLine="set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; grep XX$(ProjectName)XX &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;if errorlevel 1 exit 1&#x0D;&#x0A;echo XX$(ProjectName)XX &gt; &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;&#x0D;&#x0A;bash &quot;$(WebKitLibrariesDir)\tools\scripts\auto-version.sh&quot; &quot;$(IntDir)&quot;&#x0D;&#x0A;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -110,7 +111,7 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="&quot;$(ProjectDir)..\&quot;;&quot;$(ProjectDir)..\ForwardingHeaders&quot;;&quot;$(WebKitLibrariesDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitOutputDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(WebKitOutputDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(WebKitOutputDir)\Include&quot;;&quot;$(ProgramFiles)/QuickTime SDK/cincludes&quot;;&quot;$(WebKitLibrariesDir)\include&quot;"
+				AdditionalIncludeDirectories="&quot;$(ProjectDir)..\&quot;;&quot;$(ProjectDir)..\ForwardingHeaders&quot;;&quot;$(WebKitLibrariesDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitOutputDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(WebKitOutputDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(WebKitOutputDir)\Include&quot;;&quot;$(WebKitLibrariesDir)\QuickTime SDK\CIncludes&quot;;&quot;$(ProgramFiles)/QuickTime SDK/cincludes&quot;;&quot;$(WebKitLibrariesDir)\include&quot;;&quot;$(WebKitLibrariesDir)\Include\CoreFoundation\OSXCompatibilityHeaders&quot;;&quot;$(WebKitLibrariesDir)\Include\CoreFoundation\OSXCompatibilityHeaders\GNUCompatibility&quot;"
 				PreprocessorDefinitions="_USRDLL;QTMOVIEWIN_EXPORTS"
 			/>
 			<Tool
@@ -125,9 +126,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="&quot;$(ProgramFiles)\QuickTime SDK\Libraries\QTMLClient.lib&quot; WTF$(WebKitConfigSuffix).lib winmm.lib pthreadVC2$(LibraryConfigSuffix).lib Msimg32.lib user32.lib advapi32.lib"
+				AdditionalDependencies="QTMLClient.lib WTF$(WebKitConfigSuffix).lib winmm.lib pthreadVC2$(LibraryConfigSuffix).lib Msimg32.lib user32.lib advapi32.lib"
 				OutputFile="$(OutDir)\$(ProjectName)$(WebKitConfigSuffix).dll"
-				AdditionalLibraryDirectories=""
+				AdditionalLibraryDirectories="&quot;$(WebKitLibrariesDir)\QuickTime SDK\Libraries&quot;;&quot;$(ProgramFiles)\QuickTime SDK\Libraries&quot;"
+				IgnoreDefaultLibraryNames="LIBCMT"
 				DelayLoadDLLs=""
 			/>
 			<Tool
@@ -153,6 +155,7 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
+				CommandLine="mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\QTMovieWin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\win\QTMovieWin.h&quot; &quot;$(WebKitOutputDir)\include\QTMovieWin&quot;&#x0D;&#x0A;&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; del &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;"
 			/>
 		</Configuration>
 		<Configuration
@@ -163,7 +166,7 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
-				CommandLine="set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;bash &quot;$(WebKitLibrariesDir)\tools\scripts\auto-version.sh&quot; &quot;$(IntDir)&quot;&#x0D;&#x0A;"
+				CommandLine="set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; grep XX$(ProjectName)XX &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;if errorlevel 1 exit 1&#x0D;&#x0A;echo XX$(ProjectName)XX &gt; &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;&#x0D;&#x0A;bash &quot;$(WebKitLibrariesDir)\tools\scripts\auto-version.sh&quot; &quot;$(IntDir)&quot;&#x0D;&#x0A;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -179,7 +182,7 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="&quot;$(ProjectDir)..\&quot;;&quot;$(ProjectDir)..\ForwardingHeaders&quot;;&quot;$(WebKitLibrariesDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitOutputDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(WebKitOutputDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(WebKitOutputDir)\Include&quot;;&quot;$(ProgramFiles)/QuickTime SDK/cincludes&quot;;&quot;$(WebKitLibrariesDir)\include&quot;"
+				AdditionalIncludeDirectories="&quot;$(ProjectDir)..\&quot;;&quot;$(ProjectDir)..\ForwardingHeaders&quot;;&quot;$(WebKitLibrariesDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitOutputDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(WebKitOutputDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(WebKitOutputDir)\Include&quot;;&quot;$(WebKitLibrariesDir)\QuickTime SDK\CIncludes&quot;;&quot;$(ProgramFiles)/QuickTime SDK/cincludes&quot;;&quot;$(WebKitLibrariesDir)\include&quot;;&quot;$(WebKitLibrariesDir)\Include\CoreFoundation\OSXCompatibilityHeaders&quot;;&quot;$(WebKitLibrariesDir)\Include\CoreFoundation\OSXCompatibilityHeaders\GNUCompatibility&quot;"
 				PreprocessorDefinitions="_USRDLL;QTMOVIEWIN_EXPORTS"
 			/>
 			<Tool
@@ -194,9 +197,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="&quot;$(ProgramFiles)\QuickTime SDK\Libraries\QTMLClient.lib&quot; WTF$(WebKitConfigSuffix).lib winmm.lib pthreadVC2$(LibraryConfigSuffix).lib Msimg32.lib user32.lib advapi32.lib"
+				AdditionalDependencies="QTMLClient.lib WTF$(WebKitConfigSuffix).lib winmm.lib pthreadVC2$(LibraryConfigSuffix).lib Msimg32.lib user32.lib advapi32.lib"
 				OutputFile="$(OutDir)\$(ProjectName)$(WebKitConfigSuffix).dll"
-				AdditionalLibraryDirectories=""
+				AdditionalLibraryDirectories="&quot;$(WebKitLibrariesDir)\QuickTime SDK\Libraries&quot;;&quot;$(ProgramFiles)\QuickTime SDK\Libraries&quot;"
+				IgnoreDefaultLibraryNames="LIBCMT"
 				DelayLoadDLLs=""
 			/>
 			<Tool
@@ -222,7 +226,7 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\QTMovieWin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\win\QTMovieWin.h&quot; &quot;$(WebKitOutputDir)\include\QTMovieWin&quot;&#x0D;&#x0A;"
+				CommandLine="mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\QTMovieWin&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\win\QTMovieWin.h&quot; &quot;$(WebKitOutputDir)\include\QTMovieWin&quot;&#x0D;&#x0A;&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; del &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;"
 			/>
 		</Configuration>
 	</Configurations>

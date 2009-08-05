@@ -287,6 +287,7 @@
 #define kTxConfiguration_Tx_DMA_Enable				0x00000001
 #define kTxConfiguration_Tx_Desc_Ring_Size_Shift	1			// bits 1:4
 #define kTxConfiguration_TxFIFO_Threshold			0x001FFC00	// obsolete
+#define kTxConfiguration_Paced_Mode					0x00200000	///
 
 		// register WOLPatternMatchCount 300C:
 #define kWOLPatternMatchCount_N		0x0010				// match count

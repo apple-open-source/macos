@@ -24,21 +24,21 @@
 #define SVGFEImageElement_h
 
 #if ENABLE(SVG) && ENABLE(SVG_FILTERS)
+#include "CachedResourceHandle.h"
 #include "SVGFilterPrimitiveStandardAttributes.h"
 #include "SVGURIReference.h"
 #include "SVGLangSpace.h"
 #include "SVGExternalResourcesRequired.h"
 #include "SVGFEImage.h"
+#include "SVGPreserveAspectRatio.h"
 
 namespace WebCore {
-    class SVGPreserveAspectRatio;
 
     class SVGFEImageElement : public SVGFilterPrimitiveStandardAttributes,
                               public SVGURIReference,
                               public SVGLangSpace,
                               public SVGExternalResourcesRequired,
-                              public CachedResourceClient
-    {
+                              public CachedResourceClient {
     public:
         SVGFEImageElement(const QualifiedName&, Document*);
         virtual ~SVGFEImageElement();
@@ -46,25 +46,21 @@ namespace WebCore {
         virtual void parseMappedAttribute(MappedAttribute*);
         virtual void notifyFinished(CachedResource*);
 
-    protected:
-        virtual SVGFEImage* filterEffect(SVGResourceFilter*) const;
+        virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
+        bool build(FilterBuilder*);
 
     protected:
+        virtual SVGFilterEffect* filterEffect(SVGResourceFilter*) const;
         virtual const SVGElement* contextElement() const { return this; }
 
     private:
-        ANIMATED_PROPERTY_FORWARD_DECLARATIONS(SVGURIReference, String, Href, href)
-        ANIMATED_PROPERTY_FORWARD_DECLARATIONS(SVGExternalResourcesRequired, bool, ExternalResourcesRequired, externalResourcesRequired)
- 
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFEImageElement, SVGPreserveAspectRatio*, RefPtr<SVGPreserveAspectRatio>, PreserveAspectRatio, preserveAspectRatio)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGFEImageElement, SVGNames::feImageTagString, SVGNames::preserveAspectRatioAttrString, SVGPreserveAspectRatio, PreserveAspectRatio, preserveAspectRatio)
 
-        CachedImage* m_cachedImage;
-        mutable SVGFEImage* m_filterEffect;
+        CachedResourceHandle<CachedImage> m_cachedImage;
+        mutable RefPtr<FEImage> m_filterEffect;
     };
 
 } // namespace WebCore
 
 #endif // ENABLE(SVG)
 #endif
-
-// vim:ts=4:noet

@@ -27,7 +27,6 @@
 #include "EventHandler.h"
 
 #include "ClipboardGtk.h"
-#include "EventNames.h"
 #include "FloatPoint.h"
 #include "FocusController.h"
 #include "Frame.h"
@@ -36,13 +35,14 @@
 #include "MouseEventWithHitTestResults.h"
 #include "NotImplemented.h"
 #include "Page.h"
-#include "PlatformScrollBar.h"
+#include "PlatformKeyboardEvent.h"
 #include "PlatformWheelEvent.h"
 #include "RenderWidget.h"
+#include "Scrollbar.h"
 
 namespace WebCore {
 
-using namespace EventNames;
+const double EventHandler::TextDragDelay = 0.0;
 
 bool EventHandler::tabsToAllControls(KeyboardEvent* event) const
 {
@@ -95,9 +95,9 @@ bool EventHandler::passWheelEventToWidget(PlatformWheelEvent& event, Widget* wid
     return static_cast<FrameView*>(widget)->frame()->eventHandler()->handleWheelEvent(event);
 }
 
-Clipboard* EventHandler::createDraggingClipboard() const
+PassRefPtr<Clipboard> EventHandler::createDraggingClipboard() const
 {
-    return new ClipboardGtk(ClipboardWritable, true);
+    return ClipboardGtk::create(ClipboardWritable, true);
 }
 
 bool EventHandler::passMousePressEventToSubframe(MouseEventWithHitTestResults& mev, Frame* subframe)
@@ -118,10 +118,9 @@ bool EventHandler::passMouseReleaseEventToSubframe(MouseEventWithHitTestResults&
     return true;
 }
 
-bool EventHandler::passMousePressEventToScrollbar(MouseEventWithHitTestResults&, PlatformScrollbar* scrollbar)
+unsigned EventHandler::accessKeyModifiers()
 {
-    notImplemented();
-    return false;
+    return PlatformKeyboardEvent::AltKey;
 }
 
 }

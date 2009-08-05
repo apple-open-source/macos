@@ -23,8 +23,8 @@
 #ifndef RenderMenuList_h
 #define RenderMenuList_h
 
-#include "RenderFlexibleBox.h"
 #include "PopupMenuClient.h"
+#include "RenderFlexibleBox.h"
 
 #if PLATFORM(MAC)
 #define POPUP_MENU_PULLS_DOWN 0
@@ -36,12 +36,16 @@ namespace WebCore {
 
 class HTMLSelectElement;
 class PopupMenu;
+class RenderText;
 
 class RenderMenuList : public RenderFlexibleBox, private PopupMenuClient {
 public:
     RenderMenuList(HTMLSelectElement*);
     ~RenderMenuList();
+    
+    HTMLSelectElement* selectElement();
 
+private:
     virtual bool isMenuList() const { return true; }
 
     virtual void addChild(RenderObject* newChild, RenderObject* beforeChild = 0);
@@ -49,7 +53,6 @@ public:
     virtual bool createsAnonymousWrapper() const { return true; }
     virtual bool canHaveChildren() const { return false; }
 
-    virtual void setStyle(RenderStyle*);
     virtual void updateFromElement();
 
     virtual bool hasControlClip() const { return true; }
@@ -59,6 +62,7 @@ public:
 
     virtual void calcPrefWidths();
 
+public:
     bool popupIsVisible() const { return m_popupIsVisible; }
     void showPopup();
     void hidePopup();
@@ -66,15 +70,15 @@ public:
     void setOptionsChanged(bool changed) { m_optionsChanged = changed; }
 
     String text() const;
-    
+
 private:
+    virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
+
     // PopupMenuClient methods
     virtual String itemText(unsigned listIndex) const;
     virtual bool itemIsEnabled(unsigned listIndex) const;
-    virtual Color itemBackgroundColor(unsigned listIndex) const;
-    virtual RenderStyle* itemStyle(unsigned listIndex) const;
-    virtual RenderStyle* clientStyle() const;
-    virtual Document* clientDocument() const;
+    virtual PopupMenuStyle itemStyle(unsigned listIndex) const;
+    virtual PopupMenuStyle menuStyle() const;
     virtual int clientInsetLeft() const;
     virtual int clientInsetRight() const;
     virtual int clientPaddingLeft() const;
@@ -89,8 +93,12 @@ private:
     virtual bool shouldPopOver() const { return !POPUP_MENU_PULLS_DOWN; }
     virtual void valueChanged(unsigned listIndex, bool fireOnChange = true);
     virtual FontSelector* fontSelector() const;
+    virtual HostWindow* hostWindow() const;
+    virtual PassRefPtr<Scrollbar> createScrollbar(ScrollbarClient*, ScrollbarOrientation, ScrollbarControlSize);
 
     virtual bool hasLineIfEmpty() const { return true; }
+
+    Color itemBackgroundColor(unsigned listIndex) const;
 
     void createInnerBlock();
     void adjustInnerStyle();

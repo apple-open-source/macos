@@ -1,4 +1,4 @@
-# Copyright (C) 2006 Apple Computer, Inc. All rights reserved.
+# Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -25,41 +25,51 @@
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 VPATH = \
-    $(JavaScriptCore)/kjs \
+    $(JavaScriptCore) \
+    $(JavaScriptCore)/parser \
     $(JavaScriptCore)/pcre \
+    $(JavaScriptCore)/docs \
+    $(JavaScriptCore)/runtime \
+    $(JavaScriptCore)/interpreter \
+    $(JavaScriptCore)/jit \
 #
 
 .PHONY : all
 all : \
-    array_object.lut.h \
+    ArrayPrototype.lut.h \
     chartables.c \
-    date_object.lut.h \
-    grammar.cpp \
-    lexer.lut.h \
-    math_object.lut.h \
-    number_object.lut.h \
-    regexp_object.lut.h \
-    string_object.lut.h \
+    DatePrototype.lut.h \
+    Grammar.cpp \
+    Lexer.lut.h \
+    MathObject.lut.h \
+    NumberConstructor.lut.h \
+    RegExpConstructor.lut.h \
+    RegExpObject.lut.h \
+    StringPrototype.lut.h \
+    docs/bytecode.html \
 #
 
 # lookup tables for classes
 
 %.lut.h: create_hash_table %.cpp
 	$^ -i > $@
-lexer.lut.h: create_hash_table keywords.table
+Lexer.lut.h: create_hash_table Keywords.table
 	$^ > $@
 
 # JavaScript language grammar
 
-grammar.cpp: grammar.y
-	bison -d -p kjsyy $< -o $@ > bison_out.txt 2>&1
-	perl -p -e 'END { if ($$conflict) { unlink "grammar.cpp"; die; } } $$conflict ||= /conflict/' < bison_out.txt
-	touch grammar.cpp.h
-	touch grammar.hpp
-	cat grammar.cpp.h grammar.hpp > grammar.h
-	rm -f grammar.cpp.h grammar.hpp bison_out.txt
+Grammar.cpp: Grammar.y
+	bison -d -p jscyy $< -o $@ > bison_out.txt 2>&1
+	perl -p -e 'END { if ($$conflict) { unlink "Grammar.cpp"; die; } } $$conflict ||= /conflict/' < bison_out.txt
+	touch Grammar.cpp.h
+	touch Grammar.hpp
+	cat Grammar.cpp.h Grammar.hpp > Grammar.h
+	rm -f Grammar.cpp.h Grammar.hpp bison_out.txt
 
 # character tables for PCRE
 
 chartables.c : dftables
 	$^ $@
+
+docs/bytecode.html: make-bytecode-docs.pl Interpreter.cpp 
+	perl $^ $@

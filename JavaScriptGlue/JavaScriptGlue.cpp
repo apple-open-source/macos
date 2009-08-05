@@ -32,6 +32,8 @@
 #include "JSBase.h"
 #include "JSObject.h"
 #include "JSRun.h"
+#include <JavaScriptCore/Completion.h>
+#include <JavaScriptCore/InitializeThreading.h>
 
 static CFTypeRef sJSCFNullRef = 0;
 
@@ -239,10 +241,12 @@ JSObjectRef JSObjectCallFunction(JSObjectRef ref, JSObjectRef thisObj, CFArrayRe
 */
 JSRunRef JSRunCreate(CFStringRef jsSource, JSFlags inFlags)
 {
+    initializeThreading();
+
     JSRunRef result = 0;
     if (jsSource)
     {
-        JSLock lock;
+        JSLock lock(true);
         result = (JSRunRef) new JSRun(jsSource, inFlags);
     }
     return result;
@@ -287,7 +291,7 @@ JSObjectRef JSRunEvaluate(JSRunRef ref)
     JSRun* ptr = (JSRun*)ref;
     if (ptr)
     {
-        JSLock lock;
+        JSLock lock(true);
         Completion completion = ptr->Evaluate();
         if (completion.isValueCompletion())
         {
@@ -321,7 +325,7 @@ bool JSRunCheckSyntax(JSRunRef ref)
     JSRun* ptr = (JSRun*)ref;
     if (ptr)
     {
-            JSLock lock;
+            JSLock lock(true);
             result = ptr->CheckSyntax();
     }
     return result;
@@ -330,10 +334,12 @@ bool JSRunCheckSyntax(JSRunRef ref)
 /*
     JSCollect - trigger garbage collection
 */
-void JSCollect(void)
+void JSCollect()
 {
-    JSLock lock;
-    Collector::collect();
+    initializeThreading();
+
+    JSLock lock(true);
+    getThreadGlobalExecState()->heap()->collect();
 }
 
 /*
@@ -614,6 +620,8 @@ CFMutableArrayRef JSCreateCFArrayFromJSArray(CFArrayRef array)
 
 CFMutableArrayRef JSCreateJSArrayFromCFArray(CFArrayRef array)
 {
+    initializeThreading();
+
     CFIndex count = array ? CFArrayGetCount(array) : 0;
     CFArrayCallBacks arrayCallbacks;
     CFMutableArrayRef jsArray;
@@ -640,12 +648,12 @@ CFMutableArrayRef JSCreateJSArrayFromCFArray(CFArrayRef array)
 
 void JSLockInterpreter()
 {
-    JSLock::lock();
-    JSLock::registerThread();
+    initializeThreading();
+    JSLock::lock(true);
 }
 
 
 void JSUnlockInterpreter()
 {
-    JSLock::unlock();
+    JSLock::unlock(true);
 }

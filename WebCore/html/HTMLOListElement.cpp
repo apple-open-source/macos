@@ -1,6 +1,4 @@
 /**
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *
@@ -20,22 +18,25 @@
  * Boston, MA 02110-1301, USA.
  *
  */
+
 #include "config.h"
 #include "HTMLOListElement.h"
 
 #include "CSSPropertyNames.h"
 #include "CSSValueKeywords.h"
 #include "HTMLNames.h"
+#include "MappedAttribute.h"
 #include "RenderListItem.h"
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLOListElement::HTMLOListElement(Document* doc)
-    : HTMLElement(HTMLNames::olTag, doc)
+HTMLOListElement::HTMLOListElement(const QualifiedName& tagName, Document* doc)
+    : HTMLElement(tagName, doc)
     , m_start(1)
 {
+    ASSERT(hasTagName(olTag));
 }
 
 bool HTMLOListElement::mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const
@@ -52,15 +53,15 @@ void HTMLOListElement::parseMappedAttribute(MappedAttribute* attr)
 {
     if (attr->name() == typeAttr) {
         if (attr->value() == "a")
-            addCSSProperty(attr, CSS_PROP_LIST_STYLE_TYPE, CSS_VAL_LOWER_ALPHA);
+            addCSSProperty(attr, CSSPropertyListStyleType, CSSValueLowerAlpha);
         else if (attr->value() == "A")
-            addCSSProperty(attr, CSS_PROP_LIST_STYLE_TYPE, CSS_VAL_UPPER_ALPHA);
+            addCSSProperty(attr, CSSPropertyListStyleType, CSSValueUpperAlpha);
         else if (attr->value() == "i")
-            addCSSProperty(attr, CSS_PROP_LIST_STYLE_TYPE, CSS_VAL_LOWER_ROMAN);
+            addCSSProperty(attr, CSSPropertyListStyleType, CSSValueLowerRoman);
         else if (attr->value() == "I")
-            addCSSProperty(attr, CSS_PROP_LIST_STYLE_TYPE, CSS_VAL_UPPER_ROMAN);
+            addCSSProperty(attr, CSSPropertyListStyleType, CSSValueUpperRoman);
         else if (attr->value() == "1")
-            addCSSProperty(attr, CSS_PROP_LIST_STYLE_TYPE, CSS_VAL_DECIMAL);
+            addCSSProperty(attr, CSSPropertyListStyleType, CSSValueDecimal);
     } else if (attr->name() == startAttr) {
         int s = !attr->isNull() ? attr->value().toInt() : 1;
         if (s != m_start) {

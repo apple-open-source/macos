@@ -1640,6 +1640,8 @@ static void show_power_sources(int which)
     int                 show_time_estimate;
     CFNumberRef         remaining, charge, capacity;
     CFBooleanRef        charging;
+	CFBooleanRef		charged;
+	CFBooleanRef		finishingCharge;
     CFBooleanRef        present;
     CFStringRef         name;
     CFStringRef         state;
@@ -1654,8 +1656,10 @@ static void show_power_sources(int which)
     int                 _hours = 0;
     int                 _minutes = 0;
     int                 _charge = 0;
-    int                 _capacity = 0;
-    int                 _charging = 0;
+    int                 _FCCap = 0;
+    bool                _charging = false;
+	bool				_charged = false;
+	bool				_finishingCharge = false;
     bool                _isABattery = false;
     int                 _warningLevel;
     CFArrayRef          permFailuresArray = NULL;
@@ -1736,6 +1740,13 @@ static void show_power_sources(int which)
     count = CFArrayGetCount(list);
     for(i=0; i<count; i++)
     {
+        bzero(_health, sizeof(_health));    
+        bzero(_confidence, sizeof(_confidence));    
+        bzero(_name, sizeof(_name));    
+        bzero(_failure, sizeof(_failure));
+        _hours = _minutes = _charge = _FCCap = _warningLevel = 0;
+        _charging = _charged = _finishingCharge = _isABattery = false;
+        
         one_ps = IOPSGetPowerSourceDescription(ps_info, CFArrayGetValueAtIndex(list, i));
         if(!one_ps) break;
        
@@ -1768,6 +1779,8 @@ static void show_power_sources(int which)
         health = CFDictionaryGetValue(one_ps, CFSTR(kIOPSBatteryHealthKey));
         confidence = CFDictionaryGetValue(one_ps, CFSTR(kIOPSHealthConfidenceKey));
         failure = CFDictionaryGetValue(one_ps, CFSTR("Failure"));
+        charged = CFDictionaryGetValue(one_ps, CFSTR(kIOPSIsChargedKey));
+        finishingCharge = CFDictionaryGetValue(one_ps, CFSTR(kIOPSIsFinishingChargeKey));
         
         permFailuresArray = CFDictionaryGetValue(one_ps, CFSTR(kIOPSBatteryFailureModesKey));
         
@@ -1779,7 +1792,7 @@ static void show_power_sources(int which)
         if(failure) CFStringGetCString(failure, _failure,
                                         200, kCFStringEncodingMacRoman);
         if(charge) CFNumberGetValue(charge, kCFNumberIntType, &_charge);
-        if(capacity) CFNumberGetValue(capacity, kCFNumberIntType, &_capacity);
+        if(capacity) CFNumberGetValue(capacity, kCFNumberIntType, &_FCCap);
         if(remaining) 
         {
             CFNumberGetValue(remaining, kCFNumberIntType, &_minutes);
@@ -1789,6 +1802,8 @@ static void show_power_sources(int which)
             }
         }
         if(charging) _charging = (kCFBooleanTrue == charging);
+        if (charged) _charged = (kCFBooleanTrue == charged);
+        if (finishingCharge) _finishingCharge = (kCFBooleanTrue == finishingCharge);
         
         _warningLevel = IOPSGetBatteryWarningLevel();
         
@@ -1798,9 +1813,13 @@ static void show_power_sources(int which)
         if(name) printf("%s\t", _name);
         if(present && (kCFBooleanTrue == present))
         {
-            if(charge) printf("%d%%; ", _charge);
+            if(charge) printf("%d%%; ", _charge*100/_FCCap);
             if(charging) {
-                if(_charging) {
+                if (_finishingCharge) {
+                    printf("finishing charge");
+                } else if (_charged) {
+                    printf("charged");
+                } else if(_charging) {
                     printf("charging");
                 } else {
                     if(kCFCompareEqualTo == CFStringCompare(state, CFSTR(kIOPSACPowerValue), 0)) {
@@ -2505,7 +2524,6 @@ exit:
         CFRelease(cpuStatus);
 
 }
-
 
 
 /******************************************************************************/

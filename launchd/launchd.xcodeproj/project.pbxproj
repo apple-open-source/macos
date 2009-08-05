@@ -50,6 +50,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		33C2D68C0F8F2C7A00A21214 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 721FBEBB0EA7AE2F0057462B /* Security.framework */; };
 		721FBEBC0EA7AE2F0057462B /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 721FBEBB0EA7AE2F0057462B /* Security.framework */; };
 		72B71B7D0EA7E98A00BFE986 /* exc.defs in Sources */ = {isa = PBXBuildFile; fileRef = FC36291F0E9349410054F1A3 /* exc.defs */; settings = {ATTRIBUTES = (Server, ); }; };
 		FC3627BA0E9343220054F1A3 /* StartupItems.c in Sources */ = {isa = PBXBuildFile; fileRef = FC59A0FD0E8C8ADF00D41150 /* StartupItems.c */; };
@@ -372,6 +373,7 @@
 				FCC841CC0EA7138700C01666 /* IOKit.framework in Frameworks */,
 				FC3628080E9345E10054F1A3 /* CoreFoundation.framework in Frameworks */,
 				FCD713740E95DE49001B0111 /* libedit.dylib in Frameworks */,
+				33C2D68C0F8F2C7A00A21214 /* Security.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

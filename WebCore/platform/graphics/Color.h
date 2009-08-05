@@ -33,7 +33,10 @@ typedef struct CGColor* CGColorRef;
 #endif
 
 #if PLATFORM(QT)
+#include <qglobal.h>
+QT_BEGIN_NAMESPACE
 class QColor;
+QT_END_NAMESPACE
 #endif
 
 #if PLATFORM(GTK)
@@ -53,7 +56,11 @@ typedef unsigned RGBA32;        // RGBA quadruplet
 
 RGBA32 makeRGB(int r, int g, int b);
 RGBA32 makeRGBA(int r, int g, int b, int a);
+
+RGBA32 colorWithOverrideAlpha(RGBA32 color, float overrideAlpha);
+RGBA32 makeRGBA32FromFloats(float r, float g, float b, float a);
 RGBA32 makeRGBAFromHSLA(double h, double s, double l, double a);
+RGBA32 makeRGBAFromCMYKA(float c, float m, float y, float k, float a);
 
 int differenceSquared(const Color&, const Color&);
 
@@ -63,6 +70,10 @@ public:
     Color(RGBA32 col) : m_color(col), m_valid(true) { }
     Color(int r, int g, int b) : m_color(makeRGB(r, g, b)), m_valid(true) { }
     Color(int r, int g, int b, int a) : m_color(makeRGBA(r, g, b, a)), m_valid(true) { }
+    // Color is currently limited to 32bit RGBA, perhaps some day we'll support better colors
+    Color(float r, float g, float b, float a) : m_color(makeRGBA32FromFloats(r, g, b, a)), m_valid(true) { }
+    // Creates a new color from the specific CMYK and alpha values.
+    Color(float c, float m, float y, float k, float a) : m_color(makeRGBAFromCMYKA(c, m, y, k, a)), m_valid(true) { }
     explicit Color(const String&);
     explicit Color(const char*);
     
@@ -120,7 +131,7 @@ public:
 
 private:
     RGBA32 m_color;
-    bool m_valid : 1;
+    bool m_valid;
 };
 
 inline bool operator==(const Color& a, const Color& b)
@@ -134,10 +145,11 @@ inline bool operator!=(const Color& a, const Color& b)
 }
 
 Color focusRingColor();
-void setFocusRingColorChangeFunction(void (*)());
+Color colorFromPremultipliedARGB(unsigned);
+unsigned premultipliedARGBFromColor(const Color&);
 
 #if PLATFORM(CG)
-CGColorRef cgColor(const Color&);
+CGColorRef createCGColor(const Color&);
 #endif
 
 } // namespace WebCore

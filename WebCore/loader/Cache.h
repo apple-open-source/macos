@@ -1,9 +1,7 @@
 /*
-    This file is part of the KDE libraries
-
     Copyright (C) 1998 Lars Knoll (knoll@mpi-hd.mpg.de)
     Copyright (C) 2001 Dirk Mueller <mueller@kde.org>
-    Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
+    Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -39,6 +37,7 @@
 
 namespace WebCore  {
 
+class CachedCSSStyleSheet;
 class CachedResource;
 class DocLoader;
 class KURL;
@@ -73,7 +72,10 @@ public:
         int size;
         int liveSize;
         int decodedSize;
-        TypeStatistic() : count(0), size(0), liveSize(0), decodedSize(0) { }
+        int purgeableSize;
+        int purgedSize;
+        TypeStatistic() : count(0), size(0), liveSize(0), decodedSize(0), purgeableSize(0), purgedSize(0) { }
+        void addResource(CachedResource*);
     };
     
     struct Statistics {
@@ -94,8 +96,14 @@ public:
 
     // Request resources from the cache.  A load will be initiated and a cache object created if the object is not
     // found in the cache.
-    CachedResource* requestResource(DocLoader*, CachedResource::Type, const KURL& url, const String* charset = 0, bool skipCanLoadCheck = false, bool sendResourceLoadCallbacks = true);
+    CachedResource* requestResource(DocLoader*, CachedResource::Type, const KURL& url, const String& charset, bool isPreload = false);
 
+    CachedCSSStyleSheet* requestUserCSSStyleSheet(DocLoader*, const String& url, const String& charset);
+    
+    void revalidateResource(CachedResource*, DocLoader*);
+    void revalidationSucceeded(CachedResource* revalidatingResource, const ResourceResponse&);
+    void revalidationFailed(CachedResource* revalidatingResource);
+    
     // Sets the cache's memory capacities, in bytes. These will hold only approximately, 
     // since the decoded cost of resources like scripts and stylesheets is not known.
     //  - minDeadBytes: The maximum number of bytes that dead resources should consume when the cache is under pressure.
@@ -111,15 +119,18 @@ public:
     void setPruneEnabled(bool enabled) { m_pruneEnabled = enabled; }
     void prune()
     {
-        if (m_liveSize + m_deadSize <= m_capacity && m_deadSize <= m_maxDeadCapacity) // Fast path.
+        if (m_liveSize + m_deadSize <= m_capacity && m_maxDeadCapacity && m_deadSize <= m_maxDeadCapacity) // Fast path.
             return;
             
         pruneDeadResources(); // Prune dead first, in case it was "borrowing" capacity from live.
         pruneLiveResources();
     }
 
+    void setDeadDecodedDataDeletionInterval(double interval) { m_deadDecodedDataDeletionInterval = interval; }
+    double deadDecodedDataDeletionInterval() const { return m_deadDecodedDataDeletionInterval; }
+
     // Remove an existing cache entry from both the resource map and from the LRU list.
-    void remove(CachedResource*);
+    void remove(CachedResource* resource) { evict(resource); }
 
     void addDocLoader(DocLoader*);
     void removeDocLoader(DocLoader*);
@@ -150,6 +161,7 @@ private:
     LRUList* lruListFor(CachedResource*);
     void resourceAccessed(CachedResource*);
 #ifndef NDEBUG
+    void dumpStats();
     void dumpLRULists(bool includeLive) const;
 #endif
 
@@ -159,16 +171,20 @@ private:
     void pruneDeadResources(); // Flush decoded and encoded data from resources not referenced by Web pages.
     void pruneLiveResources(); // Flush decoded data from resources still referenced by Web pages.
 
+    void evict(CachedResource*);
+
     // Member variables.
     HashSet<DocLoader*> m_docLoaders;
     Loader m_loader;
 
     bool m_disabled;  // Whether or not the cache is enabled.
     bool m_pruneEnabled;
+    bool m_inPruneDeadResources;
 
     unsigned m_capacity;
     unsigned m_minDeadCapacity;
     unsigned m_maxDeadCapacity;
+    double m_deadDecodedDataDeletionInterval;
 
     unsigned m_liveSize; // The number of bytes currently consumed by "live" resources in the cache.
     unsigned m_deadSize; // The number of bytes currently consumed by "dead" resources in the cache.

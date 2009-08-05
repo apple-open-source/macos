@@ -4,6 +4,7 @@
  * Copyright (C) 2006 George Staikos <staikos@kde.org>
  * Copyright (C) 2006 Dirk Mueller <mueller@kde.org>
  * Copyright (C) 2006 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) 2008 Collabora, Ltd.
  *
  * All rights reserved.
  *
@@ -32,6 +33,7 @@
 #include "config.h"
 
 #include "AXObjectCache.h"
+#include "DNS.h"
 #include "CString.h"
 #include "CachedResource.h"
 #include "CookieJar.h"
@@ -48,7 +50,6 @@
 #include "FileSystem.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
-#include "GlobalHistory.h"
 #include "IconLoader.h"
 #include "IntPoint.h"
 #include "KURL.h"
@@ -59,7 +60,9 @@
 #include "NotImplemented.h"
 #include "Path.h"
 #include "PlatformMouseEvent.h"
-#include "PluginInfoStore.h"
+#include "PluginDatabase.h"
+#include "PluginPackage.h"
+#include "PluginView.h"
 #include "RenderTheme.h"
 #include "SharedBuffer.h"
 #include "SystemTime.h"
@@ -67,24 +70,27 @@
 #include "Widget.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <float.h>
 
 using namespace WebCore;
 
+#if defined(Q_OS_WINCE)
+Vector<String> PluginDatabase::defaultPluginDirectories() { notImplemented(); return Vector<String>(); }
+void PluginDatabase::getPluginPathsInDirectories(HashSet<String>& paths) const { notImplemented(); }
+bool PluginDatabase::isPreferredPluginDirectory(const String& directory) { notImplemented(); return false; }
+#endif
+
 namespace WebCore {
 
-Vector<String> supportedKeySizes() { notImplemented(); return Vector<String>(); }
+void getSupportedKeySizes(Vector<String>&) { notImplemented(); }
 String signedPublicKeyAndChallengeString(unsigned keySizeIndex, const String &challengeString, const KURL &url) { return String(); }
-
-CString openTemporaryFile(const char* prefix, PlatformFileHandle& handle) { notImplemented(); handle = invalidPlatformFileHandle; return 0; }
-void closeFile(PlatformFileHandle&) { notImplemented(); };
-int writeToFile(PlatformFileHandle, const char* data, int length) { return -1; };
 
 #if !defined(Q_OS_WIN)
 // defined in win/SystemTimeWin.cpp, which is compiled for the Qt/Windows port
-float userIdleTime() { notImplemented(); return 0.0; }
+float userIdleTime() { notImplemented(); return FLT_MAX; } // return an arbitrarily high userIdleTime so that releasing pages from the page cache isn't postponed
 #endif
 
-PassRefPtr<SharedBuffer> SharedBuffer::createWithContentsOfFile(const String&) { notImplemented(); return 0; }
+void prefetchDNS(const String& hostname) { notImplemented(); }
 
 }
 

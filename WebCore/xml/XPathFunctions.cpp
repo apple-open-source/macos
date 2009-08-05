@@ -32,7 +32,7 @@
 
 #include "Document.h"
 #include "Element.h"
-#include "NamedAttrMap.h"
+#include "NamedNodeMap.h"
 #include "XMLNames.h"
 #include "XPathUtil.h"
 #include "XPathValue.h"
@@ -326,7 +326,7 @@ Value FunLocalName::evaluate() const
     if (!node)
         node = evaluationContext().node.get();
 
-    return node->localName().domString();
+    return node->localName().string();
 }
 
 Value FunNamespaceURI::evaluate() const
@@ -345,7 +345,7 @@ Value FunNamespaceURI::evaluate() const
     if (!node)
         node = evaluationContext().node.get();
 
-    return node->namespaceURI().domString();
+    return node->namespaceURI().string();
 }
 
 Value FunName::evaluate() const
@@ -365,7 +365,7 @@ Value FunName::evaluate() const
         node = evaluationContext().node.get();
 
     const AtomicString& prefix = node->prefix();
-    return prefix.isEmpty() ? node->localName().domString() : prefix + ":" + node->localName();
+    return prefix.isEmpty() ? node->localName().string() : prefix + ":" + node->localName();
 }
 
 Value FunCount::evaluate() const
@@ -534,30 +534,30 @@ Value FunLang::evaluate() const
 {
     String lang = arg(0)->evaluate().toString();
 
-    RefPtr<Node> langNode = 0;
+    Attribute* languageAttribute = 0;
     Node* node = evaluationContext().node.get();
     while (node) {
-        NamedAttrMap* attrs = node->attributes();
+        NamedNodeMap* attrs = node->attributes();
         if (attrs)
-            langNode = attrs->getNamedItemNS(XMLNames::xmlNamespaceURI, "lang");
-        if (langNode)
+            languageAttribute = attrs->getAttributeItem(XMLNames::langAttr);
+        if (languageAttribute)
             break;
         node = node->parentNode();
     }
 
-    if (!langNode)
+    if (!languageAttribute)
         return false;
 
-    String langNodeValue = langNode->nodeValue();
+    String langValue = languageAttribute->value();
     while (true) {
-        if (equalIgnoringCase(langNodeValue, lang))
+        if (equalIgnoringCase(langValue, lang))
             return true;
 
         // Remove suffixes one by one.
-        int index = langNodeValue.reverseFind('-');
+        int index = langValue.reverseFind('-');
         if (index == -1)
             break;
-        langNodeValue = langNodeValue.left(index);
+        langValue = langValue.left(index);
     }
 
     return false;

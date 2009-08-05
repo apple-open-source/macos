@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,22 +26,25 @@
 #include "config.h"
 #include "JSNamedNodeMap.h"
 
+#include "JSNode.h"
 #include "NamedNodeMap.h"
+#include "Node.h"
 #include "PlatformString.h"
-#include "kjs_binding.h"
-#include "kjs_dom.h"
+#include "JSDOMBinding.h"
+
+using namespace JSC;
 
 namespace WebCore {
 
-bool JSNamedNodeMap::canGetItemsForName(KJS::ExecState*, NamedNodeMap* impl, const KJS::Identifier& propertyName)
+bool JSNamedNodeMap::canGetItemsForName(ExecState*, NamedNodeMap* impl, const Identifier& propertyName)
 {
     return impl->getNamedItem(propertyName);
 }
 
-KJS::JSValue* JSNamedNodeMap::nameGetter(KJS::ExecState* exec, KJS::JSObject* originalObject, const KJS::Identifier& propertyName, const KJS::PropertySlot& slot)
+JSValue JSNamedNodeMap::nameGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot& slot)
 {
-    JSNamedNodeMap* thisObj = static_cast<JSNamedNodeMap*>(slot.slotBase());
-    return KJS::toJS(exec, thisObj->impl()->getNamedItem(propertyName));
+    JSNamedNodeMap* thisObj = static_cast<JSNamedNodeMap*>(asObject(slot.slotBase()));
+    return toJS(exec, thisObj->impl()->getNamedItem(propertyName));
 }
 
 } // namespace WebCore

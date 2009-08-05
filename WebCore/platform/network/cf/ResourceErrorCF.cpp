@@ -45,10 +45,11 @@ const CFStringRef failingURLKey = CFSTR("NSErrorFailingURLKey");
 
 // FIXME: Once <rdar://problem/5050841> is fixed we can remove this constructor.
 ResourceError::ResourceError(CFStreamError error)
-    : m_errorCode(error.error)
-    , m_isNull(false)
-    , m_dataIsUpToDate(true)
+    : m_dataIsUpToDate(true)
 {
+    m_isNull = false;
+    m_errorCode = error.error;
+
     switch(error.domain) {
     case kCFStreamErrorDomainCustom:
         m_domain ="NSCustomErrorDomain";
@@ -62,8 +63,11 @@ ResourceError::ResourceError(CFStreamError error)
     }
 }
 
-void ResourceError::unpackPlatformError()
+void ResourceError::platformLazyInit()
 {
+    if (m_dataIsUpToDate)
+        return;
+
     if (!m_platformError)
         return;
 
@@ -102,6 +106,11 @@ void ResourceError::unpackPlatformError()
     m_dataIsUpToDate = true;
 }
 
+bool ResourceError::platformCompare(const ResourceError& a, const ResourceError& b)
+{
+    return (CFErrorRef)a == (CFErrorRef)b;
+}
+
 ResourceError::operator CFErrorRef() const
 {
     if (m_isNull) {
@@ -120,7 +129,7 @@ ResourceError::operator CFErrorRef() const
         if (!m_failingURL.isEmpty()) {
             RetainPtr<CFStringRef> failingURLString(AdoptCF, m_failingURL.createCFString());
             CFDictionarySetValue(userInfo.get(), failingURLStringKey, failingURLString.get());
-            RetainPtr<CFURLRef> url(AdoptCF, KURL(m_failingURL.deprecatedString()).createCFURL());
+            RetainPtr<CFURLRef> url(AdoptCF, KURL(m_failingURL).createCFURL());
             CFDictionarySetValue(userInfo.get(), failingURLKey, url.get());
         }
 
@@ -133,7 +142,7 @@ ResourceError::operator CFErrorRef() const
 
 ResourceError::operator CFStreamError() const
 {
-    unpackPlatformErrorIfNeeded();
+    lazyInit();
 
     CFStreamError result;
     result.error = m_errorCode;

@@ -185,7 +185,7 @@ key_create_pair(int argc, char * const *argv)
 
 /*
     { "create-keypair", key_create_pair,
-	  "[-a alg] [-s size] [-f date] [-t date] [-d days] [-k keychain] [-A|-T app1] description\n"
+	  "[-a alg] [-s size] [-f date] [-t date] [-d days] [-k keychain] [-A|-T appPath] description\n"
 	  "    -a  Use alg as the algorithm, can be rsa, dh, dsa or fee (default rsa)\n"
 	  "    -s  Specify the keysize in bits (default 512)\n"
 	  "    -f  Make a key valid from the specified date\n"
@@ -193,9 +193,9 @@ key_create_pair(int argc, char * const *argv)
 	  "    -d  Make a key valid for the number of days specified from now\n"
 	  "    -k  Use the specified keychain rather than the default\n"
 	  "    -H  Print the public key hash attribute\n"
-	  "    -A  Allow any application to access without warning.\n"
-	  "    -T  Allow the application specified to access without warning (multiple -T options are allowed).\n"
-	  "If no options are provided ask the user interactively",
+	  "    -A  Allow any application to access without warning\n"
+	  "    -T  Allow the application specified to access without warning (multiple -T options are allowed)\n"
+	  "If no options are provided, ask the user interactively.",
 */
 
     while ((ch = getopt(argc, argv, "a:s:f:t:d:k:AHT:h")) != -1)
@@ -234,8 +234,8 @@ key_create_pair(int argc, char * const *argv)
 
 				CFArrayAppendValue(trusted_list, app);
 				CFRelease(app);
-				break;
 			}
+			break;
 		}
 		case 'f':
 			 result = parse_time(optarg, &from_time);

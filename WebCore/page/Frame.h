@@ -1,4 +1,3 @@
-// -*- c-basic-offset: 4 -*-
 /*
  * Copyright (C) 1998, 1999 Torben Weis <weis@kde.org>
  *                     1999-2001 Lars Knoll <knoll@kde.org>
@@ -6,8 +5,9 @@
  *                     2000-2001 Simon Hausmann <hausmann@kde.org>
  *                     2000-2001 Dirk Mueller <mueller@kde.org>
  *                     2000 Stefan Schimanski <1Stein@gmx.de>
- * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
- * Copyright (C) 2007 Trolltech ASA
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
+ * Copyright (C) 2008 Eric Seidel <eric@webkit.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -28,100 +28,73 @@
 #ifndef Frame_h
 #define Frame_h
 
-#include "Color.h"
-#include "EditAction.h"
+#include "AnimationController.h"
+#include "Document.h"
 #include "DragImage.h"
-#include "RenderLayer.h"
+#include "EditAction.h"
+#include "Editor.h"
+#include "EventHandler.h"
+#include "FrameLoader.h"
+#include "FrameTree.h"
+#include "Range.h"
+#include "ScrollBehavior.h"
+#include "ScriptController.h"
+#include "SelectionController.h"
 #include "TextGranularity.h"
-#include "VisiblePosition.h"
-#include <wtf/unicode/Unicode.h>
-#include <wtf/Forward.h>
-#include <wtf/Vector.h>
 
-struct NPObject;
-
-namespace KJS {
-
-    class Interpreter;
-    class JSGlobalObject;
-
-    namespace Bindings {
-        class Instance;
-        class RootObject;
-    }
-
-}
+#if PLATFORM(WIN)
+#include "FrameWin.h"
+#endif
 
 #if PLATFORM(MAC)
-#ifdef __OBJC__
-@class NSArray;
-@class NSDictionary;
-@class NSMenu;
-@class NSMutableDictionary;
-@class NSString;
-@class WebCoreFrameBridge;
-@class WebScriptObject;
-#else
+#ifndef __OBJC__
 class NSArray;
 class NSDictionary;
-class NSMenu;
 class NSMutableDictionary;
 class NSString;
-class WebCoreFrameBridge;
-class WebScriptObject;
 typedef int NSWritingDirection;
 #endif
 #endif
 
+#if PLATFORM(WIN)
+typedef struct HBITMAP__* HBITMAP;
+#endif
+
 namespace WebCore {
 
-class AnimationController;
-class CSSComputedStyleDeclaration;
 class CSSMutableStyleDeclaration;
-class CSSStyleDeclaration;
-class DOMWindow;
-class Document;
 class Editor;
-class Element;
 class EventHandler;
-class FloatRect;
 class FrameLoader;
 class FrameLoaderClient;
-class HTMLFrameOwnerElement;
-class HTMLTableCellElement;
-class FramePrivate;
 class FrameTree;
 class FrameView;
-class GraphicsContext;
-class HTMLFormElement;
-class IntRect;
-class KJSProxy;
-class KURL;
-class Node;
-class Page;
-class Range;
+class HTMLFrameOwnerElement;
+class HTMLTableCellElement;
+class RegularExpression;
 class RenderPart;
-class Selection;
+class ScriptController;
 class SelectionController;
 class Settings;
+class VisibleSelection;
 class Widget;
 
-struct FrameLoadRequest;
+#if FRAME_LOADS_USER_STYLESHEET
+    class UserStyleSheetLoader;
+#endif
 
 template <typename T> class Timer;
 
 class Frame : public RefCounted<Frame> {
 public:
-    Frame(Page*, HTMLFrameOwnerElement*, FrameLoaderClient*);
-    virtual void setView(FrameView*);
-    virtual ~Frame();
+    static PassRefPtr<Frame> create(Page* page, HTMLFrameOwnerElement* ownerElement, FrameLoaderClient* client)
+    {
+        return adoptRef(new Frame(page, ownerElement, client));
+    }
+    void setView(FrameView*);
+    ~Frame();
     
     void init();
-
-#if PLATFORM(MAC)    
-    void setBridge(WebCoreFrameBridge*);
-    WebCoreFrameBridge* bridge() const;
-#endif
 
     Page* page() const;
     HTMLFrameOwnerElement* ownerElement() const;
@@ -132,22 +105,32 @@ public:
     Document* document() const;
     FrameView* view() const;
 
+    void setDOMWindow(DOMWindow*);
     DOMWindow* domWindow() const;
+    void clearFormerDOMWindow(DOMWindow*);
+
     Editor* editor() const;
     EventHandler* eventHandler() const;
     FrameLoader* loader() const;
-    SelectionController* selectionController() const;
+    SelectionController* selection() const;
     FrameTree* tree() const;
-    AnimationController* animationController() const;
+    AnimationController* animation() const;
+    ScriptController* script();
 
-    // FIXME: Rename to contentRenderer and change type to RenderView.
-    RenderObject* renderer() const; // root renderer for the document contained in this frame
-    RenderPart* ownerRenderer(); // renderer for the element that contains this frame
+    RenderView* contentRenderer() const; // root renderer for the document contained in this frame
+    RenderPart* ownerRenderer() const; // renderer for the element that contains this frame
+    
+    bool isDisconnected() const;
+    void setIsDisconnected(bool);
+    bool excludeFromTextSearch() const;
+    void setExcludeFromTextSearch(bool);
 
-    friend class FramePrivate;
+    void createView(const IntSize&, const Color&, bool, const IntSize &, bool,
+                    ScrollbarMode = ScrollbarAuto, ScrollbarMode = ScrollbarAuto);
+
 
 private:
-    FramePrivate* d;
+    Frame(Page*, HTMLFrameOwnerElement*, FrameLoaderClient*);
     
 // === undecided, would like to consider moving to another class
 
@@ -164,35 +147,17 @@ public:
     void setPrinting(bool printing, float minPageWidth, float maxPageWidth, bool adjustViewSize);
 
     bool inViewSourceMode() const;
-    void setInViewSourceMode(bool = true) const;
+    void setInViewSourceMode(bool = true);
 
     void keepAlive(); // Used to keep the frame alive when running a script that might destroy it.
 #ifndef NDEBUG
     static void cancelAllKeepAlive();
 #endif
 
-    KJS::Bindings::Instance* createScriptInstanceForWidget(Widget*);
-    KJS::Bindings::RootObject* bindingRootObject();
-    
-    PassRefPtr<KJS::Bindings::RootObject> createRootObject(void* nativeHandle, KJS::JSGlobalObject*);
-
-#if PLATFORM(MAC)
-    WebScriptObject* windowScriptObject();
-#endif
-
-#if USE(NPOBJECT)
-    NPObject* windowScriptNPObject();
-#endif    
-    
     void setDocument(PassRefPtr<Document>);
 
-    KJSProxy* scriptProxy();
-
     void clearTimers();
-    static void clearTimers(FrameView*);
-
-    // Convenience, to avoid repeating the code to dig down to get this.
-    UChar backslashAsCurrencySymbol() const;
+    static void clearTimers(FrameView*, Document*);
 
     void setNeedsReapplyStyles();
     bool needsReapplyStyles() const;
@@ -200,59 +165,35 @@ public:
 
     String documentTypeString() const;
 
-    void dashboardRegionsChanged();
-
-    void clearScriptProxy();
+    // This method -- and the corresponding list of former DOM windows --
+    // should move onto ScriptController
     void clearDOMWindow();
 
-    void clearScriptObjects();
-    void cleanupScriptObjectsForPlugin(void*);
+    String displayStringModifiedByEncoding(const String& str) const 
+    {
+        return document() ? document()->displayStringModifiedByEncoding(str) : str;
+    }
 
 private:
-    void clearPlatformScriptObjects();
-
     void lifeSupportTimerFired(Timer<Frame>*);
-    
-// === to be moved into Document
-
-public:
-    bool isFrameSet() const;
-
-// === to be moved into EventHandler
-
-public:
-    void sendResizeEvent();
-    void sendScrollEvent();
 
 // === to be moved into FrameView
 
-public:
-    void paint(GraphicsContext*, const IntRect&);
-    void setPaintRestriction(PaintRestriction);
-    bool isPainting() const;
-
-    static double currentPaintTimeStamp() { return s_currentPaintTimeStamp; } // returns 0 if not painting
-    
-    void forceLayout(bool allowSubtree = false);
-    void forceLayoutWithPageWidthRange(float minPageWidth, float maxPageWidth, bool adjustViewSize);
-
-    void adjustPageHeight(float* newBottom, float oldTop, float oldBottom, float bottomLimit);
-
-    void setZoomFactor(int percent);
-    int zoomFactor() const; // FIXME: This is a multiplier for text size only; needs a better name.
-
-    bool prohibitsScrolling() const;
-    void setProhibitsScrolling(const bool);
-
-private:
-    static double s_currentPaintTimeStamp; // used for detecting decoded resource thrash in the cache
+public: 
+    void setZoomFactor(float scale, bool isTextOnly);
+    float zoomFactor() const;
+    bool isZoomFactorTextOnly() const;
+    bool shouldApplyTextZoom() const;
+    bool shouldApplyPageZoom() const;
+    float pageZoomFactor() const { return shouldApplyPageZoom() ? zoomFactor() : 1.0f; }
+    float textZoomFactor() const { return shouldApplyTextZoom() ? zoomFactor() : 1.0f; }
 
 // === to be moved into Chrome
 
 public:
     void focusWindow();
     void unfocusWindow();
-    bool shouldClose();
+    bool shouldClose(RegisteredEventListenerVector* alternateEventListeners = 0);
     void scheduleClose();
 
     void setJSStatusBarText(const String&);
@@ -266,8 +207,8 @@ public:
     String selectedText() const;  
     bool findString(const String&, bool forward, bool caseFlag, bool wrapFlag, bool startInSelection);
 
-    const Selection& mark() const; // Mark, to be used as emacs uses it.
-    void setMark(const Selection&);
+    const VisibleSelection& mark() const; // Mark, to be used as emacs uses it.
+    void setMark(const VisibleSelection&);
 
     void computeAndSetTypingStyle(CSSStyleDeclaration* , EditAction = EditActionUnspecified);
     String selectionStartStylePropertyValue(int stylePropertyID) const;
@@ -278,8 +219,8 @@ public:
 
     IntRect firstRectForRange(Range*) const;
     
-    void respondToChangedSelection(const Selection& oldSelection, bool closeTyping);
-    bool shouldChangeSelection(const Selection& oldSelection, const Selection& newSelection, EAffinity, bool stillSelecting) const;
+    void respondToChangedSelection(const VisibleSelection& oldSelection, bool closeTyping);
+    bool shouldChangeSelection(const VisibleSelection& oldSelection, const VisibleSelection& newSelection, EAffinity, bool stillSelecting) const;
 
     RenderStyle* styleForSelectionStart(Node*& nodeToRemove) const;
 
@@ -287,7 +228,7 @@ public:
     bool markedTextMatchesAreHighlighted() const;
     void setMarkedTextMatchesAreHighlighted(bool flag);
 
-    CSSComputedStyleDeclaration* selectionComputedStyle(Node*& nodeToRemove) const;
+    PassRefPtr<CSSComputedStyleDeclaration> selectionComputedStyle(Node*& nodeToRemove) const;
 
     void textFieldDidBeginEditing(Element*);
     void textFieldDidEndEditing(Element*);
@@ -302,10 +243,10 @@ public:
 
 public:
     TextGranularity selectionGranularity() const;
-    void setSelectionGranularity(TextGranularity) const;
+    void setSelectionGranularity(TextGranularity);
 
-    bool shouldChangeSelection(const Selection&) const;
-    bool shouldDeleteSelection(const Selection&) const;
+    bool shouldChangeSelection(const VisibleSelection&) const;
+    bool shouldDeleteSelection(const VisibleSelection&) const;
     void clearCaretRectIfNeeded();
     void setFocusedNodeIfNeeded();
     void selectionLayoutChanged();
@@ -314,8 +255,8 @@ public:
     void invalidateSelection();
 
     void setCaretVisible(bool = true);
-    void paintCaret(GraphicsContext*, const IntRect&) const;  
-    void paintDragCaret(GraphicsContext*, const IntRect&) const;
+    void paintCaret(GraphicsContext*, int tx, int ty, const IntRect& clipRect) const;  
+    void paintDragCaret(GraphicsContext*, int tx, int ty, const IntRect& clipRect) const;
 
     bool isContentEditable() const; // if true, everything in frame is editable
 
@@ -325,13 +266,12 @@ public:
     void setTypingStyle(CSSMutableStyleDeclaration*);
     void clearTypingStyle();
 
-    FloatRect selectionRect(bool clipToVisibleContent = true) const;
+    FloatRect selectionBounds(bool clipToVisibleContent = true) const;
     void selectionTextRects(Vector<FloatRect>&, bool clipToVisibleContent = true) const;
 
     HTMLFormElement* currentForm() const;
 
-    void revealSelection(const RenderLayer::ScrollAlignment& = RenderLayer::gAlignCenterIfNeeded) const;
-    void revealCaret(const RenderLayer::ScrollAlignment& = RenderLayer::gAlignCenterIfNeeded) const;
+    void revealSelection(const ScrollAlignment& = ScrollAlignment::alignCenterIfNeeded, bool revealExtent = false);
     void setSelectionFromNone();
 
     void setUseSecureKeyboardEntry(bool);
@@ -358,29 +298,76 @@ public:
     NSString* searchForLabelsBeforeElement(NSArray* labels, Element*);
     NSString* matchLabelsAgainstElement(NSArray* labels, Element*);
 
+#if ENABLE(DASHBOARD_SUPPORT)
     NSMutableDictionary* dashboardRegionsDictionary();
-
-    void willPopupMenu(NSMenu*);
+#endif
 
     NSImage* selectionImage(bool forceBlackText = false) const;
     NSImage* snapshotDragImage(Node*, NSRect* imageRect, NSRect* elementRect) const;
+    NSImage* nodeImage(Node*) const;
 
 private:    
     NSImage* imageFromRect(NSRect) const;
-
-// === to be moved into Chrome
-
-public:
-    FloatRect customHighlightLineRect(const AtomicString& type, const FloatRect& lineRect, Node*);
-    void paintCustomHighlight(const AtomicString& type, const FloatRect& boxRect, const FloatRect& lineRect, bool text, bool line, Node*);
 
 // === to be moved into Editor
 
 public:
     NSDictionary* fontAttributesForSelectionStart() const;
     NSWritingDirection baseWritingDirectionForSelectionStart() const;
-    void issuePasteCommand();
 
+#endif
+
+#if PLATFORM(WIN)
+
+public:
+    // FIXME - We should have a single version of nodeImage instead of using platform types.
+    HBITMAP nodeImage(Node*) const;
+
+#endif
+
+private:
+    Page* m_page;
+    mutable FrameTree m_treeNode;
+    mutable FrameLoader m_loader;
+
+    mutable RefPtr<DOMWindow> m_domWindow;
+    HashSet<DOMWindow*> m_liveFormerWindows;
+
+    HTMLFrameOwnerElement* m_ownerElement;
+    RefPtr<FrameView> m_view;
+    RefPtr<Document> m_doc;
+
+    ScriptController m_script;
+
+    String m_kjsStatusBarText;
+    String m_kjsDefaultStatusBarText;
+
+    float m_zoomFactor;
+
+    TextGranularity m_selectionGranularity;
+
+    mutable SelectionController m_selectionController;
+    mutable VisibleSelection m_mark;
+    Timer<Frame> m_caretBlinkTimer;
+    mutable Editor m_editor;
+    mutable EventHandler m_eventHandler;
+    mutable AnimationController m_animationController;
+
+    RefPtr<CSSMutableStyleDeclaration> m_typingStyle;
+
+    Timer<Frame> m_lifeSupportTimer;
+
+    bool m_caretVisible;
+    bool m_caretPaint;
+    
+    bool m_highlightTextMatches;
+    bool m_inViewSourceMode;
+    bool m_needsReapplyStyles;
+    bool m_isDisconnected;
+    bool m_excludeFromTextSearch;
+
+#if FRAME_LOADS_USER_STYLESHEET
+    UserStyleSheetLoader* m_userStyleSheetLoader;
 #endif
 
 };

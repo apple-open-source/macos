@@ -30,10 +30,10 @@
 #include "SVGStyledTransformableElement.h"
 #include "SVGTests.h"
 #include "SVGURIReference.h"
+#include "SVGPreserveAspectRatio.h"
 
 namespace WebCore {
 
-    class SVGPreserveAspectRatio;
     class SVGLength;
 
     class SVGImageElement : public SVGStyledTransformableElement,
@@ -51,26 +51,24 @@ namespace WebCore {
         virtual void svgAttributeChanged(const QualifiedName&);
 
         virtual void attach();
+        virtual void insertedIntoDocument();
 
         virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
-        
-    protected:
-        virtual bool haveLoadedRequiredResources();
-        
-        virtual bool hasRelativeValues() const;
+ 
+        virtual const QualifiedName& imageSourceAttributeName() const;       
+        virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
 
     protected:
+        virtual bool haveLoadedRequiredResources();
+        virtual bool hasRelativeValues() const;
         virtual const SVGElement* contextElement() const { return this; }
 
     private:
-        ANIMATED_PROPERTY_FORWARD_DECLARATIONS(SVGExternalResourcesRequired, bool, ExternalResourcesRequired, externalResourcesRequired) 
-        ANIMATED_PROPERTY_FORWARD_DECLARATIONS(SVGURIReference, String, Href, href)
-
-        ANIMATED_PROPERTY_DECLARATIONS(SVGImageElement, SVGLength, SVGLength, X, x)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGImageElement, SVGLength, SVGLength, Y, y)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGImageElement, SVGLength, SVGLength, Width, width)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGImageElement, SVGLength, SVGLength, Height, height)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGImageElement, SVGPreserveAspectRatio*, RefPtr<SVGPreserveAspectRatio>, PreserveAspectRatio, preserveAspectRatio)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGImageElement, SVGNames::imageTagString, SVGNames::xAttrString, SVGLength, X, x)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGImageElement, SVGNames::imageTagString, SVGNames::yAttrString, SVGLength, Y, y)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGImageElement, SVGNames::imageTagString, SVGNames::widthAttrString, SVGLength, Width, width)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGImageElement, SVGNames::imageTagString, SVGNames::heightAttrString, SVGLength, Height, height)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGImageElement, SVGNames::imageTagString, SVGNames::preserveAspectRatioAttrString, SVGPreserveAspectRatio, PreserveAspectRatio, preserveAspectRatio)
 
         SVGImageLoader m_imageLoader;
     };

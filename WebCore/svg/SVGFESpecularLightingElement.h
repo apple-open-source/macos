@@ -26,33 +26,33 @@
 #include "SVGFESpecularLighting.h"
 #include "SVGFilterPrimitiveStandardAttributes.h"
 
-namespace WebCore
-{
+namespace WebCore {
+
+    extern char SVGKernelUnitLengthXIdentifier[];
+    extern char SVGKernelUnitLengthYIdentifier[];
+
     class SVGColor;
     
-    class SVGFESpecularLightingElement : public SVGFilterPrimitiveStandardAttributes
-    {
+    class SVGFESpecularLightingElement : public SVGFilterPrimitiveStandardAttributes {
     public:
         SVGFESpecularLightingElement(const QualifiedName&, Document*);
         virtual ~SVGFESpecularLightingElement();
         
         virtual void parseMappedAttribute(MappedAttribute*);
-        virtual SVGFESpecularLighting* filterEffect(SVGResourceFilter*) const;
-
-    protected:
-        virtual const SVGElement* contextElement() const { return this; }
+        virtual SVGFilterEffect* filterEffect(SVGResourceFilter*) const;
+        bool build(FilterBuilder*);
 
     private:
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFESpecularLightingElement, String, String, In1, in1)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFESpecularLightingElement, float, float, SpecularConstant, specularConstant)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFESpecularLightingElement, float, float, SpecularExponent, specularExponent)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFESpecularLightingElement, float, float, SurfaceScale, surfaceScale)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFESpecularLightingElement, float, float, KernelUnitLengthX, kernelUnitLengthX)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFESpecularLightingElement, float, float, KernelUnitLengthY, kernelUnitLengthY)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGFESpecularLightingElement, SVGNames::feSpecularLightingTagString, SVGNames::inAttrString, String, In1, in1)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGFESpecularLightingElement, SVGNames::feSpecularLightingTagString, SVGNames::specularConstantAttrString, float, SpecularConstant, specularConstant)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGFESpecularLightingElement, SVGNames::feSpecularLightingTagString, SVGNames::specularExponentAttrString, float, SpecularExponent, specularExponent)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGFESpecularLightingElement, SVGNames::feSpecularLightingTagString, SVGNames::surfaceScaleAttrString, float, SurfaceScale, surfaceScale)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGFESpecularLightingElement, SVGNames::feSpecularLightingTagString, SVGKernelUnitLengthXIdentifier, float, KernelUnitLengthX, kernelUnitLengthX)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGFESpecularLightingElement, SVGNames::feSpecularLightingTagString, SVGKernelUnitLengthYIdentifier, float, KernelUnitLengthY, kernelUnitLengthY)
 
-        mutable SVGFESpecularLighting* m_filterEffect;
+        mutable RefPtr<FESpecularLighting> m_filterEffect;
         
-        void updateLights() const;
+        LightSource* findLights() const;
     };
 
 } // namespace WebCore

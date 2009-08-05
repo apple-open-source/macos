@@ -22,11 +22,12 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
+#ifndef NPFUNCTIONS_H
+#define NPFUNCTIONS_H
 
-#ifndef _NPFUNCTIONS_H_
-#define _NPFUNCTIONS_H_
 
-#include "npruntime_internal.h"
+#include "npruntime.h"
+#include "npapi.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -59,8 +60,17 @@ typedef NPError (*NPN_GetURLProcPtr)(NPP instance, const char* URL, const char* 
 typedef NPError (*NPN_PostURLProcPtr)(NPP instance, const char* URL, const char* window, uint32 len, const char* buf, NPBool file);
 typedef void* (*NPN_GetJavaEnvProcPtr)(void);
 typedef void* (*NPN_GetJavaPeerProcPtr)(NPP instance);
-typedef void (*NPN_PushPopupsEnabledStateProcPtr)(NPP instance, NPBool enabled);
-typedef void (*NPN_PopPopupsEnabledStateProcPtr)(NPP instance);
+typedef void  (*NPN_PushPopupsEnabledStateProcPtr)(NPP instance, NPBool enabled);
+typedef void  (*NPN_PopPopupsEnabledStateProcPtr)(NPP instance);
+typedef void (*NPN_PluginThreadAsyncCallProcPtr)(NPP npp, void (*func)(void *), void *userData);
+typedef NPError (*NPN_GetValueForURLProcPtr)(NPP npp, NPNURLVariable variable, const char* url, char** value, uint32* len);
+typedef NPError (*NPN_SetValueForURLProcPtr)(NPP npp, NPNURLVariable variable, const char* url, const char* value, uint32 len);
+typedef NPError (*NPN_GetAuthenticationInfoProcPtr)(NPP npp, const char* protocol, const char* host, int32 port, const char* scheme, const char *realm, char** username, uint32* ulen, char** password, uint32* plen);
+
+typedef uint32 (*NPN_ScheduleTimerProcPtr)(NPP npp, uint32 interval, NPBool repeat, void (*timerFunc)(NPP npp, uint32 timerID));
+typedef void (*NPN_UnscheduleTimerProcPtr)(NPP npp, uint32 timerID);
+typedef NPError (*NPN_PopUpContextMenuProcPtr)(NPP instance, NPMenu* menu);
+typedef NPBool (*NPN_ConvertPointProcPtr)(NPP npp, double sourceX, double sourceY, NPCoordinateSpace sourceSpace, double *destX, double *destY, NPCoordinateSpace destSpace);
 
 typedef void (*NPN_ReleaseVariantValueProcPtr) (NPVariant *variant);
 
@@ -84,6 +94,7 @@ typedef bool (*NPN_HasMethodProcPtr) (NPP npp, NPObject *npobj, NPIdentifier met
 typedef bool (*NPN_RemovePropertyProcPtr) (NPP npp, NPObject *obj, NPIdentifier propertyName);
 typedef void (*NPN_SetExceptionProcPtr) (NPObject *obj, const NPUTF8 *message);
 typedef bool (*NPN_EnumerateProcPtr) (NPP npp, NPObject *npobj, NPIdentifier **identifier, uint32_t *count);
+typedef bool (*NPN_ConstructProcPtr)(NPP npp, NPObject* obj, const NPVariant *args, uint32_t argCount, NPVariant *result);    
 
 typedef NPError (*NPP_NewProcPtr)(NPMIMEType pluginType, NPP instance, uint16 mode, int16 argc, char* argn[], char* argv[], NPSavedData* saved);
 typedef NPError (*NPP_DestroyProcPtr)(NPP instance, NPSavedData** save);
@@ -98,10 +109,9 @@ typedef int16 (*NPP_HandleEventProcPtr)(NPP instance, void* event);
 typedef void (*NPP_URLNotifyProcPtr)(NPP instance, const char* URL, NPReason reason, void* notifyData);
 typedef NPError (*NPP_GetValueProcPtr)(NPP instance, NPPVariable variable, void *ret_value);
 typedef NPError (*NPP_SetValueProcPtr)(NPP instance, NPNVariable variable, void *value);
-typedef EXPORTED_CALLBACK(void, NPP_ShutdownProcPtr)(void);
 
 typedef void *(*NPP_GetJavaClassProcPtr)(void);
-typedef void*   JRIGlobalRef; //not using this right now
+typedef void* JRIGlobalRef; //not using this right now
 
 typedef struct _NPNetscapeFuncs {
     uint16 size;
@@ -151,6 +161,15 @@ typedef struct _NPNetscapeFuncs {
     NPN_PushPopupsEnabledStateProcPtr pushpopupsenabledstate;
     NPN_PopPopupsEnabledStateProcPtr poppopupsenabledstate;
     NPN_EnumerateProcPtr enumerate;
+    NPN_PluginThreadAsyncCallProcPtr pluginthreadasynccall;
+    NPN_ConstructProcPtr construct;
+    NPN_GetValueForURLProcPtr getvalueforurl;
+    NPN_SetValueForURLProcPtr setvalueforurl;
+    NPN_GetAuthenticationInfoProcPtr getauthenticationinfo;
+    NPN_ScheduleTimerProcPtr scheduletimer;
+    NPN_UnscheduleTimerProcPtr unscheduletimer;
+    NPN_PopUpContextMenuProcPtr popupcontextmenu;
+    NPN_ConvertPointProcPtr convertpoint;
 } NPNetscapeFuncs;
 
 typedef struct _NPPluginFuncs {
@@ -172,19 +191,19 @@ typedef struct _NPPluginFuncs {
     NPP_SetValueProcPtr setvalue;
 } NPPluginFuncs;
 
-#if defined(XP_WIN)
-typedef EXPORTED_CALLBACK(NPError, NP_InitializeFuncPtr)(NPNetscapeFuncs*);
 typedef EXPORTED_CALLBACK(NPError, NP_GetEntryPointsFuncPtr)(NPPluginFuncs*);
-#endif
+typedef EXPORTED_CALLBACK(void, NPP_ShutdownProcPtr)(void);    
 
 #if defined(XP_MACOSX)
-typedef void    (*BP_CreatePluginMIMETypesPreferencesFuncPtr)(void);
+typedef void (*BP_CreatePluginMIMETypesPreferencesFuncPtr)(void);
 typedef NPError (*MainFuncPtr)(NPNetscapeFuncs*, NPPluginFuncs*, NPP_ShutdownProcPtr*);
 #endif
 
 #if defined(XP_UNIX)
 typedef EXPORTED_CALLBACK(NPError, NP_InitializeFuncPtr)(NPNetscapeFuncs*, NPPluginFuncs*);
 typedef EXPORTED_CALLBACK(char*, NP_GetMIMEDescriptionFuncPtr)(void);
+#else
+typedef EXPORTED_CALLBACK(NPError, NP_InitializeFuncPtr)(NPNetscapeFuncs*);
 #endif
 
 #ifdef __cplusplus

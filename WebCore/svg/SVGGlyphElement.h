@@ -1,6 +1,7 @@
 /*
    Copyright (C) 2007 Eric Seidel <eric@webkit.org>
    Copyright (C) 2007 Nikolas Zimmermann <zimmermann@kde.org>
+   Copyright (C) 2008 Rob Buis <buis@kde.org>
 
    This library is free software; you can redistribute it and/or
    modify it under the terms of the GNU Library General Public
@@ -30,7 +31,7 @@
 namespace WebCore {
 
     class AtomicString;
-    struct SVGFontData;
+    class SVGFontData;
 
     // Describe a SVG <glyph> element
     struct SVGGlyphIdentifier {
@@ -53,6 +54,8 @@ namespace WebCore {
             : isValid(false)
             , orientation(Both)
             , arabicForm(None)
+            , priority(0)
+            , nameLength(0)
             , horizontalAdvanceX(0.0f)
             , verticalOriginX(0.0f)
             , verticalOriginY(0.0f)
@@ -83,8 +86,10 @@ namespace WebCore {
 
         bool isValid : 1;
 
-        Orientation orientation : 2;
-        ArabicForm arabicForm : 3;
+        unsigned orientation : 2; // Orientation
+        unsigned arabicForm : 3;  // ArabicForm
+        int priority;
+        size_t nameLength;
         String glyphName;
 
         float horizontalAdvanceX;
@@ -101,6 +106,8 @@ namespace WebCore {
         SVGGlyphElement(const QualifiedName&, Document*);
         virtual ~SVGGlyphElement();
 
+        virtual void parseMappedAttribute(MappedAttribute*);
+
         virtual void insertedIntoDocument();
         virtual void removedFromDocument();
 
@@ -114,6 +121,8 @@ namespace WebCore {
 
         // Helper function shared between SVGGlyphElement & SVGMissingGlyphElement
         static SVGGlyphIdentifier buildGenericGlyphIdentifier(const SVGElement*);
+    private:
+        void invalidateGlyphCache();
     };
 
 } // namespace WebCore

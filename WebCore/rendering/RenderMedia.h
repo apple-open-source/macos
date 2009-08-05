@@ -40,6 +40,7 @@ class MediaControlPlayButtonElement;
 class MediaControlSeekButtonElement;
 class MediaControlTimelineElement;
 class MediaControlFullscreenButtonElement;
+class MediaTimeDisplayElement;
 class MediaPlayer;
 
 class RenderMedia : public RenderReplaced {
@@ -48,9 +49,12 @@ public:
     RenderMedia(HTMLMediaElement*, const IntSize& intrinsicSize);
     virtual ~RenderMedia();
     
-    virtual RenderObject* firstChild() const;
-    virtual RenderObject* lastChild() const;
-    virtual void removeChild(RenderObject*);
+    virtual RenderObjectChildList* virtualChildren() { return children(); }
+    virtual const RenderObjectChildList* virtualChildren() const { return children(); }
+    const RenderObjectChildList* children() const { return &m_children; }
+    RenderObjectChildList* children() { return &m_children; }
+
+    virtual void destroy();
     
     virtual void layout();
 
@@ -65,26 +69,35 @@ public:
     void updateFromElement();
     void updatePlayer();
     void updateControls();
+    void updateTimeDisplay();
     
     void forwardEvent(Event*);
-    
+
+    virtual int lowestPosition(bool includeOverflowInterior = true, bool includeSelf = true) const;
+    virtual int rightmostPosition(bool includeOverflowInterior = true, bool includeSelf = true) const;
+    virtual int leftmostPosition(bool includeOverflowInterior = true, bool includeSelf = true) const;
+
 private:
     void createControlsShadowRoot();
+    void destroyControlsShadowRoot();
     void createPanel();
     void createMuteButton();
     void createPlayButton();
     void createSeekBackButton();
     void createSeekForwardButton();
+    void createTimelineContainer();
     void createTimeline();
-    void createTimeDisplay();
+    void createCurrentTimeDisplay();
+    void createTimeRemainingDisplay();
     void createFullscreenButton();
     
     void timeUpdateTimerFired(Timer<RenderMedia>*);
-    void updateTimeDisplay();
     
     void updateControlVisibility();
     void changeOpacity(HTMLElement*, float opacity);
     void opacityAnimationTimerFired(Timer<RenderMedia>*);
+
+    virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
 
     RefPtr<HTMLElement> m_controlsShadowRoot;
     RefPtr<HTMLElement> m_panel;
@@ -94,9 +107,12 @@ private:
     RefPtr<MediaControlSeekButtonElement> m_seekForwardButton;
     RefPtr<MediaControlTimelineElement> m_timeline;
     RefPtr<MediaControlFullscreenButtonElement> m_fullscreenButton;
-    RefPtr<HTMLElement> m_timeDisplay;
-    EventTargetNode* m_lastUnderNode;
-    EventTargetNode* m_nodeUnderMouse;
+    RefPtr<HTMLElement> m_timelineContainer;
+    RefPtr<MediaTimeDisplayElement> m_currentTimeDisplay;
+    RefPtr<MediaTimeDisplayElement> m_timeRemainingDisplay;
+    RenderObjectChildList m_children;
+    Node* m_lastUnderNode;
+    Node* m_nodeUnderMouse;
     
     Timer<RenderMedia> m_timeUpdateTimer;
     Timer<RenderMedia> m_opacityAnimationTimer;
@@ -104,6 +120,7 @@ private:
     double m_opacityAnimationStartTime;
     float m_opacityAnimationFrom;
     float m_opacityAnimationTo;
+    EVisibility m_previousVisible;
 };
 
 } // namespace WebCore

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,32 +29,17 @@
 #include "config.h"
 #include "SubresourceLoader.h"
 
-#include "Document.h"
 #include "DocumentLoader.h"
 #include "Frame.h"
 #include "FrameLoader.h"
-#include "Logging.h"
 #include "ResourceHandle.h"
-#include "ResourceRequest.h"
 #include "SubresourceLoaderClient.h"
-#include "SharedBuffer.h"
+#include <wtf/RefCountedLeakCounter.h>
 
 namespace WebCore {
 
-#ifndef NDEBUG
-WTFLogChannel LogWebCoreSubresourceLoaderLeaks =  { 0x00000000, "", WTFLogChannelOn };
-
-struct SubresourceLoaderCounter {
-    static unsigned count; 
-
-    ~SubresourceLoaderCounter() 
-    { 
-        if (count) 
-            LOG(WebCoreSubresourceLoaderLeaks, "LEAK: %u SubresourceLoader\n", count); 
-    }
-};
-unsigned SubresourceLoaderCounter::count = 0;
-static SubresourceLoaderCounter subresourceLoaderCounter;
+#ifndef NDEBUG    
+static WTF::RefCountedLeakCounter subresourceLoaderCounter("SubresourceLoader");
 #endif
 
 SubresourceLoader::SubresourceLoader(Frame* frame, SubresourceLoaderClient* client, bool sendResourceLoadCallbacks, bool shouldContentSniff)
@@ -63,7 +48,7 @@ SubresourceLoader::SubresourceLoader(Frame* frame, SubresourceLoaderClient* clie
     , m_loadingMultipartContent(false)
 {
 #ifndef NDEBUG
-    ++SubresourceLoaderCounter::count;
+    subresourceLoaderCounter.increment();
 #endif
     m_documentLoader->addSubresourceLoader(this);
 }
@@ -71,15 +56,8 @@ SubresourceLoader::SubresourceLoader(Frame* frame, SubresourceLoaderClient* clie
 SubresourceLoader::~SubresourceLoader()
 {
 #ifndef NDEBUG
-    --SubresourceLoaderCounter::count;
+    subresourceLoaderCounter.decrement();
 #endif
-}
-
-bool SubresourceLoader::load(const ResourceRequest& r)
-{
-    m_frame->loader()->didTellClientAboutLoad(r.url().string());
-    
-    return ResourceLoader::load(r);
 }
 
 PassRefPtr<SubresourceLoader> SubresourceLoader::create(Frame* frame, SubresourceLoaderClient* client, const ResourceRequest& request, bool skipCanLoadCheck, bool sendResourceLoadCallbacks, bool shouldContentSniff)
@@ -88,15 +66,15 @@ PassRefPtr<SubresourceLoader> SubresourceLoader::create(Frame* frame, Subresourc
         return 0;
 
     FrameLoader* fl = frame->loader();
-    if (!skipCanLoadCheck && fl->state() == FrameStateProvisional)
+    if (!skipCanLoadCheck && (fl->state() == FrameStateProvisional || fl->activeDocumentLoader()->isStopping()))
         return 0;
 
     ResourceRequest newRequest = request;
 
     if (!skipCanLoadCheck
             && FrameLoader::restrictAccessToLocal()
-            && !FrameLoader::canLoad(request.url(), frame->document())) {
-        FrameLoader::reportLocalLoadFailed(frame->page(), request.url().string());
+            && !FrameLoader::canLoad(request.url(), String(), frame->document())) {
+        FrameLoader::reportLocalLoadFailed(frame, request.url().string());
         return 0;
     }
     
@@ -104,6 +82,7 @@ PassRefPtr<SubresourceLoader> SubresourceLoader::create(Frame* frame, Subresourc
         newRequest.clearHTTPReferrer();
     else if (!request.httpReferrer())
         newRequest.setHTTPReferrer(fl->outgoingReferrer());
+    FrameLoader::addHTTPOriginIfNeeded(newRequest, fl->outgoingOrigin());
 
     // Use the original request's cache policy for two reasons:
     // 1. For POST requests, we mutate the cache policy for the main resource,
@@ -116,9 +95,9 @@ PassRefPtr<SubresourceLoader> SubresourceLoader::create(Frame* frame, Subresourc
     else
         newRequest.setCachePolicy(fl->originalRequest().cachePolicy());
 
-    fl->addExtraFieldsToRequest(newRequest, false, false);
+    fl->addExtraFieldsToSubresourceRequest(newRequest);
 
-    RefPtr<SubresourceLoader> subloader(new SubresourceLoader(frame, client, sendResourceLoadCallbacks, shouldContentSniff));
+    RefPtr<SubresourceLoader> subloader(adoptRef(new SubresourceLoader(frame, client, sendResourceLoadCallbacks, shouldContentSniff)));
     if (!subloader->load(newRequest))
         return 0;
 
@@ -127,9 +106,20 @@ PassRefPtr<SubresourceLoader> SubresourceLoader::create(Frame* frame, Subresourc
 
 void SubresourceLoader::willSendRequest(ResourceRequest& newRequest, const ResourceResponse& redirectResponse)
 {
+    // Store the previous URL because the call to ResourceLoader::willSendRequest will modify it.
+    KURL previousURL = request().url();
+    
     ResourceLoader::willSendRequest(newRequest, redirectResponse);
-    if (!newRequest.isNull() && m_originalURL != newRequest.url() && m_client)
+    if (!previousURL.isNull() && !newRequest.isNull() && previousURL != newRequest.url() && m_client)
         m_client->willSendRequest(this, newRequest, redirectResponse);
+}
+
+void SubresourceLoader::didSendData(unsigned long long bytesSent, unsigned long long totalBytesToBeSent)
+{
+    RefPtr<SubresourceLoader> protect(this);
+
+    if (m_client)
+        m_client->didSendData(this, bytesSent, totalBytesToBeSent);
 }
 
 void SubresourceLoader::didReceiveResponse(const ResourceResponse& r)
@@ -232,8 +222,26 @@ void SubresourceLoader::didCancel(const ResourceError& error)
     
     if (cancelled())
         return;
+    
+    // The only way the subresource loader can reach the terminal state here is if the run loop spins when calling
+    // m_client->didFail. This should in theory not happen which is why the assert is here. 
+    ASSERT(!reachedTerminalState());
+    if (reachedTerminalState())
+        return;
+    
     m_documentLoader->removeSubresourceLoader(this);
     ResourceLoader::didCancel(error);
+}
+
+bool SubresourceLoader::shouldUseCredentialStorage()
+{
+    RefPtr<SubresourceLoader> protect(this);
+
+    bool shouldUse;
+    if (m_client && m_client->getShouldUseCredentialStorage(this, shouldUse))
+        return shouldUse;
+
+    return ResourceLoader::shouldUseCredentialStorage();
 }
 
 void SubresourceLoader::didReceiveAuthenticationChallenge(const AuthenticationChallenge& challenge)

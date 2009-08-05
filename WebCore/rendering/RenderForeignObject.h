@@ -1,7 +1,6 @@
 /*
- * This file is part of the WebKit project.
- *
  * Copyright (C) 2006 Apple Computer, Inc.
+ * Copyright (C) 2009 Google, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -24,7 +23,7 @@
 #define RenderForeignObject_h
 #if ENABLE(SVG) && ENABLE(SVG_FOREIGN_OBJECT)
 
-#include "AffineTransform.h"
+#include "TransformationMatrix.h"
 #include "RenderSVGBlock.h"
 
 namespace WebCore {
@@ -39,20 +38,24 @@ public:
 
     virtual void paint(PaintInfo&, int parentX, int parentY);
 
-    virtual AffineTransform localTransform() const { return m_localTransform; }
-    virtual bool calculateLocalTransform();
+    virtual TransformationMatrix localToParentTransform() const;
 
-    virtual void computeAbsoluteRepaintRect(IntRect&, bool fixed);
-    virtual bool requiresLayer();
+    virtual void computeRectForRepaint(RenderBoxModelObject* repaintContainer, IntRect&, bool fixed = false);
+    virtual bool requiresLayer() const { return false; }
     virtual void layout();
 
+    virtual FloatRect objectBoundingBox() const;
+    virtual FloatRect repaintRectInLocalCoordinates() const;
+
+    virtual bool nodeAtFloatPoint(const HitTestRequest&, HitTestResult&, const FloatPoint& pointInParent, HitTestAction);
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
 
  private:
-    AffineTransform translationForAttributes();
+    TransformationMatrix translationForAttributes() const;
 
-    AffineTransform m_localTransform;
-    IntRect m_absoluteBounds;
+    virtual TransformationMatrix localTransform() const { return m_localTransform; }
+
+    TransformationMatrix m_localTransform;
 };
 
 } // namespace WebCore

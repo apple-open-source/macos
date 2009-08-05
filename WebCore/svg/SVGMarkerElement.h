@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005, 2006, 2007, 2008 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -24,17 +22,22 @@
 #define SVGMarkerElement_h
 
 #if ENABLE(SVG)
-#include "SVGResourceMarker.h"
+
+#include "SVGAngle.h"
 #include "SVGExternalResourcesRequired.h"
 #include "SVGFitToViewBox.h"
 #include "SVGLangSpace.h"
+#include "SVGResourceMarker.h"
 #include "SVGStyledElement.h"
 
 namespace WebCore {
 
     class Document;
     class SVGAngle;
-    
+
+    extern char SVGOrientTypeAttrIdentifier[];
+    extern char SVGOrientAngleAttrIdentifier[];
+
     class SVGMarkerElement : public SVGStyledElement,
                              public SVGLangSpace,
                              public SVGExternalResourcesRequired,
@@ -56,11 +59,11 @@ namespace WebCore {
         virtual ~SVGMarkerElement();
 
         void setOrientToAuto();
-        void setOrientToAngle(SVGAngle*);
+        void setOrientToAngle(PassRefPtr<SVGAngle>);
 
         virtual void parseMappedAttribute(MappedAttribute*);
         virtual void svgAttributeChanged(const QualifiedName&);
-        virtual void childrenChanged(bool changedByParser = false);
+        virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
 
         virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
         virtual SVGResource* canvasResource();
@@ -69,17 +72,13 @@ namespace WebCore {
         virtual const SVGElement* contextElement() const { return this; }
 
     private:
-        ANIMATED_PROPERTY_FORWARD_DECLARATIONS(SVGExternalResourcesRequired, bool, ExternalResourcesRequired, externalResourcesRequired) 
-        ANIMATED_PROPERTY_FORWARD_DECLARATIONS(SVGFitToViewBox, FloatRect, ViewBox, viewBox)
-        ANIMATED_PROPERTY_FORWARD_DECLARATIONS(SVGFitToViewBox, SVGPreserveAspectRatio*, PreserveAspectRatio, preserveAspectRatio)
-
-        ANIMATED_PROPERTY_DECLARATIONS(SVGMarkerElement, SVGLength, SVGLength, RefX, refX)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGMarkerElement, SVGLength, SVGLength, RefY, refY)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGMarkerElement, SVGLength, SVGLength, MarkerWidth, markerWidth)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGMarkerElement, SVGLength, SVGLength, MarkerHeight, markerHeight)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGMarkerElement, int, int, MarkerUnits, markerUnits)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGMarkerElement, int, int, OrientType, orientType)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGMarkerElement, SVGAngle*, RefPtr<SVGAngle>, OrientAngle, orientAngle)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGMarkerElement, SVGNames::markerTagString, SVGNames::refXAttrString, SVGLength, RefX, refX)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGMarkerElement, SVGNames::markerTagString, SVGNames::refYAttrString, SVGLength, RefY, refY)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGMarkerElement, SVGNames::markerTagString, SVGNames::markerWidthAttrString, SVGLength, MarkerWidth, markerWidth)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGMarkerElement, SVGNames::markerTagString, SVGNames::markerHeightAttrString, SVGLength, MarkerHeight, markerHeight)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGMarkerElement, SVGNames::markerTagString, SVGNames::markerUnitsAttrString, int, MarkerUnits, markerUnits)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGMarkerElement, SVGNames::markerTagString, SVGOrientTypeAttrIdentifier, int, OrientType, orientType)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGMarkerElement, SVGNames::markerTagString, SVGOrientAngleAttrIdentifier, SVGAngle, OrientAngle, orientAngle)
 
         RefPtr<SVGResourceMarker> m_marker;
     };

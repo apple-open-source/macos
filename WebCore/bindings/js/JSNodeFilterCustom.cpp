@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,9 +26,12 @@
 #include "config.h"
 #include "JSNodeFilter.h"
 
+#include "JSNode.h"
 #include "JSNodeFilterCondition.h"
 #include "NodeFilter.h"
-#include "kjs_binding.h"
+#include "JSDOMBinding.h"
+
+using namespace JSC;
 
 namespace WebCore {
 
@@ -38,19 +41,17 @@ void JSNodeFilter::mark()
     DOMObject::mark();
 }
 
-NodeFilter* toNodeFilter(KJS::JSValue* val)
+JSValue JSNodeFilter::acceptNode(ExecState* exec, const ArgList& args)
 {
-    if (!val || !val->isObject())
-        return 0;
+    return jsNumber(exec, impl()->acceptNode(exec, toNode(args.at(0))));
+}
 
-    if (val->isObject(&JSNodeFilter::info))
-        return static_cast<JSNodeFilter*>(val)->impl();
+PassRefPtr<NodeFilter> toNodeFilter(JSValue value)
+{
+    if (value.isObject(&JSNodeFilter::s_info))
+        return static_cast<JSNodeFilter*>(asObject(value))->impl();
 
-    KJS::JSObject* o = static_cast<KJS::JSObject*>(val);
-    if (o->implementsCall())
-        return new NodeFilter(new JSNodeFilterCondition(o));
-
-    return 0;
+    return NodeFilter::create(JSNodeFilterCondition::create(value));
 }
 
 } // namespace WebCore

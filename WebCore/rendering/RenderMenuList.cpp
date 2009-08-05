@@ -1,7 +1,8 @@
-/**
+/*
  * This file is part of the select element renderer in WebCore.
  *
  * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
+ *               2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -24,17 +25,15 @@
 #include "RenderMenuList.h"
 
 #include "CSSStyleSelector.h"
-#include "Document.h"
-#include "FontSelector.h"
 #include "FrameView.h"
-#include "GraphicsContext.h"
 #include "HTMLNames.h"
-#include "HTMLOptionElement.h"
-#include "HTMLOptGroupElement.h"
 #include "HTMLSelectElement.h"
+#include "NodeRenderStyle.h"
+#include "OptionElement.h"
+#include "OptionGroupElement.h"
 #include "PopupMenu.h"
 #include "RenderBR.h"
-#include "RenderText.h"
+#include "RenderScrollbar.h"
 #include "RenderTheme.h"
 #include <math.h>
 
@@ -60,6 +59,12 @@ RenderMenuList::~RenderMenuList()
     if (m_popup)
         m_popup->disconnectClient();
     m_popup = 0;
+}
+
+// this static cast is safe because RenderMenuLists are only created for HTMLSelectElements
+HTMLSelectElement* RenderMenuList::selectElement()
+{
+    return static_cast<HTMLSelectElement*>(node());
 }
 
 void RenderMenuList::createInnerBlock()
@@ -110,21 +115,18 @@ void RenderMenuList::removeChild(RenderObject* oldChild)
         m_innerBlock->removeChild(oldChild);
 }
 
-void RenderMenuList::setStyle(RenderStyle* newStyle)
+void RenderMenuList::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
-    bool fontChanged = !style() || style()->font() != newStyle->font();
-    
-    // Don't allow overflow on menu lists.
-    newStyle->setOverflowX(OVISIBLE);
-    newStyle->setOverflowY(OVISIBLE);
-    
-    RenderBlock::setStyle(newStyle);
+    RenderBlock::styleDidChange(diff, oldStyle);
 
     if (m_buttonText)
-        m_buttonText->setStyle(newStyle);
+        m_buttonText->setStyle(style());
     if (m_innerBlock) // RenderBlock handled updating the anonymous block's style.
         adjustInnerStyle();
+
     setReplaced(isInline());
+
+    bool fontChanged = !oldStyle || oldStyle->font() != style()->font();
     if (fontChanged)
         updateOptionsWidth();
 }
@@ -136,11 +138,21 @@ void RenderMenuList::updateOptionsWidth()
     int size = listItems.size();    
     for (int i = 0; i < size; ++i) {
         HTMLElement* element = listItems[i];
-        if (element->hasTagName(optionTag)) {
-            String text = static_cast<HTMLOptionElement*>(element)->optionText();
+        OptionElement* optionElement = toOptionElement(element);
+        if (!optionElement)
+            continue;
+
+        String text = optionElement->textIndentedToRespectGroupLabel();
+        if (theme()->popupOptionSupportsTextIndent()) {
+            // Add in the option's text indent.  We can't calculate percentage values for now.
+            float optionWidth = 0;
+            if (RenderStyle* optionStyle = element->renderStyle())
+                optionWidth += optionStyle->textIndent().calcMinValue(0);
             if (!text.isEmpty())
-                maxOptionWidth = max(maxOptionWidth, style()->font().floatWidth(text));
-        }
+                optionWidth += style()->font().floatWidth(text);
+            maxOptionWidth = max(maxOptionWidth, optionWidth);
+        } else if (!text.isEmpty())
+            maxOptionWidth = max(maxOptionWidth, style()->font().floatWidth(text));
     }
 
     int width = static_cast<int>(ceilf(maxOptionWidth));
@@ -148,7 +160,8 @@ void RenderMenuList::updateOptionsWidth()
         return;
 
     m_optionsWidth = width;
-    setNeedsLayoutAndPrefWidthsRecalc();
+    if (parent())
+        setNeedsLayoutAndPrefWidthsRecalc();
 }
 
 void RenderMenuList::updateFromElement()
@@ -173,10 +186,10 @@ void RenderMenuList::setTextFromOption(int optionIndex)
     int i = select->optionToListIndex(optionIndex);
     String text = "";
     if (i >= 0 && i < size) {
-        HTMLElement* element = listItems[i];
-        if (element->hasTagName(optionTag))
-            text = static_cast<HTMLOptionElement*>(listItems[i])->optionText();
+        if (OptionElement* optionElement = toOptionElement(listItems[i]))
+            text = optionElement->textIndentedToRespectGroupLabel();
     }
+
     setText(text.stripWhiteSpace());
 }
 
@@ -219,8 +232,8 @@ IntRect RenderMenuList::controlClipRect(int tx, int ty) const
                    contentWidth(), 
                    contentHeight());
     
-    IntRect innerBox(tx + m_innerBlock->xPos() + m_innerBlock->paddingLeft(), 
-                   ty + m_innerBlock->yPos() + m_innerBlock->paddingTop(),
+    IntRect innerBox(tx + m_innerBlock->x() + m_innerBlock->paddingLeft(), 
+                   ty + m_innerBlock->y() + m_innerBlock->paddingTop(),
                    m_innerBlock->contentWidth(), 
                    m_innerBlock->contentHeight());
 
@@ -270,7 +283,13 @@ void RenderMenuList::showPopup()
         m_popup = PopupMenu::create(this);
     HTMLSelectElement* select = static_cast<HTMLSelectElement*>(node());
     m_popupIsVisible = true;
-    m_popup->show(absoluteBoundingBoxRect(), document()->view(),
+
+    // Compute the top left taking transforms into account, but use
+    // the actual width of the element to size the popup.
+    FloatPoint absTopLeft = localToAbsolute(FloatPoint(), false, true);
+    IntRect absBounds = absoluteBoundingBoxRect();
+    absBounds.setLocation(roundedIntPoint(absTopLeft));
+    m_popup->show(absBounds, document()->view(),
         select->optionToListIndex(select->selectedIndex()));
 }
 
@@ -291,10 +310,10 @@ String RenderMenuList::itemText(unsigned listIndex) const
 {
     HTMLSelectElement* select = static_cast<HTMLSelectElement*>(node());
     HTMLElement* element = select->listItems()[listIndex];
-    if (element->hasTagName(optgroupTag))
-        return static_cast<HTMLOptGroupElement*>(element)->groupLabelText();
-    else if (element->hasTagName(optionTag))
-        return static_cast<HTMLOptionElement*>(element)->optionText();
+    if (OptionGroupElement* optionGroupElement = toOptionGroupElement(element))
+        return optionGroupElement->groupLabelText();
+    else if (OptionElement* optionElement = toOptionElement(element))
+        return optionElement->textIndentedToRespectGroupLabel();
     return String();
 }
 
@@ -306,16 +325,20 @@ bool RenderMenuList::itemIsEnabled(unsigned listIndex) const
         return false;
     bool groupEnabled = true;
     if (element->parentNode() && element->parentNode()->hasTagName(optgroupTag))
-        groupEnabled = element->parentNode()->isEnabled();
-    return element->isEnabled() && groupEnabled;
+        groupEnabled = static_cast<Element*>(element->parentNode())->isEnabledFormControl();
+    if (!groupEnabled)
+        return false;
+
+    return element->isEnabledFormControl();
 }
 
-RenderStyle* RenderMenuList::itemStyle(unsigned listIndex) const
+PopupMenuStyle RenderMenuList::itemStyle(unsigned listIndex) const
 {
     HTMLSelectElement* select = static_cast<HTMLSelectElement*>(node());
     HTMLElement* element = select->listItems()[listIndex];
     
-    return element->renderStyle() ? element->renderStyle() : clientStyle();
+    RenderStyle* style = element->renderStyle() ? element->renderStyle() : element->computedStyle();
+    return style ? PopupMenuStyle(style->color(), itemBackgroundColor(listIndex), style->font(), style->visibility() == VISIBLE, style->textIndent(), style->direction()) : menuStyle();
 }
 
 Color RenderMenuList::itemBackgroundColor(unsigned listIndex) const
@@ -339,14 +362,27 @@ Color RenderMenuList::itemBackgroundColor(unsigned listIndex) const
     return Color(Color::white).blend(backgroundColor);
 }
 
-RenderStyle* RenderMenuList::clientStyle() const
+PopupMenuStyle RenderMenuList::menuStyle() const
 {
-    return m_innerBlock ? m_innerBlock->style() : style();
+
+    RenderStyle* s = m_innerBlock ? m_innerBlock->style() : style();
+    return PopupMenuStyle(s->color(), s->backgroundColor(), s->font(), s->visibility() == VISIBLE, s->textIndent(), s->direction());
 }
 
-Document* RenderMenuList::clientDocument() const
+HostWindow* RenderMenuList::hostWindow() const
 {
-    return document();
+    return document()->view()->hostWindow();
+}
+
+PassRefPtr<Scrollbar> RenderMenuList::createScrollbar(ScrollbarClient* client, ScrollbarOrientation orientation, ScrollbarControlSize controlSize)
+{
+    RefPtr<Scrollbar> widget;
+    bool hasCustomScrollbarStyle = style()->hasPseudoStyle(SCROLLBAR);
+    if (hasCustomScrollbarStyle)
+        widget = RenderScrollbar::createCustomScrollbar(client, orientation, this);
+    else
+        widget = Scrollbar::createNativeScrollbar(client, orientation, controlSize);
+    return widget.release();
 }
 
 int RenderMenuList::clientInsetLeft() const
@@ -399,7 +435,9 @@ bool RenderMenuList::itemIsSelected(unsigned listIndex) const
 {
     HTMLSelectElement* select = static_cast<HTMLSelectElement*>(node());
     HTMLElement* element = select->listItems()[listIndex];
-    return element->hasTagName(optionTag)&& static_cast<HTMLOptionElement*>(element)->selected();
+    if (OptionElement* optionElement = toOptionElement(element))
+        return optionElement->selected();
+    return false;
 }
 
 void RenderMenuList::setTextFromItem(unsigned listIndex)

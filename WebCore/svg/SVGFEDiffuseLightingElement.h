@@ -23,34 +23,36 @@
 #define SVGFEDiffuseLightingElement_h
 
 #if ENABLE(SVG) && ENABLE(SVG_FILTERS)
+#include "SVGFELightElement.h"
 #include "SVGFilterPrimitiveStandardAttributes.h"
 
 namespace WebCore {
-    class SVGFEDiffuseLighting;
+
+    extern char SVGKernelUnitLengthXIdentifier[];
+    extern char SVGKernelUnitLengthYIdentifier[];
+
+    class FEDiffuseLighting;
     class SVGColor;
 
-    class SVGFEDiffuseLightingElement : public SVGFilterPrimitiveStandardAttributes
-    {
+    class SVGFEDiffuseLightingElement : public SVGFilterPrimitiveStandardAttributes {
     public:
         SVGFEDiffuseLightingElement(const QualifiedName&, Document*);
         virtual ~SVGFEDiffuseLightingElement();
 
         virtual void parseMappedAttribute(MappedAttribute*);
         virtual SVGFilterEffect* filterEffect(SVGResourceFilter*) const;
-
-    protected:
-        virtual const SVGElement* contextElement() const { return this; }
+        bool build(FilterBuilder*);
 
     private:
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFEDiffuseLightingElement, String, String, In1, in1)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFEDiffuseLightingElement, float, float, DiffuseConstant, diffuseConstant)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFEDiffuseLightingElement, float, float, SurfaceScale, surfaceScale)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFEDiffuseLightingElement, float, float, KernelUnitLengthX, kernelUnitLengthX)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFEDiffuseLightingElement, float, float, KernelUnitLengthY, kernelUnitLengthY)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGFEDiffuseLightingElement, SVGNames::feDiffuseLightingTagString, SVGNames::inAttrString, String, In1, in1)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGFEDiffuseLightingElement, SVGNames::feDiffuseLightingTagString, SVGNames::diffuseConstantAttrString, float, DiffuseConstant, diffuseConstant)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGFEDiffuseLightingElement, SVGNames::feDiffuseLightingTagString, SVGNames::surfaceScaleAttrString, float, SurfaceScale, surfaceScale)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGFEDiffuseLightingElement, SVGNames::feDiffuseLightingTagString, SVGKernelUnitLengthXIdentifier, float, KernelUnitLengthX, kernelUnitLengthX)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGFEDiffuseLightingElement, SVGNames::feDiffuseLightingTagString, SVGKernelUnitLengthYIdentifier, float, KernelUnitLengthY, kernelUnitLengthY)
 
-        mutable SVGFEDiffuseLighting* m_filterEffect;
+        LightSource* findLights() const;
         
-        void updateLights() const;
+        mutable RefPtr<FEDiffuseLighting> m_filterEffect;
     };
 
 } // namespace WebCore

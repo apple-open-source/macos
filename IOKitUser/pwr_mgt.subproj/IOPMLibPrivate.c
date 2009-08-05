@@ -103,10 +103,8 @@ IOReturn IOPMAssertionCreateWithName(
 
     IOReturn                return_code = kIOReturnError;
     kern_return_t           kern_result = KERN_SUCCESS;
-    char                    assertion_str[50];
-    int                     assertion_len = 50;
-    char                    name_str[kMaxNameLength+1];
-    int                     name_len = kMaxNameLength+1;
+    char                    assertion_str[kMaxNameLength];
+    char                    name_str[kMaxNameLength];
     mach_port_t             pm_server = MACH_PORT_NULL;
     mach_port_t             task_self = mach_task_self();
     IOReturn                err;
@@ -127,8 +125,7 @@ IOReturn IOPMAssertionCreateWithName(
     }
     
     CFStringGetCString( AssertionType, assertion_str, 
-                        assertion_len, kCFStringEncodingMacRoman);
-    assertion_len = strlen(assertion_str)+1;
+                        sizeof(assertion_str), kCFStringEncodingMacRoman);
     
     // Check validity of input name string
     if (!AssertionName || (kMaxNameLength < CFStringGetLength(AssertionName))) {
@@ -136,8 +133,7 @@ IOReturn IOPMAssertionCreateWithName(
         goto exit;
     }
     CFStringGetCString( AssertionName, name_str,
-                        name_len, kCFStringEncodingMacRoman);
-    name_len = strlen(name_str) + 1;
+                        sizeof(name_str), kCFStringEncodingMacRoman);
 
     // io_pm_assertion_create mig's over to configd, and it's configd 
     // that actively tracks and manages the list of active power assertions.
@@ -145,9 +141,7 @@ IOReturn IOPMAssertionCreateWithName(
             pm_server, 
             task_self,
             name_str,
-            name_len,
             assertion_str,
-            assertion_len,
             AssertionLevel, 
             (int *)AssertionID,
             &return_code);

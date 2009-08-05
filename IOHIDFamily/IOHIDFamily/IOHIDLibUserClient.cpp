@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2009 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -186,7 +186,8 @@ initWithTask(task_t owningTask, void * /* security_id */, UInt32 /* type */)
 IOReturn IOHIDLibUserClient::clientClose(void)
 {
     if ( !isInactive() ) {
-        fGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDLibUserClient::cleanupGated));
+    	if (fGate)
+	        fGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDLibUserClient::cleanupGated));
         terminate();
     }
     
@@ -228,14 +229,18 @@ void IOHIDLibUserClient::cleanupGated(void)
 
 bool IOHIDLibUserClient::start(IOService *provider)
 {
-    IOCommandGate * cmdGate = NULL;
-
     if (!super::start(provider))
         return false;
 
     fNub = OSDynamicCast(IOHIDDevice, provider);
     if (!fNub)
         return false;
+
+    fWL = getWorkLoop();
+    if (!fWL)
+        goto ABORT_START;
+
+    fWL->retain();
 
 	OSNumber *primaryUsage = OSDynamicCast(OSNumber, fNub->getProperty(kIOHIDPrimaryUsageKey));
 	OSNumber *primaryUsagePage = OSDynamicCast(OSNumber, fNub->getProperty(kIOHIDPrimaryUsagePageKey));
@@ -246,13 +251,7 @@ bool IOHIDLibUserClient::start(IOService *provider)
 		fNubIsKeyboard = true;
 	}
             
-    fWL = getWorkLoop();
-    if (!fWL)
-        goto ABORT_START;
-
-    fWL->retain();
-
-    cmdGate = IOCommandGate::commandGate(this);
+    IOCommandGate * cmdGate = IOCommandGate::commandGate(this);
     if (!cmdGate)
         goto ABORT_START;
     
@@ -281,13 +280,18 @@ bool IOHIDLibUserClient::start(IOService *provider)
     return true;
 
 ABORT_START:
+	if (fResourceES) {
+		fWL->removeEventSource(fResourceES);
+		fResourceES->release();
+		fResourceES = 0;
+	}
     if (fGate) {
         fWL->removeEventSource(fGate);
-        fWL->release();
-        fWL = 0;
         fGate->release();
         fGate = 0;
     }
+	fWL->release();
+	fWL = 0;
 
     return false;
 }
@@ -381,15 +385,20 @@ IOReturn IOHIDLibUserClient::externalMethod(
                                 OSObject *                  target, 
                                 void *                      reference)
 {
-    HIDCommandGateArgs args;
-	
-    args.selector   = selector;
-    args.arguments  = arguments;
-    args.dispatch   = dispatch;
-    args.target     = target;
-    args.reference  = reference;
-    
-    return fGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, target, &IOHIDLibUserClient::externalMethodGated), (void *)&args);
+	if (fGate) {
+		HIDCommandGateArgs args;
+		
+		args.selector   = selector;
+		args.arguments  = arguments;
+		args.dispatch   = dispatch;
+		args.target     = target;
+		args.reference  = reference;
+		
+		return fGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, target, &IOHIDLibUserClient::externalMethodGated), (void *)&args);
+    }
+    else {
+		return kIOReturnOffline;
+	}
 }
 
 IOReturn IOHIDLibUserClient::externalMethodGated(void * args)
@@ -480,8 +489,10 @@ IOReturn IOHIDLibUserClient::close()
 bool
 IOHIDLibUserClient::didTerminate( IOService * provider, IOOptionBits options, bool * defer )
 {    
-    fGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDLibUserClient::cleanupGated));
-        
+	if (fGate) {
+		fGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDLibUserClient::cleanupGated));
+    }
+    
     return super::didTerminate(provider, options, defer);
 }
 
@@ -550,7 +561,11 @@ IOReturn IOHIDLibUserClient::messageGated(UInt32 type, IOService * provider, voi
 
 IOReturn IOHIDLibUserClient::registerNotificationPort(mach_port_t port, UInt32 type, UInt32	refCon)
 {
-    return fGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDLibUserClient::registerNotificationPortGated), (void *)port, (void *)type, (void *)refCon);
+	if (fGate) {
+		return fGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDLibUserClient::registerNotificationPortGated), (void *)port, (void *)type, (void *)refCon);
+    }
+    
+    return kIOReturnOffline;
 }
 
 IOReturn IOHIDLibUserClient::registerNotificationPortGated(mach_port_t port, UInt32 type, UInt32	refCon)
@@ -679,7 +694,11 @@ IOReturn IOHIDLibUserClient::clientMemoryForType (
                                     IOOptionBits *          options,
                                     IOMemoryDescriptor ** 	memory )
 {
-    return fGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDLibUserClient::clientMemoryForTypeGated), (void *)type, (void *)options, (void *)memory);
+	if (fGate) {
+		return fGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDLibUserClient::clientMemoryForTypeGated), (void *)type, (void *)options, (void *)memory);
+    }
+    
+    return kIOReturnOffline;
 }
 
 IOReturn IOHIDLibUserClient::clientMemoryForTypeGated(	

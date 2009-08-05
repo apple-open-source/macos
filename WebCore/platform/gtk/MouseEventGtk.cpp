@@ -27,7 +27,6 @@
 #include "config.h"
 #include "PlatformMouseEvent.h"
 
-#include "SystemTime.h"
 #include "Assertions.h"
 
 #include <gdk/gdk.h>
@@ -36,6 +35,7 @@ namespace WebCore {
 
 // FIXME: Would be even better to figure out which modifier is Alt instead of always using GDK_MOD1_MASK.
 
+// Keep this in sync with the other platform event constructors
 PlatformMouseEvent::PlatformMouseEvent(GdkEventButton* event)
 {
     m_timestamp = event->time;
@@ -44,7 +44,7 @@ PlatformMouseEvent::PlatformMouseEvent(GdkEventButton* event)
     m_shiftKey = event->state & GDK_SHIFT_MASK;
     m_ctrlKey = event->state & GDK_CONTROL_MASK;
     m_altKey = event->state & GDK_MOD1_MASK;
-    m_metaKey = event->state & GDK_MOD2_MASK;
+    m_metaKey = event->state & GDK_META_MASK;
 
     switch (event->type) {
     case GDK_BUTTON_PRESS:

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,30 +33,61 @@
 
 namespace WebCore {
     
+FileChooserClient::~FileChooserClient()
+{
+}
+
+inline FileChooser::FileChooser(FileChooserClient* client, const String& filename)
+    : m_client(client)
+    , m_icon(chooseIcon(filename))
+{
+    m_filenames.append(filename);
+}
+
 PassRefPtr<FileChooser> FileChooser::create(FileChooserClient* client, const String& filename)
 {
-    return new FileChooser(client, filename);
+    return adoptRef(new FileChooser(client, filename));
+}
+
+FileChooser::~FileChooser()
+{
 }
 
 void FileChooser::clear()
 {
-    m_filename = String();
-    m_icon = chooseIcon(m_filename);
+    m_filenames.clear();
+    m_icon = 0;
 }
 
 void FileChooser::chooseFile(const String& filename)
 {
-    if (m_filename == filename)
+    if (m_filenames.size() == 1 && m_filenames[0] == filename)
         return;
-    m_filename = filename;
+    m_filenames.clear();
+    m_filenames.append(filename);
     m_icon = chooseIcon(filename);
+    if (m_client)
+        m_client->valueChanged();
+}
+
+void FileChooser::chooseFiles(const Vector<String>& filenames)
+{
+    m_filenames = filenames;
+    m_icon = chooseIcon(filenames);
     if (m_client)
         m_client->valueChanged();
 }
 
 PassRefPtr<Icon> FileChooser::chooseIcon(const String& filename)
 {
-    return Icon::newIconForFile(filename);
+    return Icon::createIconForFile(filename);
+}
+
+PassRefPtr<Icon> FileChooser::chooseIcon(Vector<String> filenames)
+{
+    if (filenames.size() == 1)
+        return Icon::createIconForFile(filenames[0]);
+    return Icon::createIconForFiles(filenames);
 }
 
 }

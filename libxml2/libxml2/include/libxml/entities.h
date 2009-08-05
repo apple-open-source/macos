@@ -56,6 +56,7 @@ struct _xmlEntity {
     struct _xmlEntity     *nexte;	/* unused */
     const xmlChar           *URI;	/* the full URI as computed */
     int                    owner;	/* does the entity own the childrens */
+    unsigned long     nbentities;	/* the number of entities references */
 };
 
 /*

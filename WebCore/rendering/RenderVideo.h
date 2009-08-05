@@ -45,7 +45,7 @@ public:
 
     virtual void layout();
 
-    virtual int calcReplacedWidth() const;
+    virtual int calcReplacedWidth(bool includeMaxWidth = true) const;
     virtual int calcReplacedHeight() const;
 
     virtual void calcPrefWidths();
@@ -53,6 +53,9 @@ public:
     void videoSizeChanged();
     
     void updateFromElement();
+
+protected:
+    virtual void intrinsicSizeChanged() { videoSizeChanged(); }
 
 private:
     int calcAspectRatioWidth() const;

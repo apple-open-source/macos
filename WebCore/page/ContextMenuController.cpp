@@ -37,13 +37,14 @@
 #include "Event.h"
 #include "EventHandler.h"
 #include "EventNames.h"
+#include "FormState.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoadRequest.h"
 #include "HitTestRequest.h"
 #include "HitTestResult.h"
+#include "HTMLFormElement.h"
 #include "InspectorController.h"
-#include "KURL.h"
 #include "MouseEvent.h"
 #include "Node.h"
 #include "Page.h"
@@ -58,8 +59,6 @@
 #include "markup.h"
 
 namespace WebCore {
-
-using namespace EventNames;
 
 ContextMenuController::ContextMenuController(Page* page, ContextMenuClient* client)
     : m_page(page)
@@ -82,16 +81,15 @@ void ContextMenuController::clearContextMenu()
 
 void ContextMenuController::handleContextMenuEvent(Event* event)
 {
-    ASSERT(event->type() == contextmenuEvent);
+    ASSERT(event->type() == eventNames().contextmenuEvent);
     if (!event->isMouseEvent())
         return;
     MouseEvent* mouseEvent = static_cast<MouseEvent*>(event);
-    IntPoint point = IntPoint(mouseEvent->pageX(), mouseEvent->pageY());
-    HitTestResult result(point);
+    HitTestResult result(mouseEvent->absoluteLocation());
 
     if (Frame* frame = event->target()->toNode()->document()->frame())
-        result = frame->eventHandler()->hitTestResultAtPoint(point, false);
-    
+        result = frame->eventHandler()->hitTestResultAtPoint(mouseEvent->absoluteLocation(), false);
+
     if (!result.innerNonSharedNode())
         return;
 
@@ -154,10 +152,11 @@ void ContextMenuController::contextMenuItemSelected(ContextMenuItem* item)
             frame->editor()->copyImage(result);
             break;
         case ContextMenuItemTagOpenFrameInNewWindow: {
-            KURL url = frame->loader()->documentLoader()->unreachableURL();
-            if (frame && url.isEmpty())
-                url = frame->loader()->documentLoader()->url();
-            openNewWindow(url, frame);
+            DocumentLoader* loader = frame->loader()->documentLoader();
+            if (!loader->unreachableURL().isEmpty())
+                openNewWindow(loader->unreachableURL(), frame);
+            else
+                openNewWindow(loader->url(), frame);
             break;
         }
         case ContextMenuItemTagCopy:
@@ -191,14 +190,14 @@ void ContextMenuController::contextMenuItemSelected(ContextMenuItem* item)
 #endif
         case ContextMenuItemTagSpellingGuess:
             ASSERT(frame->selectedText().length());
-            if (frame->editor()->shouldInsertText(item->title(), frame->selectionController()->toRange().get(),
+            if (frame->editor()->shouldInsertText(item->title(), frame->selection()->toNormalizedRange().get(),
                 EditorInsertActionPasted)) {
                 Document* document = frame->document();
                 RefPtr<ReplaceSelectionCommand> command =
-                    new ReplaceSelectionCommand(document, createFragmentFromMarkup(document, item->title(), ""),
+                    ReplaceSelectionCommand::create(document, createFragmentFromMarkup(document, item->title(), ""),
                                                                                    true, false, true);
                 applyCommand(command);
-                frame->revealSelection(RenderLayer::gAlignToEdgeIfNeeded);
+                frame->revealSelection(ScrollAlignment::alignToEdgeIfNeeded);
             }
             break;
         case ContextMenuItemTagIgnoreSpelling:
@@ -215,10 +214,10 @@ void ContextMenuController::contextMenuItemSelected(ContextMenuItem* item)
             m_client->lookUpInDictionary(frame);
             break;
         case ContextMenuItemTagOpenLink:
-            if (Frame* targetFrame = result.targetFrame())
-                targetFrame->loader()->load(FrameLoadRequest(ResourceRequest(result.absoluteLinkURL(), 
-                    frame->loader()->outgoingReferrer())), false, true, 0, 0, HashMap<String, String>());
-            else
+            if (Frame* targetFrame = result.targetFrame()) {
+                targetFrame->loader()->loadFrameRequest(FrameLoadRequest(ResourceRequest(result.absoluteLinkURL(), 
+                    frame->loader()->outgoingReferrer())), false, false, 0, 0);
+            } else
                 openNewWindow(result.absoluteLinkURL(), frame);
             break;
         case ContextMenuItemTagBold:
@@ -236,7 +235,7 @@ void ContextMenuController::contextMenuItemSelected(ContextMenuItem* item)
             break;
         case ContextMenuItemTagStartSpeaking: {
             ExceptionCode ec;
-            RefPtr<Range> selectedRange = frame->selectionController()->toRange();
+            RefPtr<Range> selectedRange = frame->selection()->toNormalizedRange();
             if (!selectedRange || selectedRange->collapsed(ec)) {
                 Document* document = result.innerNonSharedNode()->document();
                 selectedRange = document->createRange();
@@ -249,13 +248,22 @@ void ContextMenuController::contextMenuItemSelected(ContextMenuItem* item)
             m_client->stopSpeaking();
             break;
         case ContextMenuItemTagDefaultDirection:
-            frame->editor()->setBaseWritingDirection("inherit");
+            frame->editor()->setBaseWritingDirection(NaturalWritingDirection);
             break;
         case ContextMenuItemTagLeftToRight:
-            frame->editor()->setBaseWritingDirection("ltr");
+            frame->editor()->setBaseWritingDirection(LeftToRightWritingDirection);
             break;
         case ContextMenuItemTagRightToLeft:
-            frame->editor()->setBaseWritingDirection("rtl");
+            frame->editor()->setBaseWritingDirection(RightToLeftWritingDirection);
+            break;
+        case ContextMenuItemTagTextDirectionDefault:
+            frame->editor()->command("MakeTextWritingDirectionNatural").execute();
+            break;
+        case ContextMenuItemTagTextDirectionLeftToRight:
+            frame->editor()->command("MakeTextWritingDirectionLeftToRight").execute();
+            break;
+        case ContextMenuItemTagTextDirectionRightToLeft:
+            frame->editor()->command("MakeTextWritingDirectionRightToLeft").execute();
             break;
 #if PLATFORM(MAC)
         case ContextMenuItemTagSearchInSpotlight:
@@ -285,6 +293,41 @@ void ContextMenuController::contextMenuItemSelected(ContextMenuItem* item)
             break;
         case ContextMenuItemTagShowColors:
             frame->editor()->showColorPanel();
+            break;
+#endif
+#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+        case ContextMenuItemTagMakeUpperCase:
+            frame->editor()->uppercaseWord();
+            break;
+        case ContextMenuItemTagMakeLowerCase:
+            frame->editor()->lowercaseWord();
+            break;
+        case ContextMenuItemTagCapitalize:
+            frame->editor()->capitalizeWord();
+            break;
+        case ContextMenuItemTagShowSubstitutions:
+            frame->editor()->showSubstitutionsPanel();
+            break;
+        case ContextMenuItemTagSmartCopyPaste:
+            frame->editor()->toggleSmartInsertDelete();
+            break;
+        case ContextMenuItemTagSmartQuotes:
+            frame->editor()->toggleAutomaticQuoteSubstitution();
+            break;
+        case ContextMenuItemTagSmartDashes:
+            frame->editor()->toggleAutomaticDashSubstitution();
+            break;
+        case ContextMenuItemTagSmartLinks:
+            frame->editor()->toggleAutomaticLinkDetection();
+            break;
+        case ContextMenuItemTagTextReplacement:
+            frame->editor()->toggleAutomaticTextReplacement();
+            break;
+        case ContextMenuItemTagCorrectSpellingAutomatically:
+            frame->editor()->toggleAutomaticSpellingCorrection();
+            break;
+        case ContextMenuItemTagChangeBack:
+            frame->editor()->changeBackToReplacedString(result.replacedString());
             break;
 #endif
         case ContextMenuItemTagInspectElement:

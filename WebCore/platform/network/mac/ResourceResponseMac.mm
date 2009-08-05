@@ -1,4 +1,3 @@
-// -*- mode: c++; c-basic-offset: 4 -*-
 /*
  * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
  *
@@ -29,6 +28,7 @@
 
 #import "WebCoreURLResponse.h"
 #import <Foundation/Foundation.h>
+#import <wtf/StdLibExtras.h>
 #import <limits>
 
 @interface NSURLResponse (FoundationSecretsWebCoreKnowsAbout)
@@ -52,13 +52,17 @@ NSURLResponse *ResourceResponse::nsURLResponse() const
             expectedContentLength = -1;
         else
             expectedContentLength = static_cast<NSInteger>(m_expectedContentLength);
-        const_cast<ResourceResponse*>(this)->m_nsResponse.adoptNS([[NSURLResponse alloc] initWithURL:m_url.getNSURL() MIMEType:m_mimeType expectedContentLength:expectedContentLength textEncodingName:m_textEncodingName]);
+        const_cast<ResourceResponse*>(this)->m_nsResponse.adoptNS([[NSURLResponse alloc] initWithURL:m_url MIMEType:m_mimeType expectedContentLength:expectedContentLength textEncodingName:m_textEncodingName]);
     }
     return m_nsResponse.get();
 }
 
-void ResourceResponse::doUpdateResourceResponse()
+void ResourceResponse::platformLazyInit()
 {
+    if (m_isUpToDate)
+        return;
+    m_isUpToDate = true;
+
     if (m_isNull) {
         ASSERT(!m_nsResponse);
         return;
@@ -96,12 +100,17 @@ void ResourceResponse::doUpdateResourceResponse()
         // is returning incorrect MIME type for local .xhtml files) which is only required in Leopard.
         if (m_url.isLocalFile() && m_mimeType == "text/html") {
             const String& path = m_url.path();
-            static const String xhtmlExt(".xhtml");
+            DEFINE_STATIC_LOCAL(const String, xhtmlExt, (".xhtml"));
             if (path.endsWith(xhtmlExt, false))
                 m_mimeType = "application/xhtml+xml";
         }
 #endif
     }
+}
+
+bool ResourceResponse::platformCompare(const ResourceResponse& a, const ResourceResponse& b)
+{
+    return a.nsURLResponse() == b.nsURLResponse();
 }
 
 }

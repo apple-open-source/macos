@@ -28,8 +28,7 @@
 
 namespace WebCore {
 
-class SVGRenderingIntent : public RefCounted<SVGRenderingIntent>
-{
+class SVGRenderingIntent : public RefCounted<SVGRenderingIntent> {
 public:
     enum SVGRenderingIntentType {
         RENDERING_INTENT_UNKNOWN                  = 0,
@@ -40,8 +39,8 @@ public:
         RENDERING_INTENT_ABSOLUTE_COLORIMETRIC    = 5
     };
 
-    SVGRenderingIntent() { } 
-    ~SVGRenderingIntent() { }
+private:
+    SVGRenderingIntent() { }
 };
 
 } // namespace WebCore

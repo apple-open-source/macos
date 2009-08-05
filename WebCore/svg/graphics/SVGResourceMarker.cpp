@@ -28,10 +28,11 @@
 #if ENABLE(SVG)
 #include "SVGResourceMarker.h"
 
-#include "AffineTransform.h"
+#include "TransformationMatrix.h"
 #include "GraphicsContext.h"
 #include "RenderSVGViewportContainer.h"
 #include "TextStream.h"
+#include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
@@ -65,7 +66,7 @@ void SVGResourceMarker::draw(GraphicsContext* context, const FloatRect& rect, do
     if (!m_marker)
         return;
 
-    static HashSet<SVGResourceMarker*> currentlyDrawingMarkers;
+    DEFINE_STATIC_LOCAL(HashSet<SVGResourceMarker*>, currentlyDrawingMarkers, ());
 
     // avoid drawing circular marker references
     if (currentlyDrawingMarkers.contains(this))
@@ -73,22 +74,22 @@ void SVGResourceMarker::draw(GraphicsContext* context, const FloatRect& rect, do
 
     currentlyDrawingMarkers.add(this);
 
-    AffineTransform transform;
+    TransformationMatrix transform;
     transform.translate(x, y);
     transform.rotate(m_angle > -1 ? m_angle : angle);
 
     // refX and refY are given in coordinates relative to the viewport established by the marker, yet they affect
     // the translation performed on the viewport itself.
-    AffineTransform viewportTransform;
+    TransformationMatrix viewportTransform;
     if (m_useStrokeWidth)
-        viewportTransform.scale(strokeWidth, strokeWidth);
+        viewportTransform.scaleNonUniform(strokeWidth, strokeWidth);
     viewportTransform *= m_marker->viewportTransform();
     double refX, refY;
-    viewportTransform.map(m_refX, m_refY, &refX, &refY);
+    viewportTransform.map(m_refX, m_refY, refX, refY);
     transform.translate(-refX, -refY);
 
     if (m_useStrokeWidth)
-        transform.scale(strokeWidth, strokeWidth);
+        transform.scaleNonUniform(strokeWidth, strokeWidth);
 
     // FIXME: PaintInfo should be passed into this method instead of being created here
     // FIXME: bounding box fractions are lost

@@ -32,13 +32,14 @@
  */
 
 /*
- * Modifications Copyright (c) 2003-2004 Apple Computer, Inc. All Rights Reserved.
+ * Modifications Copyright (c) 2003-2009 Apple Inc. All Rights Reserved.
  *
  * cmsutil -- A command to work with CMS data
  */
 
 #include "security.h"
 #include "keychain_utilities.h"
+#include "identity_find.h"
 
 #include <Security/SecCmsBase.h>
 #include <Security/SecCmsContentInfo.h>
@@ -55,12 +56,11 @@
 #include <Security/SecSMIME.h>
 
 #include <Security/oidsalg.h>
-#include <Security/SecCertificatePriv.h>
-#include <Security/SecPolicyPriv.h>
+#include <Security/SecPolicy.h>
 #include <Security/SecKeychain.h>
 #include <Security/SecKeychainSearch.h>
 #include <Security/SecIdentity.h>
-#include <Security/SecIdentitySearchPriv.h>
+#include <Security/SecIdentitySearch.h>
 #include <CoreFoundation/CFString.h>
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 
@@ -69,6 +69,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+
+// SecPolicyCopy
+#include <Security/SecPolicyPriv.h>
+// SecKeychainSearchCreateForCertificateByEmail, SecCertificateFindBySubjectKeyID, SecCertificateFindByEmail
+#include <Security/SecCertificatePriv.h>
+// SecIdentitySearchCreateWithPolicy
+#include <Security/SecIdentitySearchPriv.h>
 
 #define SEC_CHECK0(CALL, ERROR) do { if (!(CALL)) { sec_error(ERROR); goto loser; } } while(0)
 #define SEC_CHECK(CALL, ERROR) do { rv = (CALL); if (rv) { sec_perror(ERROR, rv); goto loser; } } while(0)
@@ -215,7 +222,7 @@ static SecIdentityRef CERT_FindIdentityByUsage(CFTypeRef keychainOrArray,
                 break;
 
             sec_perror("error finding next matching identity", rv);
-            goto loser;
+			goto loser;
         }
     }
 
@@ -256,6 +263,31 @@ static SecCertificateRef CERT_FindCertByNicknameOrEmailAddr(CFTypeRef keychainOr
 loser:
     return certificate;
 }
+
+static SecIdentityRef CERT_FindIdentityBySubjectKeyID(CFTypeRef keychainOrArray, 
+                                               const char *subjectKeyIDString)
+{
+	// ss will be something like "B2ACD31AC8D0DA62E7679432ADDD3398EF66948B"
+	
+    SecCertificateRef certificate = NULL;
+	SecIdentityRef identityRef = NULL;
+	OSStatus rv;
+	
+	CSSM_SIZE len = strlen(subjectKeyIDString)/2;
+	CSSM_DATA subjectKeyID =  {0,};
+	subjectKeyID.Length = len;
+	subjectKeyID.Data = (uint8 *)malloc(subjectKeyID.Length);
+	fromHex(subjectKeyIDString, &subjectKeyID);
+
+    SEC_CHECK2(SecCertificateFindBySubjectKeyID(keychainOrArray, &subjectKeyID, &certificate),
+		"failed to find identity with subject key ID: \"%s\"", subjectKeyIDString);
+
+    SEC_CHECK2(SecIdentityCreateWithCertificate(keychainOrArray, certificate, &identityRef),
+		"failed to find certificate with subject key ID: \"%s\"", subjectKeyIDString);
+loser:
+    return identityRef;
+}
+
 
 static OSStatus CERT_CheckCertUsage (SecCertificateRef cert,unsigned char usage)
 {
@@ -358,6 +390,7 @@ struct signOptionsStr {
     struct optionsStr *options;
     char *nickname;
     char *encryptionKeyPreferenceNick;
+    char *subjectKeyID;
     Boolean signingTime;
     Boolean smimeProfile;
     Boolean detached;
@@ -568,7 +601,7 @@ static SecCmsMessageRef signed_data(struct signOptionsStr *signOptions)
     {
         fprintf(stderr, "Input to signed_data:\n");
         if (signOptions->options->password)
-            fprintf(stderr, "password [%s]\n", "foo" /*signOptions->options->password*/);
+            fprintf(stderr, "password [%s]\n", "***" /*signOptions->options->password*/);
         else
             fprintf(stderr, "password [NULL]\n");
         fprintf(stderr, "certUsage [%d]\n", signOptions->options->certUsage);
@@ -580,22 +613,50 @@ static SecCmsMessageRef signed_data(struct signOptionsStr *signOptions)
             fprintf(stderr, "nickname [%s]\n", signOptions->nickname);
         else
             fprintf(stderr, "nickname [NULL]\n");
+		if (signOptions->subjectKeyID)
+            fprintf(stderr, "subject Key ID [%s]\n", signOptions->subjectKeyID);
     }
 
-    SEC_CHECK0(signOptions->nickname,
-               "please indicate the email address of a certificate to sign with");
-    if ((identity = CERT_FindIdentityByUsage(signOptions->options->certDBHandle, 
-                                         signOptions->nickname,
-                                         signOptions->options->certUsage,
-                                         false)) == NULL)
-    {
-        sec_error("could not find signing identity for email: \"%s\"", signOptions->nickname);
-        return NULL;
-    }
+	if (signOptions->subjectKeyID)
+	{
+		if ((identity = CERT_FindIdentityBySubjectKeyID(signOptions->options->certDBHandle, 
+                                               signOptions->subjectKeyID)) == NULL)
+		{
+			sec_error("could not find signing identity for subject key ID: \"%s\"", signOptions->subjectKeyID);
+			return NULL;
+		}
 
-    if (cms_verbose)
-        fprintf(stderr, "Found identity for %s\n", signOptions->nickname);
+		if (cms_verbose)
+			fprintf(stderr, "Found identity for subject key ID %s\n", signOptions->subjectKeyID);
+	}
+	else if (signOptions->nickname)
+	{
+		if ((identity = CERT_FindIdentityByUsage(signOptions->options->certDBHandle, 
+											 signOptions->nickname,
+											 signOptions->options->certUsage,
+											 false)) == NULL)
+		{
+			// look for identity by common name rather than email address
+			if ((identity = find_identity(signOptions->options->certDBHandle,
+										  signOptions->nickname,
+										  NULL,
+										  signOptions->options->certUsage)) == NULL)
+			{
+				sec_error("could not find signing identity for name: \"%s\"", signOptions->nickname);
+				return NULL;
+			}
+		}
 
+		if (cms_verbose)
+			fprintf(stderr, "Found identity for %s\n", signOptions->nickname);
+	}
+	else
+	{
+		// no identity was specified
+		sec_error("no signing identity was specified");
+		return NULL;
+	}
+	
     // Get the cert from the identity
     SEC_CHECK(SecIdentityCopyCertificate(identity, &cert),
               "SecIdentityCopyCertificate");
@@ -995,7 +1056,6 @@ int cms_util(int argc, char **argv)
     SecCmsMessageRef cmsg = NULL;
     FILE *inFile;
     int ch;
-    OSStatus statusX;
     Mode mode = UNKNOWN;
     PK11PasswordFunc pwcb;
     void *pwcb_arg;
@@ -1027,6 +1087,7 @@ int cms_util(int argc, char **argv)
     options.certUsage = certUsageEmailSigner;
     options.password = NULL;
     signOptions.nickname = NULL;
+    signOptions.subjectKeyID = NULL;
     signOptions.detached = false;
     signOptions.signingTime = false;
     signOptions.smimeProfile = false;
@@ -1041,7 +1102,7 @@ int cms_util(int argc, char **argv)
     encryptOptions.keysize = -1;
     
     // Parse command line arguments
-    while ((ch = getopt(argc, argv, "CDEGH:N:OPSTY:c:de:h:i:k:no:p:r:su:v")) != -1)
+    while ((ch = getopt(argc, argv, "CDEGH:N:OPSTY:Z:c:de:h:i:k:no:p:r:su:v")) != -1)
     {
         switch (ch)
         {
@@ -1231,6 +1292,17 @@ int cms_util(int argc, char **argv)
             cms_update_single_byte = 1;
             break;
             
+        case 'Z':	
+            if (!optarg)
+            {
+                sec_error("option -Z must have a value");
+                result = 2; /* Trigger usage message. */
+                goto loser;
+            }
+            signOptions.subjectKeyID = strdup(optarg);
+			
+            break;
+
         case 'u':
         {
             int usageType = atoi (strdup(optarg));
@@ -1268,15 +1340,15 @@ int cms_util(int argc, char **argv)
 		fclose(inFile);
     if (cms_verbose)
         fprintf(stderr, "received commands\n");
-    
+
     /* Call the libsec initialization routines */
     if (keychainName)
     {
 		check_obsolete_keychain(keychainName);
-        statusX = SecKeychainOpen(keychainName, &options.certDBHandle);
+		options.certDBHandle = keychain_open(keychainName);
         if (!options.certDBHandle)
         {
-            sec_perror("SecKeychainOpen", statusX);
+            sec_perror("SecKeychainOpen", errSecInvalidKeychain);
             result = 1;
             goto loser;
         }

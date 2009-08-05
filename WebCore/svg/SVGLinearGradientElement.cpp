@@ -1,8 +1,8 @@
 /*
     Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
-
-    This file is part of the KDE project
+                  2008 Eric Seidel <eric@webkit.org>
+                  2008 Dirk Schulze <krit@webkit.org>
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -25,8 +25,10 @@
 #if ENABLE(SVG)
 #include "SVGLinearGradientElement.h"
 
+#include "Document.h"
 #include "FloatPoint.h"
 #include "LinearGradientAttributes.h"
+#include "MappedAttribute.h"
 #include "SVGLength.h"
 #include "SVGNames.h"
 #include "SVGPaintServerLinearGradient.h"
@@ -38,34 +40,28 @@ namespace WebCore {
 
 SVGLinearGradientElement::SVGLinearGradientElement(const QualifiedName& tagName, Document* doc)
     : SVGGradientElement(tagName, doc)
-    , m_x1(this, LengthModeWidth)
-    , m_y1(this, LengthModeHeight)
-    , m_x2(this, LengthModeWidth)
-    , m_y2(this, LengthModeHeight)
+    , m_x1(this, SVGNames::x1Attr, LengthModeWidth)
+    , m_y1(this, SVGNames::y1Attr, LengthModeHeight)
+    , m_x2(this, SVGNames::x2Attr, LengthModeWidth, "100%")
+    , m_y2(this, SVGNames::y2Attr, LengthModeHeight)
 {
-    // Spec: If the attribute is not specified, the effect is as if a value of "100%" were specified.
-    setX2BaseValue(SVGLength(this, LengthModeWidth, "100%"));
+    // Spec: If the x2 attribute is not specified, the effect is as if a value of "100%" were specified.
 }
 
 SVGLinearGradientElement::~SVGLinearGradientElement()
 {
 }
 
-ANIMATED_PROPERTY_DEFINITIONS(SVGLinearGradientElement, SVGLength, Length, length, X1, x1, SVGNames::x1Attr, m_x1)
-ANIMATED_PROPERTY_DEFINITIONS(SVGLinearGradientElement, SVGLength, Length, length, Y1, y1, SVGNames::y1Attr, m_y1)
-ANIMATED_PROPERTY_DEFINITIONS(SVGLinearGradientElement, SVGLength, Length, length, X2, x2, SVGNames::x2Attr, m_x2)
-ANIMATED_PROPERTY_DEFINITIONS(SVGLinearGradientElement, SVGLength, Length, length, Y2, y2, SVGNames::y2Attr, m_y2)
-
 void SVGLinearGradientElement::parseMappedAttribute(MappedAttribute* attr)
 {
     if (attr->name() == SVGNames::x1Attr)
-        setX1BaseValue(SVGLength(this, LengthModeWidth, attr->value()));
+        setX1BaseValue(SVGLength(LengthModeWidth, attr->value()));
     else if (attr->name() == SVGNames::y1Attr)
-        setY1BaseValue(SVGLength(this, LengthModeHeight, attr->value()));
+        setY1BaseValue(SVGLength(LengthModeHeight, attr->value()));
     else if (attr->name() == SVGNames::x2Attr)
-        setX2BaseValue(SVGLength(this, LengthModeWidth, attr->value()));
+        setX2BaseValue(SVGLength(LengthModeWidth, attr->value()));
     else if (attr->name() == SVGNames::y2Attr)
-        setY2BaseValue(SVGLength(this, LengthModeHeight, attr->value()));
+        setY2BaseValue(SVGLength(LengthModeHeight, attr->value()));
     else
         SVGGradientElement::parseMappedAttribute(attr);
 }
@@ -86,18 +82,36 @@ void SVGLinearGradientElement::buildGradient() const
 {
     LinearGradientAttributes attributes = collectGradientProperties();
 
-    // If we didn't find any gradient containing stop elements, ignore the request.
+    RefPtr<SVGPaintServerLinearGradient> linearGradient = WTF::static_pointer_cast<SVGPaintServerLinearGradient>(m_resource);
+
+    FloatPoint startPoint = FloatPoint::narrowPrecision(attributes.x1(), attributes.y1());
+    FloatPoint endPoint = FloatPoint::narrowPrecision(attributes.x2(), attributes.y2());
+
+    RefPtr<Gradient> gradient = Gradient::create(startPoint, endPoint);
+    gradient->setSpreadMethod(attributes.spreadMethod());
+
+    Vector<SVGGradientStop> m_stops = attributes.stops();
+    float previousOffset = 0.0f;
+    for (unsigned i = 0; i < m_stops.size(); ++i) {
+        float offset = std::min(std::max(previousOffset, m_stops[i].first), 1.0f);
+        previousOffset = offset;
+        gradient->addColorStop(offset, m_stops[i].second);
+    }
+
+    linearGradient->setGradient(gradient);
+
     if (attributes.stops().isEmpty())
         return;
 
-    RefPtr<SVGPaintServerLinearGradient> linearGradient = WTF::static_pointer_cast<SVGPaintServerLinearGradient>(m_resource);
-
-    linearGradient->setGradientStops(attributes.stops());
+    // This code should go away.  PaintServers should go away too.
+    // Only this code should care about bounding boxes
     linearGradient->setBoundingBoxMode(attributes.boundingBoxMode());
-    linearGradient->setGradientSpreadMethod(attributes.spreadMethod());
+    linearGradient->setGradientStops(attributes.stops());
+
+    // These should possibly be supported on Gradient
     linearGradient->setGradientTransform(attributes.gradientTransform());
-    linearGradient->setGradientStart(FloatPoint::narrowPrecision(attributes.x1(), attributes.y1()));
-    linearGradient->setGradientEnd(FloatPoint::narrowPrecision(attributes.x2(), attributes.y2()));
+    linearGradient->setGradientStart(startPoint);
+    linearGradient->setGradientEnd(endPoint);
 }
 
 LinearGradientAttributes SVGLinearGradientElement::collectGradientProperties() const
@@ -110,10 +124,10 @@ LinearGradientAttributes SVGLinearGradientElement::collectGradientProperties() c
 
     while (current) {
         if (!attributes.hasSpreadMethod() && current->hasAttribute(SVGNames::spreadMethodAttr))
-            attributes.setSpreadMethod((SVGGradientSpreadMethod) current->spreadMethod());
+            attributes.setSpreadMethod((GradientSpreadMethod) current->spreadMethod());
 
         if (!attributes.hasBoundingBoxMode() && current->hasAttribute(SVGNames::gradientUnitsAttr))
-            attributes.setBoundingBoxMode(current->getAttribute(SVGNames::gradientUnitsAttr) == "objectBoundingBox");
+            attributes.setBoundingBoxMode(current->gradientUnits() == SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX);
 
         if (!attributes.hasGradientTransform() && current->hasAttribute(SVGNames::gradientTransformAttr))
             attributes.setGradientTransform(current->gradientTransform()->consolidate().matrix());

@@ -66,7 +66,7 @@ do_keychain_show_info(const char *keychainName)
 	if (keychainSettings.lockInterval == INT_MAX)
 		fprintf(stderr," no-timeout\n");
 	else
-		fprintf(stderr," timeout=%lds\n", keychainSettings.lockInterval);
+		fprintf(stderr," timeout=%ds\n", (int)keychainSettings.lockInterval);
 
 loser:
 	if (keychain)

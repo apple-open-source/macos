@@ -1,9 +1,7 @@
-/**
- * This file is part of the DOM implementation for KDE.
- *
+/*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
+ * Copyright (C) 2004, 2005, 2006, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -20,13 +18,17 @@
  * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301, USA.
  */
+
 #include "config.h"
 #include "HTMLAreaElement.h"
 
 #include "Document.h"
-#include "HTMLNames.h"
 #include "FloatRect.h"
+#include "HTMLNames.h"
 #include "HitTestResult.h"
+#include "Length.h"
+#include "MappedAttribute.h"
+#include "Path.h"
 #include "RenderObject.h"
 
 using namespace std;
@@ -35,13 +37,14 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLAreaElement::HTMLAreaElement(Document *doc)
-    : HTMLAnchorElement(areaTag, doc)
+HTMLAreaElement::HTMLAreaElement(const QualifiedName& tagName, Document* document)
+    : HTMLAnchorElement(tagName, document)
     , m_coords(0)
     , m_coordsLen(0)
     , m_lastSize(-1, -1)
     , m_shape(Unknown)
 {
+    ASSERT(hasTagName(areaTag));
 }
 
 HTMLAreaElement::~HTMLAreaElement()
@@ -62,7 +65,7 @@ void HTMLAreaElement::parseMappedAttribute(MappedAttribute *attr)
             m_shape = Rect;
     } else if (attr->name() == coordsAttr) {
         delete [] m_coords;
-        m_coords = attr->value().toCoordsArray(m_coordsLen);
+        m_coords = newCoordsArray(attr->value().string(), m_coordsLen);
     } else if (attr->name() == altAttr || attr->name() == accesskeyAttr) {
         // Do nothing.
     } else
@@ -72,11 +75,11 @@ void HTMLAreaElement::parseMappedAttribute(MappedAttribute *attr)
 bool HTMLAreaElement::mapMouseEvent(int x, int y, const IntSize& size, HitTestResult& result)
 {
     if (m_lastSize != size) {
-        region = getRegion(size);
+        m_region.set(new Path(getRegion(size)));
         m_lastSize = size;
     }
 
-    if (!region.contains(IntPoint(x, y)))
+    if (!m_region->contains(IntPoint(x, y)))
         return false;
     
     result.setInnerNode(this);
@@ -86,10 +89,10 @@ bool HTMLAreaElement::mapMouseEvent(int x, int y, const IntSize& size, HitTestRe
 
 IntRect HTMLAreaElement::getRect(RenderObject* obj) const
 {
-    int dx, dy;
-    obj->absolutePosition(dx, dy);
+    // FIXME: This doesn't work correctly with transforms.
+    FloatPoint absPos = obj->localToAbsolute();
     Path p = getRegion(m_lastSize);
-    p.translate(IntSize(dx, dy));
+    p.translate(absPos - FloatPoint());
     return enclosingIntRect(p.boundingRect());
 }
 
@@ -149,42 +152,42 @@ Path HTMLAreaElement::getRegion(const IntSize& size) const
     return path;
 }
 
-String HTMLAreaElement::accessKey() const
+const AtomicString& HTMLAreaElement::accessKey() const
 {
     return getAttribute(accesskeyAttr);
 }
 
-void HTMLAreaElement::setAccessKey(const String& value)
+void HTMLAreaElement::setAccessKey(const AtomicString& value)
 {
     setAttribute(accesskeyAttr, value);
 }
 
-String HTMLAreaElement::alt() const
+const AtomicString& HTMLAreaElement::alt() const
 {
     return getAttribute(altAttr);
 }
 
-void HTMLAreaElement::setAlt(const String& value)
+void HTMLAreaElement::setAlt(const AtomicString& value)
 {
     setAttribute(altAttr, value);
 }
 
-String HTMLAreaElement::coords() const
+const AtomicString& HTMLAreaElement::coords() const
 {
     return getAttribute(coordsAttr);
 }
 
-void HTMLAreaElement::setCoords(const String& value)
+void HTMLAreaElement::setCoords(const AtomicString& value)
 {
     setAttribute(coordsAttr, value);
 }
 
-String HTMLAreaElement::href() const
+KURL HTMLAreaElement::href() const
 {
     return document()->completeURL(getAttribute(hrefAttr));
 }
 
-void HTMLAreaElement::setHref(const String& value)
+void HTMLAreaElement::setHref(const AtomicString& value)
 {
     setAttribute(hrefAttr, value);
 }
@@ -199,19 +202,19 @@ void HTMLAreaElement::setNoHref(bool noHref)
     setAttribute(nohrefAttr, noHref ? "" : 0);
 }
 
-String HTMLAreaElement::shape() const
+const AtomicString& HTMLAreaElement::shape() const
 {
     return getAttribute(shapeAttr);
 }
 
-void HTMLAreaElement::setShape(const String& value)
+void HTMLAreaElement::setShape(const AtomicString& value)
 {
     setAttribute(shapeAttr, value);
 }
 
-void HTMLAreaElement::setTabIndex(int tabIndex)
+bool HTMLAreaElement::isFocusable() const
 {
-    setAttribute(tabindexAttr, String::number(tabIndex));
+    return HTMLElement::isFocusable();
 }
 
 String HTMLAreaElement::target() const
@@ -219,7 +222,7 @@ String HTMLAreaElement::target() const
     return getAttribute(targetAttr);
 }
 
-void HTMLAreaElement::setTarget(const String& value)
+void HTMLAreaElement::setTarget(const AtomicString& value)
 {
     setAttribute(targetAttr, value);
 }

@@ -45,11 +45,7 @@ int screenDepthPerComponent(Widget*)
 
 bool screenIsMonochrome(Widget*)
 {
-    NSString *colorSpace = NSColorSpaceFromDepth([[NSScreen deepestScreen] depth]);
-    return colorSpace == NSCalibratedWhiteColorSpace
-        || colorSpace == NSCalibratedBlackColorSpace
-        || colorSpace == NSDeviceWhiteColorSpace
-        || colorSpace == NSDeviceBlackColorSpace;
+    return false;
 }
 
 // These functions scale between screen and page coordinates because JavaScript/DOM operations 
@@ -57,13 +53,13 @@ bool screenIsMonochrome(Widget*)
 
 FloatRect screenRect(Widget* widget)
 {
-    NSWindow *window = widget ? [widget->getView() window] : nil;
+    NSWindow *window = widget ? [widget->platformWidget() window] : nil;
     return toUserSpace([screenForWindow(window) frame], window);
 }
 
 FloatRect screenAvailableRect(Widget* widget)
 {
-    NSWindow *window = widget ? [widget->getView() window] : nil;
+    NSWindow *window = widget ? [widget->platformWidget() window] : nil;
     return toUserSpace([screenForWindow(window) visibleFrame], window);
 }
 

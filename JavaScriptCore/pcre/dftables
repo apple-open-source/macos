@@ -8,7 +8,7 @@
 # 
 #                  Originally written by Philip Hazel
 #            Copyright (c) 1997-2006 University of Cambridge
-#  Copyright (C) 2002, 2004, 2006, 2007, 2008 Apple Inc.  All rights reserved.
+#  Copyright (C) 2002, 2004, 2006, 2007, 2008, 2009 Apple Inc.  All rights reserved.
 # 
 # -----------------------------------------------------------------------------
 # Redistribution and use in source and binary forms, with or without
@@ -46,18 +46,27 @@ use strict;
 
 use File::Basename;
 use File::Spec;
-use File::Temp;
+use File::Temp qw(tempfile);
+use Getopt::Long;
 
 sub readHeaderValues();
 
 my %pcre_internal;
 
-if (scalar(@ARGV) != 1) {
-    print STDERR "Usage: ", basename($0), " output-file\n";
+if (scalar(@ARGV) < 1) {
+    print STDERR "Usage: ", basename($0), " [--preprocessor=program] output-file\n";
     exit 1;
 }
 
-my $outputFile = shift @ARGV;
+my $outputFile;
+my $preprocessor;
+GetOptions('preprocessor=s' => \$preprocessor);
+if (not $preprocessor) {
+    $preprocessor = "cpp";
+}
+
+$outputFile = $ARGV[0];
+die('Must specify output file.') unless defined($outputFile);
 
 readHeaderValues();
 
@@ -75,7 +84,7 @@ printf(OUT
     "This file contains the default tables for characters with codes less than\n" .
     "128 (ASCII characters). These tables are used when no external tables are\n" .
     "passed to PCRE. */\n\n" .
-    "const unsigned char kjs_pcre_default_tables[%d] = {\n\n" .
+    "const unsigned char jsc_pcre_default_tables[%d] = {\n\n" .
     "/* This table is a lower casing table. */\n\n", $pcre_internal{tables_length});
 
 if ($pcre_internal{lcc_offset} != 0) {
@@ -232,14 +241,13 @@ sub readHeaderValues()
     local $/ = undef;
 
     my $headerPath = File::Spec->catfile(dirname($0), "pcre_internal.h");
-
-    my $fh = new File::Temp(
+ 
+    my ($fh, $tempFile) = tempfile(
+        basename($0) . "-XXXXXXXX",
         DIR => ($ENV{'TMPDIR'} || "/tmp"),
         SUFFIX => ".in",
-        TEMPLATE => basename($0) . "-XXXXXXXX",
         UNLINK => 0,
     );
-    my $tempFile = $fh->filename();
 
     print $fh "#define DFTABLES\n\n";
 
@@ -255,10 +263,10 @@ sub readHeaderValues()
 
     close($fh);
 
-    open(CPP, "cpp '$tempFile' |") or die "$!";
+    open(CPP, "$preprocessor \"$tempFile\" |") or die "$!";
     my $content = <CPP>;
     close(CPP);
-
+    
     eval $content;
     die "$@" if $@;
 }

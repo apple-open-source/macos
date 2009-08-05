@@ -59,14 +59,11 @@ public:
 
     Length styleOrColWidth() const;
 
-    virtual bool requiresLayer();
+    virtual bool requiresLayer() const { return isPositioned() || isTransparent() || hasOverflowClip() || hasTransform() || hasMask() || hasReflection(); }
 
     virtual void calcPrefWidths();
     virtual void calcWidth();
-    virtual void setWidth(int);
-    virtual void setStyle(RenderStyle*);
-
-    virtual bool expandsToEncloseOverhangingFloats() const { return true; }
+    void updateWidth(int);
 
     int borderLeft() const;
     int borderRight() const;
@@ -93,36 +90,42 @@ public:
 
     virtual void paint(PaintInfo&, int tx, int ty);
     virtual void paintBoxDecorations(PaintInfo&, int tx, int ty);
+    virtual void paintMask(PaintInfo& paintInfo, int tx, int ty);
     void paintCollapsedBorder(GraphicsContext*, int x, int y, int w, int h);
     void paintBackgroundsBehindCell(PaintInfo&, int tx, int ty, RenderObject* backgroundObject);
 
-    // Lie about position to outside observers.
-    virtual int yPos() const { return m_y + m_topExtra; }
+    virtual IntRect clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer);
+    virtual void computeRectForRepaint(RenderBoxModelObject* repaintContainer, IntRect&, bool fixed = false);
 
-    virtual IntRect absoluteClippedOverflowRect();
-    virtual void computeAbsoluteRepaintRect(IntRect&, bool fixed = false);
-    virtual bool absolutePosition(int& x, int& y, bool fixed = false) const;
+    virtual int baselinePosition(bool firstLine = false, bool isRootLineBox = false) const;
 
-    virtual short baselinePosition(bool firstLine = false, bool isRootLineBox = false) const;
+    void setIntrinsicPaddingTop(int p) { m_intrinsicPaddingTop = p; }
+    void setIntrinsicPaddingBottom(int p) { m_intrinsicPaddingBottom = p; }
+    void setIntrinsicPadding(int top, int bottom) { setIntrinsicPaddingTop(top); setIntrinsicPaddingBottom(bottom); }
+    void clearIntrinsicPadding() { setIntrinsicPadding(0, 0); }
 
-    void setCellTopExtra(int p) { m_topExtra = p; }
-    void setCellBottomExtra(int p) { m_bottomExtra = p; }
+    int intrinsicPaddingTop() const { return m_intrinsicPaddingTop; }
+    int intrinsicPaddingBottom() const { return m_intrinsicPaddingBottom; }
 
-    virtual int borderTopExtra() const { return m_topExtra; }
-    virtual int borderBottomExtra() const { return m_bottomExtra; }
+    virtual int paddingTop(bool includeIntrinsicPadding = true) const;
+    virtual int paddingBottom(bool includeIntrinsicPadding = true) const;
 
-#ifndef NDEBUG
-    virtual void dump(TextStream*, DeprecatedString ind = "") const;
-#endif
+    virtual void setOverrideSize(int);
 
 protected:
+    virtual void styleWillChange(StyleDifference, const RenderStyle* newStyle);
+    virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
+
+    virtual void mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool useTransforms, bool fixed, TransformState&) const;
+    virtual void mapAbsoluteToLocalPoint(bool fixed, bool useTransforms, TransformState&) const;
+
+private:
     int m_row;
     int m_column;
     int m_rowSpan;
     int m_columnSpan;
-    int m_topExtra : 31;
-    int m_bottomExtra : 31;
-    bool m_widthChanged : 1;
+    int m_intrinsicPaddingTop;
+    int m_intrinsicPaddingBottom;
     int m_percentageHeight;
 };
 

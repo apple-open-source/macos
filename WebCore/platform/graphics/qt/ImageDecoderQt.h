@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006 Friedemann Kleint <fkleint@trolltech.com>
- * Copyright (C) 2006 Trolltech ASA
+ * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,34 +38,30 @@ namespace WebCore {
 
 class ImageDecoderQt : public ImageDecoder
 {
-    ImageDecoderQt(const ImageDecoderQt&);
-    ImageDecoderQt &operator=(const ImageDecoderQt&);
 public:
-    ImageDecoderQt();
+    static ImageDecoderQt* create(const SharedBuffer& data);
     ~ImageDecoderQt();
 
     typedef Vector<char> IncomingData;
 
     virtual void setData(const IncomingData& data, bool allDataReceived);
-
     virtual bool isSizeAvailable() const;
-
     virtual int frameCount() const;
-
-
     virtual int repetitionCount() const;
-
-
     virtual RGBA32Buffer* frameBufferAtIndex(size_t index);
 
     QPixmap* imageAtIndex(size_t index) const;
-
     virtual bool supportsAlpha() const;
-
     int duration(size_t index) const;
+    virtual String filenameExtension() const;
 
     void clearFrame(size_t index);
+
 private:
+    ImageDecoderQt(const QString &imageFormat);
+    ImageDecoderQt(const ImageDecoderQt&);
+    ImageDecoderQt &operator=(const ImageDecoderQt&);
+
     class ReadContext;
     void reset();
     bool hasFirstImageHeader() const;
@@ -85,10 +81,12 @@ private:
         int m_duration;
     };
 
+    bool m_hasAlphaChannel;
     typedef QList<ImageData> ImageList;
-    ImageList m_imageList;
+    mutable ImageList m_imageList;
     mutable QHash<int, QPixmap> m_pixmapCache;
     int m_loopCount;
+    QString m_imageFormat;
 };
 
 

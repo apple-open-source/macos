@@ -28,20 +28,11 @@
 
 #if ENABLE(SVG)
 
+#include "DashArray.h"
 #include "SVGResource.h"
 
 #if PLATFORM(CG)
 #include <ApplicationServices/ApplicationServices.h>
-#endif
-
-#if PLATFORM(QT)
-class QPen;
-#endif
-
-#if PLATFORM(CG)
-    typedef Vector<CGFloat> DashArray;
-#else
-    typedef Vector<float> DashArray;
 #endif
 
 namespace WebCore {
@@ -67,7 +58,6 @@ namespace WebCore {
 
     class SVGPaintServer : public SVGResource {
     public:
-        SVGPaintServer();
         virtual ~SVGPaintServer();
 
         virtual SVGResourceType resourceType() const { return PaintServerResourceType; }
@@ -87,22 +77,14 @@ namespace WebCore {
         static SVGPaintServerSolid* sharedSolidPaintServer();
 
     protected:
-#if PLATFORM(CG)
-        void strokePath(CGContextRef, const RenderObject*) const;
-        void clipToStrokePath(CGContextRef, const RenderObject*) const;
-        void fillPath(CGContextRef, const RenderObject*) const;
-        void clipToFillPath(CGContextRef, const RenderObject*) const;
-#endif
-
-#if PLATFORM(QT)
-        void setPenProperties(const RenderObject*, const RenderStyle*, QPen&) const;
-#endif
+        SVGPaintServer();        
     };
 
     TextStream& operator<<(TextStream&, const SVGPaintServer&);
 
     SVGPaintServer* getPaintServerById(Document*, const AtomicString&);
 
+    void applyStrokeStyleToContext(GraphicsContext*, RenderStyle*, const RenderObject*);
     DashArray dashArrayFromRenderingStyle(const RenderStyle* style);
 } // namespace WebCore
 

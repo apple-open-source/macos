@@ -35,7 +35,7 @@ namespace WebCore {
 
     class SVGPaintServerSolid : public SVGPaintServer {
     public:
-        SVGPaintServerSolid();
+        static PassRefPtr<SVGPaintServerSolid> create() { return adoptRef(new SVGPaintServerSolid); }
         virtual ~SVGPaintServerSolid();
 
         virtual SVGPaintServerType type() const { return SolidPaintServer; }
@@ -45,11 +45,11 @@ namespace WebCore {
 
         virtual TextStream& externalRepresentation(TextStream&) const;
 
-#if PLATFORM(CG) || PLATFORM(QT) || PLATFORM(CAIRO)
         virtual bool setup(GraphicsContext*&, const RenderObject*, SVGPaintTargetType, bool isPaintingText) const;
-#endif
 
     private:
+        SVGPaintServerSolid();
+
         Color m_color;
     };
 

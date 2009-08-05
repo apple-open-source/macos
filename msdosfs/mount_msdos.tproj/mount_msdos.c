@@ -90,6 +90,7 @@ static const char rcsid[] =
 
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFStringEncodingExt.h>
+#include <CoreFoundation/CFNumber.h>
 
 #include <IOKit/IOKitLib.h>
 #include <IOKit/storage/IOMedia.h>
@@ -156,13 +157,13 @@ rmslashes(const char *rrpin, char rrpout[MAXPATHLEN])
 
 /*
  * Given a BSD disk name (eg., "disk0s3" or "disk1"), return non-zero if
- * that disk is an internal disk.
+ * that disk is an internal disk, but not a removable disk.
  */
-static int disk_is_internal(char *disk)
+static int disk_default_async(char *disk)
 {
     io_iterator_t iter;
 	kern_return_t err;
-	int internal = 0;
+	int result = 0;
 	
 	err = IOServiceGetMatchingServices(kIOMasterPortDefault,
 		IOBSDNameMatching(kIOMasterPortDefault, 0, disk), &iter);
@@ -172,6 +173,7 @@ static int disk_is_internal(char *disk)
 		obj = IOIteratorNext(iter);
 		if (obj)
 		{
+			CFBooleanRef removableRef;
 			CFDictionaryRef protocolCharacteristics;
 			protocolCharacteristics = IORegistryEntrySearchCFProperty(obj,
 				kIOServicePlane,
@@ -186,19 +188,37 @@ static int disk_is_internal(char *disk)
 				if(location && CFStringGetTypeID() == CFGetTypeID(location))
 				{
 					if(CFEqual(location, CFSTR(kIOPropertyInternalKey)))
-						internal = 1;
+						result = 1;		/* Internal => async */
 				}
 
 				if (location) CFRelease(location);
 			}
+			if (protocolCharacteristics)
+				CFRelease(protocolCharacteristics);
 			
+			removableRef = IORegistryEntrySearchCFProperty(obj,
+				kIOServicePlane,
+				CFSTR(kIOMediaRemovableKey),
+				kCFAllocatorDefault,
+				kIORegistryIterateRecursively|kIORegistryIterateParents);
+			
+			if (removableRef)
+			{
+				if (CFBooleanGetTypeID() == CFGetTypeID(removableRef))
+				{
+					if (CFBooleanGetValue(removableRef))
+						result = 0;		/* Removable => not async */
+				}
+				CFRelease(removableRef);
+			}
+
 			IOObjectRelease(obj);
 		}
 		
 		IOObjectRelease(iter);
 	}
 	
-	return internal;
+	return result;
 }
 
 
@@ -233,8 +253,8 @@ main(argc, argv)
 		usage();
 
 	rmslashes(argv[optind], dev);
-	/* Check if <dev> is an internal drive; set MNT_ASYNC if so. */
-	if (!strncmp(dev, "/dev/disk", 9) && disk_is_internal(dev+5))
+	/* Check if <dev> is an internal, but not removable, drive; set MNT_ASYNC if so. */
+	if (!strncmp(dev, "/dev/disk", 9) && disk_default_async(dev+5))
 		mntflags |= MNT_ASYNC;
 	
 	/*

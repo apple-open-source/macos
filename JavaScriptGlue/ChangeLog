@@ -1,20 +1,670 @@
-2008-10-21  Mark Rowe  <mrowe@apple.com>
+2009-05-14  Mark Rowe  <mrowe@apple.com>
 
-        Merge r31577.
+        Rubber-stamped by Darin Adler.
 
-    2008-04-02  Mark Rowe  <mrowe@apple.com>
+        <rdar://problem/6681868> When building with Xcode 3.1.3 should be using gcc 4.2
 
-        Reviewed by Oliver Hunt.
-
-        Ensure that debug symbols are generated for x86_64 and ppc64 builds.
+        The meaning of XCODE_VERSION_ACTUAL is more sensible in newer versions of Xcode.
+        Update our logic to select the compiler version to use the more appropriate XCODE_VERSION_MINOR
+        if the version of Xcode supports it, and fall back to XCODE_VERSION_ACTUAL if not.
 
         * Configurations/Base.xcconfig:
 
+2009-05-07  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Add calling convention annotation
+
+        * JSObject.cpp:
+
+2009-05-01  Geoffrey Garen  <ggaren@apple.com>
+
+        Rubber Stamped by Sam Weinig.
+        
+        Renamed JSValuePtr => JSValue.
+
+        * JSObject.cpp:
+        (nativeCallFunction):
+        * JSUtils.cpp:
+        (KJSValueToJSObject):
+        (JSObjectKJSValue):
+        (KJSValueToCFTypeInternal):
+        (KJSValueToCFType):
+        * JSUtils.h:
+        * JSValueWrapper.cpp:
+        (JSValueWrapper::JSValueWrapper):
+        (JSValueWrapper::GetValue):
+        (JSValueWrapper::JSObjectCopyProperty):
+        (JSValueWrapper::JSObjectSetProperty):
+        (JSValueWrapper::JSObjectCallFunction):
+        * JSValueWrapper.h:
+        * UserObjectImp.cpp:
+        (UserObjectImp::callAsFunction):
+        (UserObjectImp::userObjectGetter):
+        (UserObjectImp::getOwnPropertySlot):
+        (UserObjectImp::put):
+        (UserObjectImp::toPrimitive):
+        * UserObjectImp.h:
+        (UserObjectImp::createStructure):
+
+2009-04-29  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Clean up ArgList to be a trivial type
+
+        Start using MarkedArgumentBuffer to create argument lists for function calls
+
+        * JSValueWrapper.cpp:
+        (JSValueWrapper::JSObjectCallFunction):
+
+2009-04-28  Geoffrey Garen  <ggaren@apple.com>
+
+        Rubber stamped by Beth Dakin.
+        
+        Missed one.
+
+        * UserObjectImp.cpp:
+        (UserObjectImp::callAsFunction):
+
+2009-04-21  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Mark Rowe.
+
+        Tiger crash fix: Put VM tags in their own header file, and fixed up the
+        #ifdefs so they're not used on Tiger.
+
+        * ForwardingHeaders/wtf/VMTags.h: Copied from JavaScriptGlue/ForwardingHeaders/wtf/HashTraits.h.
+
+2009-04-20  Sam Weinig  <sam@webkit.org>
+
+        Rubber-stamped by Tim Hatcher.
+
+        Add licenses for xcconfig files.
+
+        * Configurations/Base.xcconfig:
+        * Configurations/DebugRelease.xcconfig:
+        * Configurations/JavaScriptGlue.xcconfig:
+        * Configurations/Version.xcconfig:
+
+2009-03-13  Mark Rowe  <mrowe@apple.com>
+
+        Rubber-stamped by Dan Bernstein.
+
+        Take advantage of the ability of recent versions of Xcode to easily switch the active
+        architecture.
+
+        * Configurations/DebugRelease.xcconfig:
+
+2009-02-24  Mark Rowe  <mrowe@apple.com>
+
+        Rubber-stamped by Dan Bernstein.
+
+        <rdar://problem/6407844> JavaScriptGlue should use -Os rather than -O2
+
+        * Configurations/Base.xcconfig:
+
+2009-01-28  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Gavin Barraclough.
+
+        Fix for <rdar://problem/6525537>
+        Hang occurs when closing Installer window (iTunes, Aperture)
+
+        * JSUtils.cpp:
+        (getThreadGlobalObject): Use the shared JSGlobalData instance.
+
+2009-01-22  Mark Rowe  <mrowe@apple.com>
+
+        Rubber-stamped by Anders Carlsson.
+
+        Disable GCC_WARN_ABOUT_MISSING_PROTOTYPES temporarily.
+
+        Current versions of Xcode only respect it for C and Objective-C files,
+        and our code doesn't currently compile if it is applied to C++ and
+        Objective-C++ files.
+
+        * Configurations/Base.xcconfig:
+
+2009-01-19  Sam Weinig  <sam@webkit.org>
+
+        Rubber-stamped by Gavin Barraclough.
+
+        Remove temporary operator-> from JSValuePtr.
+
+        * JSUtils.cpp:
+        (KJSValueToJSObject):
+        (KJSValueToCFTypeInternal):
+        * JSValueWrapper.cpp:
+        (JSValueWrapper::JSObjectCopyPropertyNames):
+        (JSValueWrapper::JSObjectCopyProperty):
+        (JSValueWrapper::JSObjectSetProperty):
+        (JSValueWrapper::JSObjectCallFunction):
+        (JSValueWrapper::JSObjectMark):
+        * UserObjectImp.cpp:
+        (UserObjectImp::getOwnPropertySlot):
+
+2009-01-14  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by John Sullivan.
+
+        - update copyright
+
+        * Info.plist:
+
+2009-01-09  David Levin  <levin@chromium.org>
+
+        Reviewed by Oliver Hunt.
+
+        https://bugs.webkit.org/show_bug.cgi?id=23175
+
+        Added forwarding header.
+
+        * ForwardingHeaders/wtf/PtrAndFlags.h: Added.
+
+2009-01-05  Gavin Barraclough  <baraclough@apple.com>
+
+        Rubber Stamped by Oliver Hunt.
+
+        Replace all uses of JSValue* with new wrapper class, JSValuePtr.
+        See JavaScriptCore/ChangeLog for more detailed description.
+
+        * JSObject.cpp:
+        (nativeCallFunction):
+        * JSUtils.cpp:
+        (KJSValueToJSObject):
+        (JSObjectKJSValue):
+        (KJSValueToCFTypeInternal):
+        (KJSValueToCFType):
+        * JSUtils.h:
+        * JSValueWrapper.cpp:
+        (JSValueWrapper::JSValueWrapper):
+        (JSValueWrapper::GetValue):
+        (JSValueWrapper::JSObjectCopyProperty):
+        (JSValueWrapper::JSObjectSetProperty):
+        (JSValueWrapper::JSObjectCallFunction):
+        * JSValueWrapper.h:
+        * UserObjectImp.cpp:
+        (UserObjectImp::callAsFunction):
+        (UserObjectImp::userObjectGetter):
+        (UserObjectImp::getOwnPropertySlot):
+        (UserObjectImp::put):
+        (UserObjectImp::toPrimitive):
+        * UserObjectImp.h:
+        (UserObjectImp::createStructure):
+
+2008-12-15  Mark Rowe  <mrowe@apple.com>
+
+        Rubber-stamped by Cameron Zwarich.
+
+        <rdar://problem/6289933> Change WebKit-related projects to build with GCC 4.2 on Leopard.
+
+        * Configurations/Base.xcconfig:
+        * Configurations/DebugRelease.xcconfig:
+
+2008-12-08  David Kilzer  <ddkilzer@apple.com>
+
+        Bug 22555: Sort "children" sections in Xcode project files
+
+        <https://bugs.webkit.org/show_bug.cgi?id=22555>
+
+        Reviewed by Eric Seidel.
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj: Sorted.
+
+2008-11-17  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+        
+        Updated for JavaScriptCore rename.
+
+        * ForwardingHeaders/runtime/CallFrame.h: Copied from JavaScriptGlue/ForwardingHeaders/runtime/ExecState.h.
+        * ForwardingHeaders/runtime/ExecState.h: Removed.
+        * config.h:
+
+2008-11-17  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+        
+        Updated for JavaScriptCore rename.
+
+        * ForwardingHeaders/interpreter: Added.
+        * ForwardingHeaders/interpreter/CallFrame.h: Copied from ForwardingHeaders/runtime/ExecState.h.
+        * ForwardingHeaders/runtime/ExecState.h: Removed.
+
+2008-11-15  Darin Adler  <darin@apple.com>
+
+        Rubber stamped by Geoff Garen.
+
+        - do the long-planned StructureID -> Structure rename
+
+        * JSRun.cpp:
+        (JSGlueGlobalObject::JSGlueGlobalObject):
+        (JSRun::JSRun):
+        * JSRun.h:
+        (JSGlueGlobalObject::userObjectStructure):
+        * JSUtils.cpp:
+        (getThreadGlobalObject):
+        * UserObjectImp.cpp:
+        (UserObjectImp::UserObjectImp):
+        * UserObjectImp.h:
+        (UserObjectImp::createStructure):
+
+2008-11-15  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+        
+        Updated for JavaScriptCore renames.
+
+        * JSRun.cpp:
+        (JSRun::Evaluate):
+        (JSRun::CheckSyntax):
+
+2008-11-05  Cameron Zwarich  <zwarich@apple.com>
+
+        Not reviewed.
+
+        Fix the JavaScriptGlue build. This wouldn't show up unless one was
+        doing a clean build, because changes in JavaScriptCore don't cause
+        anything in JavaScriptGlue to get rebuilt.
+
+        * JSRun.cpp:
+        * JSUtils.h:
+        * JavaScriptGlue.cpp:
+
+2008-11-04  Cameron Zwarich  <zwarich@apple.com>
+
+        Reviewed by Mark Rowe.
+
+        Remove JavaScriptGlue forwarding headers that are no longer necessary,
+        and correct the path of the ExecState.h forwarding header.
+
+        * ForwardingHeaders/kjs: Removed.
+        * ForwardingHeaders/kjs/CTI.h: Removed.
+        * ForwardingHeaders/kjs/ExecState.h: Removed.
+        * ForwardingHeaders/kjs/JSValue.h: Removed.
+        * ForwardingHeaders/kjs/PutPropertySlot.h: Removed.
+        * ForwardingHeaders/kjs/ustring.h: Removed.
+        * ForwardingHeaders/runtime: Added.
+        * ForwardingHeaders/runtime/ExecState.h: Copied from ForwardingHeaders/kjs/ExecState.h.
+        * config.h:
+
+2008-10-31  Stephanie Lewis  <slewis@apple.com>
+
+        Fix build by including right files.
+
+        * JSRun.cpp:
+
+2008-10-30  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Jon Homeycutt.
+
+        Explicitly default to building for only the native architecture in debug and release builds.
+
+        * Configurations/DebugRelease.xcconfig:
+
+2008-10-24  Darin Adler  <darin@apple.com>
+
+        - finish rolling out https://bugs.webkit.org/show_bug.cgi?id=21732
+
+        * JSObject.cpp:
+        (nativeCallFunction):
+        * JSUtils.cpp:
+        (KJSValueToJSObject):
+        (JSObjectKJSValue):
+        (KJSValueToCFTypeInternal):
+        (KJSValueToCFType):
+        * JSUtils.h:
+        * JSValueWrapper.cpp:
+        (JSValueWrapper::JSValueWrapper):
+        (JSValueWrapper::GetValue):
+        (JSValueWrapper::JSObjectCopyProperty):
+        (JSValueWrapper::JSObjectSetProperty):
+        (JSValueWrapper::JSObjectCallFunction):
+        * JSValueWrapper.h:
+        * UserObjectImp.cpp:
+        (UserObjectImp::callAsFunction):
+        (UserObjectImp::userObjectGetter):
+        (UserObjectImp::getOwnPropertySlot):
+        (UserObjectImp::put):
+        (UserObjectImp::toPrimitive):
+        * UserObjectImp.h:
+        (UserObjectImp::createStructureID):
+        Use JSValue* instead of JSValuePtr.
+
+2008-10-23  Darin Adler  <darin@apple.com>
+
+        - roll out https://bugs.webkit.org/show_bug.cgi?id=21732
+
+        * JSValueWrapper.cpp:
+        (JSValueWrapper::GetValue): Added missing call to .get().
+        * JSValueWrapper.h: ProtectedPtr<JSValue> instead of ProtectedPtr<JSValuePtr>.
+
+2008-10-22  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        - fix https://bugs.webkit.org/show_bug.cgi?id=21294
+          Bug 21294: Devirtualize getOwnPropertySlot()
+
+        * JSRun.cpp:
+        (JSGlueGlobalObject::JSGlueGlobalObject): Moved constructor here.
+        Set up flags in its new location in global object data, and set up
+        a structure for UserObjectImp too.
+        (JSRun::JSRun): Added code to give the JSGlueGlobalObject its own unique
+        structure, rather than using the default one from JSGlobalObject.
+
+        * JSRun.h: Made JSGlueGlobalObject take a structure ID. Also moved
+        the data into a separate data object. And added userObjectStructure,
+        a Structure to be used by UserObjectImp.
+
+        * JSUtils.cpp: Removed unused sharedGlobalData global.
+        (JSObjectKJSValue): Pass Structure in when creating UserObjectImp.
+        (unprotectGlobalObject): Use JSGlueGLobalObject type specifically.
+        (initializeGlobalObjectKey): Removed code to set up unused sharedGlobalData.
+        (getThreadGlobalObject): Added. Shared by JSObjectKJSValue and
+        getThreadGlobalExecState. Also now passes in a structure ID when creating
+        the global object.
+        (getThreadGlobalExecState): Changed to call getThreadGlobalObject.
+
+        * UserObjectImp.cpp:
+        (UserObjectImp::UserObjectImp): Changed to take a structure.
+        * UserObjectImp.h:
+        (UserObjectImp::createStructureID): Added. Returns a structure without
+        HasStandardGetOwnPropertySlot since this class overrides getOwnPropertySlot.
+
+2008-10-20  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Cameron Zwarich.
+
+        Fix for https://bugs.webkit.org/show_bug.cgi?id=21766
+        REGRESSION: 12 JSC tests fail
+
+        The JSGlobalObject constructor no longer takes a JSGlobalData
+        as an argument.
+
+        * JSRun.cpp:
+        (JSRun::JSRun):
+        * JSRun.h:
+        (JSGlueGlobalObject::JSGlueGlobalObject):
+        * JSUtils.cpp:
+        (getThreadGlobalExecState):
+
+2008-10-19  Darin Adler  <darin@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        - next step of https://bugs.webkit.org/show_bug.cgi?id=21732
+          improve performance by eliminating JSValue as a base class for JSCell
+
+        Remove most uses of JSValue, which will be removed in a future patch.
+
+        * JSValueWrapper.h: Use JSValuePtr instead of JSValue*.
+
+2008-10-18  Darin Adler  <darin@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        - next step of https://bugs.webkit.org/show_bug.cgi?id=21732
+          improve performance by eliminating JSValue as a base class for JSCell
+
+        Tweak a little more to get closer to where we can make JSValuePtr a class.
+
+        * JSObject.cpp:
+        (nativeCallFunction): Call asObject.
+
+        * JSUtils.cpp:
+        (KJSValueToJSObject): Use JSValuePtr and asObject.
+        (JSObjectKJSValue): Ditto.
+        (KJSValueToCFTypeInternal): Ditto.
+        (KJSValueToCFType): Ditto.
+        * JSUtils.h: Ditto.
+
+        * UserObjectImp.cpp:
+        (UserObjectImp::callAsFunction): Use JSValuePtr and asObject.
+        (UserObjectImp::userObjectGetter): Ditto.
+        (UserObjectImp::getOwnPropertySlot): Ditto.
+        (UserObjectImp::put): Ditto.
+        (UserObjectImp::toPrimitive): Ditto.
+        * UserObjectImp.h: Ditto.
+
+2008-10-18  Darin Adler  <darin@apple.com>
+
+        Reviewed by Cameron Zwarich.
+
+        - next step on https://bugs.webkit.org/show_bug.cgi?id=21732
+          improve performance by eliminating JSValue as a base class for JSCell
+
+        Use JSValuePtr everywhere instead of JSValue*. In the future, we'll be
+        changing JSValuePtr to be a class, and then eventually renaming it
+        to JSValue once that's done.
+
+        * JSObject.cpp:
+        * JSValueWrapper.cpp:
+        * UserObjectImp.cpp:
+        * UserObjectImp.h:
+        Replace JSValue* with JSValuePtr.
+
+2008-10-13  Maciej Stachowiak  <mjs@apple.com>
+
+        Rubber stamped by Mark Rowe.
+        
+        - use gcc 4.2 when building with Xcode 3.1 or newer on Leopard, even though this is not the default
+
+        * Configurations/DebugRelease.xcconfig:
+
+2008-10-06  Maciej Stachowiak  <mjs@apple.com>
+
+        Not reviewed. Build fix.
+
+        - revert toBoolean changes (r37333 and r37335); need to make WebCore work with these
+
+        * JSUtils.cpp:
+        (KJSValueToCFTypeInternal):
+
+2008-10-06  Maciej Stachowiak  <mjs@apple.com>
+
+        Not reviewed.
+        
+        - fix build; toBoolean no longer takes an ExecState
+
+        * JSUtils.cpp:
+        (KJSValueToCFTypeInternal):
+
 2008-10-04  Mark Rowe  <mrowe@apple.com>
 
-        Merge r35278.
+        Reviewed by Tim Hatcher.
 
-    2008-07-21  Mark Rowe  <mrowe@apple.com>
+        Add a 'Check For Weak VTables' build phase to catch weak vtables as early as possible.
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+
+2008-10-01  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Darin Adler and Cameron Zwarich.
+
+        * JSRun.cpp:
+        (JSRun::Evaluate):
+        (JSRun::CheckSyntax): Provide a SourceCode to the Interpreter, since
+        other APIs are no longer supported.
+
+2008-09-29  Geoffrey Garen  <ggaren@apple.com>
+
+        Not reviewed.
+        
+        Forwarding headers to fix the build.
+
+        * ForwardingHeaders/kjs/CTI.h: Copied from ForwardingHeaders/kjs/ExecState.h.
+        * ForwardingHeaders/kjs/ustring.h: Copied from ForwardingHeaders/kjs/ExecState.h.
+        * ForwardingHeaders/masm: Added.
+        * ForwardingHeaders/masm/X86Assembler.h: Added.
+        * ForwardingHeaders/profiler: Added.
+        * ForwardingHeaders/profiler/Profiler.h: Added.
+
+2008-09-08  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Maciej Stachowiak and Oliver Hunt.
+
+        Add forwarding headers.
+
+        * ForwardingHeaders/wtf/HashFunctions.h: Added.
+        * ForwardingHeaders/wtf/HashTraits.h: Added.
+
+2008-09-02  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+        
+        Implemented the rest of Darin's review comments for the 09-01 inline
+        caching patch.
+        
+        * ForwardingHeaders/kjs/PutPropertySlot.h: Added.
+
+2008-09-01  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Darin Adler.
+
+        First cut at inline caching for access to vanilla JavaScript properties.
+        
+        Updated for JavaScriptCore changes. Mostly mechanical addition of StructureIDs
+        to JavaScriptGlue classes, and PutPropertySlot& arguments to put functions.
+
+2008-08-22  Anders Carlsson  <andersca@apple.com>
+
+        Fix build for real this time.
+        
+        * UserObjectImp.h:
+
+2008-08-22  Anders Carlsson  <andersca@apple.com>
+
+        Fix build.
+        
+        * UserObjectImp.cpp:
+        (UserObjectImp::toPrimitive):
+        * UserObjectImp.h:
+
+2008-08-19  Alexey Proskuryakov  <ap@webkit.org>
+
+        Reviewed by Geoff Garen.
+
+        Bring back shared JSGlobalData and implicit locking, because too many clients rely on it.
+
+        * JSBase.cpp:
+        (JSBase::Release):
+        * JSUtils.cpp:
+        (JSObjectKJSValue):
+        (KJSValueToCFTypeInternal):
+        (unprotectGlobalObject):
+        * JSUtils.h:
+        * JSValueWrapper.cpp:
+        (JSValueWrapper::JSObjectCopyPropertyNames):
+        (JSValueWrapper::JSObjectCopyProperty):
+        (JSValueWrapper::JSObjectSetProperty):
+        (JSValueWrapper::JSObjectCallFunction):
+        (JSValueWrapper::JSObjectCopyCFValue):
+        * JavaScriptGlue.cpp:
+        (JSRunCreate):
+        (JSRunEvaluate):
+        (JSRunCheckSyntax):
+        (JSCollect):
+        (JSLockInterpreter):
+        (JSUnlockInterpreter):
+        * UserObjectImp.cpp:
+        (UserObjectImp::callAsFunction):
+
+2008-08-12  Darin Adler  <darin@apple.com>
+
+        Reviewed by Geoff.
+
+        - eliminate JSValue::type()
+
+        * JSUtils.cpp:
+        (KJSValueToCFTypeInternal): Replaced uses of JSValue::type() with
+        JSValue::is functions.
+        * UserObjectImp.cpp:
+        (UserObjectImp::getOwnPropertySlot): Ditto.
+        (UserObjectImp::toPrimitive): Take PreferredPrimitiveType argument
+        instead of JSType argument.
+        * UserObjectImp.h: Ditto.
+
+2008-08-17  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Cameron Zwarich.
+        
+        Updated project files to XCode 3.1.
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+
+2008-08-15  Mark Rowe  <mrowe@apple.com>
+
+        Rubber-stamped by Geoff Garen.
+
+        <rdar://problem/6139914> Please include a _debug version of JavaScriptCore framework
+
+        * Configurations/Base.xcconfig: Factor out the debug-only settings so that they can shared
+        between the Debug configuration and debug Production variant.
+        * JavaScriptGlue.xcodeproj/project.pbxproj: Enable the debug variant.
+
+2008-07-31  Alexey Proskuryakov  <ap@webkit.org>
+
+        Rubber-stamped by Maciej.
+
+        Eliminate JSLock (it was already disabled, removing the stub implementaion and all
+        call sites now).
+
+        * JSBase.cpp:
+        (JSBase::Release):
+        * JSUtils.cpp:
+        (JSObjectKJSValue):
+        (KJSValueToCFTypeInternal):
+        (unprotectGlobalObject):
+        * JSUtils.h:
+        * JSValueWrapper.cpp:
+        (JSValueWrapper::JSObjectCopyPropertyNames):
+        (JSValueWrapper::JSObjectCopyProperty):
+        (JSValueWrapper::JSObjectSetProperty):
+        (JSValueWrapper::JSObjectCallFunction):
+        (JSValueWrapper::JSObjectCopyCFValue):
+        * JavaScriptGlue.cpp:
+        (JSRunCreate):
+        (JSRunEvaluate):
+        (JSRunCheckSyntax):
+        (JSCollect):
+        (JSLockInterpreter):
+        (JSUnlockInterpreter):
+        * UserObjectImp.cpp:
+        (UserObjectImp::callAsFunction):
+
+2008-07-29  Alexey Proskuryakov  <ap@webkit.org>
+
+        Reviewed by Geoff Garen.
+
+        Implement JSContextGroup APIs to make concurrent execution possible for
+        JavaScriptCore clients.
+
+        * JSRun.cpp:
+        (JSRun::JSRun):
+        * JSUtils.cpp:
+        (getThreadGlobalExecState):
+        Changed JavaScriptGlue to use a JSGlobalData of its own, now that there is no shared
+        instance.
+
+2008-07-23  Alexey Proskuryakov  <ap@webkit.org>
+
+        Reviewed by Geoff Garen.
+
+        Make JSClassRef work with any context, not just the first one it was used in.
+
+        * ForwardingHeaders/wtf/HashMap.h: Added.
+
+2008-07-22  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt and Sam Weinig.
+
+        Next step toward putting doubles in registers: Prepare the Register class
+        and its clients for registers that don't contain JSValue*s.
+        
+2008-07-21  Mark Rowe  <mrowe@apple.com>
 
         Reviewed by Sam Weinig.
 
@@ -23,11 +673,359 @@
         * Configurations/Version.xcconfig:
         * Info.plist:
 
-2008-02-29  Mark Rowe  <mrowe@apple.com>
+2008-07-18  Geoffrey Garen  <ggaren@apple.com>
 
-        Merge r30677 to Safari-3-1-branch.
+        Reviewed by Cameron Zwarich.
+        
+        Three renames:
+        
+        "CallTypeNative" => "CallTypeHost"
+        "code" => "byteCode"
+        "generatedCode" => "generatedByteCode"
 
-    2008-02-29  Geoffrey Garen  <ggaren@apple.com>
+        * ChangeLog:
+        * JSObject.cpp:
+        (JSUserObject::getCallData):
+
+2008-07-14  Alexey Proskuryakov  <ap@webkit.org>
+
+        Reviewed by Geoff Garen.
+
+        Eliminate per-thread JavaScript global data instance support and make arbitrary
+        global data/global object combinations possible.
+
+        * ForwardingHeaders/wtf/ThreadSpecific.h: Added.
+        * JSRun.cpp:
+        (JSRun::JSRun):
+        * JSUtils.cpp:
+        (getThreadGlobalExecState):
+        Adapt to the new way of asking for shared JSGlobalData.
+
+2008-07-10  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Define WEBKIT_VERSION_MIN_REQUIRED=WEBKIT_VERSION_LATEST when building WebKit to ensure that no symbols end up with the weak_import attribute.
+
+        * Configurations/JavaScriptGlue.xcconfig:
+
+2008-07-09  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        Don't warn about deprecated functions in production builds.
+
+        * Configurations/Base.xcconfig:
+        * Configurations/DebugRelease.xcconfig:
+
+2008-07-08  Alexey Proskuryakov  <ap@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        <rdar://problem/6058368> REGRESSION: Crash occurs in KJS::Machine after launching
+        Apple Installer
+
+        The problem was that JSUserObject::getCallData() was setting call type to native, but
+        left callData.native.function uninitialized.
+
+        * JSObject.cpp:
+        (JSUserObject::getCallData): Initialize callData.native.function.
+        (nativeCallFunction): Call UserObjectImp::callAsFunction().
+
+2008-07-04  Sam Weinig  <sam@webkit.org>
+
+        Rubber-stamped by Dan Bernstein.
+
+        * JSObject.h: Rename the header guard as it now conflicts with the
+        JSObject in JavaScriptCore.
+
+2008-07-01  Alexey Proskuryakov  <ap@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Disable JSLock for per-thread contexts.
+
+        * ForwardingHeaders/wtf/Locker.h: Added.
+        * ForwardingHeaders/wtf/Threading.h: Added.
+        * JSBase.cpp:
+        (JSBase::Release):
+        * JSUtils.cpp:
+        (JSObjectKJSValue):
+        (KJSValueToCFTypeInternal):
+        (unprotectGlobalObject):
+        * JSUtils.h:
+        * JSValueWrapper.cpp:
+        (JSValueWrapper::JSObjectCopyPropertyNames):
+        (JSValueWrapper::JSObjectCopyProperty):
+        (JSValueWrapper::JSObjectSetProperty):
+        (JSValueWrapper::JSObjectCallFunction):
+        (JSValueWrapper::JSObjectCopyCFValue):
+        * JavaScriptGlue.cpp:
+        (JSRunCreate):
+        (JSRunEvaluate):
+        (JSRunCheckSyntax):
+        (JSCollect):
+        (JSLockInterpreter):
+        (JSUnlockInterpreter):
+        * UserObjectImp.cpp:
+        (UserObjectImp::callAsFunction):
+        Pass a parameter (always true) to JSLock and JSLock::DropAllLocks to indicate that JSG
+        clients always need implicit mutex protection.
+        Added includes that are now needed.
+
+2008-06-26  Darin Adler  <darin@apple.com>
+
+        Reviewed by Geoff.
+
+        * JSUtils.cpp: Added include of <JavaScriptCore/JSString.h> since jsString
+        will soon be changed to return a JSString*.
+        * UserObjectImp.cpp: Ditto.
+
+2008-06-23  Darin Adler  <darin@apple.com>
+
+        Reviewed by Geoff.
+
+        * JSValueWrapper.cpp:
+        (JSValueWrapper::JSObjectCallFunction): Updated to use getCallData and call instead
+        of the old callAsFunction.
+
+2008-06-17  Alexey Proskuryakov  <ap@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Prepare JavaScript heap for being per-thread.
+
+        * JSRun.cpp: (JSRun::JSRun): Create JSGlueGlobalObject in a shared JS heap.
+
+        * JSUtils.h: Made getThreadGlobalExecState available throughout JSGlue.
+
+        * JSUtils.cpp:
+        (JSObjectKJSValue): Pass an ExecState where now required.
+        (unprotectGlobalObject):
+        (initializeGlobalObjectKey):
+        (getThreadGlobalExecState):
+        Moved these functions from JSValueWrapper.cpp, as the global exec state is now needed
+        elsewhere. I'm not quite sure how this relates to the global object from JSRun, but
+        since the new uses are all for Heap access, there doesn't seem to be any behavior change.
+
+        * JavaScriptGlue.cpp:
+        (JSLockInterpreter): Don't call registerThread explicitly, as JSLock will do that.
+
+        * UserObjectImp.cpp: (UserObjectImp::toPrimitive): Pass ExecState* where now required.
+
+2008-06-17  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Darin Adler.
+
+        <rdar://problem/5775802> JavaScriptGlue should not force use of GCC 4.0.
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+
+2008-06-16  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Alexey.
+
+        - removed nearly unused types.h and LocalStorageEntry.h headers
+
+        * JSUtils.h:
+
+2008-06-16  Alexey Proskuryakov  <ap@webkit.org>
+
+        Reviewed by Geoff Garen.
+
+        Make Identifier construction use an explicitly passed IdentifierTable.
+
+        * JSUtils.cpp:
+        (CFStringToIdentifier):
+        (KJSValueToCFTypeInternal):
+        * JSUtils.h:
+        * JSValueWrapper.cpp:
+        (JSValueWrapper::JSObjectCopyPropertyNames):
+        (JSValueWrapper::JSObjectCopyProperty):
+        (JSValueWrapper::JSObjectSetProperty):
+        * UserObjectImp.cpp:
+        (UserObjectImp::getPropertyNames):
+        Pass ExecState or JSGlobalData everywhere.
+
+2008-06-15  Darin Adler  <darin@apple.com>
+
+        - rename KJS::List to KJS::ArgList
+
+        * JSValueWrapper.cpp:
+        (JSValueWrapper::JSObjectCallFunction):
+        * UserObjectImp.cpp:
+        (UserObjectImp::callAsFunction):
+        * UserObjectImp.h:
+
+2008-06-15  Darin Adler  <darin@apple.com>
+
+        - new names for a few key JavaScriptCore files
+
+        * ForwardingHeaders/kjs/JSValue.h: Copied from JavaScriptGlue/ForwardingHeaders/kjs/value.h.
+        * ForwardingHeaders/kjs/value.h: Removed.
+        * JSUtils.h:
+
+2008-06-03  Darin Adler  <darin@apple.com>
+
+        - update for JavaScriptCore changes for https://bugs.webkit.org/show_bug.cgi?id=19269
+          speed up SunSpider by eliminating the toObject call for most get/put/delete
+
+        * UserObjectImp.cpp:
+        (UserObjectImp::userObjectGetter): Removed originalObject argument.
+        * UserObjectImp.h: Ditto.
+
+2008-06-02  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Alexey Proskuryakov.
+
+        Removed JSObject::call, since it just called JSObject::callAsFunction.
+
+        SunSpider reports no change.
+
+2008-05-28  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+        
+        Fixed total destruction in Software Update.app.
+        
+        Updated JavaScriptGlue to honor squirrelfish's new getCallData mechanism for
+        indicating that an object can be called as a function.
+
+2008-05-10  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Oliver.
+
+        - JavaScriptGlue part of fix for: "SQUIRRELFISH: function toString broken after calling"
+        https://bugs.webkit.org/show_bug.cgi?id=18869
+        
+        * JSRun.cpp:
+        (JSRun::Evaluate): Use UString version of eveluate() instead of
+        the now departed UChar*/length variant; use of the lower-level
+        version was gratuitous in any case.
+        (JSRun::CheckSyntax): Ditto for checkSyntax().
+
+2008-04-30  Geoffrey Garen  <ggaren@apple.com>
+
+        Build fix: supply missing parameter that used to be implicit.
+
+        * JSRun.cpp:
+        (JSRun::Evaluate):
+
+2008-03-30  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+        
+        Build fix.
+
+        * ForwardingHeaders/wtf/UnusedParam.h: Copied from ForwardingHeaders/wtf/OwnPtr.h.
+
+2008-05-12  Alexey Proskuryakov  <ap@webkit.org>
+
+        Roll out recent  threading changes (r32807, r32810, r32819, r32822) to simplify
+        SquirrelFish merging.
+
+        * JSUtils.cpp:
+        (JSObjectKJSValue):
+        * JSUtils.h:
+        * JSValueWrapper.cpp:
+        (unprotectGlobalObject):
+        (initializeGlobalObjectKey):
+        (getThreadGlobalExecState):
+        * JavaScriptGlue.cpp:
+        (JSCollect):
+        (JSLockInterpreter):
+        * UserObjectImp.cpp:
+        (UserObjectImp::toPrimitive):
+
+2008-05-02  Alexey Proskuryakov  <ap@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Make JavaScriptGlue and JavaScriptCore API functions implicitly call initializeThreading
+        for the sake of non-WebKit clients.
+
+        * JavaScriptGlue.cpp:
+        (JSRunCreate):
+        (JSCollect):
+        (JSCreateJSArrayFromCFArray):
+        (JSLockInterpreter):
+        These are all possible JavaScriptGlue entry points.
+
+2008-05-02  Alexey Proskuryakov  <ap@webkit.org>
+
+        Reviewed by Geoffrey Garen.
+
+        https://bugs.webkit.org/show_bug.cgi?id=18826
+        Make JavaScript heap per-thread
+
+        * JSValueWrapper.cpp:
+        * JSUtils.h:
+        Moved getThreadGlobalExecState() to JSUtils and made it extern, as ExecState is now needed
+        for all JS allocations.
+
+        * JSUtils.cpp:
+        (JSObjectKJSValue): Pass ExecState to functions that now need it.
+        (unprotectGlobalObject): Moved from JSValueWrapper.cpp.
+        (initializeGlobalObjectKey): Ditto.
+        (getThreadGlobalExecState): Ditto.
+
+        * UserObjectImp.cpp: (UserObjectImp::toPrimitive): Pass ExecState to jsString and jsNumber.
+
+        * JavaScriptGlue.cpp:
+        (JSCollect): Use current thread's heap.
+        (JSLockInterpreter): Removed JSLock::registerThread(), because a JS heap doesn't need to
+        know about other threads.
+
+2008-04-25  Alexey Proskuryakov  <ap@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Fix run-webkit-tests --threading
+        and provisionally fix <https://bugs.webkit.org/show_bug.cgi?id=18661>
+        Proxy server issue in Sunday's Nightly
+
+        * UserObjectImp.cpp: Adjusted for the new member added to ClassInfo.
+
+2008-04-25  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Adele Peterson.
+
+        <rdar://problem/5891264> Don't install the JavaScriptGlue headers
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+
+2008-04-25  Mark Rowe  <mrowe@apple.com>
+
+        Rubber-stamped by Sam Weinig.
+
+        Add some content to an empty ICU header file to prevent verification errors.
+
+        * icu/unicode/utf_old.h:
+
+2008-04-02  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Ensure that debug symbols are generated for x86_64 and ppc64 builds.
+
+        * Configurations/Base.xcconfig:
+
+2008-03-20  Maciej Stachowiak  <mjs@apple.com>
+
+        - fix build
+
+        * ForwardingHeaders/wtf/ListRefPtr.h: Added.
+
+2008-03-01  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Tim Hatcher.
+
+        Update Xcode configuration to support building debug and release from the mysterious future.
+
+        * Configurations/Base.xcconfig:
+        * Configurations/DebugRelease.xcconfig:
+
+2008-02-29  Geoffrey Garen  <ggaren@apple.com>
 
         Reviewed by David Harrison.
         
@@ -203,7 +1201,7 @@
 
         Sort files(...); sections of Xcode project files.
 
-        Rubber-stamped by Darin.
+        Rubber-stamped by Darin Adler.
 
         * JavaScriptGlue.xcodeproj/project.pbxproj:
 
@@ -284,7 +1282,7 @@
 
 2007-03-24  Mark Rowe  <mrowe@apple.com>
 
-        Rubber-stamped by Darin.
+        Rubber-stamped by Darin Adler.
 
         * Configurations/JavaScriptGlue.xcconfig: Remove unnecessary INFOPLIST_PREPROCESS.
 
@@ -439,7 +1437,7 @@
 
 2006-12-19  Timothy Hatcher  <timothy@apple.com>
 
-        Reviewed by Darin.
+        Reviewed by Darin Adler.
 
         <rdar://problem/4891774> Local WebCore/WebBrowser builds fail in 9A328 due to warning about ObjC-2.0 language features
 
@@ -475,7 +1473,7 @@
 
 2006-08-04  Sam Weinig  <sam.weinig@gmail.com>
 
-        Reviewed by Darin.
+        Reviewed by Darin Adler.
 
         - patch for http://bugs.webkit.org/show_bug.cgi?id=10192
           Make WebCore (and friends) compile with -Wshorten-64-to-32
@@ -486,7 +1484,7 @@
 
 2006-08-03  Sam Weinig  <sam.weinig@gmail.com>
 
-        Reviewed by Darin.
+        Reviewed by Darin Adler.
 
         - patch for http://bugs.webkit.org/show_bug.cgi?id=10176
           Make WebCore compile with -Wundef
@@ -497,7 +1495,7 @@
 
 2006-07-29  Sam Weinig  <sam.weinig@gmail.com>
 
-        Reviewed by Darin.
+        Reviewed by Darin Adler.
 
         - patch for http://bugs.webkit.org/show_bug.cgi?id=10080
           Adopt pedantic changes from the Unity project to improve 
@@ -528,7 +1526,7 @@
 
 2006-07-15  Maciej Stachowiak  <mjs@apple.com>
 
-        Reviewed by Darin.
+        Reviewed by Darin Adler.
 
         - switch property lists to be vector+set of Identifiers instead of list of References
         
@@ -697,7 +1695,7 @@
 
 2006-04-04  Timothy Hatcher  <timothy@apple.com>
 
-        Reviewed by Darin.
+        Reviewed by Darin Adler.
 
         The Debug and Release frameworks are now built with install paths relative to the build products directory.
         This removes the need for other projects to build with -framework WebCore and -framework JavaScriptCore. 
@@ -714,7 +1712,7 @@
 
 2006-03-31  Geoffrey Garen  <ggaren@apple.com>
 
-        Reviewed by Darin.
+        Reviewed by Darin Adler.
 
         - Fixed <rdar://problem/4430836> JavaScript patch crashing Quartz
         Composer
@@ -985,7 +1983,7 @@
 
 2005-11-04  Timothy Hatcher  <timothy@apple.com>
 
-        Reviewed by Darin.
+        Reviewed by Darin Adler.
 
         * JavaScriptGlue.xcodeproj/project.pbxproj:
           Fixed the FRAMEWORK_SEARCH_PATHS to look in the WebKit

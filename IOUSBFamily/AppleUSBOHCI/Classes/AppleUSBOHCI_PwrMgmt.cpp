@@ -466,6 +466,7 @@ AppleUSBOHCI::SaveControllerStateForSleep(void)
 			// read so that it will be clear after the write
 			_device->configWrite16(pmControlStatus, pmcsr);
 			IOSleep(2);
+			USBLog(1, "AppleUSBOHCI[%p]::SaveControllerStateForSleep after PMCS for device (%p) is (%p)", this, _device, (void*)_device->configRead16(pmControlStatus));
 		}
 	}
 	

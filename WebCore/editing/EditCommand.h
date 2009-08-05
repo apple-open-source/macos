@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005, 2006, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,7 +28,7 @@
 
 #include "EditAction.h"
 #include "Element.h"
-#include "Selection.h"
+#include "VisibleSelection.h"
 
 namespace WebCore {
 
@@ -37,7 +37,6 @@ class CSSMutableStyleDeclaration;
 
 class EditCommand : public RefCounted<EditCommand> {
 public:
-    EditCommand(Document*);
     virtual ~EditCommand();
 
     void setParent(CompositeEditCommand*);
@@ -48,23 +47,24 @@ public:
 
     virtual EditAction editingAction() const;
 
-    const Selection& startingSelection() const { return m_startingSelection; }
-    const Selection& endingSelection() const { return m_endingSelection; }
+    const VisibleSelection& startingSelection() const { return m_startingSelection; }
+    const VisibleSelection& endingSelection() const { return m_endingSelection; }
 
     Element* startingRootEditableElement() const { return m_startingRootEditableElement.get(); }
     Element* endingRootEditableElement() const { return m_endingRootEditableElement.get(); }
-
-    CSSMutableStyleDeclaration* typingStyle() const { return m_typingStyle.get(); };
-    void setTypingStyle(PassRefPtr<CSSMutableStyleDeclaration>);
     
     virtual bool isInsertTextCommand() const;
     virtual bool isTypingCommand() const;
+    
+    virtual bool preservesTypingStyle() const;
 
 protected:
+    EditCommand(Document*);
+
     Document* document() const { return m_document.get(); }
 
-    void setStartingSelection(const Selection&);
-    void setEndingSelection(const Selection&);
+    void setStartingSelection(const VisibleSelection&);
+    void setEndingSelection(const VisibleSelection&);
 
     PassRefPtr<CSSMutableStyleDeclaration> styleAtPosition(const Position&);
     void updateLayout() const;
@@ -74,17 +74,19 @@ private:
     virtual void doUnapply() = 0;
     virtual void doReapply(); // calls doApply()
 
-    virtual bool preservesTypingStyle() const;
-
     RefPtr<Document> m_document;
-    Selection m_startingSelection;
-    Selection m_endingSelection;
+    VisibleSelection m_startingSelection;
+    VisibleSelection m_endingSelection;
     RefPtr<Element> m_startingRootEditableElement;
     RefPtr<Element> m_endingRootEditableElement;
-    RefPtr<CSSMutableStyleDeclaration> m_typingStyle;
     CompositeEditCommand* m_parent;
 
     friend void applyCommand(PassRefPtr<EditCommand>);
+};
+
+class SimpleEditCommand : public EditCommand {
+protected:
+    SimpleEditCommand(Document* document) : EditCommand(document) { }
 };
 
 void applyCommand(PassRefPtr<EditCommand>);

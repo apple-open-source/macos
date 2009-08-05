@@ -1,4 +1,3 @@
-// -*- mode: c++; c-basic-offset: 4 -*-
 /*
  * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
  *
@@ -34,8 +33,7 @@ namespace WebCore {
 class ResourceResponse : public ResourceResponseBase {
 public:
     ResourceResponse()
-        : ResourceResponseBase(false),
-          m_responseFired(false)
+        : m_responseFired(false)
     {
     }
 
@@ -49,14 +47,7 @@ public:
     bool responseFired() { return m_responseFired; }
 
 private:
-    friend class ResourceResponseBase;
-
-    void doUpdateResourceResponse()
-    {
-    }
-
     bool m_responseFired;
-
 };
 
 } // namespace WebCore

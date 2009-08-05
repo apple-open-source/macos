@@ -32,7 +32,8 @@
 
 #include <IOKit/network/IOEthernetController.h>
 #include <IOKit/network/IOEthernetInterface.h>
-#include <IOKit/network/IOGatedOutputQueue.h>
+///#include <IOKit/network/IOGatedOutputQueue.h>
+#include <IOKit/network/IOBasicOutputQueue.h>
 #include <IOKit/IOInterruptEventSource.h>
 #include <IOKit/IOTimerEventSource.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
@@ -317,7 +318,7 @@ public:
 	IOBufferMemoryDescriptor	*fTxRingMemDesc;
 	IOBufferMemoryDescriptor	*fRxRingMemDesc;
 
-	UInt32		txIntCnt;		// counter for Tx interrupt every TX_DESC_PER_INT elements
+	UInt32		fTxIntCnt;		// counter for Tx interrupt every TX_DESC_PER_INT elements
 	UInt32		fTxRingIndexLast;
 	UInt32		txWDCount;
     
@@ -451,14 +452,6 @@ public:		// Override methods:
 	virtual UInt32     maxCapabilityForDomainState(		IOPMPowerFlags state);
 	virtual UInt32     initialPowerStateForDomainState(	IOPMPowerFlags state );
 	virtual UInt32     powerStateForDomainState(		IOPMPowerFlags state );
-	virtual IOReturn   setPowerState( UInt32 powerStateOrdinal, IOService *whatDevice );
-	virtual IOReturn   powerStateWillChangeTo(	IOPMPowerFlags	flags,
-												UInt32			stateNumber,
-												IOService*		policyMaker );
-	virtual IOReturn   powerStateDidChangeTo(	IOPMPowerFlags	flags,
-												UInt32			stateNumber,
-												IOService*		policyMaker );
-
 
 		// UserClient public access methods:
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -28,15 +28,14 @@
 #include "JSNamedNodesCollection.h"
 #include "JSNode.h"
 #include "Node.h"
-#include "kjs_binding.h"
-#include "kjs_html.h"
+#include "JSDOMBinding.h"
 #include <wtf/Vector.h>
 
-using namespace KJS;
+using namespace JSC;
 
 namespace WebCore {
 
-static JSValue* getNamedItems(ExecState* exec, HTMLCollection* impl, const Identifier& propertyName)
+static JSValue getNamedItems(ExecState* exec, HTMLCollection* impl, const Identifier& propertyName)
 {
     Vector<RefPtr<Node> > namedItems;
     impl->namedItems(propertyName, namedItems);
@@ -47,37 +46,37 @@ static JSValue* getNamedItems(ExecState* exec, HTMLCollection* impl, const Ident
     if (namedItems.size() == 1)
         return toJS(exec, namedItems[0].get());
 
-    return new JSNamedNodesCollection(exec->lexicalGlobalObject()->objectPrototype(), namedItems);
+    return new (exec) JSNamedNodesCollection(exec, namedItems);
 }
 
 // HTMLCollections are strange objects, they support both get and call,
 // so that document.forms.item(0) and document.forms(0) both work.
-JSValue* JSHTMLCollection::callAsFunction(ExecState* exec, JSObject*, const List& args)
+static JSValue JSC_HOST_CALL callHTMLCollection(ExecState* exec, JSObject* function, JSValue, const ArgList& args)
 {
     if (args.size() < 1)
         return jsUndefined();
 
     // Do not use thisObj here. It can be the JSHTMLDocument, in the document.forms(i) case.
-    HTMLCollection* collection = impl();
+    HTMLCollection* collection = static_cast<JSHTMLCollection*>(function)->impl();
 
     // Also, do we need the TypeError test here ?
 
     if (args.size() == 1) {
         // Support for document.all(<index>) etc.
         bool ok;
-        UString string = args[0]->toString(exec);
+        UString string = args.at(0).toString(exec);
         unsigned index = string.toUInt32(&ok, false);
         if (ok)
             return toJS(exec, collection->item(index));
 
         // Support for document.images('<name>') etc.
-        return getNamedItems(exec, collection, Identifier(string));
+        return getNamedItems(exec, collection, Identifier(exec, string));
     }
 
     // The second arg, if set, is the index of the item we want
     bool ok;
-    UString string = args[0]->toString(exec);
-    unsigned index = args[1]->toString(exec).toUInt32(&ok, false);
+    UString string = args.at(0).toString(exec);
+    unsigned index = args.at(1).toString(exec).toUInt32(&ok, false);
     if (ok) {
         String pstr = string;
         Node* node = collection->namedItem(pstr);
@@ -92,60 +91,61 @@ JSValue* JSHTMLCollection::callAsFunction(ExecState* exec, JSObject*, const List
     return jsUndefined();
 }
 
-bool JSHTMLCollection::implementsCall() const
+CallType JSHTMLCollection::getCallData(CallData& callData)
 {
-    return true;
+    callData.native.function = callHTMLCollection;
+    return CallTypeHost;
 }
 
 bool JSHTMLCollection::canGetItemsForName(ExecState* exec, HTMLCollection* thisObj, const Identifier& propertyName)
 {
-    return !getNamedItems(exec, thisObj, propertyName)->isUndefined();
+    return !getNamedItems(exec, thisObj, propertyName).isUndefined();
 }
 
-JSValue* JSHTMLCollection::nameGetter(ExecState* exec, JSObject* originalObject, const Identifier& propertyName, const PropertySlot& slot)
+JSValue JSHTMLCollection::nameGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot& slot)
 {
-    JSHTMLCollection* thisObj = static_cast<JSHTMLCollection*>(slot.slotBase());
+    JSHTMLCollection* thisObj = static_cast<JSHTMLCollection*>(asObject(slot.slotBase()));
     return getNamedItems(exec, thisObj->impl(), propertyName);
 }
 
-JSValue* JSHTMLCollection::item(ExecState* exec, const List& args)
+JSValue JSHTMLCollection::item(ExecState* exec, const ArgList& args)
 {
     bool ok;
-    uint32_t index = args[0]->toString(exec).toUInt32(&ok, false);
+    uint32_t index = args.at(0).toString(exec).toUInt32(&ok, false);
     if (ok)
         return toJS(exec, impl()->item(index));
-    return getNamedItems(exec, impl(), Identifier(args[0]->toString(exec)));
+    return getNamedItems(exec, impl(), Identifier(exec, args.at(0).toString(exec)));
 }
 
-JSValue* JSHTMLCollection::namedItem(ExecState* exec, const List& args)
+JSValue JSHTMLCollection::namedItem(ExecState* exec, const ArgList& args)
 {
-    return getNamedItems(exec, impl(), Identifier(args[0]->toString(exec)));
+    return getNamedItems(exec, impl(), Identifier(exec, args.at(0).toString(exec)));
 }
 
-JSValue* toJS(ExecState* exec, HTMLCollection* collection)
+JSValue toJS(ExecState* exec, HTMLCollection* collection)
 {
     if (!collection)
         return jsNull();
 
-    DOMObject* ret = ScriptInterpreter::getDOMObject(collection);
+    DOMObject* wrapper = getCachedDOMObjectWrapper(exec->globalData(), collection);
 
-    if (ret)
-        return ret;
+    if (wrapper)
+        return wrapper;
 
     switch (collection->type()) {
-        case HTMLCollection::SelectOptions:
-            ret = new JSHTMLOptionsCollection(JSHTMLOptionsCollectionPrototype::self(exec), static_cast<HTMLOptionsCollection*>(collection));
+        case SelectOptions:
+            wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, HTMLOptionsCollection, collection);
             break;
-        case HTMLCollection::DocAll:
-            ret = new JSHTMLAllCollection(JSHTMLCollectionPrototype::self(exec), static_cast<HTMLCollection*>(collection));
+        case DocAll:
+            typedef HTMLCollection HTMLAllCollection;
+            wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, HTMLAllCollection, collection);
             break;
         default:
-            ret = new JSHTMLCollection(JSHTMLCollectionPrototype::self(exec), static_cast<HTMLCollection*>(collection));
+            wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, HTMLCollection, collection);
             break;
     }
 
-    ScriptInterpreter::putDOMObject(collection, ret);
-    return ret;
+    return wrapper;
 }
 
 } // namespace WebCore

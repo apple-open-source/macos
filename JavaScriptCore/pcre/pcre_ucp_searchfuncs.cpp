@@ -6,7 +6,7 @@ needed by JavaScriptCore and the rest of WebKit.
 
                  Originally written by Philip Hazel
            Copyright (c) 1997-2006 University of Cambridge
-    Copyright (C) 2002, 2004, 2006, 2007 Apple Inc. All rights reserved.
+    Copyright (C) 2002, 2004, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
 
 -----------------------------------------------------------------------------
 Redistribution and use in source and binary forms, with or without
@@ -41,6 +41,7 @@ POSSIBILITY OF SUCH DAMAGE.
 /* This module contains code for searching the table of Unicode character
 properties. */
 
+#include "config.h"
 #include "pcre_internal.h"
 
 #include "ucpinternal.h"       /* Internal table details */
@@ -59,7 +60,7 @@ Arguments:
 Returns:      the other case or -1 if none
 */
 
-int kjs_pcre_ucp_othercase(unsigned c)
+int jsc_pcre_ucp_othercase(unsigned c)
 {
     int bot = 0;
     int top = sizeof(ucp_table) / sizeof(cnode);

@@ -1,6 +1,4 @@
 /*
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
@@ -31,9 +29,10 @@
 #include "FormDataList.h"
 #include "HTMLNames.h"
 #include "HTMLOptionElement.h"
-#include "KURL.h"
+#include "MappedAttribute.h"
 #include "SSLKeyGenerator.h"
 #include "Text.h"
+#include <wtf/StdLibExtras.h>
 
 using namespace WebCore;
 
@@ -41,22 +40,24 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLKeygenElement::HTMLKeygenElement(Document* doc, HTMLFormElement* f)
-    : HTMLSelectElement(keygenTag, doc, f)
+HTMLKeygenElement::HTMLKeygenElement(const QualifiedName& tagName, Document* doc, HTMLFormElement* f)
+    : HTMLSelectElement(tagName, doc, f)
 {
-    Vector<String> keys = supportedKeySizes();
+    ASSERT(hasTagName(keygenTag));
+    Vector<String> keys;
+    getSupportedKeySizes(keys);
         
     Vector<String>::const_iterator end = keys.end();
     for (Vector<String>::const_iterator it = keys.begin(); it != end; ++it) {
-        HTMLOptionElement* o = new HTMLOptionElement(doc, form());
+        HTMLOptionElement* o = new HTMLOptionElement(optionTag, doc, form());
         addChild(o);
         o->addChild(new Text(doc, *it));
     }
 }
 
-const AtomicString& HTMLKeygenElement::type() const
+const AtomicString& HTMLKeygenElement::formControlType() const
 {
-    static const AtomicString keygen("keygen");
+    DEFINE_STATIC_LOCAL(const AtomicString, keygen, ("keygen"));
     return keygen;
 }
 
@@ -68,7 +69,7 @@ void HTMLKeygenElement::parseMappedAttribute(MappedAttribute* attr)
         m_keyType = attr->value();
     else
         // skip HTMLSelectElement parsing!
-        HTMLGenericFormElement::parseMappedAttribute(attr);
+        HTMLFormControlElement::parseMappedAttribute(attr);
 }
 
 bool HTMLKeygenElement::appendFormData(FormDataList& encoded_values, bool)

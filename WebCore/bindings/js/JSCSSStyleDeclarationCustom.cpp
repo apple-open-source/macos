@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,54 +24,95 @@
  */
 
 #include "config.h"
-#include "JSCSSStyleDeclaration.h"
+#include "JSCSSStyleDeclarationCustom.h"
 
 #include "AtomicString.h"
 #include "CSSPrimitiveValue.h"
 #include "CSSStyleDeclaration.h"
 #include "CSSValue.h"
-#include "DeprecatedString.h"
 #include "PlatformString.h"
-#include <kjs/string_object.h>
+#include <runtime/StringObjectThatMasqueradesAsUndefined.h>
+#include <runtime/StringPrototype.h>
+#include <wtf/ASCIICType.h>
+
+using namespace JSC;
+using namespace WTF;
 
 namespace WebCore {
 
-using namespace KJS;
+// Check for a CSS prefix.
+// Passed prefix is all lowercase.
+// First character of the prefix within the property name may be upper or lowercase.
+// Other characters in the prefix within the property name must be lowercase.
+// The prefix within the property name must be followed by a capital letter.
+static bool hasCSSPropertyNamePrefix(const Identifier& propertyName, const char* prefix)
+{
+#ifndef NDEBUG
+    ASSERT(*prefix);
+    for (const char* p = prefix; *p; ++p)
+        ASSERT(isASCIILower(*p));
+    ASSERT(propertyName.size());
+#endif
+
+    if (toASCIILower(propertyName.data()[0]) != prefix[0])
+        return false;
+
+    unsigned length = propertyName.size();
+    for (unsigned i = 1; i < length; ++i) {
+        if (!prefix[i])
+            return isASCIIUpper(propertyName.data()[i]);
+        if (propertyName.data()[i] != prefix[i])
+            return false;
+    }
+    return false;
+}
 
 static String cssPropertyName(const Identifier& propertyName, bool* hadPixelOrPosPrefix = 0)
 {
-    DeprecatedString prop = propertyName;
-
-    int i = prop.length();
-
-    if (!i)
-        return prop;
-
-    while (--i) {
-        ::UChar c = prop[i].unicode();
-        if (c >= 'A' && c <= 'Z')
-            prop.insert(i, '-');
-    }
-
-    prop = prop.lower();
-
     if (hadPixelOrPosPrefix)
         *hadPixelOrPosPrefix = false;
 
-    if (prop.startsWith("css-"))
-        prop = prop.mid(4);
-    else if (prop.startsWith("pixel-")) {
-        prop = prop.mid(6);
-        if (hadPixelOrPosPrefix)
-            *hadPixelOrPosPrefix = true;
-    } else if (prop.startsWith("pos-")) {
-        prop = prop.mid(4);
-        if (hadPixelOrPosPrefix)
-            *hadPixelOrPosPrefix = true;
-    } else if (prop.startsWith("khtml-") || prop.startsWith("apple-") || prop.startsWith("webkit-"))
-        prop.insert(0, '-');
+    unsigned length = propertyName.size();
+    if (!length)
+        return String();
 
-    return prop;
+    Vector<UChar> name;
+    name.reserveInitialCapacity(length);
+
+    unsigned i = 0;
+
+    if (hasCSSPropertyNamePrefix(propertyName, "css"))
+        i += 3;
+    else if (hasCSSPropertyNamePrefix(propertyName, "pixel")) {
+        i += 5;
+        if (hadPixelOrPosPrefix)
+            *hadPixelOrPosPrefix = true;
+    } else if (hasCSSPropertyNamePrefix(propertyName, "pos")) {
+        i += 3;
+        if (hadPixelOrPosPrefix)
+            *hadPixelOrPosPrefix = true;
+    } else if (hasCSSPropertyNamePrefix(propertyName, "webkit")
+            || hasCSSPropertyNamePrefix(propertyName, "khtml")
+            || hasCSSPropertyNamePrefix(propertyName, "apple"))
+        name.append('-');
+    else {
+        if (isASCIIUpper(propertyName.data()[0]))
+            return String();
+    }
+
+    name.append(toASCIILower(propertyName.data()[i++]));
+
+    for (; i < length; ++i) {
+        UChar c = propertyName.data()[i];
+        if (!isASCIIUpper(c))
+            name.append(c);
+        else {
+            name.append('-');
+            name.append(toASCIILower(c));
+        }
+    }
+
+    return String::adopt(name);
 }
 
 static bool isCSSPropertyName(const Identifier& propertyName)
@@ -84,9 +125,11 @@ bool JSCSSStyleDeclaration::canGetItemsForName(ExecState*, CSSStyleDeclaration*,
     return isCSSPropertyName(propertyName);
 }
 
-JSValue* JSCSSStyleDeclaration::nameGetter(ExecState* exec, JSObject* originalObject, const Identifier& propertyName, const PropertySlot& slot)
+// FIXME: You can get these properties, and set them (see customPut below),
+// but you should also be able to enumerate them.
+JSValue JSCSSStyleDeclaration::nameGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot& slot)
 {
-    JSCSSStyleDeclaration* thisObj = static_cast<JSCSSStyleDeclaration*>(slot.slotBase());
+    JSCSSStyleDeclaration* thisObj = static_cast<JSCSSStyleDeclaration*>(asObject(slot.slotBase()));
 
     // Set up pixelOrPos boolean to handle the fact that
     // pixelTop returns "CSS Top" as number value in unit pixels
@@ -98,8 +141,8 @@ JSValue* JSCSSStyleDeclaration::nameGetter(ExecState* exec, JSObject* originalOb
     RefPtr<CSSValue> v = thisObj->impl()->getPropertyCSSValue(prop);
     if (v) {
         if (pixelOrPos && v->cssValueType() == CSSValue::CSS_PRIMITIVE_VALUE)
-            return jsNumber(static_pointer_cast<CSSPrimitiveValue>(v)->getFloatValue(CSSPrimitiveValue::CSS_PX));
-        return jsStringOrNull(v->cssText());
+            return jsNumber(exec, static_pointer_cast<CSSPrimitiveValue>(v)->getFloatValue(CSSPrimitiveValue::CSS_PX));
+        return jsStringOrNull(exec, v->cssText());
     }
 
     // If the property is a shorthand property (such as "padding"), 
@@ -107,24 +150,25 @@ JSValue* JSCSSStyleDeclaration::nameGetter(ExecState* exec, JSObject* originalOb
 
     // Make the SVG 'filter' attribute undetectable, to avoid confusion with the IE 'filter' attribute.
     if (propertyName == "filter")
-        return new StringInstanceThatMasqueradesAsUndefined(exec->lexicalGlobalObject()->stringPrototype(), thisObj->impl()->getPropertyValue(prop));
+        return StringObjectThatMasqueradesAsUndefined::create(exec, thisObj->impl()->getPropertyValue(prop));
 
-    return jsString(thisObj->impl()->getPropertyValue(prop));
+    return jsString(exec, thisObj->impl()->getPropertyValue(prop));
 }
 
 
-bool JSCSSStyleDeclaration::customPut(ExecState* exec, const Identifier& propertyName, JSValue* value, int /*attr*/)
+bool JSCSSStyleDeclaration::customPut(ExecState* exec, const Identifier& propertyName, JSValue value, PutPropertySlot&)
 {
     if (!isCSSPropertyName(propertyName))
         return false;
 
-    DOMExceptionTranslator exception(exec);
     bool pixelOrPos;
     String prop = cssPropertyName(propertyName, &pixelOrPos);
     String propValue = valueToStringWithNullCheck(exec, value);
     if (pixelOrPos)
         propValue += "px";
-    impl()->setProperty(prop, propValue, exception);
+    ExceptionCode ec = 0;
+    impl()->setProperty(prop, propValue, ec);
+    setDOMException(exec, ec);
     return true;
 }
 

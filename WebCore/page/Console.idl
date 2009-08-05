@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,10 +29,31 @@
 module window {
 
     interface Console {
-        void error(in DOMString message);
-        void info(in DOMString message);
-        void log(in DOMString message);
-        void warn(in DOMString message);
+
+#if defined(ENABLE_JAVASCRIPT_DEBUGGER) && ENABLE_JAVASCRIPT_DEBUGGER
+        readonly attribute [CustomGetter] Array profiles;
+#endif
+    
+        [CustomArgumentHandling] void debug();
+        [CustomArgumentHandling] void error();
+        [CustomArgumentHandling] void info();
+        [CustomArgumentHandling] void log();
+        [CustomArgumentHandling] void warn();
+        [CustomArgumentHandling] void dir();
+        [CustomArgumentHandling] void dirxml();
+        [CustomArgumentHandling] void trace();
+        [CustomArgumentHandling, ImplementationFunction=assertCondition] void assert(in boolean condition);
+        [CustomArgumentHandling] void count();
+
+#if defined(ENABLE_JAVASCRIPT_DEBUGGER) && ENABLE_JAVASCRIPT_DEBUGGER
+        [CustomArgumentHandling] void profile(in [ConvertUndefinedOrNullToNullString] DOMString title);
+        [CustomArgumentHandling] void profileEnd(in [ConvertUndefinedOrNullToNullString] DOMString title);
+#endif
+
+        void time(in [ConvertUndefinedOrNullToNullString] DOMString title);
+        [CustomArgumentHandling] void timeEnd(in [ConvertUndefinedOrNullToNullString] DOMString title);
+        [CustomArgumentHandling] void group();
+        void groupEnd();
     };
 
 }

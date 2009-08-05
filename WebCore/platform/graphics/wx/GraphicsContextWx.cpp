@@ -26,7 +26,7 @@
 #include "config.h"
 #include "GraphicsContext.h"
 
-#include "AffineTransform.h"
+#include "TransformationMatrix.h"
 #include "FloatRect.h"
 #include "Font.h"
 #include "IntRect.h"
@@ -252,22 +252,12 @@ void GraphicsContext::drawConvexPolygon(size_t npoints, const FloatPoint* points
     delete [] polygon;
 }
 
-void GraphicsContext::fillRect(const IntRect& rect, const Color& color)
-{
-    if (paintingDisabled())
-        return;
-
-    m_data->context->SetPen(*wxTRANSPARENT_PEN);
-    m_data->context->SetBrush(wxBrush(color));
-    m_data->context->DrawRectangle(rect.x(), rect.y(), rect.width(), rect.height());
-}
-
 void GraphicsContext::fillRect(const FloatRect& rect, const Color& color)
 {
     if (paintingDisabled())
         return;
 
-    m_data->context->SetPen(wxPen(color));
+    m_data->context->SetPen(*wxTRANSPARENT_PEN);
     m_data->context->SetBrush(wxBrush(color));
     m_data->context->DrawRectangle(rect.x(), rect.y(), rect.width(), rect.height());
 }
@@ -288,13 +278,13 @@ void GraphicsContext::drawFocusRing(const Color& color)
     notImplemented();
 }
 
-void GraphicsContext::clip(const IntRect& r)
+void GraphicsContext::clip(const FloatRect& r)
 {
     wxWindowDC* windc = dynamic_cast<wxWindowDC*>(m_data->context);
     wxPoint pos(0, 0);
 
     if (windc) {
-#ifndef __WXGTK__
+#if !defined(__WXGTK__) || wxCHECK_VERSION(2,9,0)
         wxWindow* window = windc->GetWindow();
 #else
         wxWindow* window = windc->m_owner;
@@ -334,7 +324,7 @@ void GraphicsContext::drawLineForText(const IntPoint& origin, int width, bool pr
         return;
 
     IntPoint endPoint = origin + IntSize(width, 0);
-    m_data->context->SetPen(wxPen(strokeColor(), strokeThickness(), strokeStyleToWxPenStyle(strokeStyle())));
+    m_data->context->SetPen(wxPen(strokeColor(), strokeThickness(), wxSOLID));
     m_data->context->DrawLine(origin.x(), origin.y(), endPoint.x(), endPoint.y());
 }
 
@@ -354,10 +344,15 @@ void GraphicsContext::clip(const Path&)
     notImplemented();
 }
 
-AffineTransform GraphicsContext::getCTM() const
+void GraphicsContext::clipToImageBuffer(const FloatRect&, const ImageBuffer*)
+{
+    notImplemented();
+}
+
+TransformationMatrix GraphicsContext::getCTM() const
 { 
     notImplemented();
-    return AffineTransform();
+    return TransformationMatrix();
 }
 
 void GraphicsContext::translate(float tx, float ty) 
@@ -419,7 +414,23 @@ void GraphicsContext::setURLForRect(const KURL&, const IntRect&)
 void GraphicsContext::setCompositeOperation(CompositeOperator op)
 {
     if (m_data->context)
+    {
+#if wxCHECK_VERSION(2,9,0)
+        m_data->context->SetLogicalFunction(static_cast<wxRasterOperationMode>(getWxCompositingOperation(op, false)));
+#else
         m_data->context->SetLogicalFunction(getWxCompositingOperation(op, false));
+#endif
+    }
+}
+
+void GraphicsContext::beginPath()
+{
+    notImplemented();
+}
+
+void GraphicsContext::addPath(const Path& path)
+{
+    notImplemented();
 }
 
 void GraphicsContext::setPlatformStrokeColor(const Color& color)
@@ -450,7 +461,7 @@ void GraphicsContext::setPlatformFillColor(const Color& color)
         m_data->context->SetBrush(wxBrush(color));
 }
 
-void GraphicsContext::concatCTM(const AffineTransform& transform)
+void GraphicsContext::concatCTM(const TransformationMatrix& transform)
 {
     if (paintingDisabled())
         return;
@@ -459,11 +470,40 @@ void GraphicsContext::concatCTM(const AffineTransform& transform)
     return;
 }
 
-void GraphicsContext::setUseAntialiasing(bool enable)
+void GraphicsContext::setPlatformShouldAntialias(bool enable)
 {
     if (paintingDisabled())
         return;
     notImplemented();
+}
+
+void GraphicsContext::setImageInterpolationQuality(InterpolationQuality)
+{
+}
+
+InterpolationQuality GraphicsContext::imageInterpolationQuality() const
+{
+    return InterpolationDefault;
+}
+
+void GraphicsContext::fillPath()
+{
+}
+
+void GraphicsContext::strokePath()
+{
+}
+
+void GraphicsContext::drawPath()
+{
+    fillPath();
+    strokePath();
+}
+
+void GraphicsContext::fillRect(const FloatRect& rect)
+{
+    if (paintingDisabled())
+        return;
 }
 
 }

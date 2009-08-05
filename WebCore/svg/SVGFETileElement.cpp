@@ -26,6 +26,7 @@
 #include "SVGFETileElement.h"
 
 #include "Attr.h"
+#include "MappedAttribute.h"
 #include "SVGRenderStyle.h"
 #include "SVGResourceFilter.h"
 
@@ -33,16 +34,14 @@ namespace WebCore {
 
 SVGFETileElement::SVGFETileElement(const QualifiedName& tagName, Document* doc)
     : SVGFilterPrimitiveStandardAttributes(tagName, doc)
+    , m_in1(this, SVGNames::inAttr)
     , m_filterEffect(0)
 {
 }
 
 SVGFETileElement::~SVGFETileElement()
 {
-    delete m_filterEffect;
 }
-
-ANIMATED_PROPERTY_DEFINITIONS(SVGFETileElement, String, String, string, In1, in1, SVGNames::inAttr, m_in1)
 
 void SVGFETileElement::parseMappedAttribute(MappedAttribute* attr)
 {
@@ -53,19 +52,24 @@ void SVGFETileElement::parseMappedAttribute(MappedAttribute* attr)
         SVGFilterPrimitiveStandardAttributes::parseMappedAttribute(attr);
 }
 
-SVGFETile* SVGFETileElement::filterEffect(SVGResourceFilter* filter) const
+SVGFilterEffect* SVGFETileElement::filterEffect(SVGResourceFilter* filter) const
 {
-    if (!m_filterEffect)
-        m_filterEffect = new SVGFETile(filter);
+   ASSERT_NOT_REACHED();
+   return 0;
+}
 
-    m_filterEffect->setIn(in1());
+bool SVGFETileElement::build(FilterBuilder* builder)
+{
+    FilterEffect* input1 = builder->getEffectById(in1());
 
-    setStandardAttributes(m_filterEffect);
-    return m_filterEffect;
+    if(!input1)
+        return false;
+
+    builder->add(result(), FETile::create(input1));
+    
+    return true;
 }
 
 }
 
 #endif // ENABLE(SVG)
-
-// vim:ts=4:noet

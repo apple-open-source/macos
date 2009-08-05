@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,40 +26,44 @@
 #include "config.h"
 #include "EventHandler.h"
 
+#include "AXObjectCache.h"
 #include "BlockExceptions.h"
+#include "ChromeClient.h"
 #include "ClipboardMac.h"
-#include "Cursor.h"
-#include "Document.h"
 #include "DragController.h"
 #include "EventNames.h"
-#include "FloatPoint.h"
 #include "FocusController.h"
-#include "FoundationExtras.h"
 #include "FrameLoader.h"
 #include "Frame.h"
-#include "FrameTree.h"
 #include "FrameView.h"
-#include "HTMLFrameOwnerElement.h"
-#include "HTMLFrameSetElement.h"
-#include "HitTestRequest.h"
-#include "HitTestResult.h"
 #include "KeyboardEvent.h"
 #include "MouseEventWithHitTestResults.h"
 #include "Page.h"
 #include "PlatformKeyboardEvent.h"
-#include "PlatformScrollBar.h"
 #include "PlatformWheelEvent.h"
 #include "RenderWidget.h"
+#include "RuntimeApplicationChecks.h"
+#include "Scrollbar.h"
 #include "Settings.h"
-#include "WebCoreFrameBridge.h"
+#include <objc/objc-runtime.h>
+#include <wtf/StdLibExtras.h>
+
+#if !(defined(OBJC_API_VERSION) && OBJC_API_VERSION > 0)
+static inline IMP method_setImplementation(Method m, IMP i)
+{
+    IMP oi = m->method_imp;
+    m->method_imp = i;
+    return oi;
+}
+#endif
 
 namespace WebCore {
 
-using namespace EventNames;
+const double EventHandler::TextDragDelay = 0.15;
 
 static RetainPtr<NSEvent>& currentEvent()
 {
-    static RetainPtr<NSEvent> event;
+    DEFINE_STATIC_LOCAL(RetainPtr<NSEvent>, event, ());
     return event;
 }
 
@@ -91,10 +95,10 @@ PassRefPtr<KeyboardEvent> EventHandler::currentKeyboardEvent() const
         case NSKeyDown: {
             PlatformKeyboardEvent platformEvent(event);
             platformEvent.disambiguateKeyDownEvent(PlatformKeyboardEvent::RawKeyDown);
-            return new KeyboardEvent(platformEvent, m_frame->document() ? m_frame->document()->defaultView() : 0);
+            return KeyboardEvent::create(platformEvent, m_frame->document()->defaultView());
         }
         case NSKeyUp:
-            return new KeyboardEvent(event, m_frame->document() ? m_frame->document()->defaultView() : 0);
+            return KeyboardEvent::create(event, m_frame->document()->defaultView());
         default:
             return 0;
     }
@@ -103,9 +107,9 @@ PassRefPtr<KeyboardEvent> EventHandler::currentKeyboardEvent() const
 static inline bool isKeyboardOptionTab(KeyboardEvent* event)
 {
     return event
-    && (event->type() == keydownEvent || event->type() == keypressEvent)
-    && event->altKey()
-    && event->keyIdentifier() == "U+0009";    
+        && (event->type() == eventNames().keydownEvent || event->type() == eventNames().keypressEvent)
+        && event->altKey()
+        && event->keyIdentifier() == "U+0009";    
 }
 
 bool EventHandler::invertSenseOfTabsToLinks(KeyboardEvent* event) const
@@ -115,7 +119,11 @@ bool EventHandler::invertSenseOfTabsToLinks(KeyboardEvent* event) const
 
 bool EventHandler::tabsToAllControls(KeyboardEvent* event) const
 {
-    KeyboardUIMode keyboardUIMode = [m_frame->bridge() keyboardUIMode];
+    Page* page = m_frame->page();
+    if (!page)
+        return false;
+
+    KeyboardUIMode keyboardUIMode = page->chrome()->client()->keyboardUIMode();
     bool handlingOptionTab = isKeyboardOptionTab(event);
 
     // If tab-to-links is off, option-tab always highlights all controls
@@ -135,25 +143,24 @@ bool EventHandler::tabsToAllControls(KeyboardEvent* event) const
 
 bool EventHandler::needsKeyboardEventDisambiguationQuirks() const
 {
-    static BOOL checkedSafari = NO;
-    static BOOL isSafari = NO;
-
-    if (!checkedSafari) {
-        isSafari = [[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.apple.Safari"];
-        checkedSafari = YES;
-    }
-    
     Document* document = m_frame->document();
-    if (!document)
-        return false;
 
     // RSS view needs arrow key keypress events.
-    if (isSafari && document->url().startsWith("feed:", false) || document->url().startsWith("feeds:", false))
+    if (applicationIsSafari() && document->url().protocolIs("feed") || document->url().protocolIs("feeds"))
         return true;
     Settings* settings = m_frame->settings();
     if (!settings)
         return false;
-    return settings->usesDashboardBackwardCompatibilityMode() || settings->needsKeyboardEventDisambiguationQuirks();
+
+#if ENABLE(DASHBOARD_SUPPORT)
+    if (settings->usesDashboardBackwardCompatibilityMode())
+        return true;
+#endif
+        
+    if (settings->needsKeyboardEventDisambiguationQuirks())
+        return true;
+
+    return false;
 }
 
 bool EventHandler::keyEvent(NSEvent *event)
@@ -184,10 +191,11 @@ void EventHandler::focusDocumentView()
     if (!page)
         return;
 
-    if (FrameView* frameView = m_frame->view())
-        if (NSView *documentView = frameView->getDocumentView())
+    if (FrameView* frameView = m_frame->view()) {
+        if (NSView *documentView = frameView->documentView())
             page->chrome()->focusNSView(documentView);
-    
+    }
+
     page->focusController()->setFocusedFrame(m_frame);
 }
 
@@ -239,7 +247,7 @@ bool EventHandler::passMouseDownEventToWidget(Widget* widget)
 
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
     
-    NSView *nodeView = widget->getView();
+    NSView *nodeView = widget->platformWidget();
     ASSERT(nodeView);
     ASSERT([nodeView superview]);
     NSView *view = [nodeView hitTest:[[nodeView superview] convertPoint:[currentEvent().get() locationInWindow] fromView:nil]];
@@ -248,11 +256,15 @@ bool EventHandler::passMouseDownEventToWidget(Widget* widget)
         return true;
     }
     
-    if ([m_frame->bridge() firstResponder] != view) {
+    Page* page = m_frame->page();
+    if (!page)
+        return true;
+
+    if (page->chrome()->client()->firstResponder() != view) {
         // Normally [NSWindow sendEvent:] handles setting the first responder.
         // But in our case, the event was sent to the view representing the entire web page.
         if ([currentEvent().get() clickCount] <= 1 && [view acceptsFirstResponder] && [view needsPanelToBecomeKey])
-            [m_frame->bridge() makeFirstResponder:view];
+            page->chrome()->client()->makeFirstResponder(view);
     }
 
     // We need to "defer loading" while tracking the mouse, because tearing down the
@@ -262,9 +274,9 @@ bool EventHandler::passMouseDownEventToWidget(Widget* widget)
     // mouse. We should confirm that, and then remove the deferrsLoading
     // hack entirely.
     
-    bool wasDeferringLoading = m_frame->page()->defersLoading();
+    bool wasDeferringLoading = page->defersLoading();
     if (!wasDeferringLoading)
-        m_frame->page()->setDefersLoading(true);
+        page->setDefersLoading(true);
 
     ASSERT(!m_sendingEventToSubview);
     m_sendingEventToSubview = true;
@@ -272,7 +284,7 @@ bool EventHandler::passMouseDownEventToWidget(Widget* widget)
     m_sendingEventToSubview = false;
     
     if (!wasDeferringLoading)
-        m_frame->page()->setDefersLoading(false);
+        page->setDefersLoading(false);
 
     // Remember which view we sent the event to, so we can direct the release event properly.
     m_mouseDownView = view;
@@ -319,7 +331,7 @@ NSView *EventHandler::mouseDownViewIfStillGood()
         return nil;
     }
     FrameView* topFrameView = m_frame->view();
-    NSView *topView = topFrameView ? topFrameView->getView() : nil;
+    NSView *topView = topFrameView ? topFrameView->platformWidget() : nil;
     if (!topView || !findViewInSubviews(topView, mouseDownView)) {
         m_mouseDownView = nil;
         return nil;
@@ -340,6 +352,7 @@ bool EventHandler::eventLoopHandleMouseDragged(const MouseEventWithHitTestResult
         return false;
     
     if (!m_mouseDownWasInSubframe) {
+        ASSERT(!m_sendingEventToSubview);
         m_sendingEventToSubview = true;
         BEGIN_BLOCK_OBJC_EXCEPTIONS;
         [view mouseDragged:currentEvent().get()];
@@ -350,13 +363,13 @@ bool EventHandler::eventLoopHandleMouseDragged(const MouseEventWithHitTestResult
     return true;
 }
     
-Clipboard* EventHandler::createDraggingClipboard() const 
+PassRefPtr<Clipboard> EventHandler::createDraggingClipboard() const 
 {
     NSPasteboard *pasteboard = [NSPasteboard pasteboardWithName:NSDragPboard];
     // Must be done before ondragstart adds types and data to the pboard,
     // also done for security, as it erases data from the last drag
     [pasteboard declareTypes:[NSArray array] owner:nil];
-    return new ClipboardMac(true, pasteboard, ClipboardWritable, m_frame);
+    return ClipboardMac::create(true, pasteboard, ClipboardWritable, m_frame);
 }
     
 bool EventHandler::eventLoopHandleMouseUp(const MouseEventWithHitTestResults&)
@@ -366,6 +379,7 @@ bool EventHandler::eventLoopHandleMouseUp(const MouseEventWithHitTestResults&)
         return false;
     
     if (!m_mouseDownWasInSubframe) {
+        ASSERT(!m_sendingEventToSubview);
         m_sendingEventToSubview = true;
         BEGIN_BLOCK_OBJC_EXCEPTIONS;
         [view mouseUp:currentEvent().get()];
@@ -381,11 +395,23 @@ bool EventHandler::passSubframeEventToSubframe(MouseEventWithHitTestResults& eve
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
 
     switch ([currentEvent().get() type]) {
+        case NSLeftMouseDragged:
+        case NSOtherMouseDragged:
+        case NSRightMouseDragged:
+            // This check is bogus and results in <rdar://6813830>, but removing it breaks a number of
+            // layout tests.
+            if (!m_mouseDownWasInSubframe)
+                return false;
+            if (subframe->page()->dragController()->didInitiateDrag())
+                return false;
         case NSMouseMoved:
             // Since we're passing in currentEvent() here, we can call
             // handleMouseMoveEvent() directly, since the save/restore of
             // currentEvent() that mouseMoved() does would have no effect.
+            ASSERT(!m_sendingEventToSubview);
+            m_sendingEventToSubview = true;
             subframe->eventHandler()->handleMouseMoveEvent(currentEvent().get(), hoveredNode);
+            m_sendingEventToSubview = false;
             return true;
         
         case NSLeftMouseDown: {
@@ -406,24 +432,9 @@ bool EventHandler::passSubframeEventToSubframe(MouseEventWithHitTestResults& eve
         case NSLeftMouseUp: {
             if (!m_mouseDownWasInSubframe)
                 return false;
-            NSView *view = mouseDownViewIfStillGood();
-            if (!view)
-                return false;
             ASSERT(!m_sendingEventToSubview);
             m_sendingEventToSubview = true;
-            [view mouseUp:currentEvent().get()];
-            m_sendingEventToSubview = false;
-            return true;
-        }
-        case NSLeftMouseDragged: {
-            if (!m_mouseDownWasInSubframe)
-                return false;
-            NSView *view = mouseDownViewIfStillGood();
-            if (!view)
-                return false;
-            ASSERT(!m_sendingEventToSubview);
-            m_sendingEventToSubview = true;
-            [view mouseDragged:currentEvent().get()];
+            subframe->eventHandler()->handleMouseReleaseEvent(currentEvent().get());
             m_sendingEventToSubview = false;
             return true;
         }
@@ -435,6 +446,40 @@ bool EventHandler::passSubframeEventToSubframe(MouseEventWithHitTestResults& eve
     return false;
 }
 
+static IMP originalNSScrollViewScrollWheel;
+static bool _nsScrollViewScrollWheelShouldRetainSelf;
+static void selfRetainingNSScrollViewScrollWheel(NSScrollView *, SEL, NSEvent *);
+
+static bool nsScrollViewScrollWheelShouldRetainSelf()
+{
+    ASSERT(isMainThread());
+
+    return _nsScrollViewScrollWheelShouldRetainSelf;
+}
+
+static void setNSScrollViewScrollWheelShouldRetainSelf(bool shouldRetain)
+{
+    ASSERT(isMainThread());
+
+    if (!originalNSScrollViewScrollWheel) {
+        Method method = class_getInstanceMethod(objc_getRequiredClass("NSScrollView"), @selector(scrollWheel:));
+        originalNSScrollViewScrollWheel = method_setImplementation(method, reinterpret_cast<IMP>(selfRetainingNSScrollViewScrollWheel));
+    }
+
+    _nsScrollViewScrollWheelShouldRetainSelf = shouldRetain;
+}
+
+static void selfRetainingNSScrollViewScrollWheel(NSScrollView *self, SEL selector, NSEvent *event)
+{
+    bool shouldRetainSelf = isMainThread() && nsScrollViewScrollWheelShouldRetainSelf();
+
+    if (shouldRetainSelf)
+        [self retain];
+    originalNSScrollViewScrollWheel(self, selector, event);
+    if (shouldRetainSelf)
+        [self release];
+}
+
 bool EventHandler::passWheelEventToWidget(PlatformWheelEvent&, Widget* widget)
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
@@ -442,7 +487,7 @@ bool EventHandler::passWheelEventToWidget(PlatformWheelEvent&, Widget* widget)
     if ([currentEvent().get() type] != NSScrollWheel || m_sendingEventToSubview || !widget) 
         return false;
 
-    NSView *nodeView = widget->getView();
+    NSView* nodeView = widget->platformWidget();
     ASSERT(nodeView);
     ASSERT([nodeView superview]);
     NSView *view = [nodeView hitTest:[[nodeView superview] convertPoint:[currentEvent().get() locationInWindow] fromView:nil]];
@@ -450,8 +495,14 @@ bool EventHandler::passWheelEventToWidget(PlatformWheelEvent&, Widget* widget)
         // We probably hit the border of a RenderWidget
         return false;
 
+    ASSERT(!m_sendingEventToSubview);
     m_sendingEventToSubview = true;
+    // Work around <rdar://problem/6806810> which can cause -[NSScrollView scrollWheel:] to
+    // crash if the NSScrollView is released during timer or network callback dispatch
+    // in the nested tracking runloop that -[NSScrollView scrollWheel:] runs.
+    setNSScrollViewScrollWheelShouldRetainSelf(true);
     [view scrollWheel:currentEvent().get()];
+    setNSScrollViewScrollWheelShouldRetainSelf(false);
     m_sendingEventToSubview = false;
     return true;
             
@@ -545,6 +596,10 @@ void EventHandler::mouseUp(NSEvent *event)
  */
 void EventHandler::sendFakeEventsAfterWidgetTracking(NSEvent *initiatingEvent)
 {
+    FrameView* view = m_frame->view();
+    if (!view)
+        return;
+
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
 
     m_sendingEventToSubview = false;
@@ -553,34 +608,34 @@ void EventHandler::sendFakeEventsAfterWidgetTracking(NSEvent *initiatingEvent)
         NSEvent *fakeEvent = nil;
         if (eventType == NSLeftMouseDown) {
             fakeEvent = [NSEvent mouseEventWithType:NSLeftMouseUp
-                                    location:[initiatingEvent locationInWindow]
-                                modifierFlags:[initiatingEvent modifierFlags]
-                                    timestamp:[initiatingEvent timestamp]
-                                windowNumber:[initiatingEvent windowNumber]
-                                        context:[initiatingEvent context]
-                                    eventNumber:[initiatingEvent eventNumber]
-                                    clickCount:[initiatingEvent clickCount]
-                                    pressure:[initiatingEvent pressure]];
+                                           location:[initiatingEvent locationInWindow]
+                                      modifierFlags:[initiatingEvent modifierFlags]
+                                          timestamp:[initiatingEvent timestamp]
+                                       windowNumber:[initiatingEvent windowNumber]
+                                            context:[initiatingEvent context]
+                                        eventNumber:[initiatingEvent eventNumber]
+                                         clickCount:[initiatingEvent clickCount]
+                                           pressure:[initiatingEvent pressure]];
         
             [NSApp postEvent:fakeEvent atStart:YES];
         } else { // eventType == NSKeyDown
             fakeEvent = [NSEvent keyEventWithType:NSKeyUp
-                                    location:[initiatingEvent locationInWindow]
-                               modifierFlags:[initiatingEvent modifierFlags]
-                                   timestamp:[initiatingEvent timestamp]
-                                windowNumber:[initiatingEvent windowNumber]
-                                     context:[initiatingEvent context]
-                                  characters:[initiatingEvent characters] 
-                 charactersIgnoringModifiers:[initiatingEvent charactersIgnoringModifiers] 
-                                   isARepeat:[initiatingEvent isARepeat] 
-                                     keyCode:[initiatingEvent keyCode]];
+                                         location:[initiatingEvent locationInWindow]
+                                    modifierFlags:[initiatingEvent modifierFlags]
+                                        timestamp:[initiatingEvent timestamp]
+                                     windowNumber:[initiatingEvent windowNumber]
+                                          context:[initiatingEvent context]
+                                       characters:[initiatingEvent characters] 
+                      charactersIgnoringModifiers:[initiatingEvent charactersIgnoringModifiers] 
+                                        isARepeat:[initiatingEvent isARepeat] 
+                                          keyCode:[initiatingEvent keyCode]];
             [NSApp postEvent:fakeEvent atStart:YES];
         }
-        // FIXME:  We should really get the current modifierFlags here, but there's no way to poll
+        // FIXME: We should really get the current modifierFlags here, but there's no way to poll
         // them in Cocoa, and because the event stream was stolen by the Carbon menu code we have
         // no up-to-date cache of them anywhere.
         fakeEvent = [NSEvent mouseEventWithType:NSMouseMoved
-                                       location:[[m_frame->bridge() window] convertScreenToBase:[NSEvent mouseLocation]]
+                                       location:[[view->platformWidget() window] convertScreenToBase:[NSEvent mouseLocation]]
                                   modifierFlags:[initiatingEvent modifierFlags]
                                       timestamp:[initiatingEvent timestamp]
                                    windowNumber:[initiatingEvent windowNumber]
@@ -629,9 +684,15 @@ bool EventHandler::passMouseReleaseEventToSubframe(MouseEventWithHitTestResults&
     return passSubframeEventToSubframe(mev, subframe);
 }
 
-bool EventHandler::passMousePressEventToScrollbar(MouseEventWithHitTestResults&, PlatformScrollbar* scrollbar)
+unsigned EventHandler::accessKeyModifiers()
 {
-    return passMouseDownEventToWidget(scrollbar);
+    // Control+Option key combinations are usually unused on Mac OS X, but not when VoiceOver is enabled.
+    // So, we use Control in this case, even though it conflicts with Emacs-style key bindings.
+    // See <https://bugs.webkit.org/show_bug.cgi?id=21107> for more detail.
+    if (AXObjectCache::accessibilityEnhancedUserInterfaceEnabled())
+        return PlatformKeyboardEvent::CtrlKey;
+
+    return PlatformKeyboardEvent::CtrlKey | PlatformKeyboardEvent::AltKey;
 }
 
 }

@@ -34,16 +34,13 @@ class HTMLFrameOwnerElement;
 
 class RenderPart : public RenderWidget {
 public:
-    RenderPart(HTMLFrameOwnerElement*);
+    RenderPart(Element*);
     virtual ~RenderPart();
     
+    virtual bool isRenderPart() const { return true; }
     virtual const char* renderName() const { return "RenderPart"; }
 
     virtual void setWidget(Widget*);
-
-    // FIXME: This should not be necessary.
-    // Remove this once WebKit knows to properly schedule layouts using WebCore when objects resize.
-    virtual void updateWidgetPosition();
 
     bool hasFallbackContent() const { return m_hasFallbackContent; }
 
@@ -54,8 +51,6 @@ protected:
 
 private:
     virtual void deleteWidget();
-
-    Frame* m_frame;
 };
 
 }

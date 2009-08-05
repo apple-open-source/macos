@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2003-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,9 +26,43 @@
 #ifndef _KEYCHAIN_FINDINTERNETPASSWORD_H_
 #define _KEYCHAIN_FINDINTERNETPASSWORD_H_  1
 
+#include <Security/SecBase.h>
+#include <Security/SecKeychain.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+extern SecKeychainItemRef find_first_generic_password(
+							CFTypeRef keychainOrArray,
+							FourCharCode itemCreator,
+							FourCharCode itemType,
+							const char *kind,
+							const char *value,
+							const char *comment,
+							const char *label,
+							const char *serviceName,
+							const char *accountName);
+
+extern SecKeychainItemRef find_first_internet_password(
+							CFTypeRef keychainOrArray,
+							FourCharCode itemCreator,
+							FourCharCode itemType,
+							const char *kind,
+							const char *comment,
+							const char *label,
+							const char *serverName,
+							const char *securityDomain,
+							const char *accountName,
+							const char *path,
+							UInt16 port,
+							SecProtocolType protocol,
+							SecAuthenticationType authenticationType);
+
+extern SecKeychainItemRef find_unique_certificate(
+							CFTypeRef keychainOrArray,
+							const char *name,
+							const char *hash);
 
 extern int keychain_find_internet_password(int argc, char * const *argv);
 

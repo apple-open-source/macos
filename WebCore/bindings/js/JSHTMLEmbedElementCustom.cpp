@@ -24,34 +24,28 @@
  */
 
 #include "config.h"
-#include "JSHTMLEmbedElement.h"
+#include "JSHTMLEmbedElementCustom.h"
 
 #include "HTMLEmbedElement.h"
-#include "kjs_dom.h"
-#include "kjs_html.h"
+#include "JSPluginElementFunctions.h"
 
 namespace WebCore {
 
-using namespace KJS;
+using namespace JSC;
 
 bool JSHTMLEmbedElement::customGetOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
 {
-    return runtimeObjectCustomGetOwnPropertySlot(exec, propertyName, slot, this, static_cast<HTMLElement*>(impl()));
+    return runtimeObjectCustomGetOwnPropertySlot(exec, propertyName, slot, this);
 }
 
-bool JSHTMLEmbedElement::customPut(ExecState* exec, const Identifier& propertyName, JSValue* value, int attr)
+bool JSHTMLEmbedElement::customPut(ExecState* exec, const Identifier& propertyName, JSValue value, PutPropertySlot& slot)
 {
-    return runtimeObjectCustomPut(exec, propertyName, value, attr, static_cast<HTMLElement*>(impl()));
+    return runtimeObjectCustomPut(exec, propertyName, value, impl(), slot);
 }
 
-bool JSHTMLEmbedElement::implementsCall() const
+CallType JSHTMLEmbedElement::getCallData(CallData& callData)
 {
-    return runtimeObjectImplementsCall(static_cast<HTMLElement*>(impl()));
-}
-
-JSValue* JSHTMLEmbedElement::callAsFunction(ExecState* exec, JSObject* thisObj, const List& args)
-{
-    return runtimeObjectCallAsFunction(exec, thisObj, args, static_cast<HTMLElement*>(impl()));
+    return runtimeObjectGetCallData(impl(), callData);
 }
 
 bool JSHTMLEmbedElement::canGetItemsForName(ExecState*, HTMLEmbedElement*, const Identifier& propertyName)
@@ -59,9 +53,9 @@ bool JSHTMLEmbedElement::canGetItemsForName(ExecState*, HTMLEmbedElement*, const
     return propertyName == "__apple_runtime_object";
 }
 
-JSValue* JSHTMLEmbedElement::nameGetter(ExecState* exec, JSObject* originalObject, const Identifier& propertyName, const PropertySlot& slot)
+JSValue JSHTMLEmbedElement::nameGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot& slot)
 {
-    return runtimeObjectGetter(exec, originalObject, propertyName, slot);
+    return runtimeObjectGetter(exec, propertyName, slot);
 }
 
 } // namespace WebCore

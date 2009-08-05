@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,7 +26,7 @@
 #ifndef JSNamedNodesCollection_h
 #define JSNamedNodesCollection_h
 
-#include "kjs_binding.h"
+#include "JSDOMBinding.h"
 #include <wtf/Vector.h>
 
 namespace WebCore {
@@ -35,20 +35,30 @@ namespace WebCore {
 
     // Internal class, used for the collection return by e.g. document.forms.myinput
     // when multiple nodes have the same name.
-    class JSNamedNodesCollection : public KJS::DOMObject {
+    class JSNamedNodesCollection : public DOMObject {
     public:
-        JSNamedNodesCollection(KJS::JSObject* prototype, const Vector<RefPtr<Node> >&);
+        JSNamedNodesCollection(JSC::ExecState*, const Vector<RefPtr<Node> >&);
 
-        virtual bool getOwnPropertySlot(KJS::ExecState*, const KJS::Identifier&, KJS::PropertySlot&);
+        virtual bool getOwnPropertySlot(JSC::ExecState*, const JSC::Identifier&, JSC::PropertySlot&);
 
-        virtual const KJS::ClassInfo* classInfo() const { return &info; }
-        static const KJS::ClassInfo info;
+        virtual const JSC::ClassInfo* classInfo() const { return &s_info; }
+        static const JSC::ClassInfo s_info;
+
+        static JSC::ObjectPrototype* createPrototype(JSC::ExecState*, JSC::JSGlobalObject* globalObject)
+        {
+            return globalObject->objectPrototype();
+        }
+
+        static PassRefPtr<JSC::Structure> createStructure(JSC::JSValue prototype)
+        {
+            return JSC::Structure::create(prototype, JSC::TypeInfo(JSC::ObjectType));
+        }
 
     private:
-        static KJS::JSValue* lengthGetter(KJS::ExecState*, KJS::JSObject*, const KJS::Identifier&, const KJS::PropertySlot&);
-        static KJS::JSValue* indexGetter(KJS::ExecState*, KJS::JSObject*, const KJS::Identifier&, const KJS::PropertySlot&);
+        static JSC::JSValue lengthGetter(JSC::ExecState*, const JSC::Identifier&, const JSC::PropertySlot&);
+        static JSC::JSValue indexGetter(JSC::ExecState*, const JSC::Identifier&, const JSC::PropertySlot&);
 
-        Vector<RefPtr<Node> > m_nodes;
+        OwnPtr<Vector<RefPtr<Node> > > m_nodes;
     };
 
 } // namespace WebCore

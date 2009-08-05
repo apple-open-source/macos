@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2007 Trolltech ASA
+    Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -39,6 +39,22 @@ QNetworkRequest ResourceRequest::toNetworkRequest() const
         QByteArray name = QString(it->first).toAscii();
         QByteArray value = QString(it->second).toAscii();
         request.setRawHeader(name, value);
+    }
+
+    switch (cachePolicy()) {
+    case ReloadIgnoringCacheData:
+        request.setAttribute(QNetworkRequest::CacheLoadControlAttribute, QNetworkRequest::AlwaysNetwork);
+        break;
+    case ReturnCacheDataElseLoad:
+        request.setAttribute(QNetworkRequest::CacheLoadControlAttribute, QNetworkRequest::PreferCache);
+        break;
+    case ReturnCacheDataDontLoad:
+        request.setAttribute(QNetworkRequest::CacheLoadControlAttribute, QNetworkRequest::AlwaysCache);
+        break;
+    case UseProtocolCachePolicy:
+        // QNetworkRequest::PreferNetwork
+    default:
+        break;
     }
 
     return request;

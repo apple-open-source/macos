@@ -39,21 +39,6 @@ RenderSVGHiddenContainer::~RenderSVGHiddenContainer()
 {
 }
 
-bool RenderSVGHiddenContainer::requiresLayer()
-{
-    return false;
-}
-
-short RenderSVGHiddenContainer::lineHeight(bool b, bool isRootLineBox) const
-{
-    return 0;
-}
-
-short RenderSVGHiddenContainer::baselinePosition(bool b, bool isRootLineBox) const
-{
-    return 0;
-}
-
 void RenderSVGHiddenContainer::layout()
 {
     ASSERT(needsLayout());
@@ -76,32 +61,32 @@ void RenderSVGHiddenContainer::paint(PaintInfo&, int, int)
     // This subtree does not paint.
 }
 
-IntRect RenderSVGHiddenContainer::absoluteClippedOverflowRect()
+IntRect RenderSVGHiddenContainer::clippedOverflowRectForRepaint(RenderBoxModelObject* /*repaintContainer*/)
 {
     return IntRect();
 }
 
-void RenderSVGHiddenContainer::absoluteRects(Vector<IntRect>& rects, int, int, bool)
+void RenderSVGHiddenContainer::absoluteRects(Vector<IntRect>&, int, int)
 {
     // This subtree does not take up space or paint
 }
 
-AffineTransform RenderSVGHiddenContainer::absoluteTransform() const
+void RenderSVGHiddenContainer::absoluteQuads(Vector<FloatQuad>&)
 {
-    return AffineTransform();
+    // This subtree does not take up space or paint
 }
 
-AffineTransform RenderSVGHiddenContainer::localTransform() const
-{
-    return AffineTransform();
-}
-
-bool RenderSVGHiddenContainer::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, int _x, int _y, int _tx, int _ty, HitTestAction hitTestAction)
+bool RenderSVGHiddenContainer::nodeAtFloatPoint(const HitTestRequest&, HitTestResult&, const FloatPoint&, HitTestAction)
 {
     return false;
 }
 
-FloatRect RenderSVGHiddenContainer::relativeBBox(bool includeStroke) const
+FloatRect RenderSVGHiddenContainer::objectBoundingBox() const
+{
+    return FloatRect();
+}
+
+FloatRect RenderSVGHiddenContainer::repaintRectInLocalCoordinates() const
 {
     return FloatRect();
 }

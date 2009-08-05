@@ -1,6 +1,5 @@
-// -*- mode: c++; c-basic-offset: 4 -*-
 /*
- * Copyright (C) 2006, 2007, 2008 Apple, Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009 Apple, Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,20 +20,46 @@
 #ifndef ChromeClient_h
 #define ChromeClient_h
 
+#include "Console.h"
+#include "Cursor.h"
 #include "FocusDirection.h"
+#include "GraphicsContext.h"
+#include "HostWindow.h"
+#include "ScrollTypes.h"
+#include <wtf/Forward.h>
+#include <wtf/Vector.h>
+
+#if PLATFORM(MAC)
+#include "WebCoreKeyboardUIMode.h"
+#endif
+
+#ifndef __OBJC__
+class NSMenu;
+class NSResponder;
+#endif
 
 namespace WebCore {
 
+    class AtomicString;
+    class FileChooser;
     class FloatRect;
     class Frame;
+    class Geolocation;
+    class HTMLParserQuirks;
     class HitTestResult;
     class IntRect;
+    class Node;
     class Page;
     class String;
-    
+    class Widget;
+
     struct FrameLoadRequest;
     struct WindowFeatures;
-    
+
+#if USE(ACCELERATED_COMPOSITING)
+    class GraphicsLayer;
+#endif
+
     class ChromeClient {
     public:
         virtual void chromeDestroyed() = 0;
@@ -76,7 +101,7 @@ namespace WebCore {
 
         virtual void setResizable(bool) = 0;
         
-        virtual void addMessageToConsole(const String& message, unsigned int lineNumber, const String& sourceID) = 0;
+        virtual void addMessageToConsole(MessageSource, MessageLevel, const String& message, unsigned int lineNumber, const String& sourceID) = 0;
 
         virtual bool canRunBeforeUnloadConfirmPanel() = 0;
         virtual bool runBeforeUnloadConfirmPanel(const String& message, Frame* frame) = 0;
@@ -86,15 +111,21 @@ namespace WebCore {
         virtual void runJavaScriptAlert(Frame*, const String&) = 0;
         virtual bool runJavaScriptConfirm(Frame*, const String&) = 0;
         virtual bool runJavaScriptPrompt(Frame*, const String& message, const String& defaultValue, String& result) = 0;
-        
         virtual void setStatusbarText(const String&) = 0;
         virtual bool shouldInterruptJavaScript() = 0;
         virtual bool tabsToLinks() const = 0;
 
         virtual IntRect windowResizerRect() const = 0;
-        virtual void addToDirtyRegion(const IntRect&) = 0;
-        virtual void scrollBackingStore(int dx, int dy, const IntRect& scrollViewRect, const IntRect& clipRect) = 0;
-        virtual void updateBackingStore() = 0;
+
+        // Methods used by HostWindow.
+        virtual void repaint(const IntRect&, bool contentChanged, bool immediate = false, bool repaintContentOnly = false) = 0;
+        virtual void scroll(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect) = 0;
+        virtual IntPoint screenToWindow(const IntPoint&) const = 0;
+        virtual IntRect windowToScreen(const IntRect&) const = 0;
+        virtual PlatformWidget platformWindow() const = 0;
+        virtual void contentsSizeChanged(Frame*, const IntSize&) const = 0;
+        virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const {} // Platforms other than Mac can implement this if it ever becomes necessary for them to do so.
+        // End methods used by HostWindow.
 
         virtual void mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags) = 0;
 
@@ -102,7 +133,61 @@ namespace WebCore {
 
         virtual void print(Frame*) = 0;
 
+#if ENABLE(DATABASE)
         virtual void exceededDatabaseQuota(Frame*, const String& databaseName) = 0;
+#endif
+
+#if ENABLE(DASHBOARD_SUPPORT)
+        virtual void dashboardRegionsChanged();
+#endif
+
+        virtual void populateVisitedLinks();
+
+        virtual FloatRect customHighlightRect(Node*, const AtomicString& type, const FloatRect& lineRect);
+        virtual void paintCustomHighlight(Node*, const AtomicString& type, const FloatRect& boxRect, const FloatRect& lineRect,
+            bool behindText, bool entireLine);
+            
+        virtual bool shouldReplaceWithGeneratedFileForUpload(const String& path, String& generatedFilename);
+        virtual String generateReplacementFile(const String& path);
+
+        virtual bool paintCustomScrollbar(GraphicsContext*, const FloatRect&, ScrollbarControlSize, 
+                                          ScrollbarControlState, ScrollbarPart pressedPart, bool vertical,
+                                          float value, float proportion, ScrollbarControlPartMask);
+        virtual bool paintCustomScrollCorner(GraphicsContext*, const FloatRect&);
+
+        // This is an asynchronous call. The ChromeClient can display UI asking the user for permission
+        // to use Geolococation. The ChromeClient must call Geolocation::setShouldClearCache() appropriately.
+        virtual void requestGeolocationPermissionForFrame(Frame*, Geolocation*) { }
+            
+        virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>) = 0;
+
+        virtual bool setCursor(PlatformCursorHandle) { return false; }
+
+        // Notification that the given form element has changed. This function
+        // will be called frequently, so handling should be very fast.
+        virtual void formStateDidChange(const Node*) = 0;
+
+        virtual HTMLParserQuirks* createHTMLParserQuirks() = 0;
+
+#if USE(ACCELERATED_COMPOSITING)
+        // Pass 0 as the GraphicsLayer to detatch the root layer.
+        virtual void attachRootGraphicsLayer(Frame*, GraphicsLayer*) { }
+        // Sets a flag to specify that the next time content is drawn to the window,
+        // the changes appear on the screen in synchrony with updates to GraphicsLayers.
+        virtual void setNeedsOneShotDrawingSynchronization() { }
+        // Sets a flag to specify that the view needs to be updated, so we need
+        // to do an eager layout before the drawing.
+        virtual void scheduleViewUpdate() { }
+#endif
+
+#if PLATFORM(MAC)
+        virtual KeyboardUIMode keyboardUIMode() { return KeyboardAccessDefault; }
+
+        virtual NSResponder *firstResponder() { return 0; }
+        virtual void makeFirstResponder(NSResponder *) { }
+
+        virtual void willPopUpMenu(NSMenu *) { }
+#endif
 
     protected:
         virtual ~ChromeClient() { }

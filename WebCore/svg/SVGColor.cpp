@@ -30,27 +30,23 @@
 namespace WebCore {
 
 SVGColor::SVGColor()
-    : CSSValue()
-    , m_colorType(SVG_COLORTYPE_UNKNOWN)
+    : m_colorType(SVG_COLORTYPE_UNKNOWN)
 {
 }
 
 SVGColor::SVGColor(const String& rgbColor)
-    : CSSValue()
-    , m_colorType(SVG_COLORTYPE_RGBCOLOR)
+    : m_colorType(SVG_COLORTYPE_RGBCOLOR)
 {
     setRGBColor(rgbColor);
 }
 
-SVGColor::SVGColor(unsigned short colorType)
-    : CSSValue()
-    , m_colorType(colorType)
+SVGColor::SVGColor(SVGColorType colorType)
+    : m_colorType(colorType)
 {
 }
 
 SVGColor::SVGColor(const Color& c)
-    : CSSValue()
-    , m_color(c)
+    : m_color(c)
     , m_colorType(SVG_COLORTYPE_RGBCOLOR)
 {
 }
@@ -92,12 +88,12 @@ Color SVGColor::colorFromRGBColorString(const String& colorString)
     return Color();
 }
 
-void SVGColor::setRGBColorICCColor(const String& /* rgbColor */, const String& /* iccColor */, ExceptionCode& ec)
+void SVGColor::setRGBColorICCColor(const String& /* rgbColor */, const String& /* iccColor */, ExceptionCode&)
 {
     // TODO: implement me!
 }
 
-void SVGColor::setColor(unsigned short colorType, const String& /* rgbColor */ , const String& /* iccColor */, ExceptionCode& ec)
+void SVGColor::setColor(unsigned short colorType, const String& /* rgbColor */ , const String& /* iccColor */, ExceptionCode&)
 {
     // TODO: implement me!
     m_colorType = colorType;

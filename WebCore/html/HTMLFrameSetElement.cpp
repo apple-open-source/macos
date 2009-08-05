@@ -1,6 +1,4 @@
 /**
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Simon Hausmann (hausmann@kde.org)
@@ -31,18 +29,19 @@
 #include "Event.h"
 #include "EventNames.h"
 #include "HTMLNames.h"
+#include "ScriptEventListener.h"
 #include "Length.h"
+#include "MappedAttribute.h"
 #include "MouseEvent.h"
 #include "RenderFrameSet.h"
 #include "Text.h"
 
 namespace WebCore {
 
-using namespace EventNames;
 using namespace HTMLNames;
 
-HTMLFrameSetElement::HTMLFrameSetElement(Document *doc)
-    : HTMLElement(framesetTag, doc)
+HTMLFrameSetElement::HTMLFrameSetElement(const QualifiedName& tagName, Document *doc)
+    : HTMLElement(tagName, doc)
     , m_rows(0)
     , m_cols(0)
     , m_totalRows(1)
@@ -54,6 +53,7 @@ HTMLFrameSetElement::HTMLFrameSetElement(Document *doc)
     , frameBorderSet(false)
     , noresize(false)
 {
+    ASSERT(hasTagName(framesetTag));
 }
 
 HTMLFrameSetElement::~HTMLFrameSetElement()
@@ -88,14 +88,14 @@ void HTMLFrameSetElement::parseMappedAttribute(MappedAttribute *attr)
     if (attr->name() == rowsAttr) {
         if (!attr->isNull()) {
             if (m_rows) delete [] m_rows;
-            m_rows = attr->value().toLengthArray(m_totalRows);
-            setChanged();
+            m_rows = newLengthArray(attr->value().string(), m_totalRows);
+            setNeedsStyleRecalc();
         }
     } else if (attr->name() == colsAttr) {
         if (!attr->isNull()) {
             delete [] m_cols;
-            m_cols = attr->value().toLengthArray(m_totalCols);
-            setChanged();
+            m_cols = newLengthArray(attr->value().string(), m_totalCols);
+            setNeedsStyleRecalc();
         }
     } else if (attr->name() == frameborderAttr) {
         if (!attr->isNull()) {
@@ -122,15 +122,15 @@ void HTMLFrameSetElement::parseMappedAttribute(MappedAttribute *attr)
     } else if (attr->name() == bordercolorAttr) {
         m_borderColorSet = attr->decl();
         if (!attr->decl() && !attr->isEmpty()) {
-            addCSSColor(attr, CSS_PROP_BORDER_COLOR, attr->value());
+            addCSSColor(attr, CSSPropertyBorderColor, attr->value());
             m_borderColorSet = true;
         }
     } else if (attr->name() == onloadAttr) {
-        document()->setHTMLWindowEventListener(loadEvent, attr);
+        document()->setWindowAttributeEventListener(eventNames().loadEvent, createAttributeEventListener(document()->frame(), attr));
     } else if (attr->name() == onbeforeunloadAttr) {
-        document()->setHTMLWindowEventListener(beforeunloadEvent, attr);
+        document()->setWindowAttributeEventListener(eventNames().beforeunloadEvent, createAttributeEventListener(document()->frame(), attr));
     } else if (attr->name() == onunloadAttr) {
-        document()->setHTMLWindowEventListener(unloadEvent, attr);
+        document()->setWindowAttributeEventListener(eventNames().unloadEvent, createAttributeEventListener(document()->frame(), attr));
     } else
         HTMLElement::parseMappedAttribute(attr);
 }
@@ -187,9 +187,9 @@ void HTMLFrameSetElement::defaultEventHandler(Event* evt)
 
 void HTMLFrameSetElement::recalcStyle(StyleChange ch)
 {
-    if (changed() && renderer()) {
+    if (needsStyleRecalc() && renderer()) {
         renderer()->setNeedsLayout(true);
-        setChanged(NoStyleChange);
+        setNeedsStyleRecalc(NoStyleChange);
     }
     HTMLElement::recalcStyle(ch);
 }

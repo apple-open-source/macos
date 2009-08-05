@@ -43,7 +43,7 @@ namespace WebCore {
 
         virtual void parseMappedAttribute(MappedAttribute*);
         virtual void svgAttributeChanged(const QualifiedName&);
-        virtual void childrenChanged(bool changedByParser = false);
+        virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
 
         virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
 
@@ -51,11 +51,8 @@ namespace WebCore {
         virtual const SVGElement* contextElement() const { return this; }
 
     private:
-        ANIMATED_PROPERTY_FORWARD_DECLARATIONS(SVGExternalResourcesRequired, bool, ExternalResourcesRequired, externalResourcesRequired) 
-
-    private:
         friend class SVGUseElement;
-        AffineTransform localMatrix() const;
+        TransformationMatrix localMatrix() const;
     };
 
 } // namespace WebCore

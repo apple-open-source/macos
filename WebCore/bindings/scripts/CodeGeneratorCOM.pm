@@ -3,7 +3,7 @@
 # Copyright (C) 2006 Anders Carlsson <andersca@mac.com>
 # Copyright (C) 2006, 2007 Samuel Weinig <sam@webkit.org>
 # Copyright (C) 2006 Alexey Proskuryakov <ap@webkit.org>
-# Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
+# Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Library General Public
@@ -236,7 +236,6 @@ sub GetParentInterface
 {
     my ($dataNode) = @_;
     return "I" . $TEMP_PREFIX . "DOMObject" if (@{$dataNode->parents} == 0);
-    return "I" . $TEMP_PREFIX . "DOMNode" if $codeGenerator->StripModule($dataNode->parents(0)) eq "EventTargetNode";
     return GetInterfaceName($codeGenerator->StripModule($dataNode->parents(0)));
 }
 
@@ -244,7 +243,6 @@ sub GetParentClass
 {
     my ($dataNode) = @_;
     return $TEMP_PREFIX . "DOMObject" if (@{$dataNode->parents} == 0);
-    return $TEMP_PREFIX . "DOMNode" if $codeGenerator->StripModule($dataNode->parents(0)) eq "EventTargetNode";
     return GetClassName($codeGenerator->StripModule($dataNode->parents(0)));
 }
 
@@ -267,6 +265,11 @@ sub AddIncludesForTypeInCPPHeader
     return if $codeGenerator->IsNonPointerType($type);
 
     # Add special Cases HERE
+
+    if ($type =~ m/^I/) {
+        $type = "WebKit";
+    }
+
     if ($useAngleBrackets) {
         $CPPHeaderIncludesAngle{"$type.h"} = 1;
         return;
@@ -304,14 +307,13 @@ sub AddIncludesForTypeInCPPImplementation
     return if $codeGenerator->IsNonPointerType($type);
 
     if ($codeGenerator->IsStringType($type)) {
-        $CPPImplementationWebCoreIncludes{"PlatformString.h"} = 1;
-        $CPPImplementationWebCoreIncludes{"BString.h"} = 1;
         $CPPImplementationWebCoreIncludes{"AtomicString.h"} = 1;
+        $CPPImplementationWebCoreIncludes{"BString.h"} = 1;
+        $CPPImplementationWebCoreIncludes{"KURL.h"} = 1;
         return;
     }
 
     # Special casing
-    $CPPImplementationWebCoreIncludes{"EventTargetNode.h"} = 1 if $type eq "Node";
     $CPPImplementationWebCoreIncludes{"NameNodeList.h"} = 1 if $type eq "NodeList";
     $CPPImplementationWebCoreIncludes{"CSSMutableStyleDeclaration.h"} = 1 if $type eq "CSSStyleDeclaration";
 
@@ -349,11 +351,15 @@ sub GenerateIDL
     push(@IDLHeader, "\n");
 
     # - INCLUDES -
+    push(@IDLHeader, "#ifndef DO_NO_IMPORTS\n");
     push(@IDLHeader, "import \"oaidl.idl\";\n");
-    push(@IDLHeader, "import \"ocidl.idl\";\n\n");
+    push(@IDLHeader, "import \"ocidl.idl\";\n");
+    push(@IDLHeader, "#endif\n\n");
 
     unless ($pureInterface) {
-        push(@IDLHeader, "import \"${parentInterfaceName}.idl\";\n\n");
+        push(@IDLHeader, "#ifndef DO_NO_IMPORTS\n");
+        push(@IDLHeader, "import \"${parentInterfaceName}.idl\";\n");
+        push(@IDLHeader, "#endif\n\n");
 
         $IDLDontForwardDeclare{$outInterfaceName} = 1;
         $IDLDontImport{$outInterfaceName} = 1;
@@ -457,7 +463,7 @@ sub GenerateInterfaceHeader
     @CPPInterfaceHeader = @licenseTemplate;
     push(@CPPInterfaceHeader, "\n");
 
-    # - Header gaurds -
+    # - Header guards -
     push(@CPPInterfaceHeader, "#ifndef " . $className . "_h\n");
     push(@CPPInterfaceHeader, "#define " . $className . "_h\n\n");
 
@@ -469,7 +475,7 @@ sub GenerateInterfaceHeader
 
     # - Default Interface Creator -
     push(@CPPInterfaceHeader, "${interfaceName}* to${interfaceName}(${implementationClass}*) { return 0; }\n\n");
- 
+
     push(@CPPInterfaceHeader, "#endif // " . $className . "_h\n");
 }
 
@@ -697,7 +703,6 @@ sub GenerateCPPFunction
     my $functionName = $function->signature->name;
     my $returnIDLType = $function->signature->type;
     my $noReturn = ($returnIDLType eq "void");
-    my $requiresEventTargetNodeCast = $function->signature->extendedAttributes->{"EventTargetNodeCast"};
     my $raisesExceptions = @{$function->raisesExceptions};
 
     AddIncludesForTypeInCPPImplementation($returnIDLType);
@@ -747,9 +752,6 @@ sub GenerateCPPFunction
     push(@parameterList, "ec") if $raisesExceptions;
 
     my $implementationGetter = "impl${implementationClassWithoutNamespace}()";
-    if ($requiresEventTargetNodeCast) {
-        $implementationGetter = "WebCore::EventTargetNodeCast(${implementationGetter})";
-    }
 
     my $callSigBegin = "    ";
     my $callSigMiddle = "${implementationGetter}->" . $codeGenerator->WK_lcfirst($functionName) . "(" . join(", ", @parameterList) . ")";
@@ -792,10 +794,6 @@ sub GenerateCPPFunction
     }
     push(@functionImplementation, "    WebCore::ExceptionCode ec = 0;\n") if $raisesExceptions; # FIXME: CHECK EXCEPTION AND DO SOMETHING WITH IT
     push(@functionImplementation, join("\n", @parameterInitialization) . (@parameterInitialization > 0 ? "\n" : ""));
-    if ($requiresEventTargetNodeCast) {
-        push(@functionImplementation, "    if (!impl${implementationClassWithoutNamespace}()->isEventTargetNode())\n");
-        push(@functionImplementation, "        return E_FAIL;\n");
-    }
     push(@functionImplementation, $callSigBegin . $callSigMiddle . $callSigEnd . "\n");
     push(@functionImplementation, "    return S_OK;\n");
     push(@functionImplementation, "}\n\n");
@@ -834,7 +832,7 @@ sub GenerateCPPHeader
     @CPPHeaderHeader = @licenseTemplate;
     push(@CPPHeaderHeader, "\n");
 
-    # - Header gaurds -
+    # - Header guards -
     push(@CPPHeaderHeader, "#ifndef " . $className . "_h\n");
     push(@CPPHeaderHeader, "#define " . $className . "_h\n\n");
 
@@ -891,7 +889,7 @@ sub GenerateCPPHeader
             foreach my $attribute (@attributeList) {
                 # Don't forward an attribute that this class redefines.
                 next if $attributeNameSet{$attribute->signature->name};
- 
+
                 AddForwardDeclarationsForTypeInCPPHeader($attribute->signature->type);
 
                 my %attributes = GenerateCPPAttributeSignature($attribute, $className, { "NewLines" => 0,
@@ -902,7 +900,7 @@ sub GenerateCPPHeader
                                                                                          "Forwarder" => $parentClassName });
                 push(@CPPHeaderContent, values(%attributes));
             }
-            
+
             # Add attribute names to attribute names set in case other ancestors 
             # also define them.
             $attributeNameSet{$_->signature->name} = 1 foreach @attributeList;
@@ -1215,7 +1213,9 @@ sub WriteData
 
     print OUTPUTIDL map { "interface $_;\n" } sort keys(%IDLForwardDeclarations);
     print OUTPUTIDL "\n";
+    print OUTPUTIDL "#ifndef DO_NO_IMPORTS\n";
     print OUTPUTIDL map { ($_ eq "IGEN_DOMImplementation") ? "import \"IGEN_DOMDOMImplementation.idl\";\n" : "import \"$_.idl\";\n" } sort keys(%IDLImports);
+    print OUTPUTIDL "#endif\n";
     print OUTPUTIDL "\n";
 
     # Add content

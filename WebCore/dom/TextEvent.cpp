@@ -31,16 +31,14 @@
 
 namespace WebCore {
 
-using namespace EventNames;
-
 TextEvent::TextEvent()
     : m_isLineBreak(false)
     , m_isBackTab(false)
 {
 }
 
-TextEvent::TextEvent(AbstractView* view, const String& data)
-    : UIEvent(textInputEvent, true, true, view, 0)
+TextEvent::TextEvent(PassRefPtr<AbstractView> view, const String& data)
+    : UIEvent(eventNames().textInputEvent, true, true, view, 0)
     , m_data(data)
     , m_isLineBreak(false)
     , m_isBackTab(false)
@@ -51,7 +49,7 @@ TextEvent::~TextEvent()
 {
 }
 
-void TextEvent::initTextEvent(const AtomicString& type, bool canBubble, bool cancelable, AbstractView* view, const String& data)
+void TextEvent::initTextEvent(const AtomicString& type, bool canBubble, bool cancelable, PassRefPtr<AbstractView> view, const String& data)
 {
     if (dispatched())
         return;

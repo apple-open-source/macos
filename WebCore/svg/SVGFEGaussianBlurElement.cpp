@@ -25,28 +25,28 @@
 #if ENABLE(SVG) && ENABLE(SVG_FILTERS)
 #include "SVGFEGaussianBlurElement.h"
 
+#include "MappedAttribute.h"
 #include "SVGNames.h"
 #include "SVGParserUtilities.h"
 #include "SVGResourceFilter.h"
 
 namespace WebCore {
 
+char SVGStdDeviationXAttrIdentifier[] = "SVGStdDeviationXAttr";
+char SVGStdDeviationYAttrIdentifier[] = "SVGStdDeviationYAttr";
+
 SVGFEGaussianBlurElement::SVGFEGaussianBlurElement(const QualifiedName& tagName, Document* doc)
     : SVGFilterPrimitiveStandardAttributes(tagName, doc)
-    , m_stdDeviationX(0.0f)
-    , m_stdDeviationY(0.0f)
+    , m_in1(this, SVGNames::inAttr)
+    , m_stdDeviationX(this, SVGNames::stdDeviationAttr)
+    , m_stdDeviationY(this, SVGNames::stdDeviationAttr)
     , m_filterEffect(0)
 {
 }
 
 SVGFEGaussianBlurElement::~SVGFEGaussianBlurElement()
 {
-    delete m_filterEffect;
 }
-
-ANIMATED_PROPERTY_DEFINITIONS(SVGFEGaussianBlurElement, String, String, string, In1, in1, SVGNames::inAttr, m_in1)
-ANIMATED_PROPERTY_DEFINITIONS(SVGFEGaussianBlurElement, float, Number, number, StdDeviationX, stdDeviationX, "stdDeviationX", m_stdDeviationX)
-ANIMATED_PROPERTY_DEFINITIONS(SVGFEGaussianBlurElement, float, Number, number, StdDeviationY, stdDeviationY, "stdDeviationY", m_stdDeviationY)
 
 void SVGFEGaussianBlurElement::setStdDeviation(float stdDeviationX, float stdDeviationY)
 {
@@ -67,21 +67,24 @@ void SVGFEGaussianBlurElement::parseMappedAttribute(MappedAttribute* attr)
         SVGFilterPrimitiveStandardAttributes::parseMappedAttribute(attr);
 }
 
-SVGFEGaussianBlur* SVGFEGaussianBlurElement::filterEffect(SVGResourceFilter* filter) const
+SVGFilterEffect* SVGFEGaussianBlurElement::filterEffect(SVGResourceFilter* filter) const
 {
-    if (!m_filterEffect)
-        m_filterEffect = new SVGFEGaussianBlur(filter);
-    
-    m_filterEffect->setIn(in1());
-    m_filterEffect->setStdDeviationX(stdDeviationX());
-    m_filterEffect->setStdDeviationY(stdDeviationY());
+    ASSERT_NOT_REACHED();
+    return 0;
+}
 
-    setStandardAttributes(m_filterEffect); 
-    return m_filterEffect;
+bool SVGFEGaussianBlurElement::build(FilterBuilder* builder)
+{
+    FilterEffect* input1 = builder->getEffectById(in1());
+
+    if(!input1)
+        return false;
+
+    builder->add(result(), FEGaussianBlur::create(input1, stdDeviationX(), stdDeviationY()));
+
+    return true;
 }
 
 }
 
 #endif // ENABLE(SVG)
-
-// vim:ts=4:noet

@@ -16,7 +16,7 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-static const char *const __rcs_file_version__ = "$Revision: 23792 $";
+static const char *const __rcs_file_version__ = "$Revision: 23923 $";
 
 #include "config.h"
 #include "launchd_core_logic.h"
@@ -2653,6 +2653,8 @@ job_start(job_t j)
 			job_assumes(j, runtime_close(oepair[1]) != -1);
 			j->log_redirect_fd = 0;
 		}
+		job_assumes(j, kevent_mod((uintptr_t)j, EVFILT_TIMER, EV_ADD|EV_ONESHOT, NOTE_SECONDS, 1, j) != -1);
+		job_ignore(j);
 		break;
 	case 0:
 		if (_vproc_post_fork_ping()) {

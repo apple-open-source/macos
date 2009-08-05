@@ -1,6 +1,6 @@
 /*
     Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005 Rob Buis <buis@kde.org>
+                  2004, 2005, 2008 Rob Buis <buis@kde.org>
 
     This file is part of the KDE project
 
@@ -36,15 +36,11 @@ namespace WebCore
         virtual ~SVGFEFloodElement();
 
         virtual void parseMappedAttribute(MappedAttribute*);
-        virtual SVGFEFlood* filterEffect(SVGResourceFilter*) const;
-
-    protected:
-        virtual const SVGElement* contextElement() const { return this; }
+        virtual SVGFilterEffect* filterEffect(SVGResourceFilter*) const;
+        bool build(FilterBuilder*);
 
     private:
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFEFloodElement, String, String, In1, in1)
-
-        mutable SVGFEFlood *m_filterEffect;
+        mutable RefPtr<FEFlood> m_filterEffect;
     };
 
 } // namespace WebCore

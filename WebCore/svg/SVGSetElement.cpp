@@ -21,37 +21,17 @@
 */
 
 #include "config.h"
-#if ENABLE(SVG)
+#if ENABLE(SVG_ANIMATION)
 #include "SVGSetElement.h"
-#include "TimeScheduler.h"
-#include "Document.h"
-#include "SVGDocumentExtensions.h"
-#include "SVGSVGElement.h"
 
 namespace WebCore {
-
+    
 SVGSetElement::SVGSetElement(const QualifiedName& tagName, Document *doc)
-    : SVGAnimationElement(tagName, doc)
+    : SVGAnimateElement(tagName, doc)
 {
 }
-
-SVGSetElement::~SVGSetElement()
-{
-}
-
-bool SVGSetElement::updateAnimatedValue(EAnimationMode, float timePercentage, unsigned valueIndex, float percentagePast)
-{
-    m_animatedValue = m_to;
-    return true;
-}
-
-bool SVGSetElement::calculateFromAndToValues(EAnimationMode, unsigned valueIndex)
-{
-    return true;
-}
-
 }
 
 // vim:ts=4:noet
-#endif // ENABLE(SVG)
+#endif // ENABLE(SVG_ANIMATION)
 

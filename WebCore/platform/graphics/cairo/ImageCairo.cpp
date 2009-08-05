@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.  All rights reserved.
  * Copyright (C) 2007 Alp Toker <alp@atoker.com>
+ * Copyright (C) 2009 Dirk Schulze <krit@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,32 +30,73 @@
 
 #if PLATFORM(CAIRO)
 
-#include "AffineTransform.h"
+#include "Color.h"
 #include "FloatRect.h"
 #include "GraphicsContext.h"
 #include "ImageObserver.h"
+#include "TransformationMatrix.h"
 #include <cairo.h>
 #include <math.h>
 
 namespace WebCore {
 
-void FrameData::clear()
+bool FrameData::clear(bool clearMetadata)
 {
+    if (clearMetadata)
+        m_haveMetadata = false;
+
     if (m_frame) {
         cairo_surface_destroy(m_frame);
         m_frame = 0;
-        m_duration = 0.;
-        m_hasAlpha = true;
+        return true;
     }
+    return false;
+}
+
+BitmapImage::BitmapImage(cairo_surface_t* surface, ImageObserver* observer)
+    : Image(observer)
+    , m_currentFrame(0)
+    , m_frames(0)
+    , m_frameTimer(0)
+    , m_repetitionCount(cAnimationNone)
+    , m_repetitionCountStatus(Unknown)
+    , m_repetitionsComplete(0)
+    , m_isSolidColor(false)
+    , m_checkedForSolidColor(false)
+    , m_animationFinished(true)
+    , m_allDataReceived(true)
+    , m_haveSize(true)
+    , m_sizeAvailable(true)
+    , m_decodedSize(0)
+    , m_haveFrameCount(true)
+    , m_frameCount(1)
+{
+    initPlatformData();
+
+    // TODO: check to be sure this is an image surface
+
+    int width = cairo_image_surface_get_width(surface);
+    int height = cairo_image_surface_get_height(surface);
+    m_decodedSize = width * height * 4;
+    m_size = IntSize(width, height);
+
+    m_frames.grow(1);
+    m_frames[0].m_frame = surface;
+    m_frames[0].m_hasAlpha = cairo_surface_get_content(surface) != CAIRO_CONTENT_COLOR;
+    m_frames[0].m_haveMetadata = true;
+    checkForSolidColor();
 }
 
 void BitmapImage::draw(GraphicsContext* context, const FloatRect& dst, const FloatRect& src, CompositeOperator op)
 {
-    if (!m_source.initialized())
-        return;
-
     FloatRect srcRect(src);
     FloatRect dstRect(dst);
+
+    if (dstRect.width() == 0.0f || dstRect.height() == 0.0f ||
+        srcRect.width() == 0.0f || srcRect.height() == 0.0f)
+        return;
+
+    startAnimation();
 
     cairo_surface_t* image = frameAtIndex(m_currentFrame);
     if (!image) // If it's too early we won't have an image yet.
@@ -97,17 +139,16 @@ void BitmapImage::draw(GraphicsContext* context, const FloatRect& dst, const Flo
     cairo_set_source(cr, pattern);
     cairo_pattern_destroy(pattern);
     cairo_rectangle(cr, 0, 0, dstRect.width(), dstRect.height());
-    cairo_fill(cr);
+    cairo_clip(cr);
+    cairo_paint_with_alpha(cr, context->getAlpha());
 
     cairo_restore(cr);
-
-    startAnimation();
 
     if (imageObserver())
         imageObserver()->didDraw(this);
 }
 
-void Image::drawPattern(GraphicsContext* context, const FloatRect& tileRect, const AffineTransform& patternTransform,
+void Image::drawPattern(GraphicsContext* context, const FloatRect& tileRect, const TransformationMatrix& patternTransform,
                         const FloatPoint& phase, CompositeOperator op, const FloatRect& destRect)
 {
     cairo_surface_t* image = nativeImageForCurrentFrame();
@@ -146,8 +187,28 @@ void Image::drawPattern(GraphicsContext* context, const FloatRect& tileRect, con
 
 void BitmapImage::checkForSolidColor()
 {
-    // FIXME: It's easy to implement this optimization. Just need to check the RGBA32 buffer to see if it is 1x1.
     m_isSolidColor = false;
+    m_checkedForSolidColor = true;
+
+    if (frameCount() > 1)
+        return;
+
+    cairo_surface_t* frameSurface = frameAtIndex(0);
+    if (!frameSurface)
+        return;
+
+    ASSERT(cairo_surface_get_type(frameSurface) == CAIRO_SURFACE_TYPE_IMAGE);
+
+    int width = cairo_image_surface_get_width(frameSurface);
+    int height = cairo_image_surface_get_height(frameSurface);
+
+    if (width != 1 || height != 1)
+        return;
+
+    unsigned* pixelColor = reinterpret_cast<unsigned*>(cairo_image_surface_get_data(frameSurface));
+    m_solidColor = colorFromPremultipliedARGB(*pixelColor);
+
+    m_isSolidColor = true;
 }
 
 }

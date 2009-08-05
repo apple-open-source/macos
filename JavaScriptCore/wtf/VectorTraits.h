@@ -1,7 +1,5 @@
-// -*- mode: c++; c-basic-offset: 4 -*-
 /*
- * This file is part of the KDE libraries
- * Copyright (C) 2006 Apple Computer, Inc.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -24,29 +22,13 @@
 #define WTF_VectorTraits_h
 
 #include "RefPtr.h"
+#include "TypeTraits.h"
 #include <utility>
+#include <memory>
 
 using std::pair;
 
 namespace WTF {
-
-    template <typename T> struct IsPod           { static const bool value = false; };
-    template <> struct IsPod<bool>               { static const bool value = true; };
-    template <> struct IsPod<char>               { static const bool value = true; };
-    template <> struct IsPod<signed char>        { static const bool value = true; };
-    template <> struct IsPod<unsigned char>      { static const bool value = true; };
-    template <> struct IsPod<short>              { static const bool value = true; };
-    template <> struct IsPod<unsigned short>     { static const bool value = true; };
-    template <> struct IsPod<int>                { static const bool value = true; };
-    template <> struct IsPod<unsigned int>       { static const bool value = true; };
-    template <> struct IsPod<long>               { static const bool value = true; };
-    template <> struct IsPod<unsigned long>      { static const bool value = true; };
-    template <> struct IsPod<long long>          { static const bool value = true; };
-    template <> struct IsPod<unsigned long long> { static const bool value = true; };
-    template <> struct IsPod<float>              { static const bool value = true; };
-    template <> struct IsPod<double>             { static const bool value = true; };
-    template <> struct IsPod<long double>        { static const bool value = true; };
-    template <typename P> struct IsPod<P *>      { static const bool value = true; };
 
     template<bool isPod, typename T>
     class VectorTraitsBase;
@@ -94,6 +76,9 @@ namespace WTF {
     template<typename P>
     struct VectorTraits<RefPtr<P> > : SimpleClassVectorTraits { };
     
+    template<typename P>
+    struct VectorTraits<std::auto_ptr<P> > : SimpleClassVectorTraits { };
+
     template<typename First, typename Second>
     struct VectorTraits<pair<First, Second> >
     {

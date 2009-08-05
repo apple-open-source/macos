@@ -2,7 +2,7 @@
 # CSS property names
 #
 # Some properties are used internally, but are not part of CSS. They are used to get
-# HTML4 compatibilty in the rendering engine.
+# HTML4 compatibility in the rendering engine.
 #
 # Microsoft extensions are documented here:
 # http://msdn.microsoft.com/workshop/author/css/reference/attributes.asp
@@ -94,17 +94,11 @@ page
 page-break-after
 page-break-before
 page-break-inside
+pointer-events
 position
 quotes
 resize
 right
-scrollbar-3dlight-color
-scrollbar-arrow-color
-scrollbar-darkshadow-color
-scrollbar-face-color
-scrollbar-highlight-color
-scrollbar-shadow-color
-scrollbar-track-color
 size
 src
 table-layout
@@ -141,12 +135,16 @@ word-break
 word-spacing
 word-wrap
 z-index
--webkit-transition
--webkit-transition-duration
--webkit-transition-property
--webkit-transition-repeat-count
--webkit-transition-timing-function
+zoom
+-webkit-animation
+-webkit-animation-delay
+-webkit-animation-direction
+-webkit-animation-duration
+-webkit-animation-iteration-count
+-webkit-animation-name
+-webkit-animation-timing-function
 -webkit-appearance
+-webkit-backface-visibility
 -webkit-background-clip
 -webkit-background-composite
 -webkit-background-origin
@@ -169,6 +167,7 @@ z-index
 -webkit-box-ordinal-group
 -webkit-box-orient
 -webkit-box-pack
+-webkit-box-reflect
 -webkit-box-shadow
 -webkit-box-sizing
 -webkit-column-break-after
@@ -182,7 +181,6 @@ z-index
 -webkit-column-rule-width
 -webkit-column-width
 -webkit-columns
--webkit-dashboard-region
 -webkit-font-size-delta
 -webkit-highlight
 -webkit-line-break
@@ -197,9 +195,25 @@ z-index
 -webkit-marquee-repetition
 -webkit-marquee-speed
 -webkit-marquee-style
+-webkit-mask
+-webkit-mask-attachment
+-webkit-mask-box-image
+-webkit-mask-clip
+-webkit-mask-composite
+-webkit-mask-image
+-webkit-mask-origin
+-webkit-mask-position
+-webkit-mask-position-x
+-webkit-mask-position-y
+-webkit-mask-repeat
+-webkit-mask-size
 -webkit-match-nearest-mail-blockquote-color
 -webkit-nbsp-mode
 -webkit-padding-start
+-webkit-perspective
+-webkit-perspective-origin
+-webkit-perspective-origin-x
+-webkit-perspective-origin-y
 -webkit-rtl-ordering
 -webkit-text-decorations-in-effect
 -webkit-text-fill-color
@@ -212,6 +226,14 @@ z-index
 -webkit-transform-origin
 -webkit-transform-origin-x
 -webkit-transform-origin-y
+-webkit-transform-origin-z
+-webkit-transform-style
+-webkit-transition
+-webkit-transition-delay
+-webkit-transition-duration
+-webkit-transition-property
+-webkit-transition-timing-function
 -webkit-user-drag
 -webkit-user-modify
 -webkit-user-select
+-webkit-variable-declaration-block

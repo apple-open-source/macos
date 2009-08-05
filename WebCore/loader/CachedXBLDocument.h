@@ -1,10 +1,8 @@
 /*
-    This file is part of the KDE libraries
-
     Copyright (C) 1998 Lars Knoll (knoll@mpi-hd.mpg.de)
     Copyright (C) 2001 Dirk Mueller <mueller@kde.org>
     Copyright (C) 2006 Samuel Weinig (sam.weinig@gmail.com)
-    Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
+    Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -41,12 +39,12 @@ namespace WebCore {
 #if ENABLE(XBL)
     class CachedXBLDocument : public CachedResource {
     public:
-        CachedXBLDocument(DocLoader*, const String& url);
+        CachedXBLDocument(const String& url);
         virtual ~CachedXBLDocument();
         
         XBL::XBLDocument* document() const { return m_document; }
         
-        virtual void ref(CachedResourceClient*);
+        virtual void addClient(CachedResourceClient*);
         
         virtual void setEncoding(const String&);
         virtual String encoding() const;

@@ -24,160 +24,18 @@
 #define SVGElement_h
 
 #if ENABLE(SVG)
-#include "Document.h"
-#include "FloatRect.h"
 #include "StyledElement.h"
-#include "SVGAnimatedTemplate.h"
-#include "SVGDocumentExtensions.h"
+#include "SVGAnimatedProperty.h"
 #include "SVGNames.h"
-
-#define ANIMATED_PROPERTY_EMPTY_DECLARATIONS(BareType, NullType, UpperProperty, LowerProperty) \
-public: \
-    virtual BareType LowerProperty() const { ASSERT_NOT_REACHED(); return NullType; } \
-    virtual void set##UpperProperty(BareType newValue) { ASSERT_NOT_REACHED(); }\
-    virtual BareType LowerProperty##BaseValue() const { ASSERT_NOT_REACHED(); return NullType; } \
-    virtual void set##UpperProperty##BaseValue(BareType newValue) { ASSERT_NOT_REACHED(); } \
-    virtual void start##UpperProperty() const { ASSERT_NOT_REACHED(); } \
-    virtual void stop##UpperProperty() { ASSERT_NOT_REACHED(); }
-
-#define ANIMATED_PROPERTY_FORWARD_DECLARATIONS(ForwardClass, BareType, UpperProperty, LowerProperty) \
-public: \
-    virtual BareType LowerProperty() const { return ForwardClass::LowerProperty(); } \
-    virtual void set##UpperProperty(BareType newValue) { ForwardClass::set##UpperProperty(newValue); } \
-    virtual BareType LowerProperty##BaseValue() const { return ForwardClass::LowerProperty##BaseValue(); } \
-    virtual void set##UpperProperty##BaseValue(BareType newValue) { ForwardClass::set##UpperProperty##BaseValue(newValue); } \
-    virtual void start##UpperProperty() const { ForwardClass::start##UpperProperty(); } \
-    virtual void stop##UpperProperty() { ForwardClass::stop##UpperProperty(); }
-
-#define ANIMATED_PROPERTY_DECLARATIONS_INTERNAL(ClassType, ClassStorageType, BareType, StorageType, UpperProperty, LowerProperty) \
-class SVGAnimatedTemplate##UpperProperty \
-: public SVGAnimatedTemplate<BareType> \
-{ \
-public: \
-    SVGAnimatedTemplate##UpperProperty(const ClassType*, const QualifiedName&); \
-    virtual ~SVGAnimatedTemplate##UpperProperty() { } \
-    virtual BareType baseVal() const; \
-    virtual void setBaseVal(BareType); \
-    virtual BareType animVal() const; \
-    virtual void setAnimVal(BareType); \
-    \
-protected: \
-    ClassStorageType m_element; \
-}; \
-public: \
-    BareType LowerProperty() const; \
-    void set##UpperProperty(BareType); \
-    BareType LowerProperty##BaseValue() const; \
-    void set##UpperProperty##BaseValue(BareType); \
-    PassRefPtr<SVGAnimatedTemplate##UpperProperty> LowerProperty##Animated() const; \
-    void start##UpperProperty() const; \
-    void stop##UpperProperty(); \
-\
-private: \
-    StorageType m_##LowerProperty;
-
-#define ANIMATED_PROPERTY_DEFINITIONS_INTERNAL(ClassName, ClassType, BareType, UpperClassName, LowerClassName, UpperProperty, LowerProperty, AttrName, StorageGetter, ContextElement) \
-ClassName::SVGAnimatedTemplate##UpperProperty::SVGAnimatedTemplate##UpperProperty(const ClassType* element, const QualifiedName& attributeName) \
-: SVGAnimatedTemplate<BareType>(attributeName), m_element(const_cast<ClassType*>(element)) { } \
-\
-BareType ClassName::SVGAnimatedTemplate##UpperProperty::baseVal() const \
-{ \
-    return m_element->LowerProperty##BaseValue(); \
-} \
-void ClassName::SVGAnimatedTemplate##UpperProperty::setBaseVal(BareType newBaseVal) \
-{ \
-    m_element->set##UpperProperty##BaseValue(newBaseVal); \
-} \
-BareType ClassName::SVGAnimatedTemplate##UpperProperty::animVal() const \
-{ \
-    return m_element->LowerProperty(); \
-} \
-void ClassName::SVGAnimatedTemplate##UpperProperty::setAnimVal(BareType newAnimVal) \
-{ \
-    m_element->set##UpperProperty(newAnimVal); \
-} \
-BareType ClassName::LowerProperty() const \
-{ \
-    return StorageGetter; \
-} \
-void ClassName::set##UpperProperty(BareType newValue) \
-{ \
-    m_##LowerProperty = newValue; \
-} \
-BareType ClassName::LowerProperty##BaseValue() const \
-{ \
-    const SVGElement* context = ContextElement; \
-    ASSERT(context); \
-    SVGDocumentExtensions* extensions = (context->document() ? context->document()->accessSVGExtensions() : 0); \
-    if (extensions && extensions->hasBaseValue<BareType>(context, AttrName)) \
-         return extensions->baseValue<BareType>(context, AttrName); \
-    return LowerProperty(); \
-} \
-void ClassName::set##UpperProperty##BaseValue(BareType newValue) \
-{ \
-    const SVGElement* context = ContextElement; \
-    ASSERT(context); \
-    SVGDocumentExtensions* extensions = (context->document() ? context->document()->accessSVGExtensions() : 0); \
-    if (extensions && extensions->hasBaseValue<BareType>(context, AttrName)) { \
-        extensions->setBaseValue<BareType>(context, AttrName, newValue); \
-        return; \
-    } \
-    /* Only update stored property, if not animating */ \
-    set##UpperProperty(newValue); \
-} \
-\
-void ClassName::start##UpperProperty() const \
-{ \
-    const SVGElement* context = ContextElement; \
-    ASSERT(context); \
-    SVGDocumentExtensions* extensions = (context->document() ? context->document()->accessSVGExtensions() : 0); \
-    if (extensions) { \
-        ASSERT(!extensions->hasBaseValue<BareType>(context, AttrName)); \
-        extensions->setBaseValue<BareType>(context, AttrName, LowerProperty()); \
-    } \
-} \
-\
-void ClassName::stop##UpperProperty() \
-{ \
-    const SVGElement* context = ContextElement; \
-    ASSERT(context); \
-    SVGDocumentExtensions* extensions = (context->document() ? context->document()->accessSVGExtensions() : 0); \
-    if (extensions) { \
-        ASSERT(extensions->hasBaseValue<BareType>(context, AttrName)); \
-        set##UpperProperty(extensions->baseValue<BareType>(context, AttrName)); \
-        extensions->removeBaseValue<BareType>(context, AttrName); \
-    } \
-}
-
-// These are the macros which will be used to declare/implement the svg animated properties...
-#define ANIMATED_PROPERTY_DECLARATIONS_WITH_CONTEXT(ClassName, BareType, StorageType, UpperProperty, LowerProperty) \
-ANIMATED_PROPERTY_DECLARATIONS_INTERNAL(SVGElement, RefPtr<SVGElement>, BareType, StorageType, UpperProperty, LowerProperty)
-
-#define ANIMATED_PROPERTY_DECLARATIONS(ClassName, BareType, StorageType, UpperProperty, LowerProperty) \
-ANIMATED_PROPERTY_DECLARATIONS_INTERNAL(ClassName, RefPtr<ClassName>, BareType, StorageType, UpperProperty, LowerProperty)
-
-#define ANIMATED_PROPERTY_DEFINITIONS_WITH_CONTEXT(ClassName, BareType, UpperClassName, LowerClassName, UpperProperty, LowerProperty, AttrName, StorageGetter) \
-ANIMATED_PROPERTY_DEFINITIONS_INTERNAL(ClassName, SVGElement, BareType, UpperClassName, LowerClassName, UpperProperty, LowerProperty, AttrName.localName(), StorageGetter, contextElement()) \
-PassRefPtr<ClassName::SVGAnimatedTemplate##UpperProperty> ClassName::LowerProperty##Animated() const \
-{ \
-    const SVGElement* context = contextElement(); \
-    ASSERT(context); \
-    return lookupOrCreateWrapper<ClassName::SVGAnimatedTemplate##UpperProperty, SVGElement>(context, AttrName, AttrName.localName()); \
-}
-
-#define ANIMATED_PROPERTY_DEFINITIONS_WITH_CUSTOM_IDENTIFIER(ClassName, BareType, UpperClassName, LowerClassName, UpperProperty, LowerProperty, AttrName, AttrIdentifier, StorageGetter) \
-ANIMATED_PROPERTY_DEFINITIONS_INTERNAL(ClassName, ClassName, BareType, UpperClassName, LowerClassName, UpperProperty, LowerProperty, AttrName.localName(), StorageGetter, this) \
-PassRefPtr<ClassName::SVGAnimatedTemplate##UpperProperty> ClassName::LowerProperty##Animated() const \
-{ \
-    return lookupOrCreateWrapper<ClassName::SVGAnimatedTemplate##UpperProperty, ClassName>(this, AttrName, AttrIdentifier); \
-}
-
-#define ANIMATED_PROPERTY_DEFINITIONS(ClassName, BareType, UpperClassName, LowerClassName, UpperProperty, LowerProperty, AttrName, StorageGetter) \
-ANIMATED_PROPERTY_DEFINITIONS_WITH_CUSTOM_IDENTIFIER(ClassName, BareType, UpperClassName, LowerClassName, UpperProperty, LowerProperty, AttrName, AttrName.localName(), StorageGetter)
 
 namespace WebCore {
 
-    class SVGPreserveAspectRatio;
+    class TransformationMatrix;
+    class CSSCursorImageValue;
+    class Document;
+    class SVGCursorElement;
+    class SVGDocumentExtensions;
+    class SVGElementInstance;
     class SVGSVGElement;
 
     class SVGElement : public StyledElement {
@@ -194,6 +52,7 @@ namespace WebCore {
 
         SVGSVGElement* ownerSVGElement() const;
         SVGElement* viewportElement() const;
+        SVGDocumentExtensions* accessDocumentSVGExtensions() const;
 
         virtual void parseMappedAttribute(MappedAttribute*);
 
@@ -207,8 +66,8 @@ namespace WebCore {
 
         virtual bool isShadowNode() const { return m_shadowParent; }
         virtual Node* shadowParentNode() { return m_shadowParent; }
-        void setShadowParentNode(Node* node) { m_shadowParent = node; }
-        virtual Node* eventParentNode() { return isShadowNode() ? shadowParentNode() : parentNode(); }
+        void setShadowParentNode(ContainerNode* node) { m_shadowParent = node; }
+        virtual ContainerNode* eventParentNode();
 
         // For SVGTests
         virtual bool isValid() const { return true; }
@@ -224,26 +83,60 @@ namespace WebCore {
         virtual void attributeChanged(Attribute*, bool preserveDecls = false);
 
         void sendSVGLoadEventIfPossible(bool sendParentLoadEvents = false);
+        
+        virtual TransformationMatrix* supplementalTransform() { return 0; }
 
-        // Forwarded properties (declared/defined anywhere else in the inheritance structure)
+        virtual void updateAnimatedSVGAttribute(const String&) const;
+        virtual void setSynchronizedSVGAttributes(bool) const;
 
-        // -> For SVGURIReference
-        ANIMATED_PROPERTY_EMPTY_DECLARATIONS(String, String(), Href, href)
+        HashSet<SVGElementInstance*> instancesForElement() const;
+ 
+        // Inlined methods handling SVG property synchronization
+        void invokeSVGPropertySynchronizer(const String& name) const
+        {
+            if (m_svgPropertyMap.contains(name)) {
+                const SVGAnimatedPropertyBase* property = m_svgPropertyMap.get(name);
+                ASSERT(property);
 
-        // -> For SVGFitToViewBox
-        ANIMATED_PROPERTY_EMPTY_DECLARATIONS(FloatRect, FloatRect(), ViewBox, viewBox)    
-        ANIMATED_PROPERTY_EMPTY_DECLARATIONS(SVGPreserveAspectRatio*, 0, PreserveAspectRatio, preserveAspectRatio)
+                property->synchronize();
+            }
+        }
 
-        // -> For SVGExternalResourcesRequired
-        ANIMATED_PROPERTY_EMPTY_DECLARATIONS(bool, false, ExternalResourcesRequired, externalResourcesRequired)
+        void invokeAllSVGPropertySynchronizers() const
+        {
+            HashMap<String, const SVGAnimatedPropertyBase*>::const_iterator it = m_svgPropertyMap.begin();
+            const HashMap<String, const SVGAnimatedPropertyBase*>::const_iterator end = m_svgPropertyMap.end();
+            for (; it != end; ++it) {
+                const SVGAnimatedPropertyBase* property = it->second;
+                ASSERT(property);
 
-        virtual bool dispatchEvent(PassRefPtr<Event> e, ExceptionCode& ec, bool tempEvent = false);
+                property->synchronize();
+            }
+        }
+
+        void addSVGPropertySynchronizer(const QualifiedName& attrName, const SVGAnimatedPropertyBase& base) const
+        {
+            m_svgPropertyMap.set(attrName.localName(), &base);
+        }
+
+        void setCursorElement(SVGCursorElement* cursorElement) { m_cursorElement = cursorElement; }
+        void setCursorImageValue(CSSCursorImageValue* cursorImageValue) { m_cursorImageValue = cursorImageValue; }
 
     private:
-        void addSVGEventListener(const AtomicString& eventType, const Attribute*);
+        friend class SVGElementInstance;
+
+        void mapInstanceToElement(SVGElementInstance*);
+        void removeInstanceMapping(SVGElementInstance*);
+
         virtual bool haveLoadedRequiredResources();
 
-        Node* m_shadowParent;
+        ContainerNode* m_shadowParent;
+        mutable HashMap<String, const SVGAnimatedPropertyBase*> m_svgPropertyMap;
+
+        SVGCursorElement* m_cursorElement;
+        CSSCursorImageValue* m_cursorImageValue;
+
+        HashSet<SVGElementInstance*> m_elementInstances;
     };
 
 } // namespace WebCore 

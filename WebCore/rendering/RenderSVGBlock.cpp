@@ -35,20 +35,21 @@ RenderSVGBlock::RenderSVGBlock(SVGElement* node)
 {
 }
 
-void RenderSVGBlock::setStyle(RenderStyle* style) 
+void RenderSVGBlock::setStyle(PassRefPtr<RenderStyle> style) 
 {
-    RenderStyle* useStyle = style;
+    RefPtr<RenderStyle> useStyle = style;
 
     // SVG text layout code expects us to be a block-level style element.   
     if (useStyle->display() == NONE)
         setChildrenInline(false);
     else if (useStyle->isDisplayInlineType()) {
-        useStyle = new (renderArena()) RenderStyle();
-        useStyle->inheritFrom(style);
-        useStyle->setDisplay(BLOCK);
+        RefPtr<RenderStyle> newStyle = RenderStyle::create();
+        newStyle->inheritFrom(useStyle.get());
+        newStyle->setDisplay(BLOCK);
+        useStyle = newStyle.release();
     }
 
-    RenderBlock::setStyle(useStyle);
+    RenderBlock::setStyle(useStyle.release());
     setReplaced(false);
 
     //FIXME: Once overflow rules are supported by SVG we should

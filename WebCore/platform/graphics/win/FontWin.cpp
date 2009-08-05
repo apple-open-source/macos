@@ -30,12 +30,16 @@
 #include "GlyphBuffer.h"
 #include "GraphicsContext.h"
 #include "IntRect.h"
-#include "NotImplemented.h"
 #include "SimpleFontData.h"
 #include "UniscribeController.h"
 #include <wtf/MathExtras.h>
 
 namespace WebCore {
+
+bool Font::canReturnFallbackFontsForComplexText()
+{
+    return true;
+}
 
 FloatRect Font::selectionRectForComplexText(const TextRun& run, const IntPoint& point, int h,
                                             int from, int to) const
@@ -85,9 +89,9 @@ void Font::drawComplexText(GraphicsContext* context, const TextRun& run, const F
     drawGlyphBuffer(context, glyphBuffer, run, startPoint);
 }
 
-float Font::floatWidthForComplexText(const TextRun& run) const
+float Font::floatWidthForComplexText(const TextRun& run, HashSet<const SimpleFontData*>* fallbackFonts) const
 {
-    UniscribeController controller(this, run);
+    UniscribeController controller(this, run, fallbackFonts);
     controller.advance(run.length());
     return controller.runWidthSoFar();
 }

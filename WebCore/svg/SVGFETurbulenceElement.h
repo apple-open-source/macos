@@ -27,40 +27,38 @@
 #include "SVGFETurbulence.h"
 #include "SVGFilterPrimitiveStandardAttributes.h"
 
-namespace WebCore
-{
+namespace WebCore {
+
+    extern char SVGBaseFrequencyXIdentifier[];
+    extern char SVGBaseFrequencyYIdentifier[];
+
     enum SVGStitchOptions {
         SVG_STITCHTYPE_UNKNOWN  = 0,
         SVG_STITCHTYPE_STITCH   = 1,
         SVG_STITCHTYPE_NOSTITCH = 2
     };
 
-    class SVGFETurbulenceElement : public SVGFilterPrimitiveStandardAttributes
-    {
+    class SVGFETurbulenceElement : public SVGFilterPrimitiveStandardAttributes {
     public:
         SVGFETurbulenceElement(const QualifiedName&, Document*);
         virtual ~SVGFETurbulenceElement();
 
         virtual void parseMappedAttribute(MappedAttribute*);
-        virtual SVGFETurbulence* filterEffect(SVGResourceFilter*) const;
-
-    protected:
-        virtual const SVGElement* contextElement() const { return this; }
+        virtual SVGFilterEffect* filterEffect(SVGResourceFilter*) const;
+        bool build(FilterBuilder*);
 
     private:
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFETurbulenceElement, float, float, BaseFrequencyX, baseFrequencyX)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFETurbulenceElement, float, float, BaseFrequencyY, baseFrequencyY)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFETurbulenceElement, long, long, NumOctaves, numOctaves)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFETurbulenceElement, float, float, Seed, seed)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFETurbulenceElement, int, int, StitchTiles, stitchTiles)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFETurbulenceElement, int, int, Type, type)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGFETurbulenceElement, SVGNames::feTurbulenceTagString, SVGBaseFrequencyXIdentifier, float, BaseFrequencyX, baseFrequencyX)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGFETurbulenceElement, SVGNames::feTurbulenceTagString, SVGBaseFrequencyYIdentifier, float, BaseFrequencyY, baseFrequencyY)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGFETurbulenceElement, SVGNames::feTurbulenceTagString, SVGNames::numOctavesAttrString, long, NumOctaves, numOctaves)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGFETurbulenceElement, SVGNames::feTurbulenceTagString, SVGNames::seedAttrString, float, Seed, seed)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGFETurbulenceElement, SVGNames::feTurbulenceTagString, SVGNames::stitchTilesAttrString, int, StitchTiles, stitchTiles)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGFETurbulenceElement, SVGNames::feTurbulenceTagString, SVGNames::typeAttrString, int, Type, type)
 
-        mutable SVGFETurbulence* m_filterEffect;
+        mutable RefPtr<FETurbulence> m_filterEffect;
     };
 
 } // namespace WebCore
 
 #endif // ENABLE(SVG)
 #endif
-
-// vim:ts=4:noet

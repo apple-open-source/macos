@@ -1,10 +1,8 @@
 /*
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 2001 Peter Kelly (pmk@post.com)
  * Copyright (C) 2001 Tobias Anton (anton@stud.fbi.fh-darmstadt.de)
  * Copyright (C) 2006 Samuel Weinig (sam.weinig@gmail.com)
- * Copyright (C) 2003, 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -64,8 +62,14 @@ namespace WebCore {
             CHANGE              = 32768
         };
 
-        Event();
-        Event(const AtomicString& type, bool canBubble, bool cancelable);
+        static PassRefPtr<Event> create()
+        {
+            return adoptRef(new Event);
+        }
+        static PassRefPtr<Event> create(const AtomicString& type, bool canBubble, bool cancelable)
+        {
+            return adoptRef(new Event(type, canBubble, cancelable));
+        }
         virtual ~Event();
 
         void initEvent(const AtomicString& type, bool canBubble, bool cancelable);
@@ -83,7 +87,7 @@ namespace WebCore {
 
         bool bubbles() const { return m_canBubble; }
         bool cancelable() const { return m_cancelable; }
-        DOMTimeStamp timeStamp() { return m_createTime; }
+        DOMTimeStamp timeStamp() const { return m_createTime; }
         void stopPropagation() { m_propagationStopped = true; }
 
         // IE Extensions
@@ -101,15 +105,19 @@ namespace WebCore {
         virtual bool isTextEvent() const;
         virtual bool isDragEvent() const; // a subset of mouse events
         virtual bool isClipboardEvent() const;
-#if ENABLE(CROSS_DOCUMENT_MESSAGING)
         virtual bool isMessageEvent() const;
-#endif
         virtual bool isWheelEvent() const;
         virtual bool isBeforeTextInsertedEvent() const;
         virtual bool isOverflowEvent() const;
         virtual bool isProgressEvent() const;
+        virtual bool isXMLHttpRequestProgressEvent() const;
+        virtual bool isWebKitAnimationEvent() const;
+        virtual bool isWebKitTransitionEvent() const;
 #if ENABLE(SVG)
         virtual bool isSVGZoomEvent() const;
+#endif
+#if ENABLE(DOM_STORAGE)
+        virtual bool isStorageEvent() const;
 #endif
 
         bool propagationStopped() const { return m_propagationStopped; }
@@ -133,6 +141,9 @@ namespace WebCore {
         virtual Clipboard* clipboard() const { return 0; }
 
     protected:
+        Event();
+        Event(const AtomicString& type, bool canBubble, bool cancelable);
+
         virtual void receivedTarget();
         bool dispatched() const { return m_target; }
 
@@ -146,8 +157,8 @@ namespace WebCore {
         bool m_defaultHandled;
         bool m_cancelBubble;
 
-        EventTarget* m_currentTarget;
         unsigned short m_eventPhase;
+        EventTarget* m_currentTarget;
         RefPtr<EventTarget> m_target;
         DOMTimeStamp m_createTime;
 

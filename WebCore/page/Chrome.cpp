@@ -1,7 +1,6 @@
-// -*- mode: c++; c-basic-offset: 4 -*-
 /*
- * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
- * Copyright (C) 2007 Trolltech ASA
+ * Copyright (C) 2006, 2007, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,40 +22,37 @@
 #include "Chrome.h"
 
 #include "ChromeClient.h"
+#include "DNS.h"
+#include "Document.h"
+#include "FileList.h"
 #include "FloatRect.h"
 #include "Frame.h"
 #include "FrameTree.h"
+#include "Geolocation.h"
 #include "HTMLFormElement.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
 #include "HitTestResult.h"
 #include "InspectorController.h"
 #include "Page.h"
+#include "PageGroupLoadDeferrer.h"
 #include "ResourceHandle.h"
+#include "ScriptController.h"
+#include "SecurityOrigin.h"
 #include "Settings.h"
 #include "WindowFeatures.h"
-#include "kjs_window.h"
-#include "PausedTimeouts.h"
-#include "SecurityOrigin.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
+
+#if ENABLE(DOM_STORAGE)
+#include "SessionStorage.h"
+#endif
 
 namespace WebCore {
 
 using namespace HTMLNames;
 using namespace std;
-
-class PageGroupLoadDeferrer : Noncopyable {
-public:
-    PageGroupLoadDeferrer(Page*, bool deferSelf);
-    ~PageGroupLoadDeferrer();
-private:
-    Vector<RefPtr<Frame>, 16> m_deferredFrames;
-#if !PLATFORM(MAC)
-    Vector<pair<RefPtr<Frame>, PausedTimeouts*>, 16> m_pausedTimeouts;
-#endif
-};
 
 Chrome::Chrome(Page* page, ChromeClient* client)
     : m_page(page)
@@ -68,6 +64,41 @@ Chrome::Chrome(Page* page, ChromeClient* client)
 Chrome::~Chrome()
 {
     m_client->chromeDestroyed();
+}
+
+void Chrome::repaint(const IntRect& windowRect, bool contentChanged, bool immediate, bool repaintContentOnly)
+{
+    m_client->repaint(windowRect, contentChanged, immediate, repaintContentOnly);
+}
+
+void Chrome::scroll(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect)
+{
+    m_client->scroll(scrollDelta, rectToScroll, clipRect);
+}
+
+IntPoint Chrome::screenToWindow(const IntPoint& point) const
+{
+    return m_client->screenToWindow(point);
+}
+
+IntRect Chrome::windowToScreen(const IntRect& rect) const
+{
+    return m_client->windowToScreen(rect);
+}
+
+PlatformWidget Chrome::platformWindow() const
+{
+    return m_client->platformWindow();
+}
+
+void Chrome::contentsSizeChanged(Frame* frame, const IntSize& size) const
+{
+    m_client->contentsSizeChanged(frame, size);
+}
+
+void Chrome::scrollRectIntoView(const IntRect& rect, const ScrollView* scrollView) const
+{
+    m_client->scrollRectIntoView(rect, scrollView);
 }
 
 void Chrome::setWindowRect(const FloatRect& rect) const
@@ -112,7 +143,16 @@ void Chrome::takeFocus(FocusDirection direction) const
     
 Page* Chrome::createWindow(Frame* frame, const FrameLoadRequest& request, const WindowFeatures& features) const
 {
-    return m_client->createWindow(frame, request, features);
+    Page* newPage = m_client->createWindow(frame, request, features);
+
+#if ENABLE(DOM_STORAGE)
+    if (newPage) {
+        if (SessionStorage* oldSessionStorage = m_page->sessionStorage(false))
+            newPage->setSessionStorage(oldSessionStorage->copy(newPage));
+    }
+#endif
+
+    return newPage;
 }
 
 void Chrome::show() const
@@ -187,14 +227,6 @@ void Chrome::setResizable(bool b) const
     m_client->setResizable(b);
 }
 
-void Chrome::addMessageToConsole(MessageSource source, MessageLevel level, const String& message, unsigned lineNumber, const String& sourceID)
-{
-    if (source == JSMessageSource)
-        m_client->addMessageToConsole(message, lineNumber, sourceID);
-
-    m_page->inspectorController()->addMessageToConsole(source, level, message, lineNumber, sourceID);
-}
-
 bool Chrome::canRunBeforeUnloadConfirmPanel()
 {
     return m_client->canRunBeforeUnloadConfirmPanel();
@@ -221,10 +253,7 @@ void Chrome::runJavaScriptAlert(Frame* frame, const String& message)
     PageGroupLoadDeferrer deferrer(m_page, true);
 
     ASSERT(frame);
-    String text = message;
-    text.replace('\\', frame->backslashAsCurrencySymbol());
-
-    m_client->runJavaScriptAlert(frame, text);
+    m_client->runJavaScriptAlert(frame, frame->displayStringModifiedByEncoding(message));
 }
 
 bool Chrome::runJavaScriptConfirm(Frame* frame, const String& message)
@@ -234,10 +263,7 @@ bool Chrome::runJavaScriptConfirm(Frame* frame, const String& message)
     PageGroupLoadDeferrer deferrer(m_page, true);
 
     ASSERT(frame);
-    String text = message;
-    text.replace('\\', frame->backslashAsCurrencySymbol());
-    
-    return m_client->runJavaScriptConfirm(frame, text);
+    return m_client->runJavaScriptConfirm(frame, frame->displayStringModifiedByEncoding(message));
 }
 
 bool Chrome::runJavaScriptPrompt(Frame* frame, const String& prompt, const String& defaultValue, String& result)
@@ -247,15 +273,10 @@ bool Chrome::runJavaScriptPrompt(Frame* frame, const String& prompt, const Strin
     PageGroupLoadDeferrer deferrer(m_page, true);
 
     ASSERT(frame);
-    String promptText = prompt;
-    promptText.replace('\\', frame->backslashAsCurrencySymbol());
-    String defaultValueText = defaultValue;
-    defaultValueText.replace('\\', frame->backslashAsCurrencySymbol());
-    
-    bool ok = m_client->runJavaScriptPrompt(frame, promptText, defaultValueText, result);
+    bool ok = m_client->runJavaScriptPrompt(frame, frame->displayStringModifiedByEncoding(prompt), frame->displayStringModifiedByEncoding(defaultValue), result);
     
     if (ok)
-        result.replace(frame->backslashAsCurrencySymbol(), '\\');
+        result = frame->displayStringModifiedByEncoding(result);
     
     return ok;
 }
@@ -263,10 +284,7 @@ bool Chrome::runJavaScriptPrompt(Frame* frame, const String& prompt, const Strin
 void Chrome::setStatusbarText(Frame* frame, const String& status)
 {
     ASSERT(frame);
-    String text = status;
-    text.replace('\\', frame->backslashAsCurrencySymbol());
-    
-    m_client->setStatusbarText(text);
+    m_client->setStatusbarText(frame->displayStringModifiedByEncoding(status));
 }
 
 bool Chrome::shouldInterruptJavaScript()
@@ -283,24 +301,17 @@ IntRect Chrome::windowResizerRect() const
     return m_client->windowResizerRect();
 }
 
-void Chrome::addToDirtyRegion(const IntRect& rect)
-{
-    m_client->addToDirtyRegion(rect);
-}
-
-void Chrome::scrollBackingStore(int dx, int dy, const IntRect& scrollViewRect, const IntRect& clipRect)
-{
-    m_client->scrollBackingStore(dx, dy, scrollViewRect, clipRect);
-}
-
-void Chrome::updateBackingStore()
-{
-    m_client->updateBackingStore();
-}
-
 void Chrome::mouseDidMoveOverElement(const HitTestResult& result, unsigned modifierFlags)
 {
+    if (result.innerNode()) {
+        Document* document = result.innerNode()->document();
+        if (document && document->isDNSPrefetchEnabled())
+            prefetchDNS(result.absoluteLinkURL().host());
+    }
     m_client->mouseDidMoveOverElement(result, modifierFlags);
+
+    if (InspectorController* inspector = m_page->inspectorController())
+        inspector->mouseDidMoveOverElement(result, modifierFlags);
 }
 
 void Chrome::setToolTip(const HitTestResult& result)
@@ -326,10 +337,32 @@ void Chrome::setToolTip(const HitTestResult& result)
             toolTip = result.absoluteLinkURL().string();
     }
 
-    // Lastly we'll consider a tooltip for element with "title" attribute
+    // Next we'll consider a tooltip for element with "title" attribute
     if (toolTip.isEmpty())
         toolTip = result.title();
 
+    // Lastly, for <input type="file"> that allow multiple files, we'll consider a tooltip for the selected filenames
+    if (toolTip.isEmpty()) {
+        if (Node* node = result.innerNonSharedNode()) {
+            if (node->hasTagName(inputTag)) {
+                HTMLInputElement* input = static_cast<HTMLInputElement*>(node);
+                if (input->inputType() == HTMLInputElement::FILE) {
+                    FileList* files = input->files();
+                    unsigned listSize = files->length();
+                    if (files && listSize > 1) {
+                        Vector<UChar> names;
+                        for (size_t i = 0; i < listSize; ++i) {
+                            append(names, files->item(i)->fileName());
+                            if (i != listSize - 1)
+                                names.append('\n');
+                        }
+                        toolTip = String::adopt(names);
+                    }
+                }
+            }
+        }
+    }
+    
     m_client->setToolTip(toolTip);
 }
 
@@ -338,55 +371,68 @@ void Chrome::print(Frame* frame)
     m_client->print(frame);
 }
 
-PageGroupLoadDeferrer::PageGroupLoadDeferrer(Page* page, bool deferSelf)
+void Chrome::requestGeolocationPermissionForFrame(Frame* frame, Geolocation* geolocation)
 {
-    const HashSet<Page*>* group = page->frameNamespace();
+    // Defer loads in case the client method runs a new event loop that would 
+    // otherwise cause the load to continue while we're in the middle of executing JavaScript.
+    PageGroupLoadDeferrer deferrer(m_page, true);
 
-    if (!group)
-        return;
-
-    HashSet<Page*>::const_iterator end = group->end();
-    for (HashSet<Page*>::const_iterator it = group->begin(); it != end; ++it) {
-        Page* otherPage = *it;
-        if ((deferSelf || otherPage != page)) {
-            if (!otherPage->defersLoading())
-                m_deferredFrames.append(otherPage->mainFrame());
-
-#if !PLATFORM(MAC)
-            for (Frame* frame = otherPage->mainFrame(); frame; frame = frame->tree()->traverseNext()) {
-                if (KJS::Window* window = KJS::Window::retrieveWindow(frame)) {
-                    PausedTimeouts* timeouts = window->pauseTimeouts();
-
-                    m_pausedTimeouts.append(make_pair(frame, timeouts));
-                }
-            }
-#endif
-        }
-    }
-
-    size_t count = m_deferredFrames.size();
-    for (size_t i = 0; i < count; ++i)
-        if (Page* page = m_deferredFrames[i]->page())
-            page->setDefersLoading(true);
+    ASSERT(frame);
+    m_client->requestGeolocationPermissionForFrame(frame, geolocation);
 }
 
-PageGroupLoadDeferrer::~PageGroupLoadDeferrer()
+void Chrome::runOpenPanel(Frame* frame, PassRefPtr<FileChooser> fileChooser)
 {
-    size_t count = m_deferredFrames.size();
-    for (size_t i = 0; i < count; ++i)
-        if (Page* page = m_deferredFrames[i]->page())
-            page->setDefersLoading(false);
+    m_client->runOpenPanel(frame, fileChooser);
+}
 
-#if !PLATFORM(MAC)
-    count = m_pausedTimeouts.size();
+bool Chrome::setCursor(PlatformCursorHandle cursor)
+{
+    return m_client->setCursor(cursor);
+}
 
-    for (size_t i = 0; i < count; i++) {
-        KJS::Window* window = KJS::Window::retrieveWindow(m_pausedTimeouts[i].first.get());
-        if (window)
-            window->resumeTimeouts(m_pausedTimeouts[i].second);
-        delete m_pausedTimeouts[i].second;
-    }
+// --------
+
+#if ENABLE(DASHBOARD_SUPPORT)
+void ChromeClient::dashboardRegionsChanged()
+{
+}
 #endif
+
+void ChromeClient::populateVisitedLinks()
+{
+}
+
+FloatRect ChromeClient::customHighlightRect(Node*, const AtomicString&, const FloatRect&)
+{
+    return FloatRect();
+}
+
+void ChromeClient::paintCustomHighlight(Node*, const AtomicString&, const FloatRect&, const FloatRect&, bool, bool)
+{
+}
+
+bool ChromeClient::shouldReplaceWithGeneratedFileForUpload(const String&, String&)
+{
+    return false;
+}
+
+String ChromeClient::generateReplacementFile(const String&)
+{
+    ASSERT_NOT_REACHED();
+    return String(); 
+}
+
+bool ChromeClient::paintCustomScrollbar(GraphicsContext*, const FloatRect&, ScrollbarControlSize, 
+                                        ScrollbarControlState, ScrollbarPart, bool,
+                                        float, float, ScrollbarControlPartMask)
+{
+    return false;
+}
+
+bool ChromeClient::paintCustomScrollCorner(GraphicsContext*, const FloatRect&)
+{
+    return false;
 }
 
 

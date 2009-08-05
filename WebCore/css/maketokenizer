@@ -50,6 +50,7 @@ print<<END
 
 #define INITIAL 0
 #define mediaquery 1
+#define forkeyword 2
 
 /* C99 systems have <inttypes.h>. Non-C99 systems may or may not. */
 
@@ -124,4 +125,11 @@ print;
 while (<>) {
     print;
     last if /end of yylex/;
+}
+
+# We don't want the remainder of flex's output.
+# However, flex may choke with "flex: error writing output file <stdout>"
+# if its stdout is unexpectedly closed on it.
+# Consume the remaining output.
+while (<>) {
 }

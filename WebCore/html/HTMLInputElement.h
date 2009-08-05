@@ -24,15 +24,18 @@
 #ifndef HTMLInputElement_h
 #define HTMLInputElement_h
 
-#include "HTMLGenericFormElement.h"
+#include "HTMLFormControlElement.h"
+#include "InputElement.h"
 #include <wtf/OwnPtr.h>
 
 namespace WebCore {
 
+class FileList;
 class HTMLImageLoader;
-class Selection;
+class KURL;
+class VisibleSelection;
 
-class HTMLInputElement : public HTMLFormControlElementWithState {
+class HTMLInputElement : public HTMLFormControlElementWithState, public InputElement {
 public:
     enum InputType {
         TEXT,
@@ -47,7 +50,11 @@ public:
         IMAGE,
         BUTTON,
         SEARCH,
-        RANGE
+        RANGE,
+        EMAIL,
+        NUMBER,
+        TELEPHONE,
+        URL
     };
     
     enum AutoCompleteSetting {
@@ -56,8 +63,7 @@ public:
         Off
     };
 
-    HTMLInputElement(Document*, HTMLFormElement* = 0);
-    HTMLInputElement(const QualifiedName& tagName, Document*, HTMLFormElement* = 0);
+    HTMLInputElement(const QualifiedName&, Document*, HTMLFormElement* = 0);
     virtual ~HTMLInputElement();
 
     virtual HTMLTagStatus endTagRequirement() const { return TagStatusForbidden; }
@@ -72,40 +78,48 @@ public:
     virtual void aboutToUnload();
     virtual bool shouldUseInputMethod() const;
 
-    virtual const AtomicString& name() const;
-
+    virtual const AtomicString& formControlName() const;
+ 
     bool autoComplete() const;
 
     // isChecked is used by the rendering tree/CSS while checked() is used by JS to determine checked state
     virtual bool isChecked() const { return checked() && (inputType() == CHECKBOX || inputType() == RADIO); }
     virtual bool isIndeterminate() const { return indeterminate(); }
     
-    bool readOnly() const { return isReadOnlyControl(); }
+    bool readOnly() const { return isReadOnlyFormControl(); }
+
+    virtual bool isTextFormControl() const { return isTextField(); }
 
     bool isTextButton() const { return m_type == SUBMIT || m_type == RESET || m_type == BUTTON; }
     virtual bool isRadioButton() const { return m_type == RADIO; }
-    bool isTextField() const { return m_type == TEXT || m_type == PASSWORD || m_type == SEARCH || m_type == ISINDEX; }
-    bool isSearchField() const { return m_type == SEARCH; }
+    virtual bool isTextField() const { return m_type == TEXT || m_type == PASSWORD || m_type == SEARCH || m_type == ISINDEX || m_type == EMAIL || m_type == NUMBER || m_type == TELEPHONE || m_type == URL; }
+    virtual bool isSearchField() const { return m_type == SEARCH; }
     virtual bool isInputTypeHidden() const { return m_type == HIDDEN; }
+    virtual bool isPasswordField() const { return m_type == PASSWORD; }
 
     bool checked() const { return m_checked; }
     void setChecked(bool, bool sendChangeEvent = false);
     bool indeterminate() const { return m_indeterminate; }
     void setIndeterminate(bool);
-    int maxLength() const { return m_maxLen; }
-    int size() const { return m_size; }
-    virtual const AtomicString& type() const;
+    virtual int size() const;
+    virtual const AtomicString& formControlType() const;
     void setType(const String&);
 
-    String value() const;
-    void setValue(const String&);
+    virtual String value() const;
+    virtual void setValue(const String&);
+
+    virtual String placeholder() const;
+    virtual void setPlaceholder(const String&);
+
+    virtual bool searchEventsShouldBeDispatched() const;
 
     String valueWithDefault() const;
 
-    void setValueFromRenderer(const String&);
+    virtual void setValueFromRenderer(const String&);
+    void setFileListFromRenderer(const Vector<String>&);
 
-    virtual bool saveState(String& value) const;
-    virtual void restoreState(const String&);
+    virtual bool saveFormControlState(String& value) const;
+    virtual void restoreFormControlState(const String&);
 
     virtual bool canStartSelection() const;
     
@@ -114,7 +128,7 @@ public:
     int selectionEnd() const;
     void setSelectionStart(int);
     void setSelectionEnd(int);
-    void select();
+    virtual void select();
     void setSelectionRange(int start, int end);
 
     virtual void accessKeyAction(bool sendToAnyElement);
@@ -158,6 +172,8 @@ public:
     bool defaultChecked() const;
     void setDefaultChecked(bool);
 
+    void setDefaultName(const AtomicString&);
+
     String accept() const;
     void setAccept(const String&);
 
@@ -172,55 +188,62 @@ public:
 
     void setSize(unsigned);
 
-    String src() const;
+    KURL src() const;
     void setSrc(const String&);
 
+    int maxLength() const;
     void setMaxLength(int);
+
+    bool multiple() const;
+    void setMultiple(bool);
 
     String useMap() const;
     void setUseMap(const String&);
 
-    bool autofilled() const { return m_autofilled; }
-    void setAutofilled(bool b = true) { m_autofilled = b; }
-    
-    void cacheSelection(int s, int e) { cachedSelStart = s; cachedSelEnd = e; };
+    virtual bool isAutofilled() const { return m_autofilled; }
+    void setAutofilled(bool value = true);
+
+    FileList* files();
+
+    virtual void cacheSelection(int start, int end);
     void addSearchResult();
     void onSearch();
+
+    VisibleSelection selection() const;
+
+    virtual String constrainValue(const String& proposedValue) const;
+
+    virtual void documentDidBecomeActive();
+
+    virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
     
-    Selection selection() const;
+    virtual bool willValidate() const;
 
-    String constrainValue(const String& proposedValue) const;
-
-    virtual void didRestoreFromCache();
+    virtual bool placeholderShouldBeVisible() const;
     
 protected:
     virtual void willMoveToNewOwnerDocument();
     virtual void didMoveToNewOwnerDocument();
-    
-    AtomicString m_name;
+
+    void updatePlaceholderVisibility()
+    {
+        InputElement::updatePlaceholderVisibility(m_data, document(), true);
+    }
 
 private:
-    void init();
     bool storesValueSeparateFromAttribute() const;
-    String constrainValue(const String& proposedValue, int maxLen) const;
-    void recheckValue();
-    
-    bool needsCacheCallback();
-    void registerForCacheCallbackIfNeeded();
-    void unregisterForCacheCallbackIfNeeded();
 
-    String m_value;
-    String m_originalValue;
-    int xPos;
-    int m_maxLen;
-    short m_size;
-    short yPos;
+    bool needsActivationCallback();
+    void registerForActivationCallbackIfNeeded();
+    void unregisterForActivationCallbackIfNeeded();
 
+    InputElementData m_data;
+    int m_xPos;
+    int m_yPos;
     short m_maxResults;
-
     OwnPtr<HTMLImageLoader> m_imageLoader;
-
-    unsigned m_type : 4; // InputType 
+    RefPtr<FileList> m_fileList;
+    unsigned m_type : 5; // InputType 
     bool m_checked : 1;
     bool m_defaultChecked : 1;
     bool m_useDefaultChecked : 1;
@@ -230,9 +253,6 @@ private:
     unsigned m_autocomplete : 2; // AutoCompleteSetting
     bool m_autofilled : 1;
     bool m_inited : 1;
-    
-    int cachedSelStart;
-    int cachedSelEnd;
 };
 
 } //namespace

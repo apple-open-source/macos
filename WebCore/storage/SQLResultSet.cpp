@@ -29,6 +29,8 @@
 #include "config.h"
 #include "SQLResultSet.h"
 
+#if ENABLE(DATABASE)
+
 #include "ExceptionCode.h"
 #include "SQLValue.h"
 
@@ -37,7 +39,7 @@ namespace WebCore {
 static unsigned const MaxErrorCode = 2;
 
 SQLResultSet::SQLResultSet()
-    : m_rows(new SQLResultSetRowList)
+    : m_rows(SQLResultSetRowList::create())
     , m_insertId(0)
     , m_insertIdSet(false)
     , m_rowsAffected(0)
@@ -79,3 +81,5 @@ void SQLResultSet::setRowsAffected(int count)
 }
 
 }
+
+#endif

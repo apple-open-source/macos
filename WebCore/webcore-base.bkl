@@ -35,6 +35,7 @@ wxWebCore port Bakefile project file.
 
     <set var="WEBCORE_BASE_SOURCES">
         $(WEBCORE_SOURCES_BMP)
+        $(WEBCORE_SOURCES_BRIDGE)
         $(WEBCORE_SOURCES_CSS)
         $(WEBCORE_SOURCES_DERIVEDSOURCES)
         $(WEBCORE_SOURCES_DOM)
@@ -43,11 +44,13 @@ wxWebCore port Bakefile project file.
         $(WEBCORE_SOURCES_HTML)
         $(WEBCORE_SOURCES_ICO)
         $(WEBCORE_SOURCES_ICON)
+        $(WEBCORE_SOURCES_INSPECTOR)
         $(WEBCORE_SOURCES_JS)
         $(WEBCORE_SOURCES_LOADER)
         $(WEBCORE_SOURCES_PAGE)
         $(WEBCORE_SOURCES_HISTORY)
         $(WEBCORE_SOURCES_PLATFORM)
+        $(WEBCORE_SOURCES_PLUGINS)
         $(WEBCORE_SOURCES_RENDERING)
         $(WEBCORE_SOURCES_STORAGE)
         $(WEBCORE_SOURCES_XBM)
@@ -57,25 +60,30 @@ wxWebCore port Bakefile project file.
         $(WEBCORE_SOURCES_JPEG)
     </set>
 
-    <set var="BUILDDIR">obj-$(FORMAT)</set>
-
     <template id="webcore_base" template="xml2,iconv,xslt,icu,jscore,curl,sqlite3">
         <include>$(SRCDIR)</include>
         <include>$(SRCDIR)/bindings/js</include>
         <include>$(SRCDIR)/bridge</include>
+        <include>$(SRCDIR)/bridge/c</include>
+        <include>$(SRCDIR)/bridge/jni</include>
         <include>$(SRCDIR)/css</include>
         <include>$(SRCDIR)/DerivedSources/WebCore</include>
         <include>$(SRCDIR)/dom</include>
         <include>$(SRCDIR)/editing</include>
         <include>$(SRCDIR)/history</include>
         <include>$(SRCDIR)/html</include>
+        <include>$(SRCDIR)/inspector</include>
         <include>$(SRCDIR)/loader</include>
         <include>$(SRCDIR)/loader/gdk</include>
+        <include>$(SRCDIR)/loader/appcache</include>
+        <include>$(SRCDIR)/loader/archive</include>
         <include>$(SRCDIR)/loader/icon</include>
         <include>$(SRCDIR)/page</include>
+        <include>$(SRCDIR)/page/animation</include>
         <include>$(SRCDIR)/platform</include>
+        <include>$(SRCDIR)/platform/animation</include>
         <include>$(SRCDIR)/platform/graphics</include>
-        <include>$(SRCDIR)/platform/graphics/gdk</include>
+        <include>$(SRCDIR)/platform/graphics/transforms</include>
         <include>$(SRCDIR)/platform/image-decoders</include>
         <include>$(SRCDIR)/platform/image-decoders/bmp</include>
         <include>$(SRCDIR)/platform/image-decoders/gif</include>
@@ -89,14 +97,24 @@ wxWebCore port Bakefile project file.
         <include>$(SRCDIR)/platform/sql</include>
         <include>$(SRCDIR)/platform/text</include>
         <include>$(SRCDIR)/plugins</include> 
-        <include>$(SRCDIR)/rendering</include> 
+        <include>$(SRCDIR)/rendering</include>
+        <include>$(SRCDIR)/rendering/style</include>
         <include>$(SRCDIR)/storage</include>
+        <include>$(SRCDIR)/workers</include>
         <include>$(SRCDIR)/xml</include>
         <include>$(WK_ROOT)</include>
         <include>$(WK_ROOT)/JavaScriptCore</include>
         <include>$(WK_ROOT)/JavaScriptCore/ForwardingHeaders</include>
-        <include>$(WK_ROOT)/JavaScriptCore/kjs</include>
+        <include>$(WK_ROOT)/JavaScriptCore/bindings</include>
+        <include>$(WK_ROOT)/JavaScriptCore/bytecompiler</include>
+        <include>$(WK_ROOT)/JavaScriptCore/bytecode</include>
+        <include>$(WK_ROOT)/JavaScriptCore/debugger</include>
+        <include>$(WK_ROOT)/JavaScriptCore/jit</include>
+        <include>$(WK_ROOT)/JavaScriptCore/parser</include>
         <include>$(WK_ROOT)/JavaScriptCore/pcre</include>
+        <include>$(WK_ROOT)/JavaScriptCore/profiler</include>
+        <include>$(WK_ROOT)/JavaScriptCore/runtime</include>
+        <include>$(WK_ROOT)/JavaScriptCore/interpreter</include>
         <include>$(WK_ROOT)/JavaScriptCore/wtf</include>
 
         <sources>$(WEBCORE_BASE_SOURCES)</sources>

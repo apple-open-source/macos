@@ -40,30 +40,28 @@ public:
 
     virtual const char* renderName() const { return "RenderBR"; }
  
-    virtual IntRect selectionRect(bool) { return IntRect(); }
+    virtual IntRect selectionRectForRepaint(RenderBoxModelObject* /*repaintContainer*/, bool /*clipToVisibleContent*/) { return IntRect(); }
 
     virtual unsigned width(unsigned /*from*/, unsigned /*len*/, const Font&, int /*xpos*/) const { return 0; }
     virtual unsigned width(unsigned /*from*/, unsigned /*len*/, int /*xpos*/, bool /*firstLine = false*/) const { return 0; }
 
-    virtual short lineHeight(bool firstLine, bool isRootLineBox = false) const;
-    virtual short baselinePosition(bool firstLine, bool isRootLineBox = false) const;
-    virtual void setStyle(RenderStyle*);
+    virtual int lineHeight(bool firstLine, bool isRootLineBox = false) const;
+    virtual int baselinePosition(bool firstLine, bool isRootLineBox = false) const;
 
     // overrides
-    virtual InlineBox* createInlineBox(bool, bool, bool isOnlyRun = false);
-
     virtual bool isBR() const { return true; }
 
     virtual int caretMinOffset() const;
     virtual int caretMaxOffset() const;
     virtual unsigned caretMaxRenderedOffset() const;
 
-    virtual VisiblePosition positionForCoordinates(int x, int y);
+    virtual VisiblePosition positionForPoint(const IntPoint&);
 
-    virtual InlineBox* inlineBox(int offset, EAffinity = UPSTREAM);
+protected:
+    virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
 
 private:
-    mutable short m_lineHeight;
+    mutable int m_lineHeight;
 };
 
 } // namespace WebCore

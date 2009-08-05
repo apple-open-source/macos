@@ -1,3 +1,8 @@
+namespace="HTML"
+namespacePrefix="xhtml"
+namespaceURI="http://www.w3.org/1999/xhtml"
+attrsNullNamespace
+
 abbr
 accept_charset
 accept
@@ -7,7 +12,19 @@ align
 alink
 alt
 archive
+aria-activedescendant
+aria-checked
+aria-describedby
+aria-labeledby
+aria-labelledby
+aria-level
+aria-pressed
+aria-valuemax
+aria-valuemin
+aria-valuenow
+autobuffer
 autocomplete
+autofocus
 autoplay
 autosave
 axis
@@ -26,7 +43,7 @@ charset
 checked
 cellborder
 cite
-class
+class exportString
 classid
 clear
 code
@@ -68,7 +85,6 @@ keytype
 label
 lang
 language
-left
 leftmargin
 link
 longdesc
@@ -77,6 +93,7 @@ playcount
 loopend
 loopstart
 lowsrc
+manifest
 marginheight
 marginwidth
 max
@@ -131,14 +148,14 @@ onscroll
 onsearch
 onselect
 onselectstart
+onstorage
 onsubmit
 onunload
-pagex
-pagey
+onwebkitanimationstart
+onwebkitanimationiteration
+onwebkitanimationend
+onwebkittransitionend
 placeholder
-plain
-pluginpage
-pluginspage
 pluginurl
 poster
 precision
@@ -148,6 +165,7 @@ readonly
 rel
 results
 rev
+role
 rows
 rowspan
 rules
@@ -160,6 +178,7 @@ selected
 shape
 size
 span
+spellcheck
 src
 standby
 start

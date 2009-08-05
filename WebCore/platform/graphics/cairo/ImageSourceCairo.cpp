@@ -26,18 +26,20 @@
 
 #include "config.h"
 #include "ImageSource.h"
-#include "SharedBuffer.h"
 
 #if PLATFORM(CAIRO)
 
+#include "BMPImageDecoder.h"
 #include "GIFImageDecoder.h"
+#include "ICOImageDecoder.h"
 #include "JPEGImageDecoder.h"
 #include "PNGImageDecoder.h"
-#include "BMPImageDecoder.h"
-#include "ICOImageDecoder.h"
-#include "XBMImageDecoder.h"
-
+#include "SharedBuffer.h"
 #include <cairo.h>
+
+#if !PLATFORM(WIN)
+#include "XBMImageDecoder.h"
+#endif
 
 namespace WebCore {
 
@@ -78,27 +80,38 @@ ImageDecoder* createDecoder(const Vector<char>& data)
         !memcmp(contents, "\000\000\002\000", 4))
         return new ICOImageDecoder();
 
+#if !PLATFORM(WIN)
     // XBMs require 8 bytes of info.
     if (length >= 8 && strncmp(contents, "#define ", 8) == 0)
         return new XBMImageDecoder();
+#endif
 
     // Give up. We don't know what the heck this is.
     return 0;
 }
 
 ImageSource::ImageSource()
-  : m_decoder(0)
-{}
+    : m_decoder(0)
+{
+}
 
 ImageSource::~ImageSource()
 {
-    clear();
+    clear(true);
 }
 
-void ImageSource::clear()
+void ImageSource::clear(bool destroyAll, size_t clearBeforeFrame, SharedBuffer* data, bool allDataReceived)
 {
+    if (!destroyAll) {
+        if (m_decoder)
+            m_decoder->clearFrameBufferCache(clearBeforeFrame);
+        return;
+    }
+
     delete m_decoder;
     m_decoder = 0;
+    if (data)
+        setData(data, allDataReceived);
 }
 
 bool ImageSource::initialized() const
@@ -121,6 +134,14 @@ void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
     m_decoder->setData(data, allDataReceived);
 }
 
+String ImageSource::filenameExtension() const
+{
+    if (!m_decoder)
+        return String();
+
+    return m_decoder->filenameExtension();
+}
+
 bool ImageSource::isSizeAvailable()
 {
     if (!m_decoder)
@@ -135,6 +156,11 @@ IntSize ImageSource::size() const
         return IntSize();
 
     return m_decoder->size();
+}
+
+IntSize ImageSource::frameSizeAtIndex(size_t) const
+{
+    return size();
 }
 
 int ImageSource::repetitionCount()
@@ -152,6 +178,9 @@ size_t ImageSource::frameCount() const
 
 NativeImagePtr ImageSource::createFrameAtIndex(size_t index)
 {
+    if (!initialized())
+        return 0;
+
     if (!m_decoder)
         return 0;
 

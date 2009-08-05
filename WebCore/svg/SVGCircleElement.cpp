@@ -26,7 +26,9 @@
 #include "SVGCircleElement.h"
 
 #include "FloatPoint.h"
+#include "MappedAttribute.h"
 #include "RenderPath.h"
+#include "SVGLength.h"
 #include "SVGNames.h"
 
 namespace WebCore {
@@ -36,9 +38,9 @@ SVGCircleElement::SVGCircleElement(const QualifiedName& tagName, Document* doc)
     , SVGTests()
     , SVGLangSpace()
     , SVGExternalResourcesRequired()
-    , m_cx(SVGLength(this, LengthModeWidth))
-    , m_cy(SVGLength(this, LengthModeHeight))
-    , m_r(SVGLength(this, LengthModeOther))
+    , m_cx(this, SVGNames::cxAttr, LengthModeWidth)
+    , m_cy(this, SVGNames::cyAttr, LengthModeHeight)
+    , m_r(this, SVGNames::rAttr, LengthModeOther)
 {
 }
 
@@ -46,19 +48,15 @@ SVGCircleElement::~SVGCircleElement()
 {
 }
 
-ANIMATED_PROPERTY_DEFINITIONS(SVGCircleElement, SVGLength, Length, length, Cx, cx, SVGNames::cxAttr, m_cx)
-ANIMATED_PROPERTY_DEFINITIONS(SVGCircleElement, SVGLength, Length, length, Cy, cy, SVGNames::cyAttr, m_cy)
-ANIMATED_PROPERTY_DEFINITIONS(SVGCircleElement, SVGLength, Length, length, R, r, SVGNames::rAttr, m_r)
-
 void SVGCircleElement::parseMappedAttribute(MappedAttribute* attr)
 {
     if (attr->name() == SVGNames::cxAttr)
-        setCxBaseValue(SVGLength(this, LengthModeWidth, attr->value()));       
+        setCxBaseValue(SVGLength(LengthModeWidth, attr->value()));       
     else if (attr->name() == SVGNames::cyAttr)
-        setCyBaseValue(SVGLength(this, LengthModeHeight, attr->value()));
+        setCyBaseValue(SVGLength(LengthModeHeight, attr->value()));
     else if (attr->name() == SVGNames::rAttr) {
-        setRBaseValue(SVGLength(this, LengthModeOther, attr->value()));
-        if (r().value() < 0.0)
+        setRBaseValue(SVGLength(LengthModeOther, attr->value()));
+        if (rBaseValue().value(this) < 0.0)
             document()->accessSVGExtensions()->reportError("A negative value for circle <r> is not allowed");
     } else {
         if (SVGTests::parseMappedAttribute(attr))
@@ -89,7 +87,7 @@ void SVGCircleElement::svgAttributeChanged(const QualifiedName& attrName)
 
 Path SVGCircleElement::toPathData() const
 {
-    return Path::createCircle(FloatPoint(cx().value(), cy().value()), r().value());
+    return Path::createCircle(FloatPoint(cx().value(this), cy().value(this)), r().value(this));
 }
 
 bool SVGCircleElement::hasRelativeValues() const

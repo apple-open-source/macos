@@ -39,6 +39,9 @@ namespace WebCore {
     public:
         virtual ~XPathNSResolver();
         virtual String lookupNamespaceURI(const String& prefix) = 0;
+        
+    protected:
+        XPathNSResolver() { }
     };
 
 }

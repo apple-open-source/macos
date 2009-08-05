@@ -26,6 +26,7 @@
 #include "config.h"
 #include "DeleteSelectionCommand.h"
 
+#include "CSSMutableStyleDeclaration.h"
 #include "Document.h"
 #include "DocumentFragment.h"
 #include "Editor.h"
@@ -38,6 +39,7 @@
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
 #include "markup.h"
+#include "RenderTableCell.h"
 #include "ReplaceSelectionCommand.h"
 #include "Text.h"
 #include "TextIterator.h"
@@ -55,9 +57,7 @@ static bool isTableRow(const Node* node)
 static bool isTableCellEmpty(Node* cell)
 {
     ASSERT(isTableCell(cell));
-    VisiblePosition firstInCell(Position(cell, 0));
-    VisiblePosition lastInCell(Position(cell, maxDeepOffset(cell)));
-    return firstInCell == lastInCell;
+    return VisiblePosition(firstDeepEditingPositionForNode(cell)) == VisiblePosition(lastDeepEditingPositionForNode(cell));
 }
 
 static bool isTableRowEmpty(Node* row)
@@ -79,6 +79,8 @@ DeleteSelectionCommand::DeleteSelectionCommand(Document *document, bool smartDel
       m_mergeBlocksAfterDelete(mergeBlocksAfterDelete),
       m_replace(replace),
       m_expandForSpecialElements(expandForSpecialElements),
+      m_pruneStartBlockIfNecessary(false),
+      m_startsAtEmptyLine(false),
       m_startBlock(0),
       m_endBlock(0),
       m_typingStyle(0),
@@ -86,13 +88,15 @@ DeleteSelectionCommand::DeleteSelectionCommand(Document *document, bool smartDel
 {
 }
 
-DeleteSelectionCommand::DeleteSelectionCommand(const Selection& selection, bool smartDelete, bool mergeBlocksAfterDelete, bool replace, bool expandForSpecialElements)
+DeleteSelectionCommand::DeleteSelectionCommand(const VisibleSelection& selection, bool smartDelete, bool mergeBlocksAfterDelete, bool replace, bool expandForSpecialElements)
     : CompositeEditCommand(selection.start().node()->document()), 
       m_hasSelectionToDelete(true), 
       m_smartDelete(smartDelete), 
       m_mergeBlocksAfterDelete(mergeBlocksAfterDelete),
       m_replace(replace),
       m_expandForSpecialElements(expandForSpecialElements),
+      m_pruneStartBlockIfNecessary(false),
+      m_startsAtEmptyLine(false),
       m_selectionToDelete(selection),
       m_startBlock(0),
       m_endBlock(0),
@@ -120,7 +124,7 @@ void DeleteSelectionCommand::initializeStartEnd(Position& start, Position& end)
     if (!m_expandForSpecialElements)
         return;
     
-    while (VisiblePosition(start) == m_selectionToDelete.visibleStart() && VisiblePosition(end) == m_selectionToDelete.visibleEnd()) {
+    while (1) {
         startSpecialContainer = 0;
         endSpecialContainer = 0;
     
@@ -128,6 +132,9 @@ void DeleteSelectionCommand::initializeStartEnd(Position& start, Position& end)
         Position e = positionAfterContainingSpecialElement(end, &endSpecialContainer);
         
         if (!startSpecialContainer && !endSpecialContainer)
+            break;
+            
+        if (VisiblePosition(start) != m_selectionToDelete.visibleStart() || VisiblePosition(end) != m_selectionToDelete.visibleEnd())
             break;
         
         // If we're going to expand to include the startSpecialContainer, it must be fully selected.
@@ -169,9 +176,11 @@ void DeleteSelectionCommand::initializePositionData()
     m_startTableRow = enclosingNodeOfType(start, &isTableRow);
     m_endTableRow = enclosingNodeOfType(end, &isTableRow);
     
-    Node* startCell = enclosingTableCell(m_upstreamStart);
-    Node* endCell = enclosingTableCell(m_downstreamEnd);
     // Don't move content out of a table cell.
+    // If the cell is non-editable, enclosingNodeOfType won't return it by default, so
+    // tell that function that we don't care if it returns non-editable nodes.
+    Node* startCell = enclosingNodeOfType(m_upstreamStart, &isTableCell, false);
+    Node* endCell = enclosingNodeOfType(m_downstreamEnd, &isTableCell, false);
     // FIXME: This isn't right.  A borderless table with two rows and a single column would appear as two paragraphs.
     if (endCell && endCell != startCell)
         m_mergeBlocksAfterDelete = false;
@@ -184,6 +193,19 @@ void DeleteSelectionCommand::initializePositionData()
         m_endingPosition = m_downstreamEnd;
     else
         m_endingPosition = m_downstreamStart;
+    
+    // We don't want to merge into a block if it will mean changing the quote level of content after deleting 
+    // selections that contain a whole number paragraphs plus a line break, since it is unclear to most users 
+    // that such a selection actually ends at the start of the next paragraph. This matches TextEdit behavior 
+    // for indented paragraphs.
+    // Only apply this rule if the endingSelection is a range selection.  If it is a caret, then other operations have created
+    // the selection we're deleting (like the process of creating a selection to delete during a backspace), and the user isn't in the situation described above.
+    if (numEnclosingMailBlockquotes(start) != numEnclosingMailBlockquotes(end) 
+            && isStartOfParagraph(visibleEnd) && isStartOfParagraph(VisiblePosition(start)) 
+            && endingSelection().isRange()) {
+        m_mergeBlocksAfterDelete = false;
+        m_pruneStartBlockIfNecessary = true;
+    }
 
     // Handle leading and trailing whitespace, as well as smart delete adjustments to the selection
     m_leadingWhitespace = m_upstreamStart.leadingWhitespacePosition(m_selectionToDelete.affinity());
@@ -221,20 +243,45 @@ void DeleteSelectionCommand::initializePositionData()
         }
     }
     
-    //
-    // Handle setting start and end blocks and the start node.
-    //
-    m_startBlock = m_downstreamStart.node()->enclosingBlockFlowOrTableElement();
-    m_endBlock = m_upstreamEnd.node()->enclosingBlockFlowOrTableElement();
+    // We must pass the positions through rangeCompliantEquivalent, since some editing positions
+    // that appear inside their nodes aren't really inside them.  [hr, 0] is one example.
+    // FIXME: rangeComplaintEquivalent should eventually be moved into enclosing element getters
+    // like the one below, since editing functions should obviously accept editing positions.
+    // FIXME: Passing false to enclosingNodeOfType tells it that it's OK to return a non-editable
+    // node.  This was done to match existing behavior, but it seems wrong.
+    m_startBlock = enclosingNodeOfType(rangeCompliantEquivalent(m_downstreamStart), &isBlock, false);
+    m_endBlock = enclosingNodeOfType(rangeCompliantEquivalent(m_upstreamEnd), &isBlock, false);
+}
+
+static void removeEnclosingAnchorStyle(CSSMutableStyleDeclaration* style, const Position& position)
+{
+    Node* enclosingAnchor = enclosingAnchorElement(position);
+    if (!enclosingAnchor || !enclosingAnchor->parentNode())
+        return;
+            
+    RefPtr<CSSMutableStyleDeclaration> parentStyle = Position(enclosingAnchor->parentNode(), 0).computedStyle()->copyInheritableProperties();
+    RefPtr<CSSMutableStyleDeclaration> anchorStyle = Position(enclosingAnchor, 0).computedStyle()->copyInheritableProperties();
+    parentStyle->diff(anchorStyle.get());
+    anchorStyle->diff(style);
 }
 
 void DeleteSelectionCommand::saveTypingStyleState()
 {
+    // A common case is deleting characters that are all from the same text node. In 
+    // that case, the style at the start of the selection before deletion will be the 
+    // same as the style at the start of the selection after deletion (since those
+    // two positions will be identical). Therefore there is no need to save the
+    // typing style at the start of the selection, nor is there a reason to 
+    // compute the style at the start of the selection after deletion (see the 
+    // early return in calculateTypingStyleAfterDelete).
+    if (m_upstreamStart.node() == m_downstreamEnd.node() && m_upstreamStart.node()->isTextNode())
+        return;
+        
     // Figure out the typing style in effect before the delete is done.
-    // FIXME: Improve typing style.
-    // See this bug: <rdar://problem/3769899> Implementation of typing style needs improvement
     RefPtr<CSSComputedStyleDeclaration> computedStyle = positionBeforeTabSpan(m_selectionToDelete.start()).computedStyle();
     m_typingStyle = computedStyle->copyInheritableProperties();
+    
+    removeEnclosingAnchorStyle(m_typingStyle.get(), m_selectionToDelete.start());
     
     // If we're deleting into a Mail blockquote, save the style at end() instead of start()
     // We'll use this later in computeTypingStyleAfterDelete if we end up outside of a Mail blockquote
@@ -259,7 +306,7 @@ bool DeleteSelectionCommand::handleSpecialCaseBRDelete()
     // Not a special-case delete per se, but we can detect that the merging of content between blocks
     // should not be done.
     if (upstreamStartIsBR && downstreamStartIsBR) {
-        m_mergeBlocksAfterDelete = false;
+        m_startsAtEmptyLine = true;
         m_endingPosition = m_downstreamEnd;
     }
     
@@ -270,13 +317,13 @@ static void updatePositionForNodeRemoval(Node* node, Position& position)
 {
     if (position.isNull())
         return;
-    if (node->parent() == position.node() && node->nodeIndex() < (unsigned)position.offset())
-        position = Position(position.node(), position.offset() - 1);
+    if (node->parent() == position.node() && node->nodeIndex() < (unsigned)position.deprecatedEditingOffset())
+        position = Position(position.node(), position.deprecatedEditingOffset() - 1);
     if (position.node() == node || position.node()->isDescendantOf(node))
         position = positionBeforeNode(node);
 }
 
-void DeleteSelectionCommand::removeNode(Node *node)
+void DeleteSelectionCommand::removeNode(PassRefPtr<Node> node)
 {
     if (!node)
         return;
@@ -303,12 +350,12 @@ void DeleteSelectionCommand::removeNode(Node *node)
         }
     }
     
-    if (isTableStructureNode(node) || node == node->rootEditableElement()) {
+    if (isTableStructureNode(node.get()) || node == node->rootEditableElement()) {
         // Do not remove an element of table structure; remove its contents.
         // Likewise for the root editable element.
-        Node *child = node->firstChild();
+        Node* child = node->firstChild();
         while (child) {
-            Node *remove = child;
+            Node* remove = child;
             child = child->nextSibling();
             removeNode(remove);
         }
@@ -316,48 +363,48 @@ void DeleteSelectionCommand::removeNode(Node *node)
         // make sure empty cell has some height
         updateLayout();
         RenderObject *r = node->renderer();
-        if (r && r->isTableCell() && r->contentHeight() <= 0)
+        if (r && r->isTableCell() && static_cast<RenderTableCell*>(r)->contentHeight() <= 0)
             insertBlockPlaceholder(Position(node,0));
         return;
     }
     
-    if (node == m_startBlock && !isEndOfBlock(VisiblePosition(m_startBlock.get(), 0, DOWNSTREAM).previous()))
+    if (node == m_startBlock && !isEndOfBlock(VisiblePosition(firstDeepEditingPositionForNode(m_startBlock.get())).previous()))
         m_needPlaceholder = true;
-    else if (node == m_endBlock && !isStartOfBlock(VisiblePosition(m_endBlock.get(), maxDeepOffset(m_endBlock.get()), DOWNSTREAM).next()))
+    else if (node == m_endBlock && !isStartOfBlock(VisiblePosition(lastDeepEditingPositionForNode(m_startBlock.get())).next()))
         m_needPlaceholder = true;
     
     // FIXME: Update the endpoints of the range being deleted.
-    updatePositionForNodeRemoval(node, m_endingPosition);
-    updatePositionForNodeRemoval(node, m_leadingWhitespace);
-    updatePositionForNodeRemoval(node, m_trailingWhitespace);
+    updatePositionForNodeRemoval(node.get(), m_endingPosition);
+    updatePositionForNodeRemoval(node.get(), m_leadingWhitespace);
+    updatePositionForNodeRemoval(node.get(), m_trailingWhitespace);
     
     CompositeEditCommand::removeNode(node);
 }
 
-
-void updatePositionForTextRemoval(Node* node, int offset, int count, Position& position)
+static void updatePositionForTextRemoval(Node* node, int offset, int count, Position& position)
 {
     if (position.node() == node) {
-        if (position.offset() > offset + count)
-            position = Position(position.node(), position.offset() - count);
-        else if (position.offset() > offset)
+        if (position.deprecatedEditingOffset() > offset + count)
+            position = Position(position.node(), position.deprecatedEditingOffset() - count);
+        else if (position.deprecatedEditingOffset() > offset)
             position = Position(position.node(), offset);
     }
 }
 
-void DeleteSelectionCommand::deleteTextFromNode(Text *node, int offset, int count)
+void DeleteSelectionCommand::deleteTextFromNode(PassRefPtr<Text> node, unsigned offset, unsigned count)
 {
     // FIXME: Update the endpoints of the range being deleted.
-    updatePositionForTextRemoval(node, offset, count, m_endingPosition);
-    updatePositionForTextRemoval(node, offset, count, m_leadingWhitespace);
-    updatePositionForTextRemoval(node, offset, count, m_trailingWhitespace);
+    updatePositionForTextRemoval(node.get(), offset, count, m_endingPosition);
+    updatePositionForTextRemoval(node.get(), offset, count, m_leadingWhitespace);
+    updatePositionForTextRemoval(node.get(), offset, count, m_trailingWhitespace);
+    updatePositionForTextRemoval(node.get(), offset, count, m_downstreamEnd);
     
     CompositeEditCommand::deleteTextFromNode(node, offset, count);
 }
 
 void DeleteSelectionCommand::handleGeneralDelete()
 {
-    int startOffset = m_upstreamStart.offset();
+    int startOffset = m_upstreamStart.deprecatedEditingOffset();
     Node* startNode = m_upstreamStart.node();
     
     // Never remove the start block unless it's a table, in which case we won't merge content in.
@@ -372,7 +419,7 @@ void DeleteSelectionCommand::handleGeneralDelete()
             deleteTextFromNode(text, caretMaxOffset(startNode), text->length() - caretMaxOffset(startNode));
     }
 
-    if (startOffset >= maxDeepOffset(startNode)) {
+    if (startOffset >= lastOffsetForEditing(startNode)) {
         startNode = startNode->traverseNextSibling();
         startOffset = 0;
     }
@@ -383,17 +430,16 @@ void DeleteSelectionCommand::handleGeneralDelete()
 
     if (startNode == m_downstreamEnd.node()) {
         // The selection to delete is all in one node.
-        if (!startNode->renderer() || 
-            (startOffset == 0 && m_downstreamEnd.offset() >= maxDeepOffset(startNode))) {
+        if (!startNode->renderer() || (startOffset == 0 && m_downstreamEnd.atLastEditingPositionForNode())) {
             // just delete
             removeNode(startNode);
-        } else if (m_downstreamEnd.offset() - startOffset > 0) {
+        } else if (m_downstreamEnd.deprecatedEditingOffset() - startOffset > 0) {
             if (startNode->isTextNode()) {
                 // in a text node that needs to be trimmed
-                Text *text = static_cast<Text *>(startNode);
-                deleteTextFromNode(text, startOffset, m_downstreamEnd.offset() - startOffset);
+                Text* text = static_cast<Text*>(startNode);
+                deleteTextFromNode(text, startOffset, m_downstreamEnd.deprecatedEditingOffset() - startOffset);
             } else {
-                removeChildrenInRange(startNode, startOffset, m_downstreamEnd.offset());
+                removeChildrenInRange(startNode, startOffset, m_downstreamEnd.deprecatedEditingOffset());
                 m_endingPosition = m_upstreamStart;
             }
         }
@@ -424,14 +470,14 @@ void DeleteSelectionCommand::handleGeneralDelete()
                 // if we just removed a node from the end container, update end position so the
                 // check above will work
                 if (node->parentNode() == m_downstreamEnd.node()) {
-                    ASSERT(node->nodeIndex() < (unsigned)m_downstreamEnd.offset());
-                    m_downstreamEnd = Position(m_downstreamEnd.node(), m_downstreamEnd.offset() - 1);
+                    ASSERT(node->nodeIndex() < (unsigned)m_downstreamEnd.deprecatedEditingOffset());
+                    m_downstreamEnd = Position(m_downstreamEnd.node(), m_downstreamEnd.deprecatedEditingOffset() - 1);
                 }
                 removeNode(node.get());
                 node = nextNode.get();
             } else {
                 Node* n = node->lastDescendant();
-                if (m_downstreamEnd.node() == n && m_downstreamEnd.offset() >= caretMaxOffset(n)) {
+                if (m_downstreamEnd.node() == n && m_downstreamEnd.deprecatedEditingOffset() >= caretMaxOffset(n)) {
                     removeNode(node.get());
                     node = 0;
                 } else
@@ -439,17 +485,16 @@ void DeleteSelectionCommand::handleGeneralDelete()
             }
         }
         
-        if (m_downstreamEnd.node() != startNode && !m_upstreamStart.node()->isDescendantOf(m_downstreamEnd.node()) && m_downstreamEnd.node()->inDocument() && m_downstreamEnd.offset() >= caretMinOffset(m_downstreamEnd.node())) {
-            if (m_downstreamEnd.offset() >= maxDeepOffset(m_downstreamEnd.node()) && !canHaveChildrenForEditing(m_downstreamEnd.node())) {
+        if (m_downstreamEnd.node() != startNode && !m_upstreamStart.node()->isDescendantOf(m_downstreamEnd.node()) && m_downstreamEnd.node()->inDocument() && m_downstreamEnd.deprecatedEditingOffset() >= caretMinOffset(m_downstreamEnd.node())) {
+            if (m_downstreamEnd.atLastEditingPositionForNode() && !canHaveChildrenForEditing(m_downstreamEnd.node())) {
                 // The node itself is fully selected, not just its contents.  Delete it.
                 removeNode(m_downstreamEnd.node());
             } else {
                 if (m_downstreamEnd.node()->isTextNode()) {
                     // in a text node that needs to be trimmed
                     Text *text = static_cast<Text *>(m_downstreamEnd.node());
-                    if (m_downstreamEnd.offset() > 0) {
-                        deleteTextFromNode(text, 0, m_downstreamEnd.offset());
-                        m_downstreamEnd = Position(text, 0);
+                    if (m_downstreamEnd.deprecatedEditingOffset() > 0) {
+                        deleteTextFromNode(text, 0, m_downstreamEnd.deprecatedEditingOffset());
                     }
                 // Remove children of m_downstreamEnd.node() that come after m_upstreamStart.
                 // Don't try to remove children if m_upstreamStart was inside m_downstreamEnd.node()
@@ -466,7 +511,7 @@ void DeleteSelectionCommand::handleGeneralDelete()
                         if (n)
                             offset = n->nodeIndex() + 1;
                     }
-                    removeChildrenInRange(m_downstreamEnd.node(), offset, m_downstreamEnd.offset());
+                    removeChildrenInRange(m_downstreamEnd.node(), offset, m_downstreamEnd.deprecatedEditingOffset());
                     m_downstreamEnd = Position(m_downstreamEnd.node(), offset);
                 }
             }
@@ -481,12 +526,12 @@ void DeleteSelectionCommand::fixupWhitespace()
     if (m_leadingWhitespace.isNotNull() && !m_leadingWhitespace.isRenderedCharacter()) {
         Text* textNode = static_cast<Text*>(m_leadingWhitespace.node());
         ASSERT(!textNode->renderer() || textNode->renderer()->style()->collapseWhiteSpace());
-        replaceTextInNode(textNode, m_leadingWhitespace.offset(), 1, nonBreakingSpaceString());
+        replaceTextInNode(textNode, m_leadingWhitespace.deprecatedEditingOffset(), 1, nonBreakingSpaceString());
     }
     if (m_trailingWhitespace.isNotNull() && !m_trailingWhitespace.isRenderedCharacter()) {
         Text* textNode = static_cast<Text*>(m_trailingWhitespace.node());
         ASSERT(!textNode->renderer() ||textNode->renderer()->style()->collapseWhiteSpace());
-        replaceTextInNode(textNode, m_trailingWhitespace.offset(), 1, nonBreakingSpaceString());
+        replaceTextInNode(textNode, m_trailingWhitespace.deprecatedEditingOffset(), 1, nonBreakingSpaceString());
     }
 }
 
@@ -494,8 +539,21 @@ void DeleteSelectionCommand::fixupWhitespace()
 // start together with content after the end.
 void DeleteSelectionCommand::mergeParagraphs()
 {
-    if (!m_mergeBlocksAfterDelete)
+    if (!m_mergeBlocksAfterDelete) {
+        if (m_pruneStartBlockIfNecessary) {
+            // Make sure that the ending position isn't inside the block we're about to prune.
+            m_endingPosition = m_downstreamEnd;
+            // We aren't going to merge into the start block, so remove it if it's empty.
+            prune(m_startBlock);
+            // Removing the start block during a deletion is usually an indication that we need
+            // a placeholder, but not in this case.
+            m_needPlaceholder = false;
+        }
         return;
+    }
+    
+    // It shouldn't have been asked to both try and merge content into the start block and prune it.
+    ASSERT(!m_pruneStartBlockIfNecessary);
 
     // FIXME: Deletion should adjust selection endpoints as it removes nodes so that we never get into this state (4099839).
     if (!m_downstreamEnd.node()->inDocument() || !m_upstreamStart.node()->inDocument())
@@ -505,9 +563,8 @@ void DeleteSelectionCommand::mergeParagraphs()
     if (Range::compareBoundaryPoints(m_upstreamStart, m_downstreamEnd) > 0)
         return;
         
-    // FIXME: Merging will always be unnecessary in this case, but we really bail here because this is a case where
-    // deletion commonly fails to adjust its endpoints, which would cause the visible position comparison below to false negative.
-    if (m_endBlock == m_startBlock)
+    // There's nothing to merge.
+    if (m_upstreamStart == m_downstreamEnd)
         return;
         
     VisiblePosition startOfParagraphToMove(m_downstreamEnd);
@@ -522,7 +579,7 @@ void DeleteSelectionCommand::mergeParagraphs()
     }
     
     // We need to merge into m_upstreamStart's block, but it's been emptied out and collapsed by deletion.
-    if (!mergeDestination.deepEquivalent().node() || !mergeDestination.deepEquivalent().node()->isDescendantOf(m_upstreamStart.node()->enclosingBlockFlowElement())) {
+    if (!mergeDestination.deepEquivalent().node() || !mergeDestination.deepEquivalent().node()->isDescendantOf(m_upstreamStart.node()->enclosingBlockFlowElement()) || m_startsAtEmptyLine) {
         insertNodeAt(createBreakElement(document()).get(), m_upstreamStart);
         mergeDestination = VisiblePosition(m_upstreamStart);
     }
@@ -537,18 +594,15 @@ void DeleteSelectionCommand::mergeParagraphs()
     
     // The rule for merging into an empty block is: only do so if its farther to the right.
     // FIXME: Consider RTL.
-    // FIXME: handleSpecialCaseBRDelete prevents us from getting here in a case like <ul><li>foo<br><br></li></ul>^foo
-    if (isStartOfParagraph(mergeDestination) && 
-        startOfParagraphToMove.deepEquivalent().node()->renderer()->caretRect(startOfParagraphToMove.deepEquivalent().offset()).location().x() >
-        mergeDestination.deepEquivalent().node()->renderer()->caretRect(startOfParagraphToMove.deepEquivalent().offset()).location().x()) {
+    if (!m_startsAtEmptyLine && isStartOfParagraph(mergeDestination) && startOfParagraphToMove.absoluteCaretBounds().x() > mergeDestination.absoluteCaretBounds().x()) {
         ASSERT(mergeDestination.deepEquivalent().downstream().node()->hasTagName(brTag));
         removeNodeAndPruneAncestors(mergeDestination.deepEquivalent().downstream().node());
         m_endingPosition = startOfParagraphToMove.deepEquivalent();
         return;
     }
     
-    RefPtr<Range> range = new Range(document(), rangeCompliantEquivalent(startOfParagraphToMove.deepEquivalent()), rangeCompliantEquivalent(endOfParagraphToMove.deepEquivalent()));
-    RefPtr<Range> rangeToBeReplaced = new Range(document(), rangeCompliantEquivalent(mergeDestination.deepEquivalent()), rangeCompliantEquivalent(mergeDestination.deepEquivalent()));
+    RefPtr<Range> range = Range::create(document(), rangeCompliantEquivalent(startOfParagraphToMove.deepEquivalent()), rangeCompliantEquivalent(endOfParagraphToMove.deepEquivalent()));
+    RefPtr<Range> rangeToBeReplaced = Range::create(document(), rangeCompliantEquivalent(mergeDestination.deepEquivalent()), rangeCompliantEquivalent(mergeDestination.deepEquivalent()));
     if (!document()->frame()->editor()->client()->shouldMoveRangeAfterDelete(range.get(), rangeToBeReplaced.get()))
         return;
     
@@ -598,45 +652,53 @@ void DeleteSelectionCommand::removePreviouslySelectedEmptyTableRows()
         }
 }
 
-void DeleteSelectionCommand::calculateTypingStyleAfterDelete(Node *insertedPlaceholder)
+void DeleteSelectionCommand::calculateTypingStyleAfterDelete()
 {
+    if (!m_typingStyle)
+        return;
+        
     // Compute the difference between the style before the delete and the style now
     // after the delete has been done. Set this style on the frame, so other editing
     // commands being composed with this one will work, and also cache it on the command,
     // so the Frame::appliedEditing can set it after the whole composite command 
     // has completed.
-    // FIXME: Improve typing style.
-    // See this bug: <rdar://problem/3769899> Implementation of typing style needs improvement
     
     // If we deleted into a blockquote, but are now no longer in a blockquote, use the alternate typing style
     if (m_deleteIntoBlockquoteStyle && !nearestMailBlockquote(m_endingPosition.node()))
         m_typingStyle = m_deleteIntoBlockquoteStyle;
     m_deleteIntoBlockquoteStyle = 0;
     
-    RefPtr<CSSComputedStyleDeclaration> endingStyle = new CSSComputedStyleDeclaration(m_endingPosition.node());
+    RefPtr<CSSComputedStyleDeclaration> endingStyle = computedStyle(m_endingPosition.node());
     endingStyle->diff(m_typingStyle.get());
     if (!m_typingStyle->length())
         m_typingStyle = 0;
-    if (insertedPlaceholder && m_typingStyle) {
-        // Apply style to the placeholder. This makes sure that the single line in the
-        // paragraph has the right height, and that the paragraph takes on the style
-        // of the preceding line and retains it even if you click away, click back, and
-        // then start typing. In this case, the typing style is applied right now, and
-        // is not retained until the next typing action.
+    VisiblePosition visibleEnd(m_endingPosition);
+    if (m_typingStyle && 
+        isStartOfParagraph(visibleEnd) &&
+        isEndOfParagraph(visibleEnd) &&
+        lineBreakExistsAtVisiblePosition(visibleEnd)) {
+        // Apply style to the placeholder that is now holding open the empty paragraph. 
+        // This makes sure that the paragraph has the right height, and that the paragraph 
+        // takes on the right style and retains it even if you move the selection away and
+        // then move it back (which will clear typing style).
 
-        setEndingSelection(Selection(Position(insertedPlaceholder, 0), DOWNSTREAM));
+        setEndingSelection(visibleEnd);
         applyStyle(m_typingStyle.get(), EditActionUnspecified);
+        // applyStyle can destroy the placeholder that was at m_endingPosition if it needs to 
+        // move it, but it will set an endingSelection() at [movedPlaceholder, 0] if it does so.
+        m_endingPosition = endingSelection().start();
         m_typingStyle = 0;
     }
-    // Set m_typingStyle as the typing style.
-    // It's perfectly OK for m_typingStyle to be null.
+    // This is where we've deleted all traces of a style but not a whole paragraph (that's handled above).
+    // In this case if we start typing, the new characters should have the same style as the just deleted ones,
+    // but, if we change the selection, come back and start typing that style should be lost.  Also see 
+    // preserveTypingStyle() below.
     document()->frame()->setTypingStyle(m_typingStyle.get());
-    setTypingStyle(m_typingStyle.get());
 }
 
 void DeleteSelectionCommand::clearTransientState()
 {
-    m_selectionToDelete = Selection();
+    m_selectionToDelete = VisibleSelection();
     m_upstreamStart.clear();
     m_downstreamStart.clear();
     m_upstreamEnd.clear();
@@ -644,22 +706,6 @@ void DeleteSelectionCommand::clearTransientState()
     m_endingPosition.clear();
     m_leadingWhitespace.clear();
     m_trailingWhitespace.clear();
-}
-
-void DeleteSelectionCommand::saveFullySelectedAnchor()
-{
-    // If we're deleting an entire anchor element, save it away so that it can be restored
-    // when the user begins entering text.
-    VisiblePosition visibleStart = m_selectionToDelete.visibleStart();
-    VisiblePosition visibleEnd = m_selectionToDelete.visibleEnd();
-    Node* startAnchor = enclosingNodeWithTag(visibleStart.deepEquivalent().downstream(), aTag);
-    Node* endAnchor = enclosingNodeWithTag(visibleEnd.deepEquivalent().upstream(), aTag);
-
-    Node* beforeStartAnchor = enclosingNodeWithTag(visibleStart.previous().deepEquivalent().downstream(), aTag);
-    Node* afterEndAnchor = enclosingNodeWithTag(visibleEnd.next().deepEquivalent().upstream(), aTag);
-
-    if (startAnchor && startAnchor == endAnchor && startAnchor != beforeStartAnchor && endAnchor != afterEndAnchor)
-        document()->frame()->editor()->setRemovedAnchor(startAnchor->cloneNode(false));
 }
 
 void DeleteSelectionCommand::doApply()
@@ -688,7 +734,7 @@ void DeleteSelectionCommand::doApply()
     Position downstreamEnd = m_selectionToDelete.end().downstream();
     m_needPlaceholder = isStartOfParagraph(m_selectionToDelete.visibleStart()) &&
                         isEndOfParagraph(m_selectionToDelete.visibleEnd()) &&
-                        !lineBreakExistsAtPosition(m_selectionToDelete.visibleEnd());
+                        !lineBreakExistsAtVisiblePosition(m_selectionToDelete.visibleEnd());
     if (m_needPlaceholder) {
         // Don't need a placeholder when deleting a selection that starts just before a table
         // and ends inside it (we do need placeholders to hold open empty cells, but that's
@@ -701,28 +747,17 @@ void DeleteSelectionCommand::doApply()
     
     // set up our state
     initializePositionData();
-    if (!m_startBlock || !m_endBlock) {
-        // Can't figure out what blocks we're in. This can happen if
-        // the document structure is not what we are expecting, like if
-        // the document has no body element, or if the editable block
-        // has been changed to display: inline. Some day it might
-        // be nice to be able to deal with this, but for now, bail.
-        clearTransientState();
-        return;
-    }
 
     // Delete any text that may hinder our ability to fixup whitespace after the delete
     deleteInsignificantTextDownstream(m_trailingWhitespace);    
 
     saveTypingStyleState();
     
-    saveFullySelectedAnchor();
-    
     // deleting just a BR is handled specially, at least because we do not
     // want to replace it with a placeholder BR!
     if (handleSpecialCaseBRDelete()) {
-        calculateTypingStyleAfterDelete(false);
-        setEndingSelection(Selection(m_endingPosition, affinity));
+        calculateTypingStyleAfterDelete();
+        setEndingSelection(VisibleSelection(m_endingPosition, affinity));
         clearTransientState();
         rebalanceWhitespace();
         return;
@@ -743,9 +778,9 @@ void DeleteSelectionCommand::doApply()
 
     rebalanceWhitespaceAt(m_endingPosition);
 
-    calculateTypingStyleAfterDelete(placeholder.get());
+    calculateTypingStyleAfterDelete();
     
-    setEndingSelection(Selection(m_endingPosition, affinity));
+    setEndingSelection(VisibleSelection(m_endingPosition, affinity));
     clearTransientState();
 }
 
@@ -757,9 +792,12 @@ EditAction DeleteSelectionCommand::editingAction() const
     return EditActionCut;
 }
 
+// Normally deletion doesn't preserve the typing style that was present before it.  For example,
+// type a character, Bold, then delete the character and start typing.  The Bold typing style shouldn't
+// stick around.  Deletion should preserve a typing style that *it* sets, however.
 bool DeleteSelectionCommand::preservesTypingStyle() const
 {
-    return true;
+    return m_typingStyle;
 }
 
 } // namespace WebCore

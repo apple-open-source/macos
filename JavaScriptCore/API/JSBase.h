@@ -1,4 +1,3 @@
-// -*- mode: c++; c-basic-offset: 4 -*-
 /*
  * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
  *
@@ -27,9 +26,14 @@
 #ifndef JSBase_h
 #define JSBase_h
 
+#ifndef __cplusplus
 #include <stdbool.h>
+#endif
 
 /* JavaScript engine interface */
+
+/*! @typedef JSContextGroupRef A group that associates JavaScript contexts with one another. Contexts in the same group may share and exchange JavaScript objects. */
+typedef const struct OpaqueJSContextGroup* JSContextGroupRef;
 
 /*! @typedef JSContextRef A JavaScript execution context. Holds the global object and other execution state. */
 typedef const struct OpaqueJSContext* JSContextRef;
@@ -61,12 +65,20 @@ typedef struct OpaqueJSValue* JSObjectRef;
 /* JavaScript symbol exports */
 
 #undef JS_EXPORT
-#if defined(__GNUC__)
+#if defined(BUILDING_WX__)
+    #define JS_EXPORT
+#elif defined(__GNUC__)
     #define JS_EXPORT __attribute__((visibility("default")))
 #elif defined(WIN32) || defined(_WIN32)
-    // TODO: Export symbols with JS_EXPORT when using MSVC.
-    // See http://bugs.webkit.org/show_bug.cgi?id=16227
-    #define JS_EXPORT
+    /*
+     * TODO: Export symbols with JS_EXPORT when using MSVC.
+     * See http://bugs.webkit.org/show_bug.cgi?id=16227
+     */
+    #if defined(BUILDING_JavaScriptCore) || defined(BUILDING_WTF)
+    #define JS_EXPORT __declspec(dllexport)
+    #else
+    #define JS_EXPORT __declspec(dllimport)
+    #endif
 #else
     #define JS_EXPORT
 #endif
@@ -78,7 +90,7 @@ extern "C" {
 /* Script Evaluation */
 
 /*!
-@function
+@function JSEvaluateScript
 @abstract Evaluates a string of JavaScript.
 @param ctx The execution context to use.
 @param script A JSString containing the script to evaluate.
@@ -103,18 +115,17 @@ JS_EXPORT JSValueRef JSEvaluateScript(JSContextRef ctx, JSStringRef script, JSOb
 JS_EXPORT bool JSCheckScriptSyntax(JSContextRef ctx, JSStringRef script, JSStringRef sourceURL, int startingLineNumber, JSValueRef* exception);
 
 /*!
-@function
+@function JSGarbageCollect
 @abstract Performs a JavaScript garbage collection. 
-@param ctx This parameter is currently unused. Pass NULL.
+@param ctx The execution context to use.
 @discussion JavaScript values that are on the machine stack, in a register, 
  protected by JSValueProtect, set as the global object of an execution context, 
- or reachable from any such value will not be collected. 
- 
+ or reachable from any such value will not be collected.
+
  During JavaScript execution, you are not required to call this function; the 
- JavaScript engine will garbage collect as needed. One place you may want to call 
- this function, however, is after releasing the last reference to a JSGlobalContextRef. 
- At that point, a garbage collection can free the objects still referenced by the 
- JSGlobalContextRef's global object, along with the global object itself.
+ JavaScript engine will garbage collect as needed. JavaScript values created
+ within a context group are automatically destroyed when the last reference
+ to the context group is released.
 */
 JS_EXPORT void JSGarbageCollect(JSContextRef ctx);
 
@@ -122,4 +133,4 @@ JS_EXPORT void JSGarbageCollect(JSContextRef ctx);
 }
 #endif
 
-#endif // JSBase_h
+#endif /* JSBase_h */

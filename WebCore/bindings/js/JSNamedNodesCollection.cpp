@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,35 +27,37 @@
 #include "JSNamedNodesCollection.h"
 
 #include "AtomicString.h"
-#include "NamedAttrMap.h"
-#include "Node.h"
-#include "kjs_dom.h"
+#include "Element.h"
+#include "JSNode.h"
+#include "NamedNodeMap.h"
 
 namespace WebCore {
 
-using namespace KJS;
+using namespace JSC;
 
-const ClassInfo JSNamedNodesCollection::info = { "Collection", 0, 0 };
+ASSERT_CLASS_FITS_IN_CELL(JSNamedNodesCollection);
+
+const ClassInfo JSNamedNodesCollection::s_info = { "Collection", 0, 0, 0 };
 
 // Such a collection is usually very short-lived, it only exists
 // for constructs like document.forms.<name>[1],
 // so it shouldn't be a problem that it's storing all the nodes (with the same name). (David)
-JSNamedNodesCollection::JSNamedNodesCollection(KJS::JSObject* prototype, const Vector<RefPtr<Node> >& nodes)
-    : KJS::DOMObject(prototype)
-    , m_nodes(nodes)
+JSNamedNodesCollection::JSNamedNodesCollection(ExecState* exec, const Vector<RefPtr<Node> >& nodes)
+    : DOMObject(getDOMStructure<JSNamedNodesCollection>(exec))
+    , m_nodes(new Vector<RefPtr<Node> >(nodes))
 {
 }
 
-JSValue* JSNamedNodesCollection::lengthGetter(ExecState* exec, JSObject* originalObject, const Identifier& propertyName, const PropertySlot& slot)
+JSValue JSNamedNodesCollection::lengthGetter(ExecState* exec, const Identifier&, const PropertySlot& slot)
 {
-    JSNamedNodesCollection* thisObj = static_cast<JSNamedNodesCollection*>(slot.slotBase());
-    return jsNumber(thisObj->m_nodes.size());
+    JSNamedNodesCollection* thisObj = static_cast<JSNamedNodesCollection*>(asObject(slot.slotBase()));
+    return jsNumber(exec, thisObj->m_nodes->size());
 }
 
-JSValue* JSNamedNodesCollection::indexGetter(ExecState* exec, JSObject* originalObject, const Identifier& propertyName, const PropertySlot& slot)
+JSValue JSNamedNodesCollection::indexGetter(ExecState* exec, const Identifier&, const PropertySlot& slot)
 {
-    JSNamedNodesCollection *thisObj = static_cast<JSNamedNodesCollection*>(slot.slotBase());
-    return toJS(exec, thisObj->m_nodes[slot.index()].get());
+    JSNamedNodesCollection *thisObj = static_cast<JSNamedNodesCollection*>(asObject(slot.slotBase()));
+    return toJS(exec, (*thisObj->m_nodes)[slot.index()].get());
 }
 
 bool JSNamedNodesCollection::getOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
@@ -67,7 +69,7 @@ bool JSNamedNodesCollection::getOwnPropertySlot(ExecState* exec, const Identifie
 
     bool ok;
     unsigned index = propertyName.toUInt32(&ok);
-    if (ok && index < m_nodes.size()) {
+    if (ok && index < m_nodes->size()) {
         slot.setCustomIndex(this, index, indexGetter);
         return true;
     }
@@ -76,8 +78,8 @@ bool JSNamedNodesCollection::getOwnPropertySlot(ExecState* exec, const Identifie
     // document.formName.name result by id as well as be index.
 
     AtomicString atomicPropertyName = propertyName;
-    for (unsigned i = 0; i < m_nodes.size(); i++) {
-        Node* node = m_nodes[i].get();
+    for (unsigned i = 0; i < m_nodes->size(); i++) {
+        Node* node = (*m_nodes)[i].get();
         if (node->hasAttributes() && node->attributes()->id() == atomicPropertyName) {
             slot.setCustomIndex(this, i, indexGetter);
             return true;

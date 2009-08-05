@@ -3,7 +3,7 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
  * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
- * Copyright (C) 2007 Trolltech ASA
+ * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -29,19 +29,16 @@
 
 namespace WebCore {
 
-TagNodeList::TagNodeList(PassRefPtr<Node> rootNode, const AtomicString& namespaceURI, const AtomicString& localName)
-    : DynamicNodeList(rootNode)
+TagNodeList::TagNodeList(PassRefPtr<Node> rootNode, const AtomicString& namespaceURI, const AtomicString& localName, DynamicNodeList::Caches* caches)
+    : DynamicNodeList(rootNode, caches)
     , m_namespaceURI(namespaceURI)
     , m_localName(localName)
 {
     ASSERT(m_namespaceURI.isNull() || !m_namespaceURI.isEmpty());
 }
 
-bool TagNodeList::nodeMatches(Node* testNode) const
+bool TagNodeList::nodeMatches(Element* testNode) const
 {
-    if (!testNode->isElementNode())
-        return false;
-
     if (m_namespaceURI != starAtom && m_namespaceURI != testNode->namespaceURI())
         return false;
 

@@ -1,4 +1,3 @@
-// -*- mode: c++; c-basic-offset: 4 -*-
 /*
  * Copyright (C) 2003, 2006 Apple Computer, Inc.  All rights reserved.
  * Copyright (C) 2006 Samuel Weinig <sam.weinig@gmail.com>
@@ -30,14 +29,16 @@
 
 #include "ResourceRequestBase.h"
 
+QT_BEGIN_NAMESPACE
 class QNetworkRequest;
+QT_END_NAMESPACE
 
 namespace WebCore {
 
     struct ResourceRequest : ResourceRequestBase {
 
         ResourceRequest(const String& url) 
-            : ResourceRequestBase(KURL(url.deprecatedString()), UseProtocolCachePolicy)
+            : ResourceRequestBase(KURL(url), UseProtocolCachePolicy)
         {
         }
 

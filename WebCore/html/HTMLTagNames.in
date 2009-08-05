@@ -1,107 +1,117 @@
-a
-abbr
-acronym
-address
+namespace="HTML"
+namespacePrefix="xhtml"
+namespaceURI="http://www.w3.org/1999/xhtml"
+
+a interfaceName=HTMLAnchorElement
+abbr interfaceName=HTMLElement
+acronym interfaceName=HTMLElement
+address interfaceName=HTMLElement
 applet
 area
-audio
-b
+#if ENABLE_VIDEO
+audio wrapperOnlyIfMediaIsAvailable
+#endif
+b interfaceName=HTMLElement
 base
-basefont
-bdo
-big
+basefont interfaceName=HTMLBaseFontElement
+bdo interfaceName=HTMLElement
+big interfaceName=HTMLElement
 blockquote
 body
-br
-button
+br interfaceName=HTMLBRElement
+button constructorNeedsFormElement
 canvas
-caption
-center
-cite
-code
-col
-colgroup
-dd
-del
-dfn
-dir
+caption interfaceName=HTMLTableCaptionElement
+center interfaceName=HTMLElement
+cite interfaceName=HTMLElement
+code interfaceName=HTMLElement
+col interfaceName=HTMLTableColElement
+colgroup interfaceName=HTMLTableColElement
+dd interfaceName=HTMLElement
+del interfaceName=HTMLModElement
+dfn interfaceName=HTMLElement
+dir interfaceName=HTMLDirectoryElement
 div
-dl
-dt
-em
+dl interfaceName=HTMLDListElement
+dt interfaceName=HTMLElement
+em interfaceName=HTMLElement
 embed
-fieldset
+fieldset interfaceName=HTMLFieldSetElement, constructorNeedsFormElement
 font
 form
 frame
-frameset
+frameset interfaceName=HTMLFrameSetElement
 head
-h1
-h2
-h3
-h4
-h5
-h6
-hr
+h1 interfaceName=HTMLHeadingElement
+h2 interfaceName=HTMLHeadingElement
+h3 interfaceName=HTMLHeadingElement
+h4 interfaceName=HTMLHeadingElement
+h5 interfaceName=HTMLHeadingElement
+h6 interfaceName=HTMLHeadingElement
+hr interfaceName=HTMLHRElement
 html
-i
-iframe
-image
-img
-input
-ins
-isindex
-kbd
-keygen
+i interfaceName=HTMLElement
+iframe interfaceName=HTMLIFrameElement
+image mapToTagName=img
+img interfaceName=HTMLImageElement, constructorNeedsFormElement
+input constructorNeedsFormElement
+ins interfaceName=HTMLModElement
+isindex interfaceName=HTMLIsIndexElement, constructorNeedsFormElement
+kbd interfaceName=HTMLElement
+keygen JSInterfaceName=HTMLSelectElement, constructorNeedsFormElement
 label
-layer
-legend
-li
-link
-listing
+layer interfaceName=HTMLElement
+legend constructorNeedsFormElement
+li interfaceName=HTMLLIElement
+link constructorNeedsCreatedByParser
+listing interfaceName=HTMLPreElement
 map
 marquee
 menu
 meta
-nobr
-noembed
-noframes
-nolayer
-noscript
-object
-ol
-optgroup
-option
-p
+nobr interfaceName=HTMLElement
+noembed interfaceName=HTMLElement
+noframes interfaceName=HTMLElement
+nolayer interfaceName=HTMLElement
+noscript interfaceName=HTMLElement
+object constructorNeedsCreatedByParser
+ol interfaceName=HTMLOListElement
+optgroup interfaceName=HTMLOptGroupElement, constructorNeedsFormElement
+option constructorNeedsFormElement
+p interfaceName=HTMLParagraphElement
 param
-plaintext
+plaintext interfaceName=HTMLElement
 pre
-q
-s
-samp
-script
-select
-small
-source
-span
-strike
-strong
-style
-sub
-sup
+q interfaceName=HTMLQuoteElement
+s interfaceName=HTMLElement
+samp interfaceName=HTMLElement
+script constructorNeedsCreatedByParser
+select constructorNeedsFormElement
+small interfaceName=HTMLElement
+#if ENABLE_VIDEO
+source wrapperOnlyIfMediaIsAvailable
+#endif
+span interfaceName=HTMLElement
+strike interfaceName=HTMLElement
+strong interfaceName=HTMLElement
+style constructorNeedsCreatedByParser
+sub interfaceName=HTMLElement
+sup interfaceName=HTMLElement
 table
-tbody
-td
-textarea
-tfoot
-th
-thead
+tbody interfaceName=HTMLTableSectionElement
+td interfaceName=HTMLTableCellElement
+textarea interfaceName=HTMLTextAreaElement, constructorNeedsFormElement
+tfoot interfaceName=HTMLTableSectionElement
+th interfaceName=HTMLTableCellElement
+thead interfaceName=HTMLTableSectionElement
 title
-tr
-tt
-u
-ul
-var
-video
-wbr
-xmp
+tr interfaceName=HTMLTableRowElement
+tt interfaceName=HTMLElement
+u interfaceName=HTMLElement
+ul interfaceName=HTMLUListElement
+var interfaceName=HTMLElement
+#if ENABLE_VIDEO
+video wrapperOnlyIfMediaIsAvailable
+#endif
+wbr interfaceName=HTMLElement
+xmp interfaceName=HTMLPreElement

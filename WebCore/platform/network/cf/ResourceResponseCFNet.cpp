@@ -24,11 +24,10 @@
  */
 
 #include "config.h"
-#include "ResourceResponseCFNet.h"
+#include "ResourceResponse.h"
 
 #include "HTTPParsers.h"
 #include "MIMETypeRegistry.h"
-#include "ResourceResponse.h"
 #include <CFNetwork/CFURLResponsePriv.h>
 #include <wtf/RetainPtr.h>
 
@@ -62,10 +61,16 @@ static time_t toTimeT(CFAbsoluteTime time)
     return min(max(minTimeAsDouble, time + kCFAbsoluteTimeIntervalSince1970), maxTimeAsDouble);
 }
 
-void ResourceResponse::doUpdateResourceResponse()
+void ResourceResponse::platformLazyInit()
 {
-    if (!m_cfResponse.get())
+    if (m_isUpToDate)
         return;
+    m_isUpToDate = true;
+
+    if (m_isNull) {
+        ASSERT(!m_cfResponse.get());
+        return;
+    }
 
     // FIXME: We may need to do MIME type sniffing here (unless that is done in CFURLResponseGetMIMEType).
 
@@ -86,9 +91,11 @@ void ResourceResponse::doUpdateResourceResponse()
 
         RetainPtr<CFStringRef> statusLine(AdoptCF, CFHTTPMessageCopyResponseStatusLine(httpResponse));
         String statusText(statusLine.get());
-        int spacePos = statusText.find(" ");
-        if (spacePos != -1)
-            statusText = statusText.substring(spacePos + 1);
+        int spacePos = statusText.find(' ');
+        // Remove the status code from the status text.
+        spacePos = statusText.find(' ', spacePos + 1);
+        statusText = statusText.substring(spacePos + 1);      
+
         m_httpStatusText = statusText;
 
         RetainPtr<CFDictionaryRef> headers(AdoptCF, CFHTTPMessageCopyAllHeaderFields(httpResponse));
@@ -101,5 +108,11 @@ void ResourceResponse::doUpdateResourceResponse()
     } else
         m_httpStatusCode = 0;
 }
+
+bool ResourceResponse::platformCompare(const ResourceResponse& a, const ResourceResponse& b)
+{
+    return CFEqual(a.cfURLResponse(), b.cfURLResponse());
+}
+
 
 }

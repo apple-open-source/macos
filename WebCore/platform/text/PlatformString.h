@@ -27,23 +27,38 @@
 
 #include "StringImpl.h"
 
-#if PLATFORM(CF)
+#ifdef __OBJC__
+#include <objc/objc.h>
+#endif
+
+#if USE(JSC)
+#include <runtime/Identifier.h>
+#else
+// runtime/Identifier.h brings in a variety of wtf headers.  We explicitly
+// include them in the case of non-JSC builds to keep things consistent.
+#include <wtf/HashMap.h>
+#include <wtf/HashSet.h>
+#include <wtf/OwnPtr.h>
+#endif
+
+#if PLATFORM(CF) || (PLATFORM(QT) && PLATFORM(DARWIN))
 typedef const struct __CFString * CFStringRef;
 #endif
 
 #if PLATFORM(QT)
+QT_BEGIN_NAMESPACE
 class QString;
+QT_END_NAMESPACE
 #endif
 
 #if PLATFORM(WX)
 class wxString;
 #endif
 
-
 namespace WebCore {
 
 class CString;
-class DeprecatedString;
+class SharedBuffer;
 struct StringHash;
 
 class String {
@@ -51,19 +66,28 @@ public:
     String() { } // gives null string, distinguishable from an empty string
     String(const UChar*, unsigned length);
     String(const UChar*); // Specifically for null terminated UTF-16
-    String(const KJS::Identifier&);
-    String(const KJS::UString&);
+#if USE(JSC)
+    String(const JSC::Identifier&);
+    String(const JSC::UString&);
+#endif
     String(const char*);
     String(const char*, unsigned length);
     String(StringImpl* i) : m_impl(i) { }
     String(PassRefPtr<StringImpl> i) : m_impl(i) { }
     String(RefPtr<StringImpl> i) : m_impl(i) { }
 
+    void swap(String& o) { m_impl.swap(o.m_impl); }
+
+    // Hash table deleted values, which are only constructed and never copied or destroyed.
+    String(WTF::HashTableDeletedValueType) : m_impl(WTF::HashTableDeletedValue) { }
+    bool isHashTableDeletedValue() const { return m_impl.isHashTableDeletedValue(); }
+
     static String adopt(StringBuffer& buffer) { return StringImpl::adopt(buffer); }
     static String adopt(Vector<UChar>& vector) { return StringImpl::adopt(vector); }
 
-    operator KJS::Identifier() const;
-    operator KJS::UString() const;
+#if USE(JSC)
+    operator JSC::UString() const;
+#endif
 
     unsigned length() const;
     const UChar* characters() const;
@@ -78,6 +102,8 @@ public:
 
     int find(UChar c, int start = 0) const
         { return m_impl ? m_impl->find(c, start) : -1; }
+    int find(CharacterMatchFunctionPtr matchFunction, int start = 0) const
+        { return m_impl ? m_impl->find(matchFunction, start) : -1; }
     int find(const char* str, int start = 0, bool caseSensitive = true) const
         { return m_impl ? m_impl->find(str, start, caseSensitive) : -1; }
     int find(const String& str, int start = 0, bool caseSensitive = true) const
@@ -118,10 +144,14 @@ public:
 
     String stripWhiteSpace() const;
     String simplifyWhiteSpace() const;
-    
+
+    String removeCharacters(CharacterMatchFunctionPtr) const;
+
     // Return the string with case folded for case insensitive comparison.
     String foldCase() const;
 
+    static String number(short);
+    static String number(unsigned short);
     static String number(int);
     static String number(unsigned);
     static String number(long);
@@ -132,29 +162,47 @@ public:
     
     static String format(const char *, ...) WTF_ATTRIBUTE_PRINTF(1, 2);
 
-    Vector<String> split(const String& separator, bool allowEmptyEntries = false) const;
-    Vector<String> split(UChar separator, bool allowEmptyEntries = false) const;
+    // Returns an uninitialized string. The characters needs to be written
+    // into the buffer returned in data before the returned string is used.
+    // Failure to do this will have unpredictable results.
+    static String createUninitialized(unsigned length, UChar*& data) { return StringImpl::createUninitialized(length, data); }
+
+    void split(const String& separator, Vector<String>& result) const;
+    void split(const String& separator, bool allowEmptyEntries, Vector<String>& result) const;
+    void split(UChar separator, Vector<String>& result) const;
+    void split(UChar separator, bool allowEmptyEntries, Vector<String>& result) const;
+
+    int toIntStrict(bool* ok = 0, int base = 10) const;
+    unsigned toUIntStrict(bool* ok = 0, int base = 10) const;
+    int64_t toInt64Strict(bool* ok = 0, int base = 10) const;
+    uint64_t toUInt64Strict(bool* ok = 0, int base = 10) const;
 
     int toInt(bool* ok = 0) const;
+    unsigned toUInt(bool* ok = 0) const;
     int64_t toInt64(bool* ok = 0) const;
     uint64_t toUInt64(bool* ok = 0) const;
     double toDouble(bool* ok = 0) const;
     float toFloat(bool* ok = 0) const;
-    Length* toLengthArray(int& len) const;
-    Length* toCoordsArray(int& len) const;
-    bool percentage(int &_percentage) const;
+
+    bool percentage(int& percentage) const;
 
     // Makes a deep copy. Helpful only if you need to use a String on another thread.
     // Since the underlying StringImpl objects are immutable, there's no other reason
     // to ever prefer copy() over plain old assignment.
     String copy() const;
 
+    // Makes a deep copy like copy() but only for a substring.
+    // (This ensures that you always get something suitable for a thread while subtring
+    // may not.  For example, in the empty string case, StringImpl::substring returns
+    // empty() which is not safe for another thread.)
+    String substringCopy(unsigned pos, unsigned len  = UINT_MAX) const;
+
     bool isNull() const { return !m_impl; }
     bool isEmpty() const;
 
     StringImpl* impl() const { return m_impl.get(); }
 
-#if PLATFORM(CF)
+#if PLATFORM(CF) || (PLATFORM(QT) && PLATFORM(DARWIN))
     String(CFStringRef);
     CFStringRef createCFString() const;
 #endif
@@ -173,12 +221,6 @@ public:
     operator QString() const;
 #endif
 
-#if PLATFORM(SYMBIAN)
-    String(const TDesC&);
-    operator TPtrC() const { return des(); }
-    TPtrC des() const { if (!m_impl) return KNullDesC(); return m_impl->des(); }
-#endif
-
 #if PLATFORM(WX)
     String(const wxString&);
     operator wxString() const;
@@ -194,12 +236,12 @@ public:
     static String fromUTF8(const char*, size_t);
     static String fromUTF8(const char*);
 
+    // Tries to convert the passed in string to UTF-8, but will fall back to Latin-1 if the string is not valid UTF-8.
+    static String fromUTF8WithLatin1Fallback(const char*, size_t);
+    
     // Determines the writing direction using the Unicode Bidi Algorithm rules P2 and P3.
     WTF::Unicode::Direction defaultWritingDirection() const { return m_impl ? m_impl->defaultWritingDirection() : WTF::Unicode::LeftToRight; }
-    
-    String(const DeprecatedString&);
-    DeprecatedString deprecatedString() const;
-    
+
 private:
     RefPtr<StringImpl> m_impl;
 };
@@ -222,12 +264,29 @@ inline bool equalIgnoringCase(const String& a, const String& b) { return equalIg
 inline bool equalIgnoringCase(const String& a, const char* b) { return equalIgnoringCase(a.impl(), b); }
 inline bool equalIgnoringCase(const char* a, const String& b) { return equalIgnoringCase(a, b.impl()); }
 
-bool operator==(const String& a, const DeprecatedString& b);
-inline bool operator==(const DeprecatedString& b, const String& a) { return a == b; }
-inline bool operator!=(const String& a, const DeprecatedString& b) { return !(a == b); }
-inline bool operator!=(const DeprecatedString& b, const String& a ) { return !(a == b); }
-
 inline bool operator!(const String& str) { return str.isNull(); }
+
+inline void swap(String& a, String& b) { a.swap(b); }
+
+// String Operations
+
+bool charactersAreAllASCII(const UChar*, size_t);
+
+int charactersToIntStrict(const UChar*, size_t, bool* ok = 0, int base = 10);
+unsigned charactersToUIntStrict(const UChar*, size_t, bool* ok = 0, int base = 10);
+int64_t charactersToInt64Strict(const UChar*, size_t, bool* ok = 0, int base = 10);
+uint64_t charactersToUInt64Strict(const UChar*, size_t, bool* ok = 0, int base = 10);
+
+int charactersToInt(const UChar*, size_t, bool* ok = 0); // ignores trailing garbage
+unsigned charactersToUInt(const UChar*, size_t, bool* ok = 0); // ignores trailing garbage
+int64_t charactersToInt64(const UChar*, size_t, bool* ok = 0); // ignores trailing garbage
+uint64_t charactersToUInt64(const UChar*, size_t, bool* ok = 0); // ignores trailing garbage
+
+double charactersToDouble(const UChar*, size_t, bool* ok = 0);
+float charactersToFloat(const UChar*, size_t, bool* ok = 0);
+
+int find(const UChar*, size_t, UChar, int startPosition = 0);
+int reverseFind(const UChar*, size_t, UChar, int startPosition = -1);
 
 #ifdef __OBJC__
 // This is for situations in WebKit where the long standing behavior has been
@@ -236,7 +295,83 @@ inline bool operator!(const String& str) { return str.isNull(); }
 inline NSString* nsStringNilIfEmpty(const String& str) {  return str.isEmpty() ? nil : (NSString*)str; }
 #endif
 
+inline bool charactersAreAllASCII(const UChar* characters, size_t length)
+{
+    UChar ored = 0;
+    for (size_t i = 0; i < length; ++i)
+        ored |= characters[i];
+    return !(ored & 0xFF80);
 }
+
+inline int find(const UChar* characters, size_t length, UChar character, int startPosition)
+{
+    if (startPosition >= static_cast<int>(length))
+        return -1;
+    for (size_t i = startPosition; i < length; ++i) {
+        if (characters[i] == character)
+            return static_cast<int>(i);
+    }
+    return -1;
+}
+
+inline int find(const UChar* characters, size_t length, CharacterMatchFunctionPtr matchFunction, int startPosition)
+{
+    if (startPosition >= static_cast<int>(length))
+        return -1;
+    for (size_t i = startPosition; i < length; ++i) {
+        if (matchFunction(characters[i]))
+            return static_cast<int>(i);
+    }
+    return -1;
+}
+
+inline int reverseFind(const UChar* characters, size_t length, UChar character, int startPosition)
+{
+    if (startPosition >= static_cast<int>(length) || !length)
+        return -1;
+    if (startPosition < 0)
+        startPosition += static_cast<int>(length);
+    while (true) {
+        if (characters[startPosition] == character)
+            return startPosition;
+        if (!startPosition)
+            return -1;
+        startPosition--;
+    }
+    ASSERT_NOT_REACHED();
+    return -1;
+}
+
+inline void append(Vector<UChar>& vector, const String& string)
+{
+    vector.append(string.characters(), string.length());
+}
+
+inline void appendNumber(Vector<UChar>& vector, unsigned char number)
+{
+    int numberLength = number > 99 ? 3 : (number > 9 ? 2 : 1);
+    size_t vectorSize = vector.size();
+    vector.grow(vectorSize + numberLength);
+
+    switch (numberLength) {
+    case 3:
+        vector[vectorSize + 2] = number % 10 + '0';
+        number /= 10;
+
+    case 2:
+        vector[vectorSize + 1] = number % 10 + '0';
+        number /= 10;
+
+    case 1:
+        vector[vectorSize] = number % 10 + '0';
+    }
+}
+
+
+
+PassRefPtr<SharedBuffer> utf8Buffer(const String&);
+
+} // namespace WebCore
 
 namespace WTF {
 

@@ -1,7 +1,7 @@
 /*
     Copyright (C) 1998 Lars Knoll (knoll@mpi-hd.mpg.de)
     Copyright (C) 2001 Dirk Mueller <mueller@kde.org>
-    Copyright (C) 2004, 2006, 2007 Apple Inc. All rights reserved.
+    Copyright (C) 2004, 2006, 2007, 2008 Apple Inc. All rights reserved.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -22,9 +22,14 @@
 #ifndef loader_h
 #define loader_h
 
-#include "DeprecatedPtrList.h"
+#include "AtomicString.h"
+#include "AtomicStringImpl.h"
+#include "PlatformString.h"
 #include "SubresourceLoaderClient.h"
+#include "Timer.h"
+#include <wtf/Deque.h>
 #include <wtf/HashMap.h>
+#include <wtf/Noncopyable.h>
 
 namespace WebCore {
 
@@ -32,7 +37,7 @@ namespace WebCore {
     class DocLoader;
     class Request;
 
-    class Loader : private SubresourceLoaderClient {
+    class Loader : Noncopyable {
     public:
         Loader();
         ~Loader();
@@ -40,19 +45,63 @@ namespace WebCore {
         void load(DocLoader*, CachedResource*, bool incremental = true, bool skipCanLoadCheck = false, bool sendResourceLoadCallbacks = true);
 
         void cancelRequests(DocLoader*);
+        
+        enum Priority { Low, Medium, High };
+        void servePendingRequests(Priority minimumPriority = Low);
+
+        bool isSuspendingPendingRequests() { return m_isSuspendingPendingRequests; }
+        void suspendPendingRequests();
+        void resumePendingRequests();
 
     private:
-        virtual void didReceiveResponse(SubresourceLoader*, const ResourceResponse&);
-        virtual void didReceiveData(SubresourceLoader*, const char*, int);
-        virtual void didFinishLoading(SubresourceLoader*);
-        virtual void didFail(SubresourceLoader*, const ResourceError&);
-        void didFail(SubresourceLoader*, bool cancelled = false);
+        Priority determinePriority(const CachedResource*) const;
+        void scheduleServePendingRequests();
+        
+        void requestTimerFired(Timer<Loader>*);
 
-        void servePendingRequests();
+        class Host : public RefCounted<Host>, private SubresourceLoaderClient {
+        public:
+            static PassRefPtr<Host> create(const AtomicString& name, unsigned maxRequestsInFlight) 
+            {
+                return adoptRef(new Host(name, maxRequestsInFlight));
+            }
+            ~Host();
+            
+            const AtomicString& name() const { return m_name; }
+            void addRequest(Request*, Priority);
+            void servePendingRequests(Priority minimumPriority = Low);
+            void cancelRequests(DocLoader*);
+            bool hasRequests() const;
 
-        DeprecatedPtrList<Request> m_requestsPending;
-        typedef HashMap<RefPtr<SubresourceLoader>, Request*> RequestMap;
-        RequestMap m_requestsLoading;
+            bool processingResource() const { return m_numResourcesProcessing != 0; }
+
+        private:
+            Host(const AtomicString&, unsigned);
+
+            virtual void didReceiveResponse(SubresourceLoader*, const ResourceResponse&);
+            virtual void didReceiveData(SubresourceLoader*, const char*, int);
+            virtual void didFinishLoading(SubresourceLoader*);
+            virtual void didFail(SubresourceLoader*, const ResourceError&);
+            
+            typedef Deque<Request*> RequestQueue;
+            void servePendingRequests(RequestQueue& requestsPending, bool& serveLowerPriority);
+            void didFail(SubresourceLoader*, bool cancelled = false);
+            void cancelPendingRequests(RequestQueue& requestsPending, DocLoader*);
+            
+            RequestQueue m_requestsPending[High + 1];
+            typedef HashMap<RefPtr<SubresourceLoader>, Request*> RequestMap;
+            RequestMap m_requestsLoading;
+            const AtomicString m_name;
+            const int m_maxRequestsInFlight;
+            int m_numResourcesProcessing;
+        };
+        typedef HashMap<AtomicStringImpl*, RefPtr<Host> > HostMap;
+        HostMap m_hosts;
+        RefPtr<Host> m_nonHTTPProtocolHost;
+        
+        Timer<Loader> m_requestTimer;
+
+        bool m_isSuspendingPendingRequests;
     };
 
 }

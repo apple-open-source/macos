@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005, 2006, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,69 +31,43 @@
 namespace WebCore {
 
 class DocumentFragment;
-
-enum EFragmentType { EmptyFragment, SingleTextNodeFragment, TreeFragment };
-
-// --- ReplacementFragment helper class
-
-class ReplacementFragment : Noncopyable {
-public:
-    ReplacementFragment(Document*, DocumentFragment*, bool matchStyle, const Selection&);
-
-    Node* firstChild() const;
-    Node* lastChild() const;
-
-    bool isEmpty() const;
-    
-    bool hasInterchangeNewlineAtStart() const { return m_hasInterchangeNewlineAtStart; }
-    bool hasInterchangeNewlineAtEnd() const { return m_hasInterchangeNewlineAtEnd; }
-    
-    void removeNode(PassRefPtr<Node>);
-    void removeNodePreservingChildren(Node*);
-
-private:
-    PassRefPtr<Node> insertFragmentForTestRendering(Node* context);
-    void removeUnrenderedNodes(Node*);
-    void restoreTestRenderingNodesToFragment(Node*);
-    void removeInterchangeNodes(Node*);
-    
-    void insertNodeBefore(Node* node, Node* refNode);
-
-    RefPtr<Document> m_document;
-    RefPtr<DocumentFragment> m_fragment;
-    bool m_matchStyle;
-    bool m_hasInterchangeNewlineAtStart;
-    bool m_hasInterchangeNewlineAtEnd;
-};
+class ReplacementFragment;
 
 class ReplaceSelectionCommand : public CompositeEditCommand {
 public:
-    ReplaceSelectionCommand(Document*, PassRefPtr<DocumentFragment>,
+    static PassRefPtr<ReplaceSelectionCommand> create(Document* document, PassRefPtr<DocumentFragment> fragment,
         bool selectReplacement = true, bool smartReplace = false, bool matchStyle = false, bool preventNesting = true, bool movingParagraph = false,
-        EditAction = EditActionPaste);
-    
+        EditAction action = EditActionPaste)
+    {
+        return adoptRef(new ReplaceSelectionCommand(document, fragment, selectReplacement, smartReplace, matchStyle, preventNesting, movingParagraph, action));
+    }
+
+private:
+    ReplaceSelectionCommand(Document*, PassRefPtr<DocumentFragment>,
+        bool selectReplacement, bool smartReplace, bool matchStyle, bool preventNesting, bool movingParagraph, EditAction);
+
     virtual void doApply();
     virtual EditAction editingAction() const;
 
-private:
     void completeHTMLReplacement(const Position& lastPositionToSelect);
 
-    void insertNodeAfterAndUpdateNodesInserted(Node* insertChild, Node* refChild);
-    void insertNodeAtAndUpdateNodesInserted(Node*, const Position&);
-    void insertNodeBeforeAndUpdateNodesInserted(Node* insertChild, Node* refChild);
+    void insertNodeAfterAndUpdateNodesInserted(PassRefPtr<Node> insertChild, Node* refChild);
+    void insertNodeAtAndUpdateNodesInserted(PassRefPtr<Node>, const Position&);
+    void insertNodeBeforeAndUpdateNodesInserted(PassRefPtr<Node> insertChild, Node* refChild);
 
     void updateNodesInserted(Node*);
     bool shouldRemoveEndBR(Node*, const VisiblePosition&);
     
-    bool shouldMergeStart(bool, bool);
-    bool shouldMergeEnd(bool);
+    bool shouldMergeStart(bool, bool, bool);
+    bool shouldMergeEnd(bool selectEndWasEndOfParagraph);
     bool shouldMerge(const VisiblePosition&, const VisiblePosition&);
+    
+    void mergeEndIfNeeded();
     
     void removeUnrenderedTextNodesAtEnds();
     
     void negateStyleRulesThatAffectAppearance();
-    void removeRedundantStyles(Node*);
-    
+    void handleStyleSpans();
     void handlePasteAsQuotationNode();
     
     virtual void removeNodePreservingChildren(Node*);
@@ -101,6 +75,8 @@ private:
     
     VisiblePosition positionAtStartOfInsertedContent();
     VisiblePosition positionAtEndOfInsertedContent();
+    
+    bool performTrivialReplace(const ReplacementFragment&);
 
     RefPtr<Node> m_firstNodeInserted;
     RefPtr<Node> m_lastLeafInserted;
@@ -112,6 +88,7 @@ private:
     bool m_preventNesting;
     bool m_movingParagraph;
     EditAction m_editAction;
+    bool m_shouldMergeEnd;
 };
 
 } // namespace WebCore

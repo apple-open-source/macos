@@ -49,34 +49,32 @@ namespace WebCore {
 class AtomicString;
 class Clipboard;
 class Cursor;
-class EventTargetNode;
 class Event;
 class FloatPoint;
 class FloatRect;
 class Frame;
+class HitTestRequest;
 class HitTestResult;
 class HTMLFrameSetElement;
 class KeyboardEvent;
 class MouseEventWithHitTestResults;
 class Node;
 class PlatformKeyboardEvent;
-class PlatformScrollbar;
 class PlatformWheelEvent;
 class RenderLayer;
 class RenderObject;
 class RenderWidget;
+class Scrollbar;
 class String;
+class SVGElementInstance;
 class TextEvent;
 class VisiblePosition;
 class Widget;
     
-struct HitTestRequest;
-
 extern const int LinkDragHysteresis;
 extern const int ImageDragHysteresis;
 extern const int TextDragHysteresis;
 extern const int GeneralDragHysteresis;
-extern const double TextDragDelay;
 
 class EventHandler : Noncopyable {
 public:
@@ -90,10 +88,14 @@ public:
     Node* mousePressNode() const;
     void setMousePressNode(PassRefPtr<Node>);
 
+    bool panScrollInProgress() { return m_panScrollInProgress; }
+    void setPanScrollInProgress(bool inProgress) { m_panScrollInProgress = inProgress; }
+
     void stopAutoscrollTimer(bool rendererIsBeingDestroyed = false);
     RenderObject* autoscrollRenderer() const;
+    void updateAutoscrollRenderer();
 
-    HitTestResult hitTestResultAtPoint(const IntPoint&, bool allowShadowContent);
+    HitTestResult hitTestResultAtPoint(const IntPoint&, bool allowShadowContent, bool ignoreClipping = false);
 
     bool mousePressed() const { return m_mousePressed; }
     void setMousePressed(bool pressed) { m_mousePressed = pressed; }
@@ -136,6 +138,7 @@ public:
 
     bool needsKeyboardEventDisambiguationQuirks() const;
 
+    static unsigned accessKeyModifiers();
     bool handleAccessKey(const PlatformKeyboardEvent&);
     bool keyEvent(const PlatformKeyboardEvent&);
     void defaultKeyboardEventHandler(KeyboardEvent*);
@@ -152,6 +155,9 @@ public:
     void focusDocumentView();
 
     void capsLockStateMayHaveChanged();
+    
+    void sendResizeEvent();
+    void sendScrollEvent();
     
 #if PLATFORM(MAC)
     PassRefPtr<KeyboardEvent> currentKeyboardEvent() const;
@@ -182,8 +188,9 @@ private:
         RefPtr<Clipboard> m_dragClipboard; // used on only the source side of dragging
     };
     static EventHandlerDragState& dragState();
+    static const double TextDragDelay;
     
-    Clipboard* createDraggingClipboard() const;
+    PassRefPtr<Clipboard> createDraggingClipboard() const;
     
     bool eventActivatedView(const PlatformMouseEvent&) const;
     void selectClosestWordFromMouseEvent(const MouseEventWithHitTestResults& event);
@@ -198,7 +205,12 @@ private:
     bool handleMouseDraggedEvent(const MouseEventWithHitTestResults&);
     bool handleMouseReleaseEvent(const MouseEventWithHitTestResults&);
 
-    Cursor selectCursor(const MouseEventWithHitTestResults&, PlatformScrollbar*);
+    void handleKeyboardSelectionMovement(KeyboardEvent*);
+    
+    Cursor selectCursor(const MouseEventWithHitTestResults&, Scrollbar*);
+#if ENABLE(PAN_SCROLLING)
+    void setPanScrollCursor();
+#endif
 
     void hoverTimerFired(Timer<EventHandler>*);
 
@@ -208,7 +220,6 @@ private:
     void handleAutoscroll(RenderObject*);
     void startAutoscrollTimer();
     void setAutoscrollRenderer(RenderObject*);
-
     void autoscrollTimerFired(Timer<EventHandler>*);
 
     void invalidateClick();
@@ -240,7 +251,7 @@ private:
 
     bool passSubframeEventToSubframe(MouseEventWithHitTestResults&, Frame* subframe, HitTestResult* hoveredNode = 0);
 
-    bool passMousePressEventToScrollbar(MouseEventWithHitTestResults&, PlatformScrollbar*);
+    bool passMousePressEventToScrollbar(MouseEventWithHitTestResults&, Scrollbar*);
 
     bool passWidgetMouseDownEventToWidget(const MouseEventWithHitTestResults&);
     bool passWidgetMouseDownEventToWidget(RenderWidget*);
@@ -248,6 +259,7 @@ private:
     bool passMouseDownEventToWidget(Widget*);
     bool passWheelEventToWidget(PlatformWheelEvent&, Widget*);
 
+    void defaultSpaceEventHandler(KeyboardEvent*);
     void defaultTabEventHandler(KeyboardEvent*);
 
     void allowDHTMLDrag(bool& flagDHTML, bool& flagUA) const;
@@ -267,9 +279,12 @@ private:
 
     void updateSelectionForMouseDrag(Node* targetNode, const IntPoint& localPoint);
 
+    bool capturesDragging() const { return m_capturesDragging; }
+
     Frame* m_frame;
 
     bool m_mousePressed;
+    bool m_capturesDragging;
     RefPtr<Node> m_mousePressNode;
 
     bool m_mouseDownMayStartSelect;
@@ -279,14 +294,20 @@ private:
 
     IntPoint m_dragStartPos;
 
+    IntPoint m_panScrollStartPos;
+    bool m_panScrollInProgress;
+
     Timer<EventHandler> m_hoverTimer;
     
     Timer<EventHandler> m_autoscrollTimer;
     RenderObject* m_autoscrollRenderer;
+    bool m_autoscrollInProgress;
     bool m_mouseDownMayStartAutoscroll;
     bool m_mouseDownWasInSubframe;
 #if ENABLE(SVG)
     bool m_svgPan;
+    RefPtr<SVGElementInstance> m_instanceUnderMouse;
+    RefPtr<SVGElementInstance> m_lastInstanceUnderMouse;
 #endif
 
     RenderLayer* m_resizeLayer;
@@ -296,7 +317,7 @@ private:
     RefPtr<Node> m_nodeUnderMouse;
     RefPtr<Node> m_lastNodeUnderMouse;
     RefPtr<Frame> m_lastMouseMoveEventSubframe;
-    RefPtr<PlatformScrollbar> m_lastScrollbarUnderMouse;
+    RefPtr<Scrollbar> m_lastScrollbarUnderMouse;
 
     int m_clickCount;
     RefPtr<Node> m_clickNode;
@@ -305,7 +326,7 @@ private:
     
     RefPtr<HTMLFrameSetElement> m_frameSetBeingResized;
 
-    IntSize m_offsetFromResizeCorner;    
+    IntSize m_offsetFromResizeCorner;   // in the coords of m_resizeLayer
     
     IntPoint m_currentMousePosition;
     IntPoint m_mouseDownPos; // in our view's coords

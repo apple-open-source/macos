@@ -29,7 +29,7 @@
 #include <wtf/HashSet.h>
 #include <wtf/Vector.h>
 
-#include "AffineTransform.h"
+#include "TransformationMatrix.h"
 #include <wtf/RefCounted.h>
 #include "SVGRenderStyle.h"
 #include "SVGTextContentElement.h"
@@ -141,7 +141,7 @@ private:
     void addStackContent(StackType, SVGNumberList*);
 
     // Used for x/y/dx/dy.    
-    void addStackContent(StackType, SVGLengthList*);
+    void addStackContent(StackType, SVGLengthList*, const SVGElement*);
 
     void addStackContent(StackType, const PositionedFloatVector&);
 
@@ -177,16 +177,7 @@ private:
 
 // Holds extra data, when the character is laid out on a path
 struct SVGCharOnPath : RefCounted<SVGCharOnPath> {
-    SVGCharOnPath()
-        : RefCounted<SVGCharOnPath>()
-        , xScale(1.0f)
-        , yScale(1.0f)
-        , xShift(0.0f)
-        , yShift(0.0f)
-        , orientationAngle(0.0f)
-        , hidden(false)
-    {
-    }
+    static PassRefPtr<SVGCharOnPath> create() { return adoptRef(new SVGCharOnPath); }
 
     float xScale;
     float yScale;
@@ -197,6 +188,17 @@ struct SVGCharOnPath : RefCounted<SVGCharOnPath> {
     float orientationAngle;
 
     bool hidden : 1;
+    
+private:
+    SVGCharOnPath()
+        : xScale(1.0f)
+        , yScale(1.0f)
+        , xShift(0.0f)
+        , yShift(0.0f)
+        , orientationAngle(0.0f)
+        , hidden(false)
+    {
+    }
 };
 
 struct SVGChar {
@@ -233,7 +235,7 @@ struct SVGChar {
 
     // Helper methods
     bool isHidden() const;
-    AffineTransform characterTransform() const;
+    TransformationMatrix characterTransform() const;
 };
 
 struct SVGInlineBoxCharacterRange {
@@ -274,7 +276,7 @@ struct SVGTextChunk {
     // textLength & lengthAdjust support
     float textLength;
     ELengthAdjust lengthAdjust;
-    AffineTransform ctm;
+    TransformationMatrix ctm;
 
     // status flags
     bool isVerticalText : 1;
@@ -290,7 +292,7 @@ struct SVGTextChunk {
 struct SVGTextChunkWalkerBase {
     virtual ~SVGTextChunkWalkerBase() { }
 
-    virtual void operator()(SVGInlineTextBox* textBox, int startOffset, const AffineTransform& chunkCtm,
+    virtual void operator()(SVGInlineTextBox* textBox, int startOffset, const TransformationMatrix& chunkCtm,
                             const Vector<SVGChar>::iterator& start, const Vector<SVGChar>::iterator& end) = 0;
 
     // Followings methods are only used for painting text chunks
@@ -306,7 +308,7 @@ struct SVGTextChunkWalker : public SVGTextChunkWalkerBase {
 public:
     typedef void (CallbackClass::*SVGTextChunkWalkerCallback)(SVGInlineTextBox* textBox,
                                                               int startOffset,
-                                                              const AffineTransform& chunkCtm,
+                                                              const TransformationMatrix& chunkCtm,
                                                               const Vector<SVGChar>::iterator& start,
                                                               const Vector<SVGChar>::iterator& end);
 
@@ -334,7 +336,7 @@ public:
         ASSERT(walker);
     }
 
-    virtual void operator()(SVGInlineTextBox* textBox, int startOffset, const AffineTransform& chunkCtm,
+    virtual void operator()(SVGInlineTextBox* textBox, int startOffset, const TransformationMatrix& chunkCtm,
                             const Vector<SVGChar>::iterator& start, const Vector<SVGChar>::iterator& end)
     {
         (*m_object.*m_walkerCallback)(textBox, startOffset, chunkCtm, start, end);

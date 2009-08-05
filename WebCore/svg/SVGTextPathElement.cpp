@@ -24,23 +24,23 @@
 #if ENABLE(SVG)
 #include "SVGTextPathElement.h"
 
-#include "AffineTransform.h"
 #include "FloatRect.h"
+#include "MappedAttribute.h"
 #include "RenderSVGTextPath.h"
 #include "SVGLengthList.h"
 #include "SVGPathElement.h"
 #include "SVGRenderStyle.h"
-#include "SVGTextPathElement.h"
 #include "SVGTransformList.h"
+#include "TransformationMatrix.h"
 
 namespace WebCore {
 
 SVGTextPathElement::SVGTextPathElement(const QualifiedName& tagName, Document* doc)
     : SVGTextContentElement(tagName, doc)
     , SVGURIReference()
-    , m_startOffset(this, LengthModeOther)
-    , m_method(SVG_TEXTPATH_METHODTYPE_ALIGN)
-    , m_spacing(SVG_TEXTPATH_SPACINGTYPE_EXACT)
+    , m_startOffset(this, SVGNames::startOffsetAttr, LengthModeOther)
+    , m_method(this, SVGNames::methodAttr, SVG_TEXTPATH_METHODTYPE_ALIGN)
+    , m_spacing(this, SVGNames::spacingAttr, SVG_TEXTPATH_SPACINGTYPE_EXACT)
 {
 }
 
@@ -48,16 +48,12 @@ SVGTextPathElement::~SVGTextPathElement()
 {
 }
 
-ANIMATED_PROPERTY_DEFINITIONS(SVGTextPathElement, SVGLength, Length, length, StartOffset, startOffset, SVGNames::startOffsetAttr, m_startOffset)
-ANIMATED_PROPERTY_DEFINITIONS(SVGTextPathElement, int, Enumeration, enumeration, Method, method, SVGNames::methodAttr, m_method)
-ANIMATED_PROPERTY_DEFINITIONS(SVGTextPathElement, int, Enumeration, enumeration, Spacing, spacing, SVGNames::spacingAttr, m_spacing)
-
 void SVGTextPathElement::parseMappedAttribute(MappedAttribute* attr)
 {
     const String& value = attr->value();
 
     if (attr->name() == SVGNames::startOffsetAttr)
-        setStartOffsetBaseValue(SVGLength(this, LengthModeOther, value));
+        setStartOffsetBaseValue(SVGLength(LengthModeOther, value));
     else if (attr->name() == SVGNames::methodAttr) {
         if (value == "align")
             setSpacingBaseValue(SVG_TEXTPATH_METHODTYPE_ALIGN);
@@ -75,15 +71,18 @@ void SVGTextPathElement::parseMappedAttribute(MappedAttribute* attr)
     }
 }
 
-RenderObject* SVGTextPathElement::createRenderer(RenderArena* arena, RenderStyle* style)
+RenderObject* SVGTextPathElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
     return new (arena) RenderSVGTextPath(this);
 }
 
 bool SVGTextPathElement::childShouldCreateRenderer(Node* child) const
 {
-    if (child->isTextNode() || child->hasTagName(SVGNames::trefTag) ||
-        child->hasTagName(SVGNames::tspanTag) || child->hasTagName(SVGNames::textPathTag))
+    if (child->isTextNode()
+#if ENABLE(SVG_FONTS)
+        || child->hasTagName(SVGNames::altGlyphTag)
+#endif
+        || child->hasTagName(SVGNames::trefTag) || child->hasTagName(SVGNames::tspanTag) || child->hasTagName(SVGNames::textPathTag))
         return true;
 
     return false;

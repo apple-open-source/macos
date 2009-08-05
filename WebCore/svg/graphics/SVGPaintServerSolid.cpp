@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) 2008 Dirk Schulze <krit@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,6 +28,9 @@
 
 #if ENABLE(SVG)
 #include "SVGPaintServerSolid.h"
+
+#include "GraphicsContext.h"
+#include "RenderPath.h"
 #include "SVGRenderTreeAsText.h"
 
 namespace WebCore {
@@ -54,6 +58,34 @@ TextStream& SVGPaintServerSolid::externalRepresentation(TextStream& ts) const
     ts << "[type=SOLID]"
         << " [color="<< color() << "]";
     return ts;
+}
+
+bool SVGPaintServerSolid::setup(GraphicsContext*& context, const RenderObject* object, SVGPaintTargetType type, bool isPaintingText) const
+{
+    RenderStyle* style = object ? object->style() : 0;
+    const SVGRenderStyle* svgStyle = style ? style->svgStyle() : 0;
+
+    if ((type & ApplyToFillTargetType) && (!style || svgStyle->hasFill())) {
+        context->setAlpha(style ? svgStyle->fillOpacity() : 1);
+        context->setFillColor(color().rgb());
+        context->setFillRule(style ? svgStyle->fillRule() : RULE_NONZERO);
+
+        if (isPaintingText)
+            context->setTextDrawingMode(cTextFill);
+    }
+
+    if ((type & ApplyToStrokeTargetType) && (!style || svgStyle->hasStroke())) {
+        context->setAlpha(style ? svgStyle->strokeOpacity() : 1);
+        context->setStrokeColor(color().rgb());
+
+        if (style)
+            applyStrokeStyleToContext(context, style, object);
+
+        if (isPaintingText)
+            context->setTextDrawingMode(cTextStroke);
+    }
+
+    return true;
 }
 
 } // namespace WebCore

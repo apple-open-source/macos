@@ -33,7 +33,6 @@ namespace WebCore {
 
     class NodeList : public RefCounted<NodeList> {
     public:
-        NodeList() { }
         virtual ~NodeList() { }
 
         // DOM methods & attributes for NodeList

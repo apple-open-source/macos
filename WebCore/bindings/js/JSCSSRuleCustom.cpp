@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,54 +31,67 @@
 #include "CSSImportRule.h"
 #include "CSSMediaRule.h"
 #include "CSSPageRule.h"
-#include "CSSRule.h"
 #include "CSSStyleRule.h"
+#include "CSSVariablesRule.h"
 #include "JSCSSCharsetRule.h"
 #include "JSCSSFontFaceRule.h"
 #include "JSCSSImportRule.h"
 #include "JSCSSMediaRule.h"
 #include "JSCSSPageRule.h"
 #include "JSCSSStyleRule.h"
-#include "kjs_binding.h"
+#include "JSCSSVariablesRule.h"
+#include "JSWebKitCSSKeyframeRule.h"
+#include "JSWebKitCSSKeyframesRule.h"
+#include "WebKitCSSKeyframeRule.h"
+#include "WebKitCSSKeyframesRule.h"
+
+using namespace JSC;
 
 namespace WebCore {
 
-KJS::JSValue* toJS(KJS::ExecState* exec, CSSRule* rule)
+JSValue toJS(ExecState* exec, CSSRule* rule)
 {
     if (!rule)
-        return KJS::jsNull();
+        return jsNull();
 
-    KJS::DOMObject* ret = KJS::ScriptInterpreter::getDOMObject(rule);
+    DOMObject* wrapper = getCachedDOMObjectWrapper(exec->globalData(), rule);
 
-    if (ret)
-        return ret;
+    if (wrapper)
+        return wrapper;
 
     switch (rule->type()) {
         case CSSRule::STYLE_RULE:
-            ret = new JSCSSStyleRule(JSCSSRulePrototype::self(exec), static_cast<CSSStyleRule*>(rule));
+            wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, CSSStyleRule, rule);
             break;
         case CSSRule::MEDIA_RULE:
-            ret = new JSCSSMediaRule(JSCSSMediaRulePrototype::self(exec), static_cast<CSSMediaRule*>(rule));
+            wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, CSSMediaRule, rule);
             break;
         case CSSRule::FONT_FACE_RULE:
-            ret = new JSCSSFontFaceRule(JSCSSFontFaceRulePrototype::self(exec), static_cast<CSSFontFaceRule*>(rule));
+            wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, CSSFontFaceRule, rule);
             break;
         case CSSRule::PAGE_RULE:
-            ret = new JSCSSPageRule(JSCSSPageRulePrototype::self(exec), static_cast<CSSPageRule*>(rule));
+            wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, CSSPageRule, rule);
             break;
         case CSSRule::IMPORT_RULE:
-            ret = new JSCSSImportRule(JSCSSImportRulePrototype::self(exec), static_cast<CSSImportRule*>(rule));
+            wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, CSSImportRule, rule);
             break;
         case CSSRule::CHARSET_RULE:
-            ret = new JSCSSCharsetRule(JSCSSCharsetRulePrototype::self(exec), static_cast<CSSCharsetRule*>(rule));
+            wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, CSSCharsetRule, rule);
+            break;
+        case CSSRule::VARIABLES_RULE:
+            wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, CSSVariablesRule, rule);
+            break;
+        case CSSRule::WEBKIT_KEYFRAME_RULE:
+            wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, WebKitCSSKeyframeRule, rule);
+            break;
+        case CSSRule::WEBKIT_KEYFRAMES_RULE:
+            wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, WebKitCSSKeyframesRule, rule);
             break;
         default:
-            ret = new JSCSSRule(JSCSSRulePrototype::self(exec), rule);
-            break;
+            wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, CSSRule, rule);
     }
 
-    KJS::ScriptInterpreter::putDOMObject(rule, ret);
-    return ret;
+    return wrapper;
 }
 
 } // namespace WebCore

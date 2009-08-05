@@ -35,7 +35,7 @@ namespace WebCore {
 
     class SVGPaintServerRadialGradient : public SVGPaintServerGradient {
     public:
-        SVGPaintServerRadialGradient(const SVGGradientElement* owner);
+        static PassRefPtr<SVGPaintServerRadialGradient> create(const SVGGradientElement* owner) { return adoptRef(new SVGPaintServerRadialGradient(owner)); }
         virtual ~SVGPaintServerRadialGradient();
 
         virtual SVGPaintServerType type() const { return RadialGradientPaintServer; }
@@ -51,11 +51,9 @@ namespace WebCore {
 
         virtual TextStream& externalRepresentation(TextStream&) const;
 
-#if PLATFORM(QT)
-        virtual QGradient setupGradient(GraphicsContext*&, const RenderObject*) const;
-#endif
-
     private:
+        SVGPaintServerRadialGradient(const SVGGradientElement* owner);
+
         float m_radius;
         FloatPoint m_center;
         FloatPoint m_focal;

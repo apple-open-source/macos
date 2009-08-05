@@ -2,8 +2,8 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
- * Copyright (C) 2007 Trolltech ASA
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -32,10 +32,15 @@ namespace WebCore {
     // NodeList that limits to a particular tag.
     class TagNodeList : public DynamicNodeList {
     public:
-        TagNodeList(PassRefPtr<Node> rootNode, const AtomicString& namespaceURI, const AtomicString& localName);
+        static PassRefPtr<TagNodeList> create(PassRefPtr<Node> rootNode, const AtomicString& namespaceURI, const AtomicString& localName, DynamicNodeList::Caches* caches)
+        {
+            return adoptRef(new TagNodeList(rootNode, namespaceURI, localName, caches));
+        }
 
     private:
-        virtual bool nodeMatches(Node*) const;
+        TagNodeList(PassRefPtr<Node> rootNode, const AtomicString& namespaceURI, const AtomicString& localName, DynamicNodeList::Caches* caches);
+
+        virtual bool nodeMatches(Element*) const;
 
         AtomicString m_namespaceURI;
         AtomicString m_localName;

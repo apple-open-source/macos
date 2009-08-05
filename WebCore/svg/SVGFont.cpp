@@ -27,8 +27,10 @@
 #include "GraphicsContext.h"
 #include "RenderObject.h"
 #include "SimpleFontData.h"
+#include "SVGAltGlyphElement.h"
 #include "SVGFontData.h"
 #include "SVGGlyphElement.h"
+#include "SVGGlyphMap.h"
 #include "SVGFontElement.h"
 #include "SVGFontFaceElement.h"
 #include "SVGMissingGlyphElement.h"
@@ -107,10 +109,10 @@ static inline SVGGlyphIdentifier::ArabicForm processArabicFormDetection(const UC
 static Vector<SVGGlyphIdentifier::ArabicForm> charactersWithArabicForm(const String& input, bool rtl)
 {
     Vector<SVGGlyphIdentifier::ArabicForm> forms;
-    unsigned int length = input.length();
+    unsigned length = input.length();
 
     bool containsArabic = false;
-    for (unsigned int i = 0; i < length; ++i) {
+    for (unsigned i = 0; i < length; ++i) {
         if (isArabicChar(input[i])) {
             containsArabic = true;
             break;
@@ -123,17 +125,18 @@ static Vector<SVGGlyphIdentifier::ArabicForm> charactersWithArabicForm(const Str
     bool lastCharShapesRight = false;
 
     // Start identifying arabic forms
-    if (rtl)
+    if (rtl) {
         for (int i = length - 1; i >= 0; --i)
             forms.prepend(processArabicFormDetection(input[i], lastCharShapesRight, forms.isEmpty() ? 0 : &forms.first()));
-    else
-        for (unsigned int i = 0; i < length; ++i)
+    } else {
+        for (unsigned i = 0; i < length; ++i)
             forms.append(processArabicFormDetection(input[i], lastCharShapesRight, forms.isEmpty() ? 0 : &forms.last()));
+    }
 
     return forms;
 }
 
-static inline bool isCompatibleArabicForm(const SVGGlyphIdentifier& identifier, const Vector<SVGGlyphIdentifier::ArabicForm>& chars, unsigned int startPosition, unsigned int endPosition)
+static inline bool isCompatibleArabicForm(const SVGGlyphIdentifier& identifier, const Vector<SVGGlyphIdentifier::ArabicForm>& chars, unsigned startPosition, unsigned endPosition)
 {
     if (chars.isEmpty())
         return true;
@@ -143,7 +146,7 @@ static inline bool isCompatibleArabicForm(const SVGGlyphIdentifier& identifier, 
 
     ASSERT(end <= chars.end());
     for (; it != end; ++it) {
-        if ((*it) != identifier.arabicForm && (*it) != SVGGlyphIdentifier::None)
+        if (*it != static_cast<SVGGlyphIdentifier::ArabicForm>(identifier.arabicForm) && *it != SVGGlyphIdentifier::None)
             return false;
     }
 
@@ -151,7 +154,7 @@ static inline bool isCompatibleArabicForm(const SVGGlyphIdentifier& identifier, 
 }
 
 static inline bool isCompatibleGlyph(const SVGGlyphIdentifier& identifier, bool isVerticalText, const String& language,
-                                     const Vector<SVGGlyphIdentifier::ArabicForm>& chars, unsigned int startPosition, unsigned int endPosition)
+                                     const Vector<SVGGlyphIdentifier::ArabicForm>& chars, unsigned startPosition, unsigned endPosition)
 {
     bool valid = true;
 
@@ -189,8 +192,7 @@ static inline bool isCompatibleGlyph(const SVGGlyphIdentifier& identifier, bool 
 
         bool found = false;
         for (; it != end; ++it) {
-            String cur = (*it);
-
+            const String& cur = *it;
             if (cur == language || cur == languagePrefix) {
                 found = true;
                 break;
@@ -241,52 +243,64 @@ struct SVGTextRunWalker {
         // Should hold true for SVG text, otherwhise sth. is wrong
         ASSERT(to - from == run.length());
 
-        int maximumHashKeyLength = m_fontElement->maximumHashKeyLength();
-        ASSERT(maximumHashKeyLength >= 0);
-
         Vector<SVGGlyphIdentifier::ArabicForm> chars(charactersWithArabicForm(String(run.data(from), run.length()), run.rtl()));
 
         SVGGlyphIdentifier identifier;
         bool foundGlyph = false;
         int characterLookupRange;
+        int endOfScanRange = to + m_walkerData.extraCharsAvailable;
+
+        bool haveAltGlyph = false;
+        SVGGlyphIdentifier altGlyphIdentifier;
+        if (RenderObject* renderObject = run.referencingRenderObject()) {
+            if (renderObject->node() && renderObject->node()->hasTagName(SVGNames::altGlyphTag)) {
+                SVGGlyphElement* glyphElement = static_cast<SVGAltGlyphElement*>(renderObject->node())->glyphElement();
+                if (glyphElement) {
+                    haveAltGlyph = true;
+                    altGlyphIdentifier = glyphElement->buildGlyphIdentifier();
+                    altGlyphIdentifier.isValid = true;
+                    altGlyphIdentifier.nameLength = to - from;
+                }
+            }
+        }
 
         for (int i = from; i < to; ++i) {
             // If characterLookupRange is > 0, then the font defined ligatures (length of unicode property value > 1).
             // We have to check wheter the current character & the next character define a ligature. This needs to be
             // extended to the n-th next character (where n is 'characterLookupRange'), to check for any possible ligature.
-            characterLookupRange = maximumHashKeyLength + i >= to ? to - i : maximumHashKeyLength;
+            characterLookupRange = endOfScanRange - i;
 
-            while (characterLookupRange > 0 && !foundGlyph) {
-                String lookupString(run.data(run.rtl() ? run.length() - (i + characterLookupRange) : i), characterLookupRange);
+            String lookupString(run.data(i), characterLookupRange);
+            Vector<SVGGlyphIdentifier> glyphs;
+            if (haveAltGlyph)
+                glyphs.append(altGlyphIdentifier);
+            else
+                m_fontElement->getGlyphIdentifiersForString(lookupString, glyphs);
 
-                Vector<SVGGlyphIdentifier> glyphs = m_fontElement->glyphIdentifiersForString(lookupString);
-                Vector<SVGGlyphIdentifier>::iterator it = glyphs.begin();
-                Vector<SVGGlyphIdentifier>::iterator end = glyphs.end();
+            Vector<SVGGlyphIdentifier>::iterator it = glyphs.begin();
+            Vector<SVGGlyphIdentifier>::iterator end = glyphs.end();
+            
+            for (; it != end; ++it) {
+                identifier = *it;
+                if (identifier.isValid && isCompatibleGlyph(identifier, isVerticalText, language, chars, i, i + identifier.nameLength)) {
+                    ASSERT(characterLookupRange > 0);
+                    i += identifier.nameLength - 1;
+                    m_walkerData.charsConsumed += identifier.nameLength;
+                    m_walkerData.glyphName = identifier.glyphName;
 
-                for (; it != end; ++it) {
-                    identifier = *it;
-
-                    unsigned int startPosition = run.rtl() ? run.length() - (i + lookupString.length()) : i;
-                    unsigned int endPosition = startPosition + lookupString.length();
-
-                    if (identifier.isValid && isCompatibleGlyph(identifier, isVerticalText, language, chars, startPosition, endPosition)) {
-                        ASSERT(characterLookupRange > 0);
-                        i += characterLookupRange - 1;
-
-                        foundGlyph = true;
-                        SVGGlyphElement::inheritUnspecifiedAttributes(identifier, m_fontData);
-                        break;
-                    }
+                    foundGlyph = true;
+                    SVGGlyphElement::inheritUnspecifiedAttributes(identifier, m_fontData);
+                    break;
                 }
-
-                characterLookupRange--;
             }
 
             if (!foundGlyph) {
+                ++m_walkerData.charsConsumed;
                 if (SVGMissingGlyphElement* element = m_fontElement->firstMissingGlyphElement()) {
                     // <missing-glyph> element support
                     identifier = SVGGlyphElement::buildGenericGlyphIdentifier(element);
                     SVGGlyphElement::inheritUnspecifiedAttributes(identifier, m_fontData);
+                    identifier.isValid = true;
                 } else {
                     // Fallback to system font fallback
                     TextRun subRun(run);
@@ -317,13 +331,16 @@ struct SVGTextRunWalkerMeasuredLengthData {
     int at;
     int from;
     int to;
+    int extraCharsAvailable;
+    int charsConsumed;
+    String glyphName;
 
     float scale;
     float length;
     const Font* font;
 };
 
-bool floatWidthUsingSVGFontCallback(const SVGGlyphIdentifier& identifier, SVGTextRunWalkerMeasuredLengthData& data)
+static bool floatWidthUsingSVGFontCallback(const SVGGlyphIdentifier& identifier, SVGTextRunWalkerMeasuredLengthData& data)
 {
     if (data.at >= data.from && data.at < data.to)
         data.length += identifier.horizontalAdvanceX * data.scale;
@@ -332,7 +349,7 @@ bool floatWidthUsingSVGFontCallback(const SVGGlyphIdentifier& identifier, SVGTex
     return data.at < data.to;
 }
 
-void floatWidthMissingGlyphCallback(const TextRun& run, SVGTextRunWalkerMeasuredLengthData& data)
+static void floatWidthMissingGlyphCallback(const TextRun& run, SVGTextRunWalkerMeasuredLengthData& data)
 {
     // Handle system font fallback
     FontDescription fontDescription(data.font->fontDescription());
@@ -343,7 +360,21 @@ void floatWidthMissingGlyphCallback(const TextRun& run, SVGTextRunWalkerMeasured
     data.length += font.floatWidth(run);
 }
 
-static float floatWidthOfSubStringUsingSVGFont(const Font* font, const TextRun& run, int from, int to)
+
+SVGFontElement* Font::svgFont() const
+{ 
+    if (!isSVGFont())
+        return 0;
+
+    SVGFontElement* fontElement = 0;
+    SVGFontFaceElement* fontFaceElement = 0;
+    if (svgFontAndFontFaceElementForFontData(primaryFont(), fontFaceElement, fontElement))
+        return fontElement;
+    
+    return 0;
+}
+
+static float floatWidthOfSubStringUsingSVGFont(const Font* font, const TextRun& run, int extraCharsAvailable, int from, int to, int& charsConsumed, String& glyphName)
 {
     int newFrom = to > from ? from : to;
     int newTo = to > from ? to : from;
@@ -364,6 +395,8 @@ static float floatWidthOfSubStringUsingSVGFont(const Font* font, const TextRun& 
         data.at = from;
         data.from = from;
         data.to = to;
+        data.extraCharsAvailable = extraCharsAvailable;
+        data.charsConsumed = 0;
         data.scale = convertEmUnitToPixel(font->size(), fontFaceElement->unitsPerEm(), 1.0f);
         data.length = 0.0f;
 
@@ -374,12 +407,14 @@ static float floatWidthOfSubStringUsingSVGFont(const Font* font, const TextRun& 
         if (RenderObject* renderObject = run.referencingRenderObject()) {
             isVerticalText = isVerticalWritingMode(renderObject->style()->svgStyle());
 
-            if (SVGElement* element = static_cast<SVGElement*>(renderObject->element()))
+            if (SVGElement* element = static_cast<SVGElement*>(renderObject->node()))
                 language = element->getAttribute(XMLNames::langAttr);
         }
 
         SVGTextRunWalker<SVGTextRunWalkerMeasuredLengthData> runWalker(fontData, fontElement, data, floatWidthUsingSVGFontCallback, floatWidthMissingGlyphCallback);
         runWalker.walk(run, isVerticalText, language, 0, run.length());
+        charsConsumed = data.charsConsumed;
+        glyphName = data.glyphName;
         return data.length;
     }
 
@@ -388,78 +423,36 @@ static float floatWidthOfSubStringUsingSVGFont(const Font* font, const TextRun& 
 
 float Font::floatWidthUsingSVGFont(const TextRun& run) const
 {
-    return floatWidthOfSubStringUsingSVGFont(this, run, 0, run.length());
+    int charsConsumed;
+    String glyphName;
+    return floatWidthOfSubStringUsingSVGFont(this, run, 0, 0, run.length(), charsConsumed, glyphName);
+}
+
+float Font::floatWidthUsingSVGFont(const TextRun& run, int extraCharsAvailable, int& charsConsumed, String& glyphName) const
+{
+    return floatWidthOfSubStringUsingSVGFont(this, run, extraCharsAvailable, 0, run.length(), charsConsumed, glyphName);
 }
 
 // Callback & data structures to draw text using SVG Fonts
 struct SVGTextRunWalkerDrawTextData {
-    float scale;
-    bool isVerticalText;
-
-    float xStartOffset;
-    FloatPoint currentPoint;
-    FloatPoint glyphOrigin;
-
-    GraphicsContext* context;
-    RenderObject* renderObject;
-
-    SVGPaintServer* activePaintServer;
+    int extraCharsAvailable;
+    int charsConsumed;
+    String glyphName;
+    Vector<SVGGlyphIdentifier> glyphIdentifiers;
+    Vector<UChar> fallbackCharacters;
 };
 
-bool drawTextUsingSVGFontCallback(const SVGGlyphIdentifier& identifier, SVGTextRunWalkerDrawTextData& data)
+static bool drawTextUsingSVGFontCallback(const SVGGlyphIdentifier& identifier, SVGTextRunWalkerDrawTextData& data)
 {
-    // TODO: Support arbitary SVG content as glyph (currently limited to <glyph d="..."> situations)
-    if (!identifier.pathData.isEmpty()) {
-        data.context->save();
-
-        if (data.isVerticalText) {
-            data.glyphOrigin.setX(identifier.verticalOriginX * data.scale);
-            data.glyphOrigin.setY(identifier.verticalOriginY * data.scale);
-        }
-
-        data.context->translate(data.xStartOffset + data.currentPoint.x() + data.glyphOrigin.x(), data.currentPoint.y() + data.glyphOrigin.y());
-        data.context->scale(FloatSize(data.scale, -data.scale));
-
-        data.context->beginPath();
-        data.context->addPath(identifier.pathData);
-
-        SVGPaintTargetType targetType = data.context->textDrawingMode() == cTextStroke ? ApplyToStrokeTargetType : ApplyToFillTargetType;
-        if (data.activePaintServer->setup(data.context, data.renderObject, targetType)) {
-            // Spec: Any properties specified on a text elements which represents a length, such as the
-            // 'stroke-width' property, might produce surprising results since the length value will be
-            // processed in the coordinate system of the glyph. (TODO: What other lengths? miter-limit? dash-offset?)
-            if (targetType == ApplyToStrokeTargetType && data.scale != 0.0f)
-                data.context->setStrokeThickness(data.context->strokeThickness() / data.scale);
-
-            data.activePaintServer->renderPath(data.context, data.renderObject, targetType);
-            data.activePaintServer->teardown(data.context, data.renderObject, targetType);
-        }
-
-        data.context->restore();
-    }
-
-    if (data.isVerticalText)
-        data.currentPoint.move(0.0f, identifier.verticalAdvanceY * data.scale);
-    else
-        data.currentPoint.move(identifier.horizontalAdvanceX * data.scale, 0.0f);
-
+    data.glyphIdentifiers.append(identifier);
     return true;
 }
 
-void drawTextMissingGlyphCallback(const TextRun& run, SVGTextRunWalkerDrawTextData& data)
+static void drawTextMissingGlyphCallback(const TextRun& run, SVGTextRunWalkerDrawTextData& data)
 {
-    // Handle system font fallback
-    FontDescription fontDescription(data.context->font().fontDescription());
-    fontDescription.setFamily(FontFamily());
-    Font font(fontDescription, 0, 0); // spacing handled by SVG text code.
-    font.update(data.context->font().fontSelector());
-
-    font.drawText(data.context, run, data.currentPoint);
-
-    if (data.isVerticalText)
-        data.currentPoint.move(0.0f, font.floatWidth(run));
-    else
-        data.currentPoint.move(font.floatWidth(run), 0.0f);
+    ASSERT(run.length() == 1);
+    data.glyphIdentifiers.append(SVGGlyphIdentifier());
+    data.fallbackCharacters.append(run[0]);
 }
 
 void Font::drawTextUsingSVGFont(GraphicsContext* context, const TextRun& run, 
@@ -473,58 +466,126 @@ void Font::drawTextUsingSVGFont(GraphicsContext* context, const TextRun& run,
             return;
 
         SVGTextRunWalkerDrawTextData data;
-        data.currentPoint = point;
-        data.scale = convertEmUnitToPixel(size(), fontFaceElement->unitsPerEm(), 1.0f);
+        FloatPoint currentPoint = point;
+        float scale = convertEmUnitToPixel(size(), fontFaceElement->unitsPerEm(), 1.0f);
 
-        // Required to be valid for SVG text only.
-        data.renderObject = run.referencingRenderObject();
-        data.activePaintServer = run.activePaintServer();
+        SVGPaintServer* activePaintServer = run.activePaintServer();
 
         // If renderObject is not set, we're dealing for HTML text rendered using SVG Fonts.
-        if (!data.renderObject) {
-            ASSERT(!data.activePaintServer);
+        if (!run.referencingRenderObject()) {
+            ASSERT(!activePaintServer);
 
             // TODO: We're only supporting simple filled HTML text so far.
             SVGPaintServerSolid* solidPaintServer = SVGPaintServer::sharedSolidPaintServer();
             solidPaintServer->setColor(context->fillColor());
 
-            data.activePaintServer = solidPaintServer;
+            activePaintServer = solidPaintServer;
         }
 
-        ASSERT(data.activePaintServer);
+        ASSERT(activePaintServer);
 
-        data.isVerticalText = false;
-        data.xStartOffset = floatWidthOfSubStringUsingSVGFont(this, run, run.rtl() ? to : 0, run.rtl() ? run.length() : from);
-        data.glyphOrigin = FloatPoint();
-        data.context = context;
+        int charsConsumed;
+        String glyphName;
+        bool isVerticalText = false;
+        float xStartOffset = floatWidthOfSubStringUsingSVGFont(this, run, 0, run.rtl() ? to : 0, run.rtl() ? run.length() : from, charsConsumed, glyphName);
+        FloatPoint glyphOrigin;
 
         String language;
 
         // TODO: language matching & svg glyphs should be possible for HTML text, too.
-        if (data.renderObject) {    
-            data.isVerticalText = isVerticalWritingMode(data.renderObject->style()->svgStyle());    
+        if (run.referencingRenderObject()) {
+            isVerticalText = isVerticalWritingMode(run.referencingRenderObject()->style()->svgStyle());    
 
-            if (SVGElement* element = static_cast<SVGElement*>(data.renderObject->element()))
+            if (SVGElement* element = static_cast<SVGElement*>(run.referencingRenderObject()->node()))
                 language = element->getAttribute(XMLNames::langAttr);
         }
-        
-        if (!data.isVerticalText) {
-            data.glyphOrigin.setX(fontData->horizontalOriginX() * data.scale);
-            data.glyphOrigin.setY(fontData->horizontalOriginY() * data.scale);
+
+        if (!isVerticalText) {
+            glyphOrigin.setX(fontData->horizontalOriginX() * scale);
+            glyphOrigin.setY(fontData->horizontalOriginY() * scale);
         }
 
+        data.extraCharsAvailable = 0;
+        data.charsConsumed = 0;
+
         SVGTextRunWalker<SVGTextRunWalkerDrawTextData> runWalker(fontData, fontElement, data, drawTextUsingSVGFontCallback, drawTextMissingGlyphCallback);
-        runWalker.walk(run, data.isVerticalText, language, from, to);
+        runWalker.walk(run, isVerticalText, language, from, to);
+
+        SVGPaintTargetType targetType = context->textDrawingMode() == cTextStroke ? ApplyToStrokeTargetType : ApplyToFillTargetType;
+
+        unsigned numGlyphs = data.glyphIdentifiers.size();
+        unsigned fallbackCharacterIndex = 0;
+        for (unsigned i = 0; i < numGlyphs; ++i) {
+            const SVGGlyphIdentifier& identifier = data.glyphIdentifiers[run.rtl() ? numGlyphs - i - 1 : i];
+            if (identifier.isValid) {
+                // FIXME: Support arbitary SVG content as glyph (currently limited to <glyph d="..."> situations).
+                if (!identifier.pathData.isEmpty()) {
+                    context->save();
+
+                    if (isVerticalText) {
+                        glyphOrigin.setX(identifier.verticalOriginX * scale);
+                        glyphOrigin.setY(identifier.verticalOriginY * scale);
+                    }
+
+                    context->translate(xStartOffset + currentPoint.x() + glyphOrigin.x(), currentPoint.y() + glyphOrigin.y());
+                    context->scale(FloatSize(scale, -scale));
+
+                    context->beginPath();
+                    context->addPath(identifier.pathData);
+
+                    // FIXME: setup() tries to get objectBoundingBox() from run.referencingRenderObject()
+                    // which is wrong.  We need to change setup() to take a bounding box instead, or pass
+                    // a RenderObject which would return the bounding box for identifier.pathData
+                    if (activePaintServer->setup(context, run.referencingRenderObject(), targetType)) {
+                        // Spec: Any properties specified on a text elements which represents a length, such as the
+                        // 'stroke-width' property, might produce surprising results since the length value will be
+                        // processed in the coordinate system of the glyph. (TODO: What other lengths? miter-limit? dash-offset?)
+                        if (targetType == ApplyToStrokeTargetType && scale != 0.0f)
+                            context->setStrokeThickness(context->strokeThickness() / scale);
+
+                        activePaintServer->renderPath(context, run.referencingRenderObject(), targetType);
+                        activePaintServer->teardown(context, run.referencingRenderObject(), targetType);
+                    }
+
+                    context->restore();
+                }
+
+                if (isVerticalText)
+                    currentPoint.move(0.0f, identifier.verticalAdvanceY * scale);
+                else
+                    currentPoint.move(identifier.horizontalAdvanceX * scale, 0.0f);
+            } else {
+                // Handle system font fallback
+                FontDescription fontDescription(m_fontDescription);
+                fontDescription.setFamily(FontFamily());
+                Font font(fontDescription, 0, 0); // spacing handled by SVG text code.
+                font.update(fontSelector());
+
+                TextRun fallbackCharacterRun(run);
+                fallbackCharacterRun.setText(&data.fallbackCharacters[run.rtl() ? data.fallbackCharacters.size() - fallbackCharacterIndex - 1 : fallbackCharacterIndex], 1);
+                font.drawText(context, fallbackCharacterRun, currentPoint);
+
+                if (isVerticalText)
+                    currentPoint.move(0.0f, font.floatWidth(fallbackCharacterRun));
+                else
+                    currentPoint.move(font.floatWidth(fallbackCharacterRun), 0.0f);
+
+                fallbackCharacterIndex++;
+            }
+        }
     }
 }
 
 FloatRect Font::selectionRectForTextUsingSVGFont(const TextRun& run, const IntPoint& point, int height, int from, int to) const
 {
-    return FloatRect(point.x() + floatWidthOfSubStringUsingSVGFont(this, run, run.rtl() ? to : 0, run.rtl() ? run.length() : from),
-                     point.y(), floatWidthOfSubStringUsingSVGFont(this, run, from, to), height);
+    int charsConsumed;
+    String glyphName;
+
+    return FloatRect(point.x() + floatWidthOfSubStringUsingSVGFont(this, run, 0, run.rtl() ? to : 0, run.rtl() ? run.length() : from, charsConsumed, glyphName),
+                     point.y(), floatWidthOfSubStringUsingSVGFont(this, run, 0, from, to, charsConsumed, glyphName), height);
 }
 
-int Font::offsetForPositionForTextUsingSVGFont(const TextRun&, int position, bool includePartialGlyphs) const
+int Font::offsetForPositionForTextUsingSVGFont(const TextRun&, int, bool) const
 {
     // TODO: Fix text selection when HTML text is drawn using a SVG Font
     // We need to integrate the SVG text selection code in the offsetForPosition() framework.

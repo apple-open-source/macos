@@ -1,10 +1,8 @@
-/**
- * This file is part of the DOM implementation for KDE.
- *
+/*
  * Copyright (C) 2001 Peter Kelly (pmk@post.com)
  * Copyright (C) 2001 Tobias Anton (anton@stud.fbi.fh-darmstadt.de)
  * Copyright (C) 2006 Samuel Weinig (sam.weinig@gmail.com)
- * Copyright (C) 2003, 2005, 2006 Apple Computer, Inc.
+ * Copyright (C) 2003, 2005, 2006, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -29,7 +27,6 @@
 #include "Document.h"
 #include "Frame.h"
 #include "FrameView.h"
-#include "Node.h"
 #include "RenderLayer.h"
 #include "RenderObject.h"
 
@@ -60,7 +57,7 @@ static int contentsX(AbstractView* abstractView)
     FrameView* frameView = frame->view();
     if (!frameView)
         return 0;
-    return frameView->contentsX();
+    return frameView->scrollX();
 }
 
 static int contentsY(AbstractView* abstractView)
@@ -73,17 +70,17 @@ static int contentsY(AbstractView* abstractView)
     FrameView* frameView = frame->view();
     if (!frameView)
         return 0;
-    return frameView->contentsY();
+    return frameView->scrollY();
 }
 
-MouseRelatedEvent::MouseRelatedEvent(const AtomicString& eventType, bool canBubble, bool cancelable, AbstractView* view,
+MouseRelatedEvent::MouseRelatedEvent(const AtomicString& eventType, bool canBubble, bool cancelable, PassRefPtr<AbstractView> viewArg,
                                      int detail, int screenX, int screenY, int pageX, int pageY,
                                      bool ctrlKey, bool altKey, bool shiftKey, bool metaKey, bool isSimulated)
-    : UIEventWithKeyState(eventType, canBubble, cancelable, view, detail, ctrlKey, altKey, shiftKey, metaKey)
+    : UIEventWithKeyState(eventType, canBubble, cancelable, viewArg, detail, ctrlKey, altKey, shiftKey, metaKey)
     , m_screenX(screenX)
     , m_screenY(screenY)
-    , m_clientX(pageX - contentsX(view))
-    , m_clientY(pageY - contentsY(view))
+    , m_clientX(pageX - contentsX(view()))
+    , m_clientY(pageY - contentsY(view()))
     , m_pageX(pageX)
     , m_pageY(pageY)
     , m_isSimulated(isSimulated)
@@ -100,6 +97,8 @@ void MouseRelatedEvent::initCoordinates()
     m_layerY = m_pageY;
     m_offsetX = m_pageX;
     m_offsetY = m_pageY;
+
+    computePageLocation();
 }
 
 void MouseRelatedEvent::initCoordinates(int clientX, int clientY)
@@ -115,6 +114,14 @@ void MouseRelatedEvent::initCoordinates(int clientX, int clientY)
     m_layerY = m_pageY;
     m_offsetX = m_pageX;
     m_offsetY = m_pageY;
+
+    computePageLocation();
+}
+
+void MouseRelatedEvent::computePageLocation()
+{
+    float zoomFactor = (view() && view()->frame()) ? view()->frame()->pageZoomFactor() : 1.0f;
+    setAbsoluteLocation(roundedIntPoint(FloatPoint(pageX() * zoomFactor, pageY() * zoomFactor)));
 }
 
 void MouseRelatedEvent::receivedTarget()
@@ -131,16 +138,15 @@ void MouseRelatedEvent::receivedTarget()
     m_offsetY = m_pageY;
 
     // Must have an updated render tree for this math to work correctly.
-    targ->document()->updateRendering();
+    targ->document()->updateStyleIfNeeded();
 
     // Adjust offsetX/Y to be relative to the target's position.
     if (!isSimulated()) {
         if (RenderObject* r = targ->renderer()) {
-            int rx, ry;
-            if (r->absolutePosition(rx, ry)) {
-                m_offsetX -= rx;
-                m_offsetY -= ry;
-            }
+            FloatPoint localPos = r->absoluteToLocal(absoluteLocation(), false, true);
+            float zoomFactor = (view() && view()->frame()) ? view()->frame()->pageZoomFactor() : 1.0f;
+            m_offsetX = lroundf(localPos.x() / zoomFactor);
+            m_offsetY = lroundf(localPos.y() / zoomFactor);
         }
     }
 
@@ -156,8 +162,8 @@ void MouseRelatedEvent::receivedTarget()
         RenderLayer* layer = n->renderer()->enclosingLayer();
         layer->updateLayerPosition();
         for (; layer; layer = layer->parent()) {
-            m_layerX -= layer->xPos();
-            m_layerY -= layer->yPos();
+            m_layerX -= layer->x();
+            m_layerY -= layer->y();
         }
     }
 }

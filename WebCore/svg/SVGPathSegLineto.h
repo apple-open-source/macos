@@ -1,6 +1,6 @@
 /*
     Copyright (C) 2004, 2005, 2006 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005, 2006 Rob Buis <buis@kde.org>
+                  2004, 2005, 2006, 2008 Rob Buis <buis@kde.org>
 
     This file is part of the KDE project
 
@@ -28,44 +28,27 @@
 #include "SVGPathSeg.h"
 
 namespace WebCore {
-    class SVGPathSegLinetoAbs : public SVGPathSeg { 
+    class SVGPathSegLinetoAbs : public SVGPathSegSingleCoord { 
     public:
-        SVGPathSegLinetoAbs(float x, float y);
-        virtual ~SVGPathSegLinetoAbs();
+        static PassRefPtr<SVGPathSegLinetoAbs> create(float x, float y) { return adoptRef(new SVGPathSegLinetoAbs(x, y)); }
 
         virtual unsigned short pathSegType() const { return PATHSEG_LINETO_ABS; }
         virtual String pathSegTypeAsLetter() const { return "L"; }
-        virtual String toString() const { return String::format("L %.6lg %.6lg", m_x, m_y); }
-
-        void setX(float);
-        float x() const;
-
-        void setY(float);
-        float y() const;
 
     private:
-        float m_x;
-        float m_y;
+        SVGPathSegLinetoAbs(float x, float y);
     };
 
-    class SVGPathSegLinetoRel : public SVGPathSeg { 
+    class SVGPathSegLinetoRel : public SVGPathSegSingleCoord { 
     public:
-        SVGPathSegLinetoRel(float x, float y);
-        virtual ~SVGPathSegLinetoRel();
+        static PassRefPtr<SVGPathSegLinetoRel> create(float x, float y) { return adoptRef(new SVGPathSegLinetoRel(x, y)); }
+
 
         virtual unsigned short pathSegType() const { return PATHSEG_LINETO_REL; }
         virtual String pathSegTypeAsLetter() const { return "l"; }
-        virtual String toString() const { return String::format("l %.6lg %.6lg", m_x, m_y); }
-
-        void setX(float);
-        float x() const;
-
-        void setY(float);
-        float y() const;
 
     private:
-        float m_x;
-        float m_y;
+        SVGPathSegLinetoRel(float x, float y);
     };
 
 } // namespace WebCore

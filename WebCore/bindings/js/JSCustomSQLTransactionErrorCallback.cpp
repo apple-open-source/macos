@@ -29,15 +29,16 @@
 #include "config.h"
 #include "JSCustomSQLTransactionErrorCallback.h"
 
-#include "CString.h"
+#if ENABLE(DATABASE)
+
 #include "Frame.h"
-#include "kjs_proxy.h"
+#include "ScriptController.h"
 #include "JSSQLError.h"
-#include "Page.h"
+#include <runtime/JSLock.h>
 
 namespace WebCore {
     
-using namespace KJS;
+using namespace JSC;
     
 JSCustomSQLTransactionErrorCallback::JSCustomSQLTransactionErrorCallback(JSObject* callback, Frame* frame)
     : m_callback(callback)
@@ -50,55 +51,44 @@ bool JSCustomSQLTransactionErrorCallback::handleEvent(SQLError* error)
     ASSERT(m_callback);
     ASSERT(m_frame);
         
-    if (!m_frame->scriptProxy()->isEnabled())
+    if (!m_frame->script()->isEnabled())
         return true;
         
-    JSGlobalObject* globalObject = m_frame->scriptProxy()->globalObject();
+    JSGlobalObject* globalObject = m_frame->script()->globalObject();
     ExecState* exec = globalObject->globalExec();
         
-    KJS::JSLock lock;
+    JSC::JSLock lock(false);
         
-    JSValue* handleEventFuncValue = m_callback->get(exec, "handleEvent");
-    JSObject* handleEventFunc = 0;
-    if (handleEventFuncValue->isObject()) {
-        handleEventFunc = static_cast<JSObject*>(handleEventFuncValue);
-        if (!handleEventFunc->implementsCall())
-            handleEventFunc = 0;
+    JSValue function = m_callback->get(exec, Identifier(exec, "handleEvent"));
+    CallData callData;
+    CallType callType = function.getCallData(callData);
+    if (callType == CallTypeNone) {
+        callType = m_callback->getCallData(callData);
+        if (callType == CallTypeNone) {
+            // FIXME: Should an exception be thrown here?
+            return true;
+        }
+        function = m_callback;
     }
-        
-    if (!handleEventFunc && !m_callback->implementsCall()) {
-        // FIXME: Should an exception be thrown here?
-        return true;
-    }
-        
+
     RefPtr<JSCustomSQLTransactionErrorCallback> protect(this);
         
-    List args;
+    MarkedArgumentBuffer args;
     args.append(toJS(exec, error));
 
-    JSValue *result;
-    globalObject->startTimeoutCheck();
-    if (handleEventFunc)
-        result = handleEventFunc->call(exec, m_callback, args);
-    else
-        result = m_callback->call(exec, m_callback, args);
-    globalObject->stopTimeoutCheck();
+    JSValue result;
+    globalObject->globalData()->timeoutChecker.start();
+    result = call(exec, function, callType, callData, m_callback, args);
+    globalObject->globalData()->timeoutChecker.stop();
         
-    if (exec->hadException()) {
-        JSObject* exception = exec->exception()->toObject(exec);
-        String message = exception->get(exec, exec->propertyNames().message)->toString(exec);
-        int lineNumber = exception->get(exec, "line")->toInt32(exec);
-        String sourceURL = exception->get(exec, "sourceURL")->toString(exec);
-        if (Interpreter::shouldPrintExceptions())
-            printf("SQLTransactionErrorCallback: %s\n", message.utf8().data());
-        if (Page* page = m_frame->page())
-            page->chrome()->addMessageToConsole(JSMessageSource, ErrorMessageLevel, message, lineNumber, sourceURL);
-        exec->clearException();
-    }
+    if (exec->hadException())
+        reportCurrentException(exec);
         
-    Document::updateDocumentsRendering();
+    Document::updateStyleForAllDocuments();
     
-    return result->toBoolean(exec);
+    return result.toBoolean(exec);
 }
     
 }
+
+#endif // ENABLE(DATABASE)

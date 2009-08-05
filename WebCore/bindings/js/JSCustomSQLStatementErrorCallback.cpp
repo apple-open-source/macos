@@ -29,16 +29,17 @@
 #include "config.h"
 #include "JSCustomSQLStatementErrorCallback.h"
 
-#include "CString.h"
+#if ENABLE(DATABASE)
+
 #include "Frame.h"
-#include "kjs_proxy.h"
+#include "ScriptController.h"
 #include "JSSQLError.h"
 #include "JSSQLTransaction.h"
-#include "Page.h"
+#include <runtime/JSLock.h>
 
 namespace WebCore {
     
-using namespace KJS;
+using namespace JSC;
     
 JSCustomSQLStatementErrorCallback::JSCustomSQLStatementErrorCallback(JSObject* callback, Frame* frame)
     : m_callback(callback)
@@ -51,51 +52,44 @@ bool JSCustomSQLStatementErrorCallback::handleEvent(SQLTransaction* transaction,
     ASSERT(m_callback);
     ASSERT(m_frame);
         
-    if (!m_frame->scriptProxy()->isEnabled())
+    if (!m_frame->script()->isEnabled())
         return true;
         
-    JSGlobalObject* globalObject = m_frame->scriptProxy()->globalObject();
+    JSGlobalObject* globalObject = m_frame->script()->globalObject();
     ExecState* exec = globalObject->globalExec();
         
-    KJS::JSLock lock;
+    JSC::JSLock lock(false);
         
-    JSValue* handleEventFuncValue = m_callback->get(exec, "handleEvent");
-    JSObject* handleEventFunc = 0;
-    if (handleEventFuncValue->isObject()) {
-        handleEventFunc = static_cast<JSObject*>(handleEventFuncValue);
-        if (!handleEventFunc->implementsCall())
-            handleEventFunc = 0;
-    }
-        
-    if (!handleEventFunc && !m_callback->implementsCall()) {
-        // FIXME: Should an exception be thrown here?
-        return true;
+    JSValue handleEventFunction = m_callback->get(exec, Identifier(exec, "handleEvent"));
+    CallData handleEventCallData;
+    CallType handleEventCallType = handleEventFunction.getCallData(handleEventCallData);
+    CallData callbackCallData;
+    CallType callbackCallType = CallTypeNone;
+
+    if (handleEventCallType == CallTypeNone) {
+        callbackCallType = m_callback->getCallData(callbackCallData);
+        if (callbackCallType == CallTypeNone) {
+            // FIXME: Should an exception be thrown here?
+            return true;
+        }
     }
         
     RefPtr<JSCustomSQLStatementErrorCallback> protect(this);
         
-    List args;
+    MarkedArgumentBuffer args;
     args.append(toJS(exec, transaction));
     args.append(toJS(exec, error));
         
-    JSValue *result;
-    globalObject->startTimeoutCheck();
-    if (handleEventFunc)
-        result = handleEventFunc->call(exec, m_callback, args);
+    JSValue result;
+    globalObject->globalData()->timeoutChecker.start();
+    if (handleEventCallType != CallTypeNone)
+        result = call(exec, handleEventFunction, handleEventCallType, handleEventCallData, m_callback, args);
     else
-        result = m_callback->call(exec, m_callback, args);
-    globalObject->stopTimeoutCheck();
+        result = call(exec, m_callback, callbackCallType, callbackCallData, m_callback, args);
+    globalObject->globalData()->timeoutChecker.stop();
         
     if (exec->hadException()) {
-        JSObject* exception = exec->exception()->toObject(exec);
-        String message = exception->get(exec, exec->propertyNames().message)->toString(exec);
-        int lineNumber = exception->get(exec, "line")->toInt32(exec);
-        String sourceURL = exception->get(exec, "sourceURL")->toString(exec);
-        if (Interpreter::shouldPrintExceptions())
-            printf("SQLStatementErrorCallback: %s\n", message.utf8().data());
-        if (Page* page = m_frame->page())
-            page->chrome()->addMessageToConsole(JSMessageSource, ErrorMessageLevel, message, lineNumber, sourceURL);
-        exec->clearException();
+        reportCurrentException(exec);
             
         // The spec says:
         // "If the error callback returns false, then move on to the next statement..."
@@ -104,9 +98,11 @@ bool JSCustomSQLStatementErrorCallback::handleEvent(SQLTransaction* transaction,
         return true;
     }
         
-    Document::updateDocumentsRendering();
+    Document::updateStyleForAllDocuments();
 
-    return result->toBoolean(exec);
+    return result.toBoolean(exec);
 }
 
 }
+
+#endif // ENABLE(DATABASE)

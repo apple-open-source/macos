@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006 Nikolas Zimmermann <zimmermann@kde.org>
+ *               2008 Eric Seidel <eric@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,46 +29,28 @@
 
 #if ENABLE(SVG)
 
-#include "AffineTransform.h"
+#include "TransformationMatrix.h"
 #include "Color.h"
+#include "Gradient.h"
+#include "GraphicsContext.h"
 #include "SVGPaintServer.h"
 
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
-
-#if PLATFORM(QT)
-class QGradient;
-#endif
 
 namespace WebCore {
 
     class ImageBuffer;
     class SVGGradientElement;
 
-    // FIXME: Remove the spread method enum in SVGGradientElement
-    enum SVGGradientSpreadMethod {
-        SPREADMETHOD_PAD = 1,
-        SPREADMETHOD_REFLECT = 2,
-        SPREADMETHOD_REPEAT = 3
-    };
-
-#if PLATFORM(CG)
-    typedef std::pair<CGFloat, Color> SVGGradientStop;
-#else
     typedef std::pair<float, Color> SVGGradientStop;
-#endif
-
 
     class SVGPaintServerGradient : public SVGPaintServer {
     public:
-        SVGPaintServerGradient(const SVGGradientElement*);
         virtual ~SVGPaintServerGradient();
 
-        const Vector<SVGGradientStop>& gradientStops() const;
-        void setGradientStops(const Vector<SVGGradientStop>&);
-
-        SVGGradientSpreadMethod spreadMethod() const;
-        void setGradientSpreadMethod(const SVGGradientSpreadMethod&);
+        void setGradient(PassRefPtr<Gradient>);
+        Gradient* gradient() const;
 
         // Gradient start and end points are percentages when used in boundingBox mode.
         // For instance start point with value (0,0) is top-left and end point with
@@ -75,54 +58,31 @@ namespace WebCore {
         bool boundingBoxMode() const;
         void setBoundingBoxMode(bool mode = true);
 
-        AffineTransform gradientTransform() const;
-        void setGradientTransform(const AffineTransform&);
+        TransformationMatrix gradientTransform() const;
+        void setGradientTransform(const TransformationMatrix&);
+
+        void setGradientStops(const Vector<SVGGradientStop>& stops) { m_stops = stops; }
+        const Vector<SVGGradientStop>& gradientStops() const { return m_stops; }
 
         virtual TextStream& externalRepresentation(TextStream&) const;
 
         virtual bool setup(GraphicsContext*&, const RenderObject*, SVGPaintTargetType, bool isPaintingText) const;
-#if PLATFORM(CG)
         virtual void teardown(GraphicsContext*&, const RenderObject*, SVGPaintTargetType, bool isPaintingText) const;
-        virtual void renderPath(GraphicsContext*&, const RenderObject*, SVGPaintTargetType) const;
 
-        virtual void invalidate();
-
-        // Helpers
-        void updateQuartzGradientStopsCache(const Vector<SVGGradientStop>&);
-        void updateQuartzGradientCache(const SVGPaintServerGradient*);
-        void handleBoundingBoxModeAndGradientTransformation(GraphicsContext*, const FloatRect& targetRect) const;
-#endif
-
-#if PLATFORM(QT)
     protected:
-        void fillColorArray(QGradient&, const Vector<SVGGradientStop>&, float opacity) const;
-        virtual QGradient setupGradient(GraphicsContext*&, const RenderObject*) const = 0;
-#endif
-
+        SVGPaintServerGradient(const SVGGradientElement* owner);
+        
     private:
         Vector<SVGGradientStop> m_stops;
-        SVGGradientSpreadMethod m_spreadMethod;
+        RefPtr<Gradient> m_gradient;
         bool m_boundingBoxMode;
-        AffineTransform m_gradientTransform;
+        TransformationMatrix m_gradientTransform;
         const SVGGradientElement* m_ownerElement;
 
 #if PLATFORM(CG)
     public:
-        typedef struct {
-            CGFloat colorArray[4];
-            CGFloat offset;
-            CGFloat previousDeltaInverse;
-        } QuartzGradientStop;
-        
-        struct SharedStopCache : public RefCounted<SharedStopCache> {
-            Vector<QuartzGradientStop> m_stops;
-        };
-
-        RefPtr<SharedStopCache> m_stopsCache;
-
-        CGShadingRef m_shadingCache;
         mutable GraphicsContext* m_savedContext;
-        mutable ImageBuffer* m_imageBuffer;
+        mutable OwnPtr<ImageBuffer> m_imageBuffer;
 #endif
     };
 

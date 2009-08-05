@@ -31,11 +31,11 @@
 
 #include <wtf/Assertions.h>
 
-using namespace KJS;
+using namespace JSC;
 
 namespace WebCore {
 
-JSValue* JSSVGPathSegList::clear(ExecState* exec, const List& args)
+JSValue JSSVGPathSegList::clear(ExecState* exec, const ArgList&)
 {
     ExceptionCode ec = 0;
 
@@ -48,28 +48,28 @@ JSValue* JSSVGPathSegList::clear(ExecState* exec, const List& args)
     return jsUndefined();
 }
 
-JSValue* JSSVGPathSegList::initialize(ExecState* exec, const List& args)
+JSValue JSSVGPathSegList::initialize(ExecState* exec, const ArgList& args)
 {
     ExceptionCode ec = 0;
-    SVGPathSeg* newItem = toSVGPathSeg(args[0]);
+    SVGPathSeg* newItem = toSVGPathSeg(args.at(0));
 
     SVGPathSegList* imp = static_cast<SVGPathSegList*>(impl());
 
     SVGPathSeg* obj = WTF::getPtr(imp->initialize(newItem, ec));
 
-    KJS::JSValue* result = toJS(exec, obj, m_context.get());
+    JSC::JSValue result = toJS(exec, obj, m_context.get());
     setDOMException(exec, ec);
 
     m_context->svgAttributeChanged(imp->associatedAttributeName());    
     return result;
 }
 
-JSValue* JSSVGPathSegList::getItem(ExecState* exec, const List& args)
+JSValue JSSVGPathSegList::getItem(ExecState* exec, const ArgList& args)
 {
     ExceptionCode ec = 0;
 
     bool indexOk;
-    unsigned index = args[0]->toInt32(exec, indexOk);
+    unsigned index = args.at(0).toInt32(exec, indexOk);
     if (!indexOk) {
         setDOMException(exec, TYPE_MISMATCH_ERR);
         return jsUndefined();
@@ -78,18 +78,18 @@ JSValue* JSSVGPathSegList::getItem(ExecState* exec, const List& args)
     SVGPathSegList* imp = static_cast<SVGPathSegList*>(impl());
     SVGPathSeg* obj = WTF::getPtr(imp->getItem(index, ec));
 
-    KJS::JSValue* result = toJS(exec, obj, m_context.get());
+    JSC::JSValue result = toJS(exec, obj, m_context.get());
     setDOMException(exec, ec);
     return result;
 }
 
-JSValue* JSSVGPathSegList::insertItemBefore(ExecState* exec, const List& args)
+JSValue JSSVGPathSegList::insertItemBefore(ExecState* exec, const ArgList& args)
 {
     ExceptionCode ec = 0;
-    SVGPathSeg* newItem = toSVGPathSeg(args[0]);
+    SVGPathSeg* newItem = toSVGPathSeg(args.at(0));
 
     bool indexOk;
-    unsigned index = args[1]->toInt32(exec, indexOk);
+    unsigned index = args.at(1).toInt32(exec, indexOk);
     if (!indexOk) {
         setDOMException(exec, TYPE_MISMATCH_ERR);
         return jsUndefined();
@@ -97,20 +97,20 @@ JSValue* JSSVGPathSegList::insertItemBefore(ExecState* exec, const List& args)
 
     SVGPathSegList* imp = static_cast<SVGPathSegList*>(impl());
 
-    KJS::JSValue* result = toJS(exec, WTF::getPtr(imp->insertItemBefore(newItem, index, ec)), m_context.get());
+    JSC::JSValue result = toJS(exec, WTF::getPtr(imp->insertItemBefore(newItem, index, ec)), m_context.get());
     setDOMException(exec, ec);
 
     m_context->svgAttributeChanged(imp->associatedAttributeName());    
     return result;
 }
 
-JSValue* JSSVGPathSegList::replaceItem(ExecState* exec, const List& args)
+JSValue JSSVGPathSegList::replaceItem(ExecState* exec, const ArgList& args)
 {
     ExceptionCode ec = 0;
-    SVGPathSeg* newItem = toSVGPathSeg(args[0]);
+    SVGPathSeg* newItem = toSVGPathSeg(args.at(0));
     
     bool indexOk;
-    unsigned index = args[1]->toInt32(exec, indexOk);
+    unsigned index = args.at(1).toInt32(exec, indexOk);
     if (!indexOk) {
         setDOMException(exec, TYPE_MISMATCH_ERR);
         return jsUndefined();
@@ -118,19 +118,19 @@ JSValue* JSSVGPathSegList::replaceItem(ExecState* exec, const List& args)
 
     SVGPathSegList* imp = static_cast<SVGPathSegList*>(impl());
 
-    KJS::JSValue* result = toJS(exec, WTF::getPtr(imp->replaceItem(newItem, index, ec)), m_context.get());
+    JSC::JSValue result = toJS(exec, WTF::getPtr(imp->replaceItem(newItem, index, ec)), m_context.get());
     setDOMException(exec, ec);
 
     m_context->svgAttributeChanged(imp->associatedAttributeName());    
     return result;
 }
 
-JSValue* JSSVGPathSegList::removeItem(ExecState* exec, const List& args)
+JSValue JSSVGPathSegList::removeItem(ExecState* exec, const ArgList& args)
 {
     ExceptionCode ec = 0;
     
     bool indexOk;
-    unsigned index = args[0]->toInt32(exec, indexOk);
+    unsigned index = args.at(0).toInt32(exec, indexOk);
     if (!indexOk) {
         setDOMException(exec, TYPE_MISMATCH_ERR);
         return jsUndefined();
@@ -140,21 +140,21 @@ JSValue* JSSVGPathSegList::removeItem(ExecState* exec, const List& args)
 
     RefPtr<SVGPathSeg> obj(imp->removeItem(index, ec));
 
-    KJS::JSValue* result = toJS(exec, obj.get(), m_context.get());
+    JSC::JSValue result = toJS(exec, obj.get(), m_context.get());
     setDOMException(exec, ec);
 
     m_context->svgAttributeChanged(imp->associatedAttributeName());    
     return result;
 }
 
-JSValue* JSSVGPathSegList::appendItem(ExecState* exec, const List& args)
+JSValue JSSVGPathSegList::appendItem(ExecState* exec, const ArgList& args)
 {
     ExceptionCode ec = 0;
-    SVGPathSeg* newItem = toSVGPathSeg(args[0]);
+    SVGPathSeg* newItem = toSVGPathSeg(args.at(0));
 
     SVGPathSegList* imp = static_cast<SVGPathSegList*>(impl());
 
-    KJS::JSValue* result = toJS(exec, WTF::getPtr(imp->appendItem(newItem, ec)), m_context.get());
+    JSC::JSValue result = toJS(exec, WTF::getPtr(imp->appendItem(newItem, ec)), m_context.get());
     setDOMException(exec, ec);
 
     m_context->svgAttributeChanged(imp->associatedAttributeName());    

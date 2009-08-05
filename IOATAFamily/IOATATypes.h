@@ -256,7 +256,7 @@ enum ataOpcode {
 } ;
 
 
-/* The ATA Event codes…*/
+/* The ATA Event codes */
 /* sent when calling the device driver's event handler*/
 enum ataEventCode {
 	kATANullEvent				= 0x00,							/* Just kidding -- nothing happened*/
@@ -267,6 +267,7 @@ enum ataEventCode {
 	kATAOfflineRequest			= 0x05,							/* Someone requesting to offline the drive*/
 	kATAEjectRequest			= 0x06,							/* Someone requesting to eject the drive*/
 	kATAPIResetEvent			= 0x07,							/* Someone gave a ATAPI reset to the drive*/
+	kATAReservedEvent			= 0x80							/* RESERVED*/
 };
 
 

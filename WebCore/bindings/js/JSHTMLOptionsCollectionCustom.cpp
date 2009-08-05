@@ -31,22 +31,22 @@
 
 #include <wtf/MathExtras.h>
 
-using namespace KJS;
+using namespace JSC;
 
 namespace WebCore {
 
-JSValue* JSHTMLOptionsCollection::length(ExecState* exec) const
+JSValue JSHTMLOptionsCollection::length(ExecState* exec) const
 {
     HTMLOptionsCollection* imp = static_cast<HTMLOptionsCollection*>(impl());
-    return jsNumber(imp->length());
+    return jsNumber(exec, imp->length());
 }
 
-void JSHTMLOptionsCollection::setLength(ExecState* exec, JSValue* value)
+void JSHTMLOptionsCollection::setLength(ExecState* exec, JSValue value)
 {
     HTMLOptionsCollection* imp = static_cast<HTMLOptionsCollection*>(impl());
     ExceptionCode ec = 0;
     unsigned newLength = 0;
-    double lengthValue = value->toNumber(exec);
+    double lengthValue = value.toNumber(exec);
     if (!isnan(lengthValue) && !isinf(lengthValue)) {
         if (lengthValue < 0.0)
             ec = INDEX_SIZE_ERR;
@@ -60,23 +60,23 @@ void JSHTMLOptionsCollection::setLength(ExecState* exec, JSValue* value)
     setDOMException(exec, ec);
 }
 
-void JSHTMLOptionsCollection::indexSetter(ExecState* exec, unsigned index, JSValue* value, int attr)
+void JSHTMLOptionsCollection::indexSetter(ExecState* exec, unsigned index, JSValue value)
 {
     HTMLOptionsCollection* imp = static_cast<HTMLOptionsCollection*>(impl());
     HTMLSelectElement* base = static_cast<HTMLSelectElement*>(imp->base());
     selectIndexSetter(base, exec, index, value);
 }
 
-JSValue* JSHTMLOptionsCollection::add(ExecState* exec, const List& args)
+JSValue JSHTMLOptionsCollection::add(ExecState* exec, const ArgList& args)
 {
     HTMLOptionsCollection* imp = static_cast<HTMLOptionsCollection*>(impl());
-    HTMLOptionElement* option = toHTMLOptionElement(args[0]);
+    HTMLOptionElement* option = toHTMLOptionElement(args.at(0));
     ExceptionCode ec = 0;
     if (args.size() < 2)
         imp->add(option, ec);
     else {
         bool ok;
-        int index = args[1]->toInt32(exec, ok);
+        int index = args.at(1).toInt32(exec, ok);
         if (exec->hadException())
             return jsUndefined();
         if (!ok)
@@ -88,10 +88,10 @@ JSValue* JSHTMLOptionsCollection::add(ExecState* exec, const List& args)
     return jsUndefined();
 }
 
-JSValue* JSHTMLOptionsCollection::remove(ExecState* exec, const List& args)
+JSValue JSHTMLOptionsCollection::remove(ExecState* exec, const ArgList& args)
 {
     HTMLOptionsCollection* imp = static_cast<HTMLOptionsCollection*>(impl());
-    JSHTMLSelectElement* base = static_cast<JSHTMLSelectElement*>(toJS(exec, imp->base()));
+    JSHTMLSelectElement* base = static_cast<JSHTMLSelectElement*>(asObject(toJS(exec, imp->base())));
     return base->remove(exec, args);
 }
 

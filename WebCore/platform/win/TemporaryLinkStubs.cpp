@@ -25,7 +25,6 @@
 
 #include "config.h"
 
-#include "CachedPage.h"
 #include "NotImplemented.h"
 #include "SSLKeyGenerator.h"
 
@@ -33,6 +32,8 @@ namespace WebCore {
 
 // <keygen>
 String signedPublicKeyAndChallengeString(unsigned, const String&, const KURL&) { notImplemented(); return String(); }
-Vector<String> supportedKeySizes() { notImplemented(); return Vector<String>(); }
-
-}
+void getSupportedKeySizes(Vector<String>&) { notImplemented(); }
+#if PLATFORM(CAIRO)
+void populateFontDatabase() { /* Not needed for GDI fonts */ }
+#endif
+} // namespace WebCore

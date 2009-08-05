@@ -29,13 +29,12 @@ namespace WebCore {
 
 class Counter;
 class DashboardRegion;
-struct Length;
 class Pair;
 class Rect;
 class RenderStyle;
 class StringImpl;
 
-typedef int ExceptionCode;
+struct Length;
 
 class CSSPrimitiveValue : public CSSValue {
 public:
@@ -67,26 +66,41 @@ public:
         CSS_RECT = 24,
         CSS_RGBCOLOR = 25,
         CSS_PAIR = 100, // We envision this being exposed as a means of getting computed style values for pairs (border-spacing/radius, background-position, etc.)
-        CSS_DASHBOARD_REGION = 101, // FIXME: What on earth is this doing as a primitive value? It should not be!
-        CSS_UNICODE_RANGE = 102
+        CSS_DASHBOARD_REGION = 101, // FIXME: Dashboard region should not be a primitive value.
+        CSS_UNICODE_RANGE = 102,
+        
+        // These next types are just used internally to allow us to translate back and forth from CSSPrimitiveValues to CSSParserValues.
+        CSS_PARSER_OPERATOR = 103,
+        CSS_PARSER_INTEGER = 104,
+        CSS_PARSER_VARIABLE_FUNCTION_SYNTAX = 105,
+        CSS_PARSER_HEXCOLOR = 106,
+        
+        // This is used internally for unknown identifiers 
+        CSS_PARSER_IDENTIFIER = 107,
+        
+        // This unit is in CSS 3, but that isn't a finished standard yet
+        CSS_TURN = 108
     };
+    
+    static bool isUnitTypeLength(int type) { return type > CSSPrimitiveValue::CSS_PERCENTAGE && type < CSSPrimitiveValue::CSS_DEG; }
 
-    // FIXME: int vs. unsigned overloading is too tricky for color vs. ident
-    CSSPrimitiveValue();
-    CSSPrimitiveValue(int ident);
-    CSSPrimitiveValue(double, UnitTypes);
-    CSSPrimitiveValue(const String&, UnitTypes);
-    CSSPrimitiveValue(unsigned color); // RGB value
-    CSSPrimitiveValue(const Length&);
-    template<typename T> CSSPrimitiveValue(T); // Defined in CSSPrimitiveValueMappings.h
-    template<typename T> CSSPrimitiveValue(T* val) { init(PassRefPtr<T>(val)); }
-    template<typename T> CSSPrimitiveValue(PassRefPtr<T> val) { init(val); }
+    static PassRefPtr<CSSPrimitiveValue> createIdentifier(int ident);
+    static PassRefPtr<CSSPrimitiveValue> createColor(unsigned rgbValue);
+    static PassRefPtr<CSSPrimitiveValue> create(double value, UnitTypes type);
+    static PassRefPtr<CSSPrimitiveValue> create(const String& value, UnitTypes type);
+    
+    template<typename T> static PassRefPtr<CSSPrimitiveValue> create(T value)
+    {
+        return adoptRef(new CSSPrimitiveValue(value));
+    }
 
     virtual ~CSSPrimitiveValue();
 
     void cleanup();
 
     unsigned short primitiveType() const { return m_type; }
+
+    bool isVariable() const { return m_type == CSS_PARSER_VARIABLE_FUNCTION_SYNTAX; }
 
     /*
      * computes a length in pixels out of the given CSSValue. Need the RenderStyle to get
@@ -104,12 +118,13 @@ public:
     int computeLengthIntForLength(RenderStyle*, double multiplier);
     short computeLengthShort(RenderStyle*);
     short computeLengthShort(RenderStyle*, double multiplier);
-    float computeLengthFloat(RenderStyle*, bool applyZoomFactor = true);
-    double computeLengthDouble(RenderStyle*, bool applyZoomFactor = true);
+    float computeLengthFloat(RenderStyle*, bool computingFontSize = false);
+    float computeLengthFloat(RenderStyle*, double multiplier, bool computingFontSize = false);
+    double computeLengthDouble(RenderStyle*, double multiplier = 1.0, bool computingFontSize = false);
 
     // use with care!!!
     void setPrimitiveType(unsigned short type) { m_type = type; }
-
+    
     double getDoubleValue(unsigned short unitType, ExceptionCode&);
     double getDoubleValue(unsigned short unitType);
     double getDoubleValue() const { return m_value.num; }
@@ -141,10 +156,6 @@ public:
 
     DashboardRegion* getDashboardRegionValue() const { return m_type != CSS_DASHBOARD_REGION ? 0 : m_value.region; }
 
-    virtual bool isPrimitiveValue() const { return true; }
-
-    virtual unsigned short cssValueType() const;
-
     int getIdent();
     template<typename T> operator T() const; // Defined in CSSPrimitiveValueMappings.h
 
@@ -153,7 +164,38 @@ public:
 
     virtual bool isQuirkValue() { return false; }
 
+    virtual CSSParserValue parserValue() const;
+
+    virtual void addSubresourceStyleURLs(ListHashSet<KURL>&, const CSSStyleSheet*);
+
 protected:
+    // FIXME: int vs. unsigned overloading is too subtle to distinguish the color and identifier cases.
+    CSSPrimitiveValue(int ident);
+    CSSPrimitiveValue(double, UnitTypes);
+    CSSPrimitiveValue(const String&, UnitTypes);
+
+private:
+    CSSPrimitiveValue();
+    CSSPrimitiveValue(unsigned color); // RGB value
+    CSSPrimitiveValue(const Length&);
+
+    template<typename T> CSSPrimitiveValue(T); // Defined in CSSPrimitiveValueMappings.h
+    template<typename T> CSSPrimitiveValue(T* val) { init(PassRefPtr<T>(val)); }
+    template<typename T> CSSPrimitiveValue(PassRefPtr<T> val) { init(val); }
+
+    static void create(int); // compile-time guard
+    static void create(unsigned); // compile-time guard
+    template<typename T> operator T*(); // compile-time guard
+
+    void init(PassRefPtr<Counter>);
+    void init(PassRefPtr<Rect>);
+    void init(PassRefPtr<Pair>);
+    void init(PassRefPtr<DashboardRegion>); // FIXME: Dashboard region should not be a primitive value.
+
+    virtual bool isPrimitiveValue() const { return true; }
+
+    virtual unsigned short cssValueType() const;
+
     int m_type;
     union {
         int ident;
@@ -165,14 +207,6 @@ protected:
         Pair* pair;
         DashboardRegion* region;
     } m_value;
-
-private:
-    template<typename T> operator T*(); // compile-time guard
-
-    void init(PassRefPtr<Counter>);
-    void init(PassRefPtr<Rect>);
-    void init(PassRefPtr<Pair>);
-    void init(PassRefPtr<DashboardRegion>); // FIXME: Why is dashboard region a primitive value? This makes no sense.
 };
 
 } // namespace WebCore

@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 2006, 2007 Apple Inc.
+* Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
 *
 * This library is free software; you can redistribute it and/or
 * modify it under the terms of the GNU Library General Public
@@ -23,27 +23,25 @@
 
 #include "GraphicsContext.h"
 #include "PlatformString.h"
+#include <tchar.h>
 #include <windows.h>
 
 namespace WebCore {
 
-Icon::Icon()
-    : m_hIcon(0)
-{
-}
+static const int shell32MultipleFileIconIndex = 54;
 
 Icon::Icon(HICON icon)
     : m_hIcon(icon)
 {
+    ASSERT(icon);
 }
 
 Icon::~Icon()
 {
-    if (m_hIcon)
-        DestroyIcon(m_hIcon);
+    DestroyIcon(m_hIcon);
 }
 
-PassRefPtr<Icon> Icon::newIconForFile(const String& filename)
+PassRefPtr<Icon> Icon::createIconForFile(const String& filename)
 {
     SHFILEINFO sfi;
     memset(&sfi, 0, sizeof(sfi));
@@ -52,9 +50,23 @@ PassRefPtr<Icon> Icon::newIconForFile(const String& filename)
     if (!SHGetFileInfo(tmpFilename.charactersWithNullTermination(), 0, &sfi, sizeof(sfi), SHGFI_ICON | SHGFI_SHELLICONSIZE | SHGFI_SMALLICON))
         return 0;
 
-    Icon* icon = new Icon();  
-    icon->m_hIcon = sfi.hIcon;
-    return icon;
+    return adoptRef(new Icon(sfi.hIcon));
+}
+
+PassRefPtr<Icon> Icon::createIconForFiles(const Vector<String>&)
+{
+    TCHAR buffer[MAX_PATH];    
+    UINT length = ::GetSystemDirectory(buffer, ARRAYSIZE(buffer));
+    if (!length)
+        return 0;
+    
+    if (_tcscat_s(buffer, TEXT("\\shell32.dll")))
+        return 0;
+
+    HICON hIcon;
+    if (!::ExtractIconEx(buffer, shell32MultipleFileIconIndex, 0, &hIcon, 1))
+        return 0;
+    return adoptRef(new Icon(hIcon));
 }
 
 void Icon::paint(GraphicsContext* context, const IntRect& r)

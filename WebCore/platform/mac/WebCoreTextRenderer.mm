@@ -31,6 +31,7 @@
 #import "GraphicsContext.h"
 #import "IntPoint.h"
 #import "WebFontCache.h"
+#import <AppKit/AppKit.h>
 
 using namespace WebCore;
 
@@ -77,12 +78,17 @@ bool WebCoreShouldUseFontSmoothing()
     return gShouldUseFontSmoothing;
 }
 
-void WebCoreSetAlwaysUseATSU(bool useATSU)
+void WebCoreSetAlwaysUsesComplexTextCodePath(bool complex)
 {
-    Font::setCodePath(useATSU ? Font::Complex : Font::Auto);
+    Font::setCodePath(complex ? Font::Complex : Font::Auto);
 }
 
-NSFont* WebCoreFindFont(NSString* familyName, NSFontTraitMask traits, int size)
+bool WebCoreAlwaysUsesComplexTextCodePath()
 {
-    return [WebFontCache fontWithFamily:familyName traits:traits size:size];
+    return Font::codePath() == Font::Complex;
+}
+
+NSFont* WebCoreFindFont(NSString* familyName, NSFontTraitMask traits, int weight, int size)
+{
+    return [WebFontCache fontWithFamily:familyName traits:traits weight:weight size:size];
 }

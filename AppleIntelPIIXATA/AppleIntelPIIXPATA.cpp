@@ -26,6 +26,7 @@
 #include <IOKit/IOKitKeys.h>
 #include "AppleIntelPIIXPATA.h"
 #include <IOKit/IOLocksPrivate.h>
+#include <IOKit/storage/ata/IOATAFamilyPriv.h>
 
 #define super IOPCIATA
 OSDefineMetaClassAndStructors( AppleIntelPIIXPATA, IOPCIATA )
@@ -1595,6 +1596,7 @@ AppleIntelPIIXPATA::getACPIParent( void )
 bool
 AppleIntelPIIXPATA::hasMediaNotify(IOACPIPlatformDevice* acpi_device)
 {
+	
 	OSData *compatibleEntry;
 	bool result = false;
 	
@@ -1765,12 +1767,11 @@ AppleIntelPIIXPATA::completeIO( IOReturn commandResult)
 IOReturn 
 AppleIntelPIIXPATA::dispatchNext( void )
 {
+	
 	if( ! _drivePowerOn ) 
 	{
 		turnOnDrive();
 	}
-
-	
 
 	return super::dispatchNext();
 
@@ -1779,6 +1780,7 @@ AppleIntelPIIXPATA::dispatchNext( void )
 IOReturn
 AppleIntelPIIXPATA::handleInsert( void )
 {
+	
 	DLOG("AppleIntelPIIXPATA handling Insertion\n");
 
 	if( ! _drivePowerOn )
@@ -1788,7 +1790,15 @@ AppleIntelPIIXPATA::handleInsert( void )
 	
 	}
 
+	else
+	{
+		
+		executeEventCallouts( ( ataEventCode ) kATANewMediaEvent, kATAInvalidDeviceID);
+		
+	}
+	
 	return kIOReturnSuccess;
+	
 }
 
 

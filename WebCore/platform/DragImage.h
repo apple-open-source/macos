@@ -37,11 +37,15 @@
 class NSImage;
 #endif
 #elif PLATFORM(QT)
+QT_BEGIN_NAMESPACE
 class QPixmap;
+QT_END_NAMESPACE
 #elif PLATFORM(WIN)
 typedef struct HBITMAP__* HBITMAP;
 #elif PLATFORM(WX)
 class wxDragImage;
+#elif PLATFORM(CHROMIUM)
+#include "DragImageRef.h"
 #endif
 
 //We need to #define YOffset as it needs to be shared with WebKit

@@ -31,6 +31,7 @@ extern "C" {
 #endif
 
 extern int keychain_set_settings(int argc, char * const *argv);
+extern int keychain_set_password(int argc, char * const *argv);
 
 #ifdef __cplusplus
 }

@@ -1,6 +1,5 @@
-// -*- mode: c++; c-basic-offset: 4 -*-
 /*
- * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,9 +20,11 @@
 #ifndef Chrome_h
 #define Chrome_h
 
+#include "Cursor.h"
+#include "FileChooser.h"
 #include "FocusDirection.h"
+#include "HostWindow.h"
 #include <wtf/Forward.h>
-#include <wtf/Noncopyable.h>
 #include <wtf/RefPtr.h>
 
 #if PLATFORM(MAC)
@@ -38,35 +39,31 @@ namespace WebCore {
     class ContextMenu;
     class FloatRect;
     class Frame;
+    class Geolocation;
     class HitTestResult;
     class IntRect;
     class Page;
     class String;
-    
+
     struct FrameLoadRequest;
     struct WindowFeatures;
     
-    enum MessageSource {
-        HTMLMessageSource,
-        XMLMessageSource,
-        JSMessageSource,
-        CSSMessageSource,
-        OtherMessageSource
-    };
-
-    enum MessageLevel {
-        TipMessageLevel,
-        LogMessageLevel,
-        WarningMessageLevel,
-        ErrorMessageLevel
-    };
-
-    class Chrome : Noncopyable {
+    class Chrome : public HostWindow {
     public:
         Chrome(Page*, ChromeClient*);
         ~Chrome();
 
         ChromeClient* client() { return m_client; }
+
+        // HostWindow methods.
+        virtual void repaint(const IntRect&, bool contentChanged, bool immediate = false, bool repaintContentOnly = false);
+        virtual void scroll(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect);
+        virtual IntPoint screenToWindow(const IntPoint&) const;
+        virtual IntRect windowToScreen(const IntRect&) const;
+        virtual PlatformWidget platformWindow() const;
+        virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const;
+
+        void contentsSizeChanged(Frame*, const IntSize&) const;
 
         void setWindowRect(const FloatRect&) const;
         FloatRect windowRect() const;
@@ -102,8 +99,6 @@ namespace WebCore {
         
         void setResizable(bool) const;
 
-        void addMessageToConsole(MessageSource, MessageLevel, const String& message, unsigned lineNumber, const String& sourceID);
-
         bool canRunBeforeUnloadConfirmPanel();
         bool runBeforeUnloadConfirmPanel(const String& message, Frame* frame);
 
@@ -111,21 +106,24 @@ namespace WebCore {
 
         void runJavaScriptAlert(Frame*, const String&);
         bool runJavaScriptConfirm(Frame*, const String&);
-        bool runJavaScriptPrompt(Frame*, const String& message, const String& defaultValue, String& result);                
+        bool runJavaScriptPrompt(Frame*, const String& message, const String& defaultValue, String& result);
         void setStatusbarText(Frame*, const String&);
         bool shouldInterruptJavaScript();
 
         IntRect windowResizerRect() const;
-        void addToDirtyRegion(const IntRect&);
-        void scrollBackingStore(int dx, int dy, const IntRect& scrollViewRect, const IntRect& clipRect);
-        void updateBackingStore();
 
         void mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags);
 
         void setToolTip(const HitTestResult&);
 
         void print(Frame*);
-        
+
+        void requestGeolocationPermissionForFrame(Frame*, Geolocation*);
+
+        void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
+
+        bool setCursor(PlatformCursorHandle);
+
 #if PLATFORM(MAC)
         void focusNSView(NSView*);
 #endif

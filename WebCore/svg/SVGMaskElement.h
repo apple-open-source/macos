@@ -46,7 +46,7 @@ namespace WebCore {
 
         virtual void parseMappedAttribute(MappedAttribute*);
         virtual void svgAttributeChanged(const QualifiedName&);
-        virtual void childrenChanged(bool changedByParser = false);
+        virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
 
         virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
         virtual SVGResource* canvasResource();
@@ -54,20 +54,16 @@ namespace WebCore {
         std::auto_ptr<ImageBuffer> drawMaskerContent(const FloatRect& targetRect, FloatRect& maskRect) const;
 
     protected:
-        ANIMATED_PROPERTY_FORWARD_DECLARATIONS(SVGURIReference, String, Href, href)
-        ANIMATED_PROPERTY_FORWARD_DECLARATIONS(SVGExternalResourcesRequired, bool, ExternalResourcesRequired, externalResourcesRequired)
-            
-        ANIMATED_PROPERTY_DECLARATIONS(SVGMaskElement, int, int, MaskUnits, maskUnits)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGMaskElement, int, int, MaskContentUnits, maskContentUnits)
- 
-        ANIMATED_PROPERTY_DECLARATIONS(SVGMaskElement, SVGLength, SVGLength, X, x)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGMaskElement, SVGLength, SVGLength, Y, y)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGMaskElement, SVGLength, SVGLength, Width, width)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGMaskElement, SVGLength, SVGLength, Height, height)
-
         virtual const SVGElement* contextElement() const { return this; }
 
     private:
+        ANIMATED_PROPERTY_DECLARATIONS(SVGMaskElement, SVGNames::maskTagString, SVGNames::maskUnitsAttrString, int, MaskUnits, maskUnits)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGMaskElement, SVGNames::maskTagString, SVGNames::maskContentUnitsAttrString, int, MaskContentUnits, maskContentUnits)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGMaskElement, SVGNames::maskTagString, SVGNames::xAttrString, SVGLength, X, x)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGMaskElement, SVGNames::maskTagString, SVGNames::yAttrString, SVGLength, Y, y)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGMaskElement, SVGNames::maskTagString, SVGNames::widthAttrString, SVGLength, Width, width)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGMaskElement, SVGNames::maskTagString, SVGNames::heightAttrString, SVGLength, Height, height)
+
         RefPtr<SVGResourceMasker> m_masker;
     };
 

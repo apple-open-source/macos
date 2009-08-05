@@ -1,7 +1,7 @@
 /*
- *  This file is part of the KDE libraries
  *  Copyright (C) 2006 George Staikos <staikos@kde.org>
  *  Copyright (C) 2006 Alexey Proskuryakov <ap@nypop.com>
+ *  Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -20,8 +20,8 @@
  *
  */
 
-#ifndef KJS_UNICODE_QT4_H
-#define KJS_UNICODE_QT4_H
+#ifndef WTF_UNICODE_QT4_H
+#define WTF_UNICODE_QT4_H
 
 #include <QChar>
 #include <QString>
@@ -31,6 +31,7 @@
 #include <stdint.h>
 
 #if QT_VERSION >= 0x040300
+QT_BEGIN_NAMESPACE
 namespace QUnicodeTables {
     struct Properties {
         ushort category : 8;
@@ -53,6 +54,7 @@ namespace QUnicodeTables {
     Q_CORE_EXPORT const Properties * QT_FASTCALL properties(uint ucs4);
     Q_CORE_EXPORT const Properties * QT_FASTCALL properties(ushort ucs2);
 }
+QT_END_NAMESPACE
 #endif
 
 // ugly hack to make UChar compatible with JSChar in API/JSStringRef.h
@@ -90,458 +92,452 @@ typedef uint32_t UChar32;
     } \
 }
 
+#define U16_PREV(s, start, i, c) { \
+    (c)=(s)[--(i)]; \
+    if(U16_IS_TRAIL(c)) { \
+        uint16_t __c2; \
+        if((i)>(start) && U16_IS_LEAD(__c2=(s)[(i)-1])) { \
+            --(i); \
+            (c)=U16_GET_SUPPLEMENTARY(__c2, (c)); \
+        } \
+    } \
+}
+
 #define U_MASK(x) ((uint32_t)1<<(x))
 
 namespace WTF {
-  namespace Unicode {
+namespace Unicode {
 
-    enum Direction {
-      LeftToRight = QChar::DirL,
-      RightToLeft = QChar::DirR,
-      EuropeanNumber = QChar::DirEN,
-      EuropeanNumberSeparator = QChar::DirES,
-      EuropeanNumberTerminator = QChar::DirET,
-      ArabicNumber = QChar::DirAN,
-      CommonNumberSeparator = QChar::DirCS,
-      BlockSeparator = QChar::DirB,
-      SegmentSeparator = QChar::DirS,
-      WhiteSpaceNeutral = QChar::DirWS,
-      OtherNeutral = QChar::DirON,
-      LeftToRightEmbedding = QChar::DirLRE,
-      LeftToRightOverride = QChar::DirLRO,
-      RightToLeftArabic = QChar::DirAL,
-      RightToLeftEmbedding = QChar::DirRLE,
-      RightToLeftOverride = QChar::DirRLO,
-      PopDirectionalFormat = QChar::DirPDF,
-      NonSpacingMark = QChar::DirNSM,
-      BoundaryNeutral = QChar::DirBN
-    };
+enum Direction {
+    LeftToRight = QChar::DirL,
+    RightToLeft = QChar::DirR,
+    EuropeanNumber = QChar::DirEN,
+    EuropeanNumberSeparator = QChar::DirES,
+    EuropeanNumberTerminator = QChar::DirET,
+    ArabicNumber = QChar::DirAN,
+    CommonNumberSeparator = QChar::DirCS,
+    BlockSeparator = QChar::DirB,
+    SegmentSeparator = QChar::DirS,
+    WhiteSpaceNeutral = QChar::DirWS,
+    OtherNeutral = QChar::DirON,
+    LeftToRightEmbedding = QChar::DirLRE,
+    LeftToRightOverride = QChar::DirLRO,
+    RightToLeftArabic = QChar::DirAL,
+    RightToLeftEmbedding = QChar::DirRLE,
+    RightToLeftOverride = QChar::DirRLO,
+    PopDirectionalFormat = QChar::DirPDF,
+    NonSpacingMark = QChar::DirNSM,
+    BoundaryNeutral = QChar::DirBN
+};
 
-    enum DecompositionType {
-      DecompositionNone = QChar::NoDecomposition,
-      DecompositionCanonical = QChar::Canonical,
-      DecompositionCompat = QChar::Compat,
-      DecompositionCircle = QChar::Circle,
-      DecompositionFinal = QChar::Final,
-      DecompositionFont = QChar::Font,
-      DecompositionFraction = QChar::Fraction,
-      DecompositionInitial = QChar::Initial,
-      DecompositionIsolated = QChar::Isolated,
-      DecompositionMedial = QChar::Medial,
-      DecompositionNarrow = QChar::Narrow,
-      DecompositionNoBreak = QChar::NoBreak,
-      DecompositionSmall = QChar::Small,
-      DecompositionSquare = QChar::Square,
-      DecompositionSub = QChar::Sub,
-      DecompositionSuper = QChar::Super,
-      DecompositionVertical = QChar::Vertical,
-      DecompositionWide = QChar::Wide
-    };
+enum DecompositionType {
+    DecompositionNone = QChar::NoDecomposition,
+    DecompositionCanonical = QChar::Canonical,
+    DecompositionCompat = QChar::Compat,
+    DecompositionCircle = QChar::Circle,
+    DecompositionFinal = QChar::Final,
+    DecompositionFont = QChar::Font,
+    DecompositionFraction = QChar::Fraction,
+    DecompositionInitial = QChar::Initial,
+    DecompositionIsolated = QChar::Isolated,
+    DecompositionMedial = QChar::Medial,
+    DecompositionNarrow = QChar::Narrow,
+    DecompositionNoBreak = QChar::NoBreak,
+    DecompositionSmall = QChar::Small,
+    DecompositionSquare = QChar::Square,
+    DecompositionSub = QChar::Sub,
+    DecompositionSuper = QChar::Super,
+    DecompositionVertical = QChar::Vertical,
+    DecompositionWide = QChar::Wide
+};
 
-    enum CharCategory {
-      NoCategory = 0,
-      Mark_NonSpacing = U_MASK(QChar::Mark_NonSpacing),
-      Mark_SpacingCombining = U_MASK(QChar::Mark_SpacingCombining),
-      Mark_Enclosing = U_MASK(QChar::Mark_Enclosing),
-      Number_DecimalDigit = U_MASK(QChar::Number_DecimalDigit),
-      Number_Letter = U_MASK(QChar::Number_Letter),
-      Number_Other = U_MASK(QChar::Number_Other),
-      Separator_Space = U_MASK(QChar::Separator_Space),
-      Separator_Line = U_MASK(QChar::Separator_Line),
-      Separator_Paragraph = U_MASK(QChar::Separator_Paragraph),
-      Other_Control = U_MASK(QChar::Other_Control),
-      Other_Format = U_MASK(QChar::Other_Format),
-      Other_Surrogate = U_MASK(QChar::Other_Surrogate),
-      Other_PrivateUse = U_MASK(QChar::Other_PrivateUse),
-      Other_NotAssigned = U_MASK(QChar::Other_NotAssigned),
-      Letter_Uppercase = U_MASK(QChar::Letter_Uppercase),
-      Letter_Lowercase = U_MASK(QChar::Letter_Lowercase),
-      Letter_Titlecase = U_MASK(QChar::Letter_Titlecase),
-      Letter_Modifier = U_MASK(QChar::Letter_Modifier),
-      Letter_Other = U_MASK(QChar::Letter_Other),
-      Punctuation_Connector = U_MASK(QChar::Punctuation_Connector),
-      Punctuation_Dash = U_MASK(QChar::Punctuation_Dash),
-      Punctuation_Open = U_MASK(QChar::Punctuation_Open),
-      Punctuation_Close = U_MASK(QChar::Punctuation_Close),
-      Punctuation_InitialQuote = U_MASK(QChar::Punctuation_InitialQuote),
-      Punctuation_FinalQuote = U_MASK(QChar::Punctuation_FinalQuote),
-      Punctuation_Other = U_MASK(QChar::Punctuation_Other),
-      Symbol_Math = U_MASK(QChar::Symbol_Math),
-      Symbol_Currency = U_MASK(QChar::Symbol_Currency),
-      Symbol_Modifier = U_MASK(QChar::Symbol_Modifier),
-      Symbol_Other = U_MASK(QChar::Symbol_Other),
-    };
+enum CharCategory {
+    NoCategory = 0,
+    Mark_NonSpacing = U_MASK(QChar::Mark_NonSpacing),
+    Mark_SpacingCombining = U_MASK(QChar::Mark_SpacingCombining),
+    Mark_Enclosing = U_MASK(QChar::Mark_Enclosing),
+    Number_DecimalDigit = U_MASK(QChar::Number_DecimalDigit),
+    Number_Letter = U_MASK(QChar::Number_Letter),
+    Number_Other = U_MASK(QChar::Number_Other),
+    Separator_Space = U_MASK(QChar::Separator_Space),
+    Separator_Line = U_MASK(QChar::Separator_Line),
+    Separator_Paragraph = U_MASK(QChar::Separator_Paragraph),
+    Other_Control = U_MASK(QChar::Other_Control),
+    Other_Format = U_MASK(QChar::Other_Format),
+    Other_Surrogate = U_MASK(QChar::Other_Surrogate),
+    Other_PrivateUse = U_MASK(QChar::Other_PrivateUse),
+    Other_NotAssigned = U_MASK(QChar::Other_NotAssigned),
+    Letter_Uppercase = U_MASK(QChar::Letter_Uppercase),
+    Letter_Lowercase = U_MASK(QChar::Letter_Lowercase),
+    Letter_Titlecase = U_MASK(QChar::Letter_Titlecase),
+    Letter_Modifier = U_MASK(QChar::Letter_Modifier),
+    Letter_Other = U_MASK(QChar::Letter_Other),
+    Punctuation_Connector = U_MASK(QChar::Punctuation_Connector),
+    Punctuation_Dash = U_MASK(QChar::Punctuation_Dash),
+    Punctuation_Open = U_MASK(QChar::Punctuation_Open),
+    Punctuation_Close = U_MASK(QChar::Punctuation_Close),
+    Punctuation_InitialQuote = U_MASK(QChar::Punctuation_InitialQuote),
+    Punctuation_FinalQuote = U_MASK(QChar::Punctuation_FinalQuote),
+    Punctuation_Other = U_MASK(QChar::Punctuation_Other),
+    Symbol_Math = U_MASK(QChar::Symbol_Math),
+    Symbol_Currency = U_MASK(QChar::Symbol_Currency),
+    Symbol_Modifier = U_MASK(QChar::Symbol_Modifier),
+    Symbol_Other = U_MASK(QChar::Symbol_Other)
+};
 
 
 #if QT_VERSION >= 0x040300
-    // FIXME: handle surrogates correctly in all methods
 
-    inline UChar32 toLower(UChar32 ch)
-    {
-      return QChar::toLower(ch);
+// FIXME: handle surrogates correctly in all methods
+
+inline UChar32 toLower(UChar32 ch)
+{
+    return QChar::toLower(ch);
+}
+
+inline int toLower(UChar* result, int resultLength, const UChar* src, int srcLength,  bool* error)
+{
+    const UChar *e = src + srcLength;
+    const UChar *s = src;
+    UChar *r = result;
+    uint rindex = 0;
+
+    // this avoids one out of bounds check in the loop
+    if (s < e && QChar(*s).isLowSurrogate()) {
+        if (r)
+            r[rindex] = *s++;
+        ++rindex;
     }
 
-    inline int toLower(UChar* result, int resultLength, const UChar* src, int srcLength,  bool* error)
-    {
-        const UChar *e = src + srcLength;
-        const UChar *s = src;
-        UChar *r = result;
-        UChar *re = result + resultLength;
-
-        // this avoids one out of bounds check in the loop
-        if (QChar(*s).isLowSurrogate())
-            *r++ = *s++;
-
-        int needed = 0;
-        while (s < e && r < re) {
-            uint c = *s;
-            if (QChar(c).isLowSurrogate() && QChar(*(s - 1)).isHighSurrogate())
-                c = QChar::surrogateToUcs4(*(s - 1), c);
-            const QUnicodeTables::Properties *prop = QUnicodeTables::properties(c);
-            if (prop->lowerCaseSpecial) {
-                QString qstring;
-                if (c < 0x10000) {
-                    qstring += QChar(c);
-                } else {
-                    qstring += QChar(*(s-1));
-                    qstring += QChar(*s);
-                }
-                qstring = qstring.toLower();
-                for (int i = 0; i < qstring.length(); ++i) {
-                    if (r == re) {
-                        needed += qstring.length() - i;
-                        break;
-                    }
-                    *r = qstring.at(i).unicode();
-                    ++r;
-                }
+    int needed = 0;
+    while (s < e && (rindex < uint(resultLength) || !r)) {
+        uint c = *s;
+        if (QChar(c).isLowSurrogate() && QChar(*(s - 1)).isHighSurrogate())
+            c = QChar::surrogateToUcs4(*(s - 1), c);
+        const QUnicodeTables::Properties *prop = QUnicodeTables::properties(c);
+        if (prop->lowerCaseSpecial) {
+            QString qstring;
+            if (c < 0x10000) {
+                qstring += QChar(c);
             } else {
-                *r = *s + prop->lowerCaseDiff;
-                ++r;
+                qstring += QChar(*(s-1));
+                qstring += QChar(*s);
             }
-            ++s;
+            qstring = qstring.toLower();
+            for (int i = 0; i < qstring.length(); ++i) {
+                if (rindex >= uint(resultLength)) {
+                    needed += qstring.length() - i;
+                    break;
+                }
+                if (r)
+                    r[rindex] = qstring.at(i).unicode();
+                ++rindex;
+            }
+        } else {
+            if (r)
+                r[rindex] = *s + prop->lowerCaseDiff;
+            ++rindex;
         }
-        if (s < e)
-            needed += e - s;
-        *error = (needed != 0);
-        if (r < re)
-            *r = 0;
-        return (r - result) + needed;
+        ++s;
+    }
+    if (s < e)
+        needed += e - s;
+    *error = (needed != 0);
+    if (rindex < uint(resultLength))
+        r[rindex] = 0;
+    return rindex + needed;
+}
+
+inline UChar32 toUpper(UChar32 ch)
+{
+    return QChar::toUpper(ch);
+}
+
+inline int toUpper(UChar* result, int resultLength, const UChar* src, int srcLength,  bool* error)
+{
+    const UChar *e = src + srcLength;
+    const UChar *s = src;
+    UChar *r = result;
+    int rindex = 0;
+
+    // this avoids one out of bounds check in the loop
+    if (s < e && QChar(*s).isLowSurrogate()) {
+        if (r)
+            r[rindex] = *s++;
+        ++rindex;
     }
 
-    inline UChar32 toUpper(UChar32 ch)
-    {
-      return QChar::toUpper(ch);
-    }
-
-    inline int toUpper(UChar* result, int resultLength, const UChar* src, int srcLength,  bool* error)
-    {
-        const UChar *e = src + srcLength;
-        const UChar *s = src;
-        UChar *r = result;
-        UChar *re = result + resultLength;
-
-        // this avoids one out of bounds check in the loop
-        if (QChar(*s).isLowSurrogate())
-            *r++ = *s++;
-
-        int needed = 0;
-        while (s < e && r < re) {
-            uint c = *s;
-            if (QChar(c).isLowSurrogate() && QChar(*(s - 1)).isHighSurrogate())
-                c = QChar::surrogateToUcs4(*(s - 1), c);
-            const QUnicodeTables::Properties *prop = QUnicodeTables::properties(c);
-            if (prop->upperCaseSpecial) {
-                QString qstring;
-                if (c < 0x10000) {
-                    qstring += QChar(c);
-                } else {
-                    qstring += QChar(*(s-1));
-                    qstring += QChar(*s);
-                }
-                qstring = qstring.toUpper();
-                for (int i = 0; i < qstring.length(); ++i) {
-                    if (r == re) {
-                        needed += qstring.length() - i;
-                        break;
-                    }
-                    *r = qstring.at(i).unicode();
-                    ++r;
-                }
+    int needed = 0;
+    while (s < e && (rindex < resultLength || !r)) {
+        uint c = *s;
+        if (QChar(c).isLowSurrogate() && QChar(*(s - 1)).isHighSurrogate())
+            c = QChar::surrogateToUcs4(*(s - 1), c);
+        const QUnicodeTables::Properties *prop = QUnicodeTables::properties(c);
+        if (prop->upperCaseSpecial) {
+            QString qstring;
+            if (c < 0x10000) {
+                qstring += QChar(c);
             } else {
-                *r = *s + prop->upperCaseDiff;
-                ++r;
+                qstring += QChar(*(s-1));
+                qstring += QChar(*s);
             }
-            ++s;
+            qstring = qstring.toUpper();
+            for (int i = 0; i < qstring.length(); ++i) {
+                if (rindex >= resultLength) {
+                    needed += qstring.length() - i;
+                    break;
+                }
+                if (r)
+                    r[rindex] = qstring.at(i).unicode();
+                ++rindex;
+            }
+        } else {
+            if (r)
+                r[rindex] = *s + prop->upperCaseDiff;
+            ++rindex;
         }
-        if (s < e)
-            needed += e - s;
-        *error = (needed != 0);
-        if (r < re)
-            *r = 0;
-        return (r - result) + needed;
+        ++s;
     }
+    if (s < e)
+        needed += e - s;
+    *error = (needed != 0);
+    if (rindex < resultLength)
+        r[rindex] = 0;
+    return rindex + needed;
+}
 
-    inline int toTitleCase(UChar32 c)
-    {
-      return QChar::toTitleCase(c);
-    }
+inline int toTitleCase(UChar32 c)
+{
+    return QChar::toTitleCase(c);
+}
 
-    inline UChar32 foldCase(UChar32 c)
-    {
-      return QChar::toCaseFolded(c);
-    }
+inline UChar32 foldCase(UChar32 c)
+{
+    return QChar::toCaseFolded(c);
+}
 
-    inline int foldCase(UChar* result, int resultLength, const UChar* src, int srcLength,  bool* error)
-    {
-      // FIXME: handle special casing. Easiest with some low level API in Qt
-      *error = false;
-      if (resultLength < srcLength) {
+inline int foldCase(UChar* result, int resultLength, const UChar* src, int srcLength,  bool* error)
+{
+    // FIXME: handle special casing. Easiest with some low level API in Qt
+    *error = false;
+    if (resultLength < srcLength) {
         *error = true;
         return srcLength;
-      }
-      for (int i = 0; i < srcLength; ++i)
-        result[i] = QChar::toCaseFolded(src[i]);
-      return srcLength;
     }
+    for (int i = 0; i < srcLength; ++i)
+        result[i] = QChar::toCaseFolded(ushort(src[i]));
+    return srcLength;
+}
 
-    inline bool isFormatChar(UChar32 c)
-    {
-      return QChar::category(c) == QChar::Other_Format;
-    }
+inline bool isArabicChar(UChar32 c)
+{
+    return c >= 0x0600 && c <= 0x06FF;
+}
 
-    inline bool isArabicChar(UChar32 c)
-    {
-        return c >= 0x0600 && c <= 0x06FF;
-    }
+inline bool isPrintableChar(UChar32 c)
+{
+    const uint test = U_MASK(QChar::Other_Control) |
+                      U_MASK(QChar::Other_NotAssigned);
+    return !(U_MASK(QChar::category(c)) & test);
+}
 
-    inline bool isPrintableChar(UChar32 c)
-    {
-      const uint test = U_MASK(QChar::Other_Control) |
-                        U_MASK(QChar::Other_NotAssigned);
-      return !(U_MASK(QChar::category(c)) & test);
-    }
+inline bool isSeparatorSpace(UChar32 c)
+{
+    return QChar::category(c) == QChar::Separator_Space;
+}
 
-    inline bool isSeparatorSpace(UChar32 c)
-    {
-      return QChar::category(c) == QChar::Separator_Space;
-    }
+inline bool isPunct(UChar32 c)
+{
+    const uint test = U_MASK(QChar::Punctuation_Connector) |
+                      U_MASK(QChar::Punctuation_Dash) |
+                      U_MASK(QChar::Punctuation_Open) |
+                      U_MASK(QChar::Punctuation_Close) |
+                      U_MASK(QChar::Punctuation_InitialQuote) |
+                      U_MASK(QChar::Punctuation_FinalQuote) |
+                      U_MASK(QChar::Punctuation_Other);
+    return U_MASK(QChar::category(c)) & test;
+}
 
-    inline bool isPunct(UChar32 c)
-    {
-      const uint test = U_MASK(QChar::Punctuation_Connector) |
-                        U_MASK(QChar::Punctuation_Dash) |
-                        U_MASK(QChar::Punctuation_Open) |
-                        U_MASK(QChar::Punctuation_Close) |
-                        U_MASK(QChar::Punctuation_InitialQuote) |
-                        U_MASK(QChar::Punctuation_FinalQuote) |
-                        U_MASK(QChar::Punctuation_Other);
-      return U_MASK(QChar::category(c)) & test;
-    }
+inline bool isLower(UChar32 c)
+{
+    return QChar::category(c) == QChar::Letter_Lowercase;
+}
 
-    inline bool isDigit(UChar32 c)
-    {
-      return QChar::category(c) == QChar::Number_DecimalDigit;
-    }
+inline bool hasLineBreakingPropertyComplexContext(UChar32)
+{
+    // FIXME: Implement this to return whether the character has line breaking property SA (Complex Context).
+    return false;
+}
 
-    inline bool isLower(UChar32 c)
-    {
-      return QChar::category(c) == QChar::Letter_Lowercase;
-    }
+inline UChar32 mirroredChar(UChar32 c)
+{
+    return QChar::mirroredChar(c);
+}
 
-    inline int digitValue(UChar32 c)
-    {
-      return QChar::digitValue(c);
-    }
+inline uint8_t combiningClass(UChar32 c)
+{
+    return QChar::combiningClass(c);
+}
 
-    inline UChar32 mirroredChar(UChar32 c)
-    {
-      return QChar::mirroredChar(c);
-    }
+inline DecompositionType decompositionType(UChar32 c)
+{
+    return (DecompositionType)QChar::decompositionTag(c);
+}
 
-    inline uint8_t combiningClass(UChar32 c)
-    {
-      return QChar::combiningClass(c);
+inline int umemcasecmp(const UChar* a, const UChar* b, int len)
+{
+    // handle surrogates correctly
+    for (int i = 0; i < len; ++i) {
+        uint c1 = QChar::toCaseFolded(ushort(a[i]));
+        uint c2 = QChar::toCaseFolded(ushort(b[i]));
+        if (c1 != c2)
+            return c1 - c2;
     }
+    return 0;
+}
 
-    inline DecompositionType decompositionType(UChar32 c)
-    {
-      return (DecompositionType)QChar::decompositionTag(c);
-    }
+inline Direction direction(UChar32 c)
+{
+    return (Direction)QChar::direction(c);
+}
 
-    inline int umemcasecmp(const UChar* a, const UChar* b, int len)
-    {
-      // handle surrogates correctly
-      for (int i = 0; i < len; ++i) {
-          uint c1 = QChar::toCaseFolded(a[i]);
-          uint c2 = QChar::toCaseFolded(b[i]);
-          if (c1 != c2)
-              return c1 - c2;
-      }
-      return 0;
-    }
-
-    inline Direction direction(UChar32 c)
-    {
-      return (Direction)QChar::direction(c);
-    }
-
-    inline CharCategory category(UChar32 c)
-    {
-      return (CharCategory) U_MASK(QChar::category(c));
-    }
+inline CharCategory category(UChar32 c)
+{
+    return (CharCategory) U_MASK(QChar::category(c));
+}
 
 #else
 
-    inline UChar32 toLower(UChar32 ch)
-    {
-      if (ch > 0xffff)
+inline UChar32 toLower(UChar32 ch)
+{
+    if (ch > 0xffff)
         return ch;
-      return QChar((unsigned short)ch).toLower().unicode();
-    }
+    return QChar((unsigned short)ch).toLower().unicode();
+}
 
-    inline int toLower(UChar* result, int resultLength, const UChar* src, int srcLength,  bool* error)
-    {
-      *error = false;
-      if (resultLength < srcLength) {
+inline int toLower(UChar* result, int resultLength, const UChar* src, int srcLength,  bool* error)
+{
+  *error = false;
+  if (resultLength < srcLength) {
+    *error = true;
+    return srcLength;
+  }
+  for (int i = 0; i < srcLength; ++i)
+    result[i] = QChar(src[i]).toLower().unicode();
+  return srcLength;
+}
+
+inline UChar32 toUpper(UChar32 ch)
+{
+    if (ch > 0xffff)
+        return ch;
+    return QChar((unsigned short)ch).toUpper().unicode();
+}
+
+inline int toUpper(UChar* result, int resultLength, const UChar* src, int srcLength,  bool* error)
+{
+    *error = false;
+    if (resultLength < srcLength) {
         *error = true;
         return srcLength;
-      }
-      for (int i = 0; i < srcLength; ++i)
-        result[i] = QChar(src[i]).toLower().unicode();
-      return srcLength;
     }
-
-    inline UChar32 toUpper(UChar32 ch)
-    {
-      if (ch > 0xffff)
-        return ch;
-      return QChar((unsigned short)ch).toUpper().unicode();
-    }
-
-    inline int toUpper(UChar* result, int resultLength, const UChar* src, int srcLength,  bool* error)
-    {
-      *error = false;
-      if (resultLength < srcLength) {
-        *error = true;
-        return srcLength;
-      }
-      for (int i = 0; i < srcLength; ++i)
+    for (int i = 0; i < srcLength; ++i)
         result[i] = QChar(src[i]).toUpper().unicode();
-      return srcLength;
-    }
+    return srcLength;
+}
 
-    inline int toTitleCase(UChar32 c)
-    {
-      if (c > 0xffff)
+inline int toTitleCase(UChar32 c)
+{
+    if (c > 0xffff)
         return c;
-      return QChar((unsigned short)c).toUpper().unicode();
-    }
+    return QChar((unsigned short)c).toUpper().unicode();
+}
 
-    inline UChar32 foldCase(UChar32 c)
-    {
-      if (c > 0xffff)
+inline UChar32 foldCase(UChar32 c)
+{
+    if (c > 0xffff)
         return c;
-      return QChar((unsigned short)c).toLower().unicode();
-    }
+    return QChar((unsigned short)c).toLower().unicode();
+}
 
-    inline int foldCase(UChar* result, int resultLength, const UChar* src, int srcLength,  bool* error)
-    {
-      return toLower(result, resultLength, src, srcLength, error);
-    }
+inline int foldCase(UChar* result, int resultLength, const UChar* src, int srcLength,  bool* error)
+{
+    return toLower(result, resultLength, src, srcLength, error);
+}
 
-    inline bool isFormatChar(UChar32 c)
-    {
-      return (c & 0xffff0000) == 0 && QChar((unsigned short)c).category() == QChar::Other_Format;
-    }
+inline bool isPrintableChar(UChar32 c)
+{
+    return (c & 0xffff0000) == 0 && QChar((unsigned short)c).isPrint();
+}
 
-    inline bool isPrintableChar(UChar32 c)
-    {
-      return (c & 0xffff0000) == 0 && QChar((unsigned short)c).isPrint();
-    }
+inline bool isArabicChar(UChar32 c)
+{
+    return c >= 0x0600 && c <= 0x06FF;
+}
 
-    inline bool isArabicChar(UChar32 c)
-    {
-        return c >= 0x0600 && c <= 0x06FF;
-    }
+inline bool isSeparatorSpace(UChar32 c)
+{
+    return (c & 0xffff0000) == 0 && QChar((unsigned short)c).category() == QChar::Separator_Space;
+}
 
-    inline bool isSeparatorSpace(UChar32 c)
-    {
-      return (c & 0xffff0000) == 0 && QChar((unsigned short)c).category() == QChar::Separator_Space;
-    }
+inline bool isPunct(UChar32 c)
+{
+    return (c & 0xffff0000) == 0 && QChar((unsigned short)c).isPunct();
+}
 
-    inline bool isPunct(UChar32 c)
-    {
-      return (c & 0xffff0000) == 0 && QChar((unsigned short)c).isPunct();
-    }
+inline bool isLower(UChar32 c)
+{
+    return (c & 0xffff0000) == 0 && QChar((unsigned short)c).category() == QChar::Letter_Lowercase;
+}
 
-    inline bool isDigit(UChar32 c)
-    {
-      return (c & 0xffff0000) == 0 && QChar((unsigned short)c).isDigit();
-    }
+inline UChar32 mirroredChar(UChar32 c)
+{
+    if (c > 0xffff)
+        return c;
+    return QChar(c).mirroredChar().unicode();
+}
 
-    inline bool isLower(UChar32 c)
-    {
-      return (c & 0xffff0000) == 0 && QChar((unsigned short)c).category() == QChar::Letter_Lowercase;
-    }
-
-    inline int digitValue(UChar32 c)
-    {
-      if (c > 0xffff)
+inline uint8_t combiningClass(UChar32 c)
+{
+    if (c > 0xffff)
         return 0;
-      return QChar(c).digitValue();
-    }
+    return QChar((unsigned short)c).combiningClass();
+}
 
-    inline UChar32 mirroredChar(UChar32 c)
-    {
-      if (c > 0xffff)
-        return c;
-      return QChar(c).mirroredChar().unicode();
-    }
-
-    inline uint8_t combiningClass(UChar32 c)
-    {
-      if (c > 0xffff)
-        return 0;
-      return QChar((unsigned short)c).combiningClass();
-    }
-
-    inline DecompositionType decompositionType(UChar32 c)
-    {
-      if (c > 0xffff)
+inline DecompositionType decompositionType(UChar32 c)
+{
+    if (c > 0xffff)
         return DecompositionNone;
-      return (DecompositionType)QChar(c).decompositionTag();
-    }
+    return (DecompositionType)QChar(c).decompositionTag();
+}
 
-    inline int umemcasecmp(const UChar* a, const UChar* b, int len)
-    {
-      for (int i = 0; i < len; ++i) {
+inline int umemcasecmp(const UChar* a, const UChar* b, int len)
+{
+    for (int i = 0; i < len; ++i) {
         QChar c1 = QChar(a[i]).toLower();
         QChar c2 = QChar(b[i]).toLower();
         if (c1 != c2)
-          return c1.unicode() - c2.unicode();
-      }
-      return 0;
+        return c1.unicode() - c2.unicode();
     }
+    return 0;
+}
 
-    inline Direction direction(UChar32 c)
-    {
-      if (c > 0xffff)
+inline Direction direction(UChar32 c)
+{
+    if (c > 0xffff)
         return LeftToRight;
-      return (Direction)QChar(c).direction();
-    }
+    return (Direction)QChar(c).direction();
+}
 
-    inline CharCategory category(UChar32 c)
-    {
-      if (c > 0xffff)
+inline CharCategory category(UChar32 c)
+{
+    if (c > 0xffff)
         return NoCategory;
-      return (CharCategory) U_MASK(QChar(c).category());
-    }
-
-#endif
-
-  }
+    return (CharCategory) U_MASK(QChar(c).category());
 }
 
 #endif
-// vim: ts=2 sw=2 et
+
+} }
+
+#endif // WTF_UNICODE_QT4_H

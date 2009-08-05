@@ -28,7 +28,6 @@
 #include "config.h"
 #include "CookieJar.h"
 
-#include "DeprecatedString.h"
 #include "KURL.h"
 #include "PlatformString.h"
 
@@ -72,7 +71,16 @@ void setCookies(Document* document, const KURL& url, const KURL& policyURL, cons
         return;
 
     QList<QNetworkCookie> cookies = QNetworkCookie::parseCookies(QString(value).toAscii());
-    jar->setCookiesFromUrl(cookies, p);
+#if QT_VERSION >= 0x040500
+    QList<QNetworkCookie>::Iterator it = cookies.begin();
+    while (it != cookies.end()) {
+        if (it->isHttpOnly())
+            it = cookies.erase(it);
+        else
+            ++it;
+    }
+#endif
+    jar->setCookiesFromUrl(cookies, u);
 #else
     QCookieJar::cookieJar()->setCookies(u, p, (QString)value);
 #endif
@@ -91,8 +99,14 @@ String cookies(const Document* document, const KURL& url)
         return String();
 
     QStringList resultCookies;
-    foreach (QNetworkCookie networkCookie, cookies)
-        resultCookies.append(networkCookie.toRawForm(QNetworkCookie::NameAndValueOnly));
+    foreach (QNetworkCookie networkCookie, cookies) {
+#if QT_VERSION >= 0x040500
+        if (networkCookie.isHttpOnly())
+            continue;
+#endif
+        resultCookies.append(QString::fromAscii(
+                             networkCookie.toRawForm(QNetworkCookie::NameAndValueOnly).constData()));
+    }
 
     return resultCookies.join(QLatin1String("; "));
 #else

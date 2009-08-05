@@ -30,6 +30,7 @@
 #include "FloatConversion.h"
 #include "IntRect.h"
 #include <algorithm>
+#include <math.h>
 
 using std::max;
 using std::min;
@@ -111,15 +112,23 @@ void FloatRect::scale(float s)
 
 IntRect enclosingIntRect(const FloatRect& rect)
 {
-    int l = static_cast<int>(rect.x());
-    int t = static_cast<int>(rect.y());
-    // FIXME: These two need to be a "ceiling" operation, not rounding.
-    // We changed them to do "+ 0.5f" to compile on Win32 where there's
-    // no ceilf, but they should be changed back to "ceiling" at some point
-    // and we should provide an implementation of ceilf for Win32.
-    int r = static_cast<int>(rect.right() + 0.5f);
-    int b = static_cast<int>(rect.bottom() + 0.5f);
+    int l = static_cast<int>(floorf(rect.x()));
+    int t = static_cast<int>(floorf(rect.y()));
+    int r = static_cast<int>(ceilf(rect.right()));
+    int b = static_cast<int>(ceilf(rect.bottom()));
     return IntRect(l, t, r - l, b - t);
+}
+
+FloatRect mapRect(const FloatRect& r, const FloatRect& srcRect, const FloatRect& destRect)
+{
+    if (srcRect.width() == 0 || srcRect.height() == 0)
+        return FloatRect();
+
+    float widthScale = destRect.width() / srcRect.width();
+    float heightScale = destRect.height() / srcRect.height();
+    return FloatRect(destRect.x() + (r.x() - srcRect.x()) * widthScale,
+                     destRect.y() + (r.y() - srcRect.y()) * heightScale,
+                     r.width() * widthScale, r.height() * heightScale);
 }
 
 }

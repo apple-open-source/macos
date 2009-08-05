@@ -173,7 +173,7 @@ new
 
 # CSS_PROP_FILTER
 # CSS_PROP_FLOOD_COLOR
-currentColor
+#currentColor
 
 # CSS_PROP_FLOOD_OPACITY
 # CSS_PROP_LIGHTING_COLOR
@@ -181,17 +181,6 @@ currentColor
 
 # CSS_PROP_STOP_COLOR
 # CSS_PROP_STOP_OPACITY
-# CSS_PROP_POINTER_EVENTS
-visiblePainted
-visibleFill
-visibleStroke
-#visible
-painted
-fill
-stroke
-all
-#none
-
 # CSS_PROP_COLOR_INTERPOLATION
 #auto
 sRGB

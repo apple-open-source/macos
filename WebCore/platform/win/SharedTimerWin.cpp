@@ -27,10 +27,9 @@
 #include "SharedTimer.h"
 
 #include "Page.h"
-#include "SystemTime.h"
-#include "Threading.h"
 #include "Widget.h"
 #include <wtf/Assertions.h>
+#include <wtf/CurrentTime.h>
 
 // Note: wx headers set defines that affect the configuration of windows.h
 // so we must include the wx header first to get unicode versions of functions,
@@ -76,7 +75,7 @@ static LONG pendingTimers;
 const LPCWSTR kTimerWindowClassName = L"TimerWindowClass";
 const int timerResolution = 1; // To improve timer resolution, we call timeBeginPeriod/timeEndPeriod with this value to increase timer resolution to 1ms.
 const int highResolutionThresholdMsec = 16; // Only activate high-res timer for sub-16ms timers (Windows can fire timers at 16ms intervals without changing the system resolution).
-const int stopHighResTimerInMsec = 500; // Stop high-res timer after 0.5 seconds to lessen power consumption (we don't use a smaller time since oscillating between high and low resolution breaks timer accuracy on XP).
+const int stopHighResTimerInMsec = 300; // Stop high-res timer after 0.3 seconds to lessen power consumption (we don't use a smaller time since oscillating between high and low resolution breaks timer accuracy on XP).
 
 enum {
     sharedTimerID = 1000,

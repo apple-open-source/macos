@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,16 +27,20 @@
 #include "markup.h"
 
 #include "CDATASection.h"
+#include "CharacterNames.h"
+#include "Comment.h"
 #include "CSSComputedStyleDeclaration.h"
+#include "CSSMutableStyleDeclaration.h"
+#include "CSSPrimitiveValue.h"
+#include "CSSProperty.h"
 #include "CSSPropertyNames.h"
 #include "CSSRule.h"
 #include "CSSRuleList.h"
 #include "CSSStyleRule.h"
 #include "CSSStyleSelector.h"
+#include "CSSValue.h"
 #include "CSSValueKeywords.h"
-#include "Comment.h"
 #include "DeleteButtonController.h"
-#include "DeprecatedStringList.h"
 #include "Document.h"
 #include "DocumentFragment.h"
 #include "DocumentType.h"
@@ -45,15 +49,15 @@
 #include "HTMLElement.h"
 #include "HTMLNames.h"
 #include "InlineTextBox.h"
-#include "KURL.h"
 #include "Logging.h"
 #include "ProcessingInstruction.h"
 #include "QualifiedName.h"
 #include "Range.h"
-#include "Selection.h"
+#include "VisibleSelection.h"
 #include "TextIterator.h"
 #include "htmlediting.h"
 #include "visible_units.h"
+#include <wtf/StdLibExtras.h>
 
 using namespace std;
 
@@ -86,121 +90,124 @@ private:
     String m_value;
 };
 
-static inline void appendString(Vector<UChar>& result, const String& str)
-{
-    result.append(str.characters(), str.length());
-}
-    
-static void appendAttributeValue(Vector<UChar>& result, const String& attr)
+static void appendAttributeValue(Vector<UChar>& result, const String& attr, bool escapeNBSP)
 {
     const UChar* uchars = attr.characters();
     unsigned len = attr.length();
     unsigned lastCopiedFrom = 0;
 
-    static const String ampEntity("&amp;");
-    static const String ltEntity("&lt;");
-    static const String quotEntity("&quot;");
+    DEFINE_STATIC_LOCAL(const String, ampEntity, ("&amp;"));
+    DEFINE_STATIC_LOCAL(const String, gtEntity, ("&gt;"));
+    DEFINE_STATIC_LOCAL(const String, ltEntity, ("&lt;"));
+    DEFINE_STATIC_LOCAL(const String, quotEntity, ("&quot;"));
+    DEFINE_STATIC_LOCAL(const String, nbspEntity, ("&nbsp;"));
     
     for (unsigned i = 0; i < len; ++i) {
         UChar c = uchars[i];
         switch (c) {
             case '&':
                 result.append(uchars + lastCopiedFrom, i - lastCopiedFrom);
-                appendString(result, ampEntity);
+                append(result, ampEntity);
                 lastCopiedFrom = i + 1;
                 break;
             case '<':
                 result.append(uchars + lastCopiedFrom, i - lastCopiedFrom);
-                appendString(result, ltEntity);
+                append(result, ltEntity);
+                lastCopiedFrom = i + 1;
+                break;
+            case '>':
+                result.append(uchars + lastCopiedFrom, i - lastCopiedFrom);
+                append(result, gtEntity);
                 lastCopiedFrom = i + 1;
                 break;
             case '"':
                 result.append(uchars + lastCopiedFrom, i - lastCopiedFrom);
-                appendString(result, quotEntity);
+                append(result, quotEntity);
                 lastCopiedFrom = i + 1;
+                break;
+            case noBreakSpace:
+                if (escapeNBSP) {
+                    result.append(uchars + lastCopiedFrom, i - lastCopiedFrom);
+                    append(result, nbspEntity);
+                    lastCopiedFrom = i + 1;
+                }
+                break;
         }
     }
     
     result.append(uchars + lastCopiedFrom, len - lastCopiedFrom);
 }
-    
-static DeprecatedString escapeContentText(const String& in)
-{
-    DeprecatedString s = "";
 
-    unsigned len = in.length();
-    unsigned lastCopiedFrom = 0;
-
-    const UChar* uchars = in.characters();
-    const DeprecatedChar* dchars = reinterpret_cast<const DeprecatedChar*>(uchars);
-
-    for (unsigned i = 0; i < len; ++i) {
-        UChar c = uchars[i];
-        if ((c == '&') | (c == '<')) {
-            s.append(dchars + lastCopiedFrom, i - lastCopiedFrom);
-            if (c == '&')
-                s += "&amp;";
-            else 
-                s += "&lt;";
-            lastCopiedFrom = i + 1;
-        }
-    }
-
-    s.append(dchars + lastCopiedFrom, len - lastCopiedFrom);
-
-    return s;
-}
-
-    
-static void appendEscapedContent(Vector<UChar>& result, pair<const UChar*, size_t> range)
+static void appendEscapedContent(Vector<UChar>& result, pair<const UChar*, size_t> range, bool escapeNBSP)
 {
     const UChar* uchars = range.first;
     unsigned len = range.second;
     unsigned lastCopiedFrom = 0;
     
-    static const String ampEntity("&amp;");
-    static const String ltEntity("&lt;");
-    
+    DEFINE_STATIC_LOCAL(const String, ampEntity, ("&amp;"));
+    DEFINE_STATIC_LOCAL(const String, gtEntity, ("&gt;"));
+    DEFINE_STATIC_LOCAL(const String, ltEntity, ("&lt;"));
+    DEFINE_STATIC_LOCAL(const String, nbspEntity, ("&nbsp;"));
+
     for (unsigned i = 0; i < len; ++i) {
         UChar c = uchars[i];
-        if ((c == '&') | (c == '<')) {
-            result.append(uchars + lastCopiedFrom, i - lastCopiedFrom);
-            if (c == '&')
-                appendString(result, ampEntity);
-            else 
-                appendString(result, ltEntity);
-            lastCopiedFrom = i + 1;
+        switch (c) {
+            case '&':
+                result.append(uchars + lastCopiedFrom, i - lastCopiedFrom);
+                append(result, ampEntity);
+                lastCopiedFrom = i + 1;
+                break;
+            case '<':
+                result.append(uchars + lastCopiedFrom, i - lastCopiedFrom);
+                append(result, ltEntity);
+                lastCopiedFrom = i + 1;
+                break;
+            case '>':
+                result.append(uchars + lastCopiedFrom, i - lastCopiedFrom);
+                append(result, gtEntity);
+                lastCopiedFrom = i + 1;
+                break;
+            case noBreakSpace:
+                if (escapeNBSP) {
+                    result.append(uchars + lastCopiedFrom, i - lastCopiedFrom);
+                    append(result, nbspEntity);
+                    lastCopiedFrom = i + 1;
+                }
+                break;
         }
     }
     
     result.append(uchars + lastCopiedFrom, len - lastCopiedFrom);
 }    
 
-static inline void appendDeprecatedString(Vector<UChar>& result, const DeprecatedString& str)
+static String escapeContentText(const String& in, bool escapeNBSP)
 {
-    result.append(reinterpret_cast<const UChar*>(str.unicode()), str.length());
-}    
+    Vector<UChar> buffer;
+    appendEscapedContent(buffer, make_pair(in.characters(), in.length()), escapeNBSP);
+    return String::adopt(buffer);
+}
     
-static void appendQuotedURLAttributeValue(Vector<UChar>& result, String urlString)
+static void appendQuotedURLAttributeValue(Vector<UChar>& result, const String& urlString)
 {
     UChar quoteChar = '\"';
-    if (urlString.stripWhiteSpace().startsWith("javascript:", false)) {
+    String strippedURLString = urlString.stripWhiteSpace();
+    if (protocolIsJavaScript(strippedURLString)) {
         // minimal escaping for javascript urls
-        if (urlString.contains('\"')) {
-            if (urlString.contains('\''))
-                urlString.replace('\"', "&quot;");
+        if (strippedURLString.contains('"')) {
+            if (strippedURLString.contains('\''))
+                strippedURLString.replace('\"', "&quot;");
             else
                 quoteChar = '\'';
         }
         result.append(quoteChar);
-        appendString(result, urlString);
+        append(result, strippedURLString);
         result.append(quoteChar);
         return;
     }
 
-    // FIXME this does not fully match other browsers. Firefox escapes spaces and other special characters.
+    // FIXME: This does not fully match other browsers. Firefox percent-escapes non-ASCII characters for innerHTML.
     result.append(quoteChar);
-    appendAttributeValue(result, urlString);
+    appendAttributeValue(result, urlString, false);
     result.append(quoteChar);    
 }
     
@@ -260,13 +267,12 @@ static String renderedText(const Node* node, const Range* range)
     
     Position start(const_cast<Node*>(node), startOffset);
     Position end(const_cast<Node*>(node), endOffset);
-    Range r(node->document(), start, end);
-    return plainText(&r);
+    return plainText(Range::create(node->document(), start, end).get());
 }
 
 static PassRefPtr<CSSMutableStyleDeclaration> styleFromMatchedRulesForElement(Element* element, bool authorOnly = true)
 {
-    RefPtr<CSSMutableStyleDeclaration> style = new CSSMutableStyleDeclaration();
+    RefPtr<CSSMutableStyleDeclaration> style = CSSMutableStyleDeclaration::create();
     RefPtr<CSSRuleList> matchedRules = element->document()->styleSelector()->styleRulesForElement(element, authorOnly);
     if (matchedRules) {
         for (unsigned i = 0; i < matchedRules->length(); i++) {
@@ -292,6 +298,15 @@ static void removeEnclosingMailBlockquoteStyle(CSSMutableStyleDeclaration* style
     blockquoteStyle->diff(style);
 }
 
+static void removeDefaultStyles(CSSMutableStyleDeclaration* style, Document* document)
+{
+    if (!document || !document->documentElement())
+        return;
+            
+    RefPtr<CSSMutableStyleDeclaration> documentStyle = computedStyle(document->documentElement())->copyInheritableProperties();
+    documentStyle->diff(style);
+}
+
 static bool shouldAddNamespaceElem(const Element* elem)
 {
     // Don't add namespace attribute if it is already defined for this elem.
@@ -303,8 +318,8 @@ static bool shouldAddNamespaceElem(const Element* elem)
 static bool shouldAddNamespaceAttr(const Attribute* attr, HashMap<AtomicStringImpl*, AtomicStringImpl*>& namespaces)
 {
     // Don't add namespace attributes twice
-    static const AtomicString xmlnsURI = "http://www.w3.org/2000/xmlns/";
-    static const QualifiedName xmlnsAttr(nullAtom, "xmlns", xmlnsURI);
+    DEFINE_STATIC_LOCAL(const AtomicString, xmlnsURI, ("http://www.w3.org/2000/xmlns/"));
+    DEFINE_STATIC_LOCAL(const QualifiedName, xmlnsAttr, (nullAtom, "xmlns", xmlnsURI));
     if (attr->name() == xmlnsAttr) {
         namespaces.set(emptyAtom.impl(), attr->value().impl());
         return false;
@@ -329,29 +344,64 @@ static void appendNamespace(Vector<UChar>& result, const AtomicString& prefix, c
     AtomicStringImpl* foundNS = namespaces.get(pre);
     if (foundNS != ns.impl()) {
         namespaces.set(pre, ns.impl());
-        static const String xmlns("xmlns");
+        DEFINE_STATIC_LOCAL(const String, xmlns, ("xmlns"));
         result.append(' ');
-        appendString(result, xmlns);
+        append(result, xmlns);
         if (!prefix.isEmpty()) {
             result.append(':');
-            appendString(result, prefix);
+            append(result, prefix);
         }
 
         result.append('=');
         result.append('"');
-        appendAttributeValue(result, ns);
+        appendAttributeValue(result, ns, false);
         result.append('"');
     }
 }
-    
-static void appendStartMarkup(Vector<UChar>& result, const Node *node, const Range *range, EAnnotateForInterchange annotate, bool convertBlocksToInlines = false, HashMap<AtomicStringImpl*, AtomicStringImpl*>* namespaces = 0)
+
+static void appendDocumentType(Vector<UChar>& result, const DocumentType* n)
+{
+    if (n->name().isEmpty())
+        return;
+
+    append(result, "<!DOCTYPE ");
+    append(result, n->name());
+    if (!n->publicId().isEmpty()) {
+        append(result, " PUBLIC \"");
+        append(result, n->publicId());
+        append(result, "\"");
+        if (!n->systemId().isEmpty()) {
+            append(result, " \"");
+            append(result, n->systemId());
+            append(result, "\"");
+        }
+    } else if (!n->systemId().isEmpty()) {
+        append(result, " SYSTEM \"");
+        append(result, n->systemId());
+        append(result, "\"");
+    }
+    if (!n->internalSubset().isEmpty()) {
+        append(result, " [");
+        append(result, n->internalSubset());
+        append(result, "]");
+    }
+    append(result, ">");
+}
+
+static void removeExteriorStyles(CSSMutableStyleDeclaration* style)
+{
+    style->removeProperty(CSSPropertyFloat);
+}
+
+enum RangeFullySelectsNode { DoesFullySelectNode, DoesNotFullySelectNode };
+
+static void appendStartMarkup(Vector<UChar>& result, const Node* node, const Range* range, EAnnotateForInterchange annotate, bool convertBlocksToInlines = false, HashMap<AtomicStringImpl*, AtomicStringImpl*>* namespaces = 0, RangeFullySelectsNode rangeFullySelectsNode = DoesFullySelectNode)
 {
     bool documentIsHTML = node->document()->isHTMLDocument();
     switch (node->nodeType()) {
         case Node::TEXT_NODE: {
             if (Node* parent = node->parentNode()) {
-                if (parent->hasTagName(listingTag)
-                    || parent->hasTagName(scriptTag)
+                if (parent->hasTagName(scriptTag)
                     || parent->hasTagName(styleTag)
                     || parent->hasTagName(textareaTag)
                     || parent->hasTagName(xmpTag)) {
@@ -360,42 +410,44 @@ static void appendStartMarkup(Vector<UChar>& result, const Node *node, const Ran
                 }
             }
             if (!annotate) {
-                appendEscapedContent(result, ucharRange(node, range));
+                appendEscapedContent(result, ucharRange(node, range), documentIsHTML);
                 break;
             }
             
             bool useRenderedText = !enclosingNodeWithTag(Position(const_cast<Node*>(node), 0), selectTag);
-            DeprecatedString markup = escapeContentText(useRenderedText ? renderedText(node, range) : stringValueForRange(node, range));
-            if (annotate)
-                markup = convertHTMLTextToInterchangeFormat(markup, static_cast<const Text*>(node));
-            appendDeprecatedString(result, markup);
+            String markup = escapeContentText(useRenderedText ? renderedText(node, range) : stringValueForRange(node, range), false);
+            markup = convertHTMLTextToInterchangeFormat(markup, static_cast<const Text*>(node));
+            append(result, markup);
             break;
         }
         case Node::COMMENT_NODE:
-            appendString(result, static_cast<const Comment*>(node)->toString());
+            // FIXME: Comment content is not escaped, but XMLSerializer (and possibly other callers) should raise an exception if it includes "-->".
+            append(result, "<!--");
+            append(result, static_cast<const Comment*>(node)->nodeValue());
+            append(result, "-->");
             break;
-        case Node::DOCUMENT_NODE: {
-            // FIXME: I think the comment below (and therefore this code) is wrong now
-            // Documents do not normally contain a docType as a child node, force it to print here instead.
-            const DocumentType* docType = static_cast<const Document*>(node)->doctype();
-            if (docType)
-                appendString(result, docType->toString());
-            break;
-        }
+        case Node::DOCUMENT_NODE:
         case Node::DOCUMENT_FRAGMENT_NODE:
             break;
         case Node::DOCUMENT_TYPE_NODE:
-            appendString(result, static_cast<const DocumentType*>(node)->toString());
+            appendDocumentType(result, static_cast<const DocumentType*>(node));
             break;
-        case Node::PROCESSING_INSTRUCTION_NODE:
-            appendString(result, static_cast<const ProcessingInstruction*>(node)->toString());
+        case Node::PROCESSING_INSTRUCTION_NODE: {
+            // FIXME: PI data is not escaped, but XMLSerializer (and possibly other callers) this should raise an exception if it includes "?>".
+            const ProcessingInstruction* n = static_cast<const ProcessingInstruction*>(node);
+            append(result, "<?");
+            append(result, n->target());
+            append(result, " ");
+            append(result, n->data());
+            append(result, "?>");
             break;
+        }
         case Node::ELEMENT_NODE: {
             result.append('<');
             const Element* el = static_cast<const Element*>(node);
-            bool convert = convertBlocksToInlines & isBlock(const_cast<Node*>(node));
-            appendString(result, el->nodeNamePreservingCase());
-            NamedAttrMap *attrs = el->attributes();
+            bool convert = convertBlocksToInlines && isBlock(const_cast<Node*>(node));
+            append(result, el->nodeNamePreservingCase());
+            NamedNodeMap *attrs = el->attributes();
             unsigned length = attrs->length();
             if (!documentIsHTML && namespaces && shouldAddNamespaceElem(el))
                 appendNamespace(result, el->prefix(), el->namespaceURI(), *namespaces);
@@ -408,9 +460,9 @@ static void appendStartMarkup(Vector<UChar>& result, const Node *node, const Ran
                 result.append(' ');
 
                 if (documentIsHTML)
-                    appendString(result, attr->name().localName());
+                    append(result, attr->name().localName());
                 else
-                    appendString(result, attr->name().toString());
+                    append(result, attr->name().toString());
 
                 result.append('=');
 
@@ -418,7 +470,7 @@ static void appendStartMarkup(Vector<UChar>& result, const Node *node, const Ran
                     appendQuotedURLAttributeValue(result, attr->value());
                 else {
                     result.append('\"');
-                    appendAttributeValue(result, attr->value());
+                    appendAttributeValue(result, attr->value(), documentIsHTML);
                     result.append('\"');
                 }
 
@@ -431,14 +483,41 @@ static void appendStartMarkup(Vector<UChar>& result, const Node *node, const Ran
                 RefPtr<CSSMutableStyleDeclaration> style = static_cast<HTMLElement*>(element)->getInlineStyleDecl()->copy();
                 if (annotate) {
                     RefPtr<CSSMutableStyleDeclaration> styleFromMatchedRules = styleFromMatchedRulesForElement(const_cast<Element*>(el));
-                    style->merge(styleFromMatchedRules.get());
+                    // Styles from the inline style declaration, held in the variable "style", take precedence 
+                    // over those from matched rules.
+                    styleFromMatchedRules->merge(style.get());
+                    style = styleFromMatchedRules;
+                    
+                    RefPtr<CSSComputedStyleDeclaration> computedStyleForElement = computedStyle(element);
+                    RefPtr<CSSMutableStyleDeclaration> fromComputedStyle = CSSMutableStyleDeclaration::create();
+                    
+                    {
+                        CSSMutableStyleDeclaration::const_iterator end = style->end();
+                        for (CSSMutableStyleDeclaration::const_iterator it = style->begin(); it != end; ++it) {
+                            const CSSProperty& property = *it;
+                            CSSValue* value = property.value();
+                            // The property value, if it's a percentage, may not reflect the actual computed value.  
+                            // For example: style="height: 1%; overflow: visible;" in quirksmode
+                            // FIXME: There are others like this, see <rdar://problem/5195123> Slashdot copy/paste fidelity problem
+                            if (value->cssValueType() == CSSValue::CSS_PRIMITIVE_VALUE)
+                                if (static_cast<CSSPrimitiveValue*>(value)->primitiveType() == CSSPrimitiveValue::CSS_PERCENTAGE)
+                                    if (RefPtr<CSSValue> computedPropertyValue = computedStyleForElement->getPropertyCSSValue(property.id()))
+                                        fromComputedStyle->addParsedProperty(CSSProperty(property.id(), computedPropertyValue));
+                        }
+                    }
+                    
+                    style->merge(fromComputedStyle.get());
                 }
                 if (convert)
-                    style->setProperty(CSS_PROP_DISPLAY, CSS_VAL_INLINE, true);
+                    style->setProperty(CSSPropertyDisplay, CSSValueInline, true);
+                // If the node is not fully selected by the range, then we don't want to keep styles that affect its relationship to the nodes around it
+                // only the ones that affect it and the nodes within it.
+                if (rangeFullySelectsNode == DoesNotFullySelectNode)
+                    removeExteriorStyles(style.get());
                 if (style->length() > 0) {
-                    static const String stylePrefix(" style=\"");
-                    appendString(result, stylePrefix);
-                    appendAttributeValue(result, style->cssText());
+                    DEFINE_STATIC_LOCAL(const String, stylePrefix, (" style=\""));
+                    append(result, stylePrefix);
+                    appendAttributeValue(result, style->cssText(), documentIsHTML);
                     result.append('\"');
                 }
             }
@@ -451,9 +530,14 @@ static void appendStartMarkup(Vector<UChar>& result, const Node *node, const Ran
             result.append('>');
             break;
         }
-        case Node::CDATA_SECTION_NODE:
-            appendString(result, static_cast<const CDATASection*>(node)->toString());
+        case Node::CDATA_SECTION_NODE: {
+            // FIXME: CDATA content is not escaped, but XMLSerializer (and possibly other callers) should raise an exception if it includes "]]>".
+            const CDATASection* n = static_cast<const CDATASection*>(node);
+            append(result, "<![CDATA[");
+            append(result, n->data());
+            append(result, "]]>");
             break;
+        }
         case Node::ATTRIBUTE_NODE:
         case Node::ENTITY_NODE:
         case Node::ENTITY_REFERENCE_NODE:
@@ -464,10 +548,10 @@ static void appendStartMarkup(Vector<UChar>& result, const Node *node, const Ran
     }
 }
 
-static String getStartMarkup(const Node *node, const Range *range, EAnnotateForInterchange annotate, bool convertBlocksToInlines = false, HashMap<AtomicStringImpl*, AtomicStringImpl*>* namespaces = 0)
+static String getStartMarkup(const Node* node, const Range* range, EAnnotateForInterchange annotate, bool convertBlocksToInlines = false, HashMap<AtomicStringImpl*, AtomicStringImpl*>* namespaces = 0, RangeFullySelectsNode rangeFullySelectsNode = DoesFullySelectNode)
 {
     Vector<UChar> result;
-    appendStartMarkup(result, node, range, annotate, convertBlocksToInlines, namespaces);
+    appendStartMarkup(result, node, range, annotate, convertBlocksToInlines, namespaces, rangeFullySelectsNode);
     return String::adopt(result);
 }
 
@@ -503,7 +587,7 @@ static void appendEndMarkup(Vector<UChar>& result, const Node* node)
 
     result.append('<');
     result.append('/');
-    appendString(result, static_cast<const Element*>(node)->nodeNamePreservingCase());
+    append(result, static_cast<const Element*>(node)->nodeNamePreservingCase());
     result.append('>');
 }
 
@@ -514,46 +598,68 @@ static String getEndMarkup(const Node *node)
     return String::adopt(result);
 }
 
-static void appendMarkup(Vector<UChar>& result, Node* startNode, bool onlyIncludeChildren, Vector<Node*>* nodes, const HashMap<AtomicStringImpl*, AtomicStringImpl*>* namespaces = 0)
+class MarkupAccumulator {
+public:
+    MarkupAccumulator(Node* nodeToSkip, Vector<Node*>* nodes)
+        : m_nodeToSkip(nodeToSkip)
+        , m_nodes(nodes)
+    {
+    }
+
+    void appendMarkup(Node* startNode, EChildrenOnly, const HashMap<AtomicStringImpl*, AtomicStringImpl*>* namespaces = 0);
+
+    String takeResult() { return String::adopt(m_result); }
+
+private:
+    Vector<UChar> m_result;
+    Node* m_nodeToSkip;
+    Vector<Node*>* m_nodes;
+};
+
+// FIXME: Would be nice to do this in a non-recursive way.
+void MarkupAccumulator::appendMarkup(Node* startNode, EChildrenOnly childrenOnly, const HashMap<AtomicStringImpl*, AtomicStringImpl*>* namespaces)
 {
+    if (startNode == m_nodeToSkip)
+        return;
+
     HashMap<AtomicStringImpl*, AtomicStringImpl*> namespaceHash;
     if (namespaces)
         namespaceHash = *namespaces;
-    
-    if (!onlyIncludeChildren) {
-        if (nodes)
-            nodes->append(startNode);
-        
-        appendStartMarkup(result,startNode, 0, DoNotAnnotateForInterchange, false, &namespaceHash);
+
+    // start tag
+    if (!childrenOnly) {
+        if (m_nodes)
+            m_nodes->append(startNode);
+        appendStartMarkup(m_result, startNode, 0, DoNotAnnotateForInterchange, false, &namespaceHash);
     }
-    // print children
-    if (!(startNode->document()->isHTMLDocument() && doesHTMLForbidEndTag(startNode)))
+
+    // children
+    if (!(startNode->document()->isHTMLDocument() && doesHTMLForbidEndTag(startNode))) {
         for (Node* current = startNode->firstChild(); current; current = current->nextSibling())
-            appendMarkup(result, current, false, nodes, &namespaceHash);
-    
-    // Print my ending tag
-    if (!onlyIncludeChildren)
-        appendEndMarkup(result, startNode);
+            appendMarkup(current, IncludeNode, &namespaceHash);
+    }
+
+    // end tag
+    if (!childrenOnly)
+        appendEndMarkup(m_result, startNode);
 }
 
 static void completeURLs(Node* node, const String& baseURL)
 {
     Vector<AttributeChange> changes;
 
-    KURL baseURLAsKURL(baseURL.deprecatedString());
+    KURL parsedBaseURL(baseURL);
 
     Node* end = node->traverseNextSibling();
     for (Node* n = node; n != end; n = n->traverseNextNode()) {
         if (n->isElementNode()) {
             Element* e = static_cast<Element*>(n);
-            NamedAttrMap* attrs = e->attributes();
+            NamedNodeMap* attrs = e->attributes();
             unsigned length = attrs->length();
             for (unsigned i = 0; i < length; i++) {
                 Attribute* attr = attrs->attributeItem(i);
-                if (e->isURLAttribute(attr)) {
-                    String completedURL = KURL(baseURLAsKURL, attr->value().deprecatedString()).string();
-                    changes.append(AttributeChange(e, attr->name(), completedURL));
-                }
+                if (e->isURLAttribute(attr))
+                    changes.append(AttributeChange(e, attr->name(), KURL(parsedBaseURL, attr->value()).string()));
             }
         }
     }
@@ -595,7 +701,7 @@ static bool propertyMissingOrEqualToNone(CSSMutableStyleDeclaration* style, int 
         return true;
     if (!value->isPrimitiveValue())
         return false;
-    return static_cast<CSSPrimitiveValue*>(value.get())->getIdent() == CSS_VAL_NONE;
+    return static_cast<CSSPrimitiveValue*>(value.get())->getIdent() == CSSValueNone;
 }
 
 static bool elementHasTextDecorationProperty(const Node* node)
@@ -603,10 +709,10 @@ static bool elementHasTextDecorationProperty(const Node* node)
     RefPtr<CSSMutableStyleDeclaration> style = styleFromMatchedRulesAndInlineDecl(node);
     if (!style)
         return false;
-    return !propertyMissingOrEqualToNone(style.get(), CSS_PROP_TEXT_DECORATION);
+    return !propertyMissingOrEqualToNone(style.get(), CSSPropertyTextDecoration);
 }
 
-String joinMarkups(const Vector<String> preMarkups, const Vector<String>& postMarkups)
+static String joinMarkups(const Vector<String>& preMarkups, const Vector<String>& postMarkups)
 {
     size_t length = 0;
 
@@ -619,35 +725,67 @@ String joinMarkups(const Vector<String> preMarkups, const Vector<String>& postMa
         length += postMarkups[i].length();
 
     Vector<UChar> result;
-    result.reserveCapacity(length);
+    result.reserveInitialCapacity(length);
 
     for (size_t i = preCount; i > 0; --i)
-        appendString(result, preMarkups[i - 1]);
+        append(result, preMarkups[i - 1]);
 
     for (size_t i = 0; i < postCount; ++i)
-        appendString(result, postMarkups[i]);
+        append(result, postMarkups[i]);
 
     return String::adopt(result);
+}
+
+static bool isSpecialAncestorBlock(Node* node)
+{
+    if (!node || !isBlock(node))
+        return false;
+        
+    return node->hasTagName(listingTag) ||
+           node->hasTagName(olTag) ||
+           node->hasTagName(preTag) ||
+           node->hasTagName(tableTag) ||
+           node->hasTagName(ulTag) ||
+           node->hasTagName(xmpTag) ||
+           node->hasTagName(h1Tag) ||
+           node->hasTagName(h2Tag) ||
+           node->hasTagName(h3Tag) ||
+           node->hasTagName(h4Tag) ||
+           node->hasTagName(h5Tag);
+}
+
+static bool shouldIncludeWrapperForFullySelectedRoot(Node* fullySelectedRoot, CSSMutableStyleDeclaration* style)
+{
+    if (fullySelectedRoot->isElementNode() && static_cast<Element*>(fullySelectedRoot)->hasAttribute(backgroundAttr))
+        return true;
+        
+    return style->getPropertyCSSValue(CSSPropertyBackgroundImage) ||
+           style->getPropertyCSSValue(CSSPropertyBackgroundColor);
 }
 
 // FIXME: Shouldn't we omit style info when annotate == DoNotAnnotateForInterchange? 
 // FIXME: At least, annotation and style info should probably not be included in range.markupString()
 String createMarkup(const Range* range, Vector<Node*>* nodes, EAnnotateForInterchange annotate, bool convertBlocksToInlines)
 {
-    static const String interchangeNewlineString = String("<br class=\"") + AppleInterchangeNewline + "\">";
+    DEFINE_STATIC_LOCAL(const String, interchangeNewlineString, ("<br class=\"" AppleInterchangeNewline "\">"));
 
-    if (!range || range->isDetached())
+    if (!range)
         return "";
 
     Document* document = range->ownerDocument();
     if (!document)
         return "";
 
+    bool documentIsHTML = document->isHTMLDocument();
+
     // Disable the delete button so it's elements are not serialized into the markup,
     // but make sure neither endpoint is inside the delete user interface.
     Frame* frame = document->frame();
     DeleteButtonController* deleteButton = frame ? frame->editor()->deleteButtonController() : 0;
     RefPtr<Range> updatedRange = avoidIntersectionWithNode(range, deleteButton ? deleteButton->containerElement() : 0);
+    if (!updatedRange)
+        return "";
+
     if (deleteButton)
         deleteButton->disable();
 
@@ -665,11 +803,11 @@ String createMarkup(const Range* range, Vector<Node*>* nodes, EAnnotateForInterc
 
     Vector<String> markups;
     Vector<String> preMarkups;
-    Node* pastEnd = updatedRange->pastEndNode();
+    Node* pastEnd = updatedRange->pastLastNode();
     Node* lastClosed = 0;
     Vector<Node*> ancestorsToClose;
     
-    Node* startNode = updatedRange->startNode();
+    Node* startNode = updatedRange->firstNode();
     VisiblePosition visibleStart(updatedRange->startPosition(), VP_DEFAULT_AFFINITY);
     VisiblePosition visibleEnd(updatedRange->endPosition(), VP_DEFAULT_AFFINITY);
     if (annotate && needInterchangeNewlineAfter(visibleStart)) {
@@ -681,10 +819,24 @@ String createMarkup(const Range* range, Vector<Node*>* nodes, EAnnotateForInterc
 
         markups.append(interchangeNewlineString);
         startNode = visibleStart.next().deepEquivalent().node();
+
+        if (pastEnd && Range::compareBoundaryPoints(startNode, 0, pastEnd, 0) >= 0) {
+            if (deleteButton)
+                deleteButton->enable();
+            return interchangeNewlineString;
+        }
     }
 
     Node* next;
     for (Node* n = startNode; n != pastEnd; n = next) {
+        // According to <rdar://problem/5730668>, it is possible for n to blow
+        // past pastEnd and become null here. This shouldn't be possible.
+        // This null check will prevent crashes (but create too much markup)
+        // and the ASSERT will hopefully lead us to understanding the problem.
+        ASSERT(n);
+        if (!n)
+            break;
+    
         next = n->traverseNextNode();
         bool skipDescendants = false;
         bool addMarkupForNode = true;
@@ -753,7 +905,7 @@ String createMarkup(const Range* range, Vector<Node*>* nodes, EAnnotateForInterc
             // We added markup for this node, and we're descending into it.  Set it to close eventually.
             ancestorsToClose.append(n);
     }
-    
+
     // Include ancestors that aren't completely inside the range but are required to retain 
     // the structure and appearance of the copied markup.
     Node* specialCommonAncestor = 0;
@@ -765,58 +917,71 @@ String createMarkup(const Range* range, Vector<Node*>* nodes, EAnnotateForInterc
                 table = table->parentNode();
             if (table)
                 specialCommonAncestor = table;
-        } else if (commonAncestorBlock->hasTagName(listingTag)
-                    || commonAncestorBlock->hasTagName(olTag)
-                    || commonAncestorBlock->hasTagName(preTag)
-                    || commonAncestorBlock->hasTagName(tableTag)
-                    || commonAncestorBlock->hasTagName(ulTag)
-                    || commonAncestorBlock->hasTagName(xmpTag))
+        } else if (isSpecialAncestorBlock(commonAncestorBlock))
             specialCommonAncestor = commonAncestorBlock;
+    }
+                                      
+    // Retain the Mail quote level by including all ancestor mail block quotes.
+    if (lastClosed && annotate) {
+        for (Node *ancestor = lastClosed->parentNode(); ancestor; ancestor = ancestor->parentNode())
+            if (isMailBlockquote(ancestor))
+                specialCommonAncestor = ancestor;
     }
     
     Node* checkAncestor = specialCommonAncestor ? specialCommonAncestor : commonAncestor;
     if (checkAncestor->renderer()) {
         RefPtr<CSSMutableStyleDeclaration> checkAncestorStyle = computedStyle(checkAncestor)->copyInheritableProperties();
-        if (!propertyMissingOrEqualToNone(checkAncestorStyle.get(), CSS_PROP__WEBKIT_TEXT_DECORATIONS_IN_EFFECT))
+        if (!propertyMissingOrEqualToNone(checkAncestorStyle.get(), CSSPropertyWebkitTextDecorationsInEffect))
             specialCommonAncestor = enclosingNodeOfType(Position(checkAncestor, 0), &elementHasTextDecorationProperty);
     }
     
+    // If a single tab is selected, commonAncestor will be a text node inside a tab span.
+    // If two or more tabs are selected, commonAncestor will be the tab span.
+    // In either case, if there is a specialCommonAncestor already, it will necessarily be above 
+    // any tab span that needs to be included.
+    if (!specialCommonAncestor && isTabSpanTextNode(commonAncestor))
+        specialCommonAncestor = commonAncestor->parentNode();
+    if (!specialCommonAncestor && isTabSpanNode(commonAncestor))
+        specialCommonAncestor = commonAncestor;
+        
     if (Node *enclosingAnchor = enclosingNodeWithTag(Position(specialCommonAncestor ? specialCommonAncestor : commonAncestor, 0), aTag))
         specialCommonAncestor = enclosingAnchor;
     
     Node* body = enclosingNodeWithTag(Position(commonAncestor, 0), bodyTag);
-    // FIXME: Only include markup for a fully selected root (and ancestors of lastClosed up to that root) if
-    // there are styles/attributes on those nodes that need to be included to preserve the appearance of the copied markup.
     // FIXME: Do this for all fully selected blocks, not just the body.
-    Node* fullySelectedRoot = body && *Selection::selectionFromContentsOfNode(body).toRange() == *updatedRange ? body : 0;
-    if (annotate && fullySelectedRoot)
-        specialCommonAncestor = fullySelectedRoot;
+    Node* fullySelectedRoot = body && *VisibleSelection::selectionFromContentsOfNode(body).toNormalizedRange() == *updatedRange ? body : 0;
+    RefPtr<CSSMutableStyleDeclaration> fullySelectedRootStyle = fullySelectedRoot ? styleFromMatchedRulesAndInlineDecl(fullySelectedRoot) : 0;
+    if (annotate && fullySelectedRoot) {
+        if (shouldIncludeWrapperForFullySelectedRoot(fullySelectedRoot, fullySelectedRootStyle.get()))
+            specialCommonAncestor = fullySelectedRoot;
+    }
         
-    if (specialCommonAncestor) {
+    if (specialCommonAncestor && lastClosed) {
         // Also include all of the ancestors of lastClosed up to this special ancestor.
         for (Node* ancestor = lastClosed->parentNode(); ancestor; ancestor = ancestor->parentNode()) {
             if (ancestor == fullySelectedRoot && !convertBlocksToInlines) {
-                RefPtr<CSSMutableStyleDeclaration> style = styleFromMatchedRulesAndInlineDecl(fullySelectedRoot);
                 
                 // Bring the background attribute over, but not as an attribute because a background attribute on a div
                 // appears to have no effect.
-                if (!style->getPropertyCSSValue(CSS_PROP_BACKGROUND_IMAGE) && static_cast<Element*>(fullySelectedRoot)->hasAttribute(backgroundAttr))
-                    style->setProperty(CSS_PROP_BACKGROUND_IMAGE, "url('" + static_cast<Element*>(fullySelectedRoot)->getAttribute(backgroundAttr) + "')");
+                if (!fullySelectedRootStyle->getPropertyCSSValue(CSSPropertyBackgroundImage) && static_cast<Element*>(fullySelectedRoot)->hasAttribute(backgroundAttr))
+                    fullySelectedRootStyle->setProperty(CSSPropertyBackgroundImage, "url('" + static_cast<Element*>(fullySelectedRoot)->getAttribute(backgroundAttr) + "')");
                 
-                if (style->length()) {
+                if (fullySelectedRootStyle->length()) {
                     Vector<UChar> openTag;
-                    static const String divStyle("<div style=\"");
-                    appendString(openTag, divStyle);
-                    appendAttributeValue(openTag, style->cssText());
+                    DEFINE_STATIC_LOCAL(const String, divStyle, ("<div style=\""));
+                    append(openTag, divStyle);
+                    appendAttributeValue(openTag, fullySelectedRootStyle->cssText(), documentIsHTML);
                     openTag.append('\"');
                     openTag.append('>');
                     preMarkups.append(String::adopt(openTag));
 
-                    static const String divCloseTag("</div>");
+                    DEFINE_STATIC_LOCAL(const String, divCloseTag, ("</div>"));
                     markups.append(divCloseTag);
                 }
             } else {
-                preMarkups.append(getStartMarkup(ancestor, updatedRange.get(), annotate, convertBlocksToInlines));
+                // Since this node and all the other ancestors are not in the selection we want to set RangeFullySelectsNode to DoesNotFullySelectNode
+                // so that styles that affect the exterior of the node are not included.
+                preMarkups.append(getStartMarkup(ancestor, updatedRange.get(), annotate, convertBlocksToInlines, 0, DoesNotFullySelectNode));
                 markups.append(getEndMarkup(ancestor));
             }
             if (nodes)
@@ -829,6 +994,9 @@ String createMarkup(const Range* range, Vector<Node*>* nodes, EAnnotateForInterc
         }
     }
     
+    DEFINE_STATIC_LOCAL(const String, styleSpanOpen, ("<span class=\"" AppleStyleSpanClass "\" style=\""));
+    DEFINE_STATIC_LOCAL(const String, styleSpanClose, ("</span>"));
+    
     // Add a wrapper span with the styles that all of the nodes in the markup inherit.
     Node* parentOfLastClosed = lastClosed ? lastClosed->parentNode() : 0;
     if (parentOfLastClosed && parentOfLastClosed->renderer()) {
@@ -839,6 +1007,9 @@ String createMarkup(const Range* range, Vector<Node*>* nodes, EAnnotateForInterc
         // get the color of content pasted into blockquotes right.
         removeEnclosingMailBlockquoteStyle(style.get(), parentOfLastClosed);
         
+        // Document default styles will be added on another wrapper span.
+        removeDefaultStyles(style.get(), document);
+        
         // Since we are converting blocks to inlines, remove any inherited block properties that are in the style.
         // This cuts out meaningless properties and prevents properties from magically affecting blocks later
         // if the style is cloned for a new block element during a future editing operation.
@@ -847,35 +1018,37 @@ String createMarkup(const Range* range, Vector<Node*>* nodes, EAnnotateForInterc
 
         if (style->length() > 0) {
             Vector<UChar> openTag;
-            const String spanClassStyle = String("<span class=\"" AppleStyleSpanClass "\" style=\"");
-            appendString(openTag, spanClassStyle);
-            appendAttributeValue(openTag, style->cssText());
+            append(openTag, styleSpanOpen);
+            appendAttributeValue(openTag, style->cssText(), documentIsHTML);
             openTag.append('\"');
             openTag.append('>');
             preMarkups.append(String::adopt(openTag));
             
-            static const String spanCloseTag("</span>");
-            markups.append(spanCloseTag);
+            markups.append(styleSpanClose);
+        }
+    }
+    
+    if (lastClosed && lastClosed != document->documentElement()) {
+        // Add a style span with the document's default styles.  We add these in a separate
+        // span so that at paste time we can differentiate between document defaults and user
+        // applied styles.
+        RefPtr<CSSMutableStyleDeclaration> defaultStyle = computedStyle(document->documentElement())->copyInheritableProperties();
+        
+        if (defaultStyle->length() > 0) {
+            Vector<UChar> openTag;
+            append(openTag, styleSpanOpen);
+            appendAttributeValue(openTag, defaultStyle->cssText(), documentIsHTML);
+            openTag.append('\"');
+            openTag.append('>');
+            preMarkups.append(String::adopt(openTag));
+            markups.append(styleSpanClose);
         }
     }
 
     // FIXME: The interchange newline should be placed in the block that it's in, not after all of the content, unconditionally.
     if (annotate && needInterchangeNewlineAfter(visibleEnd.previous()))
         markups.append(interchangeNewlineString);
-
-    bool selectedOneOrMoreParagraphs = startOfParagraph(visibleStart) != startOfParagraph(visibleEnd) ||
-                                       isStartOfParagraph(visibleStart) && isEndOfParagraph(visibleEnd);
-                                      
-    // Retain the Mail quote level by including all ancestor mail block quotes.
-    if (lastClosed && annotate && selectedOneOrMoreParagraphs) {
-        for (Node *ancestor = lastClosed->parentNode(); ancestor; ancestor = ancestor->parentNode()) {
-            if (isMailBlockquote(ancestor)) {
-                preMarkups.append(getStartMarkup(ancestor, updatedRange.get(), annotate));
-                markups.append(getEndMarkup(ancestor));
-            }
-        }
-    }
-
+    
     if (deleteButton)
         deleteButton->enable();
 
@@ -890,39 +1063,30 @@ PassRefPtr<DocumentFragment> createFragmentFromMarkup(Document* document, const 
 
     RefPtr<DocumentFragment> fragment = element->createContextualFragment(markup);
 
-    if (fragment && !baseURL.isEmpty() && baseURL != "about:blank" && baseURL != document->baseURL())
+    if (fragment && !baseURL.isEmpty() && baseURL != blankURL() && baseURL != document->baseURL())
         completeURLs(fragment.get(), baseURL);
 
     return fragment.release();
 }
 
-String createMarkup(const Node* node, EChildrenOnly includeChildren, Vector<Node*>* nodes)
+String createMarkup(const Node* node, EChildrenOnly childrenOnly, Vector<Node*>* nodes)
 {
-    Vector<UChar> result;
-
     if (!node)
         return "";
 
-    Document* document = node->document();
-    Frame* frame = document->frame();
-    DeleteButtonController* deleteButton = frame ? frame->editor()->deleteButtonController() : 0;
-
-    // disable the delete button so it's elements are not serialized into the markup
-    if (deleteButton) {
-        if (node->isDescendantOf(deleteButton->containerElement()))
+    HTMLElement* deleteButtonContainerElement = 0;
+    if (Frame* frame = node->document()->frame()) {
+        deleteButtonContainerElement = frame->editor()->deleteButtonController()->containerElement();
+        if (node->isDescendantOf(deleteButtonContainerElement))
             return "";
-        deleteButton->disable();
     }
 
-    appendMarkup(result, const_cast<Node*>(node), includeChildren, nodes);
-
-    if (deleteButton)
-        deleteButton->enable();
-
-    return String::adopt(result);
+    MarkupAccumulator accumulator(deleteButtonContainerElement, nodes);
+    accumulator.appendMarkup(const_cast<Node*>(node), childrenOnly);
+    return accumulator.takeResult();
 }
 
-static void fillContainerFromString(ContainerNode* paragraph, const DeprecatedString& string)
+static void fillContainerFromString(ContainerNode* paragraph, const String& string)
 {
     Document* document = paragraph->document();
 
@@ -935,12 +1099,13 @@ static void fillContainerFromString(ContainerNode* paragraph, const DeprecatedSt
 
     ASSERT(string.find('\n') == -1);
 
-    DeprecatedStringList tabList = DeprecatedStringList::split('\t', string, true);
-    DeprecatedString tabText = "";
+    Vector<String> tabList;
+    string.split('\t', true, tabList);
+    String tabText = "";
     bool first = true;
-    while (!tabList.isEmpty()) {
-        DeprecatedString s = tabList.first();
-        tabList.pop_front();
+    size_t numEntries = tabList.size();
+    for (size_t i = 0; i < numEntries; ++i) {
+        const String& s = tabList[i];
 
         // append the non-tab textual part
         if (!s.isEmpty()) {
@@ -949,15 +1114,15 @@ static void fillContainerFromString(ContainerNode* paragraph, const DeprecatedSt
                 ASSERT(ec == 0);
                 tabText = "";
             }
-            RefPtr<Node> textNode = document->createTextNode(stringWithRebalancedWhitespace(s, first, tabList.isEmpty()));
+            RefPtr<Node> textNode = document->createTextNode(stringWithRebalancedWhitespace(s, first, i + 1 == numEntries));
             paragraph->appendChild(textNode.release(), ec);
             ASSERT(ec == 0);
         }
 
         // there is a tab after every entry, except the last entry
         // (if the last character is a tab, the list gets an extra empty entry)
-        if (!tabList.isEmpty())
-            tabText += '\t';
+        if (i + 1 != numEntries)
+            tabText.append('\t');
         else if (!tabText.isEmpty()) {
             paragraph->appendChild(createTabSpanElement(document, tabText), ec);
             ASSERT(ec == 0);
@@ -972,7 +1137,7 @@ PassRefPtr<DocumentFragment> createFragmentFromText(Range* context, const String
     if (!context)
         return 0;
 
-    Node* styleNode = context->startNode();
+    Node* styleNode = context->firstNode();
     if (!styleNode) {
         styleNode = context->startPosition().node();
         if (!styleNode)
@@ -985,7 +1150,7 @@ PassRefPtr<DocumentFragment> createFragmentFromText(Range* context, const String
     if (text.isEmpty())
         return fragment.release();
 
-    DeprecatedString string = text.deprecatedString();
+    String string = text;
     string.replace("\r\n", "\n");
     string.replace('\r', '\n');
 
@@ -995,9 +1160,7 @@ PassRefPtr<DocumentFragment> createFragmentFromText(Range* context, const String
         fragment->appendChild(document->createTextNode(string), ec);
         ASSERT(ec == 0);
         if (string.endsWith("\n")) {
-            RefPtr<Element> element;
-            element = document->createElementNS(xhtmlNamespaceURI, "br", ec);
-            ASSERT(ec == 0);
+            RefPtr<Element> element = createBreakElement(document);
             element->setAttribute(classAttr, AppleInterchangeNewline);            
             fragment->appendChild(element.release(), ec);
             ASSERT(ec == 0);
@@ -1012,22 +1175,30 @@ PassRefPtr<DocumentFragment> createFragmentFromText(Range* context, const String
     }
 
     // Break string into paragraphs. Extra line breaks turn into empty paragraphs.
-    Node* block = enclosingBlock(context->startNode());
-    bool useClonesOfEnclosingBlock = block && !block->hasTagName(bodyTag) && !block->hasTagName(htmlTag);
+    Node* blockNode = enclosingBlock(context->firstNode());
+    Element* block = static_cast<Element*>(blockNode);
+    bool useClonesOfEnclosingBlock = blockNode
+        && blockNode->isElementNode()
+        && !block->hasTagName(bodyTag)
+        && !block->hasTagName(htmlTag)
+        && block != editableRootForPosition(context->startPosition());
     
-    DeprecatedStringList list = DeprecatedStringList::split('\n', string, true); // true gets us empty strings in the list
-    while (!list.isEmpty()) {
-        DeprecatedString s = list.first();
-        list.pop_front();
+    Vector<String> list;
+    string.split('\n', true, list); // true gets us empty strings in the list
+    size_t numLines = list.size();
+    for (size_t i = 0; i < numLines; ++i) {
+        const String& s = list[i];
 
         RefPtr<Element> element;
-        if (s.isEmpty() && list.isEmpty()) {
+        if (s.isEmpty() && i + 1 == numLines) {
             // For last line, use the "magic BR" rather than a P.
-            element = document->createElementNS(xhtmlNamespaceURI, "br", ec);
-            ASSERT(ec == 0);
+            element = createBreakElement(document);
             element->setAttribute(classAttr, AppleInterchangeNewline);            
         } else {
-            element = useClonesOfEnclosingBlock ? static_cast<Element*>(block->cloneNode(false).get()) : createDefaultParagraphElement(document);
+            if (useClonesOfEnclosingBlock)
+                element = block->cloneElementWithoutChildren();
+            else
+                element = createDefaultParagraphElement(document);
             fillContainerFromString(element.get(), s);
         }
         fragment->appendChild(element.release(), ec);
@@ -1061,6 +1232,49 @@ PassRefPtr<DocumentFragment> createFragmentFromNodes(Document *document, const V
         document->frame()->editor()->deleteButtonController()->enable();
 
     return fragment.release();
+}
+
+String createFullMarkup(const Node* node)
+{
+    if (!node)
+        return String();
+        
+    Document* document = node->document();
+    if (!document)
+        return String();
+        
+    Frame* frame = document->frame();
+    if (!frame)
+        return String();
+
+    // FIXME: This is never "for interchange". Is that right?    
+    String markupString = createMarkup(node, IncludeNode, 0);
+    Node::NodeType nodeType = node->nodeType();
+    if (nodeType != Node::DOCUMENT_NODE && nodeType != Node::DOCUMENT_TYPE_NODE)
+        markupString = frame->documentTypeString() + markupString;
+
+    return markupString;
+}
+
+String createFullMarkup(const Range* range)
+{
+    if (!range)
+        return String();
+
+    Node* node = range->startContainer();
+    if (!node)
+        return String();
+        
+    Document* document = node->document();
+    if (!document)
+        return String();
+        
+    Frame* frame = document->frame();
+    if (!frame)
+        return String();
+
+    // FIXME: This is always "for interchange". Is that right? See the previous method.
+    return frame->documentTypeString() + createMarkup(range, 0, AnnotateForInterchange);        
 }
 
 }

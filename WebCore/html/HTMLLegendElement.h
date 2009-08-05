@@ -1,6 +1,4 @@
 /*
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
@@ -26,18 +24,17 @@
 #ifndef HTMLLegendElement_h
 #define HTMLLegendElement_h
 
-#include "HTMLGenericFormElement.h"
+#include "HTMLFormControlElement.h"
 
 namespace WebCore {
 
-class HTMLLegendElement : public HTMLGenericFormElement {
+class HTMLLegendElement : public HTMLFormControlElement {
 public:
-    HTMLLegendElement(Document*, HTMLFormElement* = 0);
+    HTMLLegendElement(const QualifiedName&, Document*, HTMLFormElement* = 0);
     virtual ~HTMLLegendElement();
 
     virtual bool isFocusable() const;
-    virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
-    virtual const AtomicString& type() const;
+    virtual const AtomicString& formControlType() const;
     virtual void accessKeyAction(bool sendToAnyElement);
 
     /**

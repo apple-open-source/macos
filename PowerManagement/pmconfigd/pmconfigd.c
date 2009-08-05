@@ -47,6 +47,7 @@
 #include <mach/mach.h>
 #include <servers/bootstrap.h>
 #include <notify.h> 
+#include <pthread.h>
 
 #include "powermanagementServer.h" // mig generated
 
@@ -106,16 +107,16 @@ static int                      gLWRestartNotificationToken         = 0;
 static int                      gLWLogoutCancelNotificationToken    = 0;
 static int                      gLWLogoutPointOfNoReturnNotificationToken = 0;
 
-__private_extern__ CFMachPortRef  pmServerMachPort                  = NULL;
+__private_extern__ CFMachPortRef     pmServerMachPort                  = NULL;
 
 // defined by MiG
 extern boolean_t powermanagement_server(mach_msg_header_t *, mach_msg_header_t *);
 
 
 // foward declarations
+static void *pm_run_thread(void *arg);
 static void initializeESPrefsDynamicStore(void);
 static void initializePowerSourceChangeNotification(void);
-static void initializeMIGServer(void);
 static void initializeInterestNotifications(void);
 static void initializeTimezoneChangeNotifications(void);
 static void initializeDisplaySleepNotifications(void);
@@ -173,15 +174,97 @@ kern_return_t _io_pm_set_active_profile(
                 mach_msg_type_number_t    profiles_len,
                 int                 *result);
 
+static CFStringRef              
+serverMPCopyDescription(const void *info)
+{
+    return CFStringCreateWithFormat(NULL, NULL, CFSTR("<IOKit Power Management MIG server>"));
+}
 
-/* prime
+
+/* load
  *
  * configd entry point
  */
-void prime()
-{    
-    // Initialize everything.
+ 
+void load(CFBundleRef bundle, Boolean bundleVerbose)
+{
+    pthread_t               pmThread;
+    kern_return_t           kern_result = 0;
+    mach_port_t             serverPort = MACH_PORT_NULL;
+    CFMachPortContext       context  = { 0, (void *)1, NULL, NULL, serverMPCopyDescription };
+
+    // Register our com.apple.PowerManagement server port
+    kern_result = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &serverPort);
+
+    if (KERN_SUCCESS == kern_result)
+    {
+        kern_result = mach_port_insert_right(
+                            mach_task_self(), 
+                            serverPort, serverPort, 
+                            MACH_MSG_TYPE_MAKE_SEND);
+    }
     
+    if (KERN_SUCCESS == kern_result)
+    {
+        kern_result = bootstrap_register(
+                            bootstrap_port, 
+                            kIOPMServerBootstrapName, 
+                            serverPort);
+    }
+    
+    if (KERN_SUCCESS != kern_result) {
+        syslog(LOG_ERR, "PM configd: bootstrap_register \"%s\" error = %d\n",
+                                kIOPMServerBootstrapName, kern_result);
+    }
+
+    pmServerMachPort = CFMachPortCreateWithPort(
+                            kCFAllocatorDefault, 
+                            serverPort, 
+                            mig_server_callback, 
+                            &context, false);
+
+    pthread_create(&pmThread, NULL, pm_run_thread, NULL);
+
+    return;
+}
+
+void *pm_run_thread(void *arg)
+{
+    IONotificationPortRef           notify;
+    io_object_t                     anIterator;
+    CFRunLoopSourceRef              cfmp_rls = 0;
+
+
+    if (!pmServerMachPort) {
+        syslog(LOG_ERR, 
+            "PM configd failure initializing server port. Processes will be unable to connect to power management.");     
+    } else {
+        cfmp_rls = CFMachPortCreateRunLoopSource(0, pmServerMachPort, 0);
+
+        if (cfmp_rls) {
+            CFRunLoopAddSource(CFRunLoopGetCurrent(), cfmp_rls, kCFRunLoopDefaultMode);
+            CFRelease(cfmp_rls);
+        }
+    }
+
+    initializePowerSourceChangeNotification();
+    initializeESPrefsDynamicStore();
+    initializeInterestNotifications();
+    initializeTimezoneChangeNotifications();
+    initializeDisplaySleepNotifications();
+    initializeShutdownNotifications();
+    initializeRootDomainInterestNotifications();
+    
+    _pm_ack_port = IORegisterForSystemPower (0, &notify, SleepWakeCallback, &anIterator);
+    if ( _pm_ack_port != MACH_PORT_NULL ) {
+        if(notify) CFRunLoopAddSource(CFRunLoopGetCurrent(),
+                            IONotificationPortGetRunLoopSource(notify),
+                            kCFRunLoopDefaultMode);
+    }
+
+    _oneOffHacksSetup();
+
+
     // prime the SCDynamicStore pump
     _getSharedPMDynamicStore();
     
@@ -195,55 +278,9 @@ void prime()
     TTYKeepAwake_prime();
 #endif
     PMSystemEvents_prime();
-    
-    return;
-}
 
-/* load
- *
- * configd entry point
- */
-void load(CFBundleRef bundle, Boolean bundleVerbose)
-{
-    IONotificationPortRef           notify;
-    io_object_t                     anIterator;
-
-    // Install notification on Power Source changes
-    initializePowerSourceChangeNotification();
-
-    // Install notification when the preferences file changes on disk
-    initializeESPrefsDynamicStore();
-
-    // Install notification on ApplePMU&IOPMrootDomain general interest messages
-    initializeInterestNotifications();
-
-    // Initialize MIG
-    initializeMIGServer();
-    
-    // Initialize timezone changed notifications
-    initializeTimezoneChangeNotifications();
-    
-    // Register for display dim/undim notifications
-    initializeDisplaySleepNotifications();
-    
-    // Register for loginwindow's shutdown/restart panel initiated notifications
-    initializeShutdownNotifications();
-  
-    // Register for interest notifications when PM features are published or removed
-    initializeRootDomainInterestNotifications();
-    
-    // Register for SystemPower notifications
-    _pm_ack_port = IORegisterForSystemPower (0, &notify, SleepWakeCallback, &anIterator);
-    if ( _pm_ack_port != MACH_PORT_NULL ) {
-        if(notify) CFRunLoopAddSource(CFRunLoopGetCurrent(),
-                            IONotificationPortGetRunLoopSource(notify),
-                            kCFRunLoopDefaultMode);
-    }
-
-    // And we'll try to keep all the ugliest hacks off in their own little corner...
-    _oneOffHacksSetup();
-
-    return;
+    CFRunLoopRun();
+    return NULL;
 }
 
 
@@ -738,7 +775,12 @@ pm_mig_demux(
     // Check for tasks which have exited and clean-up PM assertions
     if(MACH_NOTIFY_DEAD_NAME == request->msgh_id) 
     {
-        cleanupAssertions(deadRequest->not_port);
+        // Check whether this was a battery-owned mach port
+        if (!BatteryHandleDeadName(deadRequest->not_port)) {
+
+            // If not battery, this may be an assertion-owned mach port
+            cleanupAssertions(deadRequest->not_port);
+        }
         mach_port_deallocate(mach_task_self(), deadRequest->not_port);
 
         reply->msgh_bits        = 0;
@@ -919,9 +961,7 @@ kern_return_t _io_pm_assertion_create
     mach_port_t         server,
     mach_port_t         task,
     string_t            name,
-    mach_msg_type_number_t  nameCnt,
     string_t            profile,
-    mach_msg_type_number_t   profileCnt,
     int                 level,
     int                 *assertion_id,
     int                 *result
@@ -950,50 +990,6 @@ kern_return_t _io_pm_assertion_create
 exit:
     if (profileString) CFRelease(profileString);
     return KERN_SUCCESS;
-}
-
-static CFStringRef              
-serverMPCopyDescription(const void *info)
-{
-        return CFStringCreateWithFormat(NULL, NULL, CFSTR("<io pm server MP>"));
-}
- 
-static void
-initializeMIGServer(void)
-{
-    kern_return_t           kern_result = 0;
-    CFMachPortRef           cf_mach_port = 0;
-    CFRunLoopSourceRef      cfmp_rls = 0;
-    mach_port_t             our_port = MACH_PORT_NULL;
-
-    CFMachPortContext       context  = { 0, (void *)1, NULL, NULL, serverMPCopyDescription };
-
-    cf_mach_port = CFMachPortCreate(0, mig_server_callback, &context, 0);
-    if(!cf_mach_port) {
-        goto bail;
-    }
-    our_port = CFMachPortGetPort(cf_mach_port);
-    cfmp_rls = CFMachPortCreateRunLoopSource(0, cf_mach_port, 0);
-    if(!cfmp_rls) {
-        goto bail;
-    }
-    CFRunLoopAddSource(CFRunLoopGetCurrent(), cfmp_rls, kCFRunLoopDefaultMode);
-
-    kern_result = bootstrap_register(
-                        bootstrap_port, 
-                        kIOPMServerBootstrapName, 
-                        our_port);
-    if (BOOTSTRAP_SUCCESS != kern_result)
-    {
-        syslog(LOG_ERR, "PM configd: bootstrap_register \"%s\" error = %d\n",
-                                kIOPMServerBootstrapName, kern_result);
-    }
-    
-    pmServerMachPort = cf_mach_port;
-
-bail:
-    if(cfmp_rls) CFRelease(cfmp_rls);
-    return;
 }
 
 /* initializeInteresteNotifications

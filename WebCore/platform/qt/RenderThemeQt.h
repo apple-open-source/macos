@@ -1,7 +1,7 @@
 /*
  * This file is part of the theme implementation for form controls in WebCore.
  *
- * Copyright (C) 2007 Trolltech
+ * Copyright (C) 2009 Nokia Corporation and/or its subsidiary(-ies).
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -24,24 +24,28 @@
 
 #include "RenderTheme.h"
 
-class QStyle;
+#include <QStyle>
+
+QT_BEGIN_NAMESPACE
 class QPainter;
 class QWidget;
-class QStyleOption;
+QT_END_NAMESPACE
 
 namespace WebCore {
 
 class RenderStyle;
+class HTMLMediaElement;
 
 class RenderThemeQt : public RenderTheme
 {
 public:
     RenderThemeQt();
+    virtual ~RenderThemeQt();
 
     virtual bool supportsHover(const RenderStyle*) const;
     virtual bool supportsFocusRing(const RenderStyle* style) const;
 
-    virtual short baselinePosition(const RenderObject* o) const;
+    virtual int baselinePosition(const RenderObject* o) const;
 
     // A method asking if the control changes its tint when the window has focus or not.
     virtual bool controlSupportsTints(const RenderObject*) const;
@@ -52,9 +56,7 @@ public:
     virtual void adjustRepaintRect(const RenderObject* o, IntRect& r);
 
     virtual bool isControlStyled(const RenderStyle*, const BorderData&,
-                                 const BackgroundLayer&, const Color&) const;
-
-    virtual void paintResizeControl(GraphicsContext*, const IntRect&);
+                                 const FillLayer&, const Color&) const;
 
     // The platform selection color.
     virtual Color platformActiveSelectionBackgroundColor() const;
@@ -67,6 +69,12 @@ public:
     virtual int minimumMenuListSize(RenderStyle*) const;
 
     virtual void adjustSliderThumbSize(RenderObject*) const;
+
+    virtual double caretBlinkInterval() const;
+
+#if ENABLE(VIDEO)
+    virtual String extraMediaControlsStyleSheet();
+#endif
 
 protected:
     virtual bool paintCheckbox(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r);
@@ -81,6 +89,9 @@ protected:
 
     virtual bool paintTextField(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
     virtual void adjustTextFieldStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+
+    virtual bool paintTextArea(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual void adjustTextAreaStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
 
     virtual bool paintMenuList(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r);
     virtual void adjustMenuListStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
@@ -102,17 +113,69 @@ protected:
 
     virtual void adjustSearchFieldResultsDecorationStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
     virtual bool paintSearchFieldResultsDecoration(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+
+#if ENABLE(VIDEO)
+    virtual bool paintMediaFullscreenButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintMediaPlayButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintMediaMuteButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintMediaSeekBackButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintMediaSeekForwardButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintMediaSliderTrack(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintMediaSliderThumb(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+
 private:
-    bool supportsFocus(EAppearance) const;
+    HTMLMediaElement* getMediaElementFromRenderObject(RenderObject* o) const;
+    void paintMediaBackground(QPainter* painter, const IntRect& r) const;
+    QColor getMediaControlForegroundColor(RenderObject* o = 0) const;
+#endif
+    void computeSizeBasedOnStyle(RenderStyle* renderStyle) const;
 
-    bool getStylePainterAndWidgetFromPaintInfo(const RenderObject::PaintInfo&, QStyle*&, QPainter*&, QWidget*&) const;
-    EAppearance applyTheme(QStyleOption&, RenderObject*) const;
+private:
+    bool supportsFocus(ControlPart) const;
 
-    void setSizeFromFont(RenderStyle*) const;
-    IntSize sizeForFont(RenderStyle*) const;
+    ControlPart applyTheme(QStyleOption&, RenderObject*) const;
+
     void setButtonPadding(RenderStyle*) const;
     void setPopupPadding(RenderStyle*) const;
-    void setPrimitiveSize(RenderStyle*) const;
+
+#ifdef Q_WS_MAC
+    int m_buttonFontPixelSize;
+#endif
+    QString m_buttonFontFamily;
+
+    QStyle* m_fallbackStyle;
+    QStyle* fallbackStyle();
+
+    int m_frameLineWidth;
+};
+
+class StylePainter
+{
+public:
+    explicit StylePainter(const RenderObject::PaintInfo& paintInfo);
+    explicit StylePainter(GraphicsContext* context);
+    ~StylePainter();
+
+    bool isValid() const { return painter && style; }
+
+    QPainter* painter;
+    QWidget* widget;
+    QStyle* style;
+
+    void drawPrimitive(QStyle::PrimitiveElement pe, const QStyleOption& opt)
+    { style->drawPrimitive(pe, &opt, painter, widget); }
+    void drawControl(QStyle::ControlElement ce, const QStyleOption& opt)
+    { style->drawControl(ce, &opt, painter, widget); }
+    void drawComplexControl(QStyle::ComplexControl cc, const QStyleOptionComplex& opt)
+    { style->drawComplexControl(cc, &opt, painter, widget); }
+
+private:
+    void init(GraphicsContext* context);
+
+    QBrush oldBrush;
+    bool oldAntialiasing;
+
+    Q_DISABLE_COPY(StylePainter)
 };
 
 }

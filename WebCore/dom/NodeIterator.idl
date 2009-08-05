@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.
+ * Copyright (C) 2006, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Samuel Weinig <sam.weinig@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -21,17 +21,20 @@
 module traversal {
 
     // Introduced in DOM Level 2:
-    interface [CustomMarkFunction] NodeIterator {
+    interface [
+        CustomMarkFunction,
+        GenerateConstructor
+    ] NodeIterator {
         readonly attribute Node root;
         readonly attribute unsigned long whatToShow;
-        readonly attribute [ObjCIvar] NodeFilter filter;
+        readonly attribute NodeFilter filter;
         readonly attribute boolean expandEntityReferences;
         readonly attribute Node referenceNode;
         readonly attribute boolean pointerBeforeReferenceNode;
 
-        Node nextNode() 
+        [Custom] Node nextNode() 
             raises (DOMException);
-        Node previousNode()
+        [Custom] Node previousNode()
             raises (DOMException);
         void detach();
     };

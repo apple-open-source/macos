@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2003-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,11 +24,14 @@
  */
 
 #include "keychain_delete.h"
+#include "keychain_find.h"
 
 #include "keychain_utilities.h"
 #include "security.h"
-
 #include <unistd.h>
+#include <Security/SecKeychain.h>
+#include <Security/SecKeychainItem.h>
+#include <Security/SecTrustSettings.h>
 
 static int
 do_delete(CFTypeRef keychainOrArray)
@@ -41,6 +44,92 @@ do_delete(CFTypeRef keychainOrArray)
 		sec_perror("SecKeychainDelete", result);
 	}
 
+	return result;
+}
+
+static int
+do_delete_certificate(CFTypeRef keychainOrArray, const char *name, const char *hash, Boolean deleteTrust)
+{
+	OSStatus result = noErr;
+	SecKeychainItemRef itemToDelete = NULL;
+	if (!name && !hash) {
+		return 2;
+	}
+	
+	itemToDelete = find_unique_certificate(keychainOrArray, name, hash);
+	if (itemToDelete) {
+		if (deleteTrust) {
+			result = SecTrustSettingsRemoveTrustSettings((SecCertificateRef)itemToDelete,
+														 kSecTrustSettingsDomainUser);
+			if (result && result != errSecItemNotFound) {
+				sec_perror("SecTrustSettingsRemoveTrustSettings (user)", result);
+				goto cleanup;
+			}
+			if (geteuid() == 0) {
+				result = SecTrustSettingsRemoveTrustSettings((SecCertificateRef)itemToDelete,
+															 kSecTrustSettingsDomainAdmin);
+				if (result && result != errSecItemNotFound) {
+					sec_perror("SecTrustSettingsRemoveTrustSettings (admin)", result);
+					goto cleanup;
+				}
+			}
+		}
+		result = SecKeychainItemDelete(itemToDelete);
+		if (result) {
+			sec_perror("SecKeychainItemDelete", result);
+			goto cleanup;
+		}
+	} else {
+		result = 1;
+		fprintf(stderr, "Unable to delete certificate matching \"%s\"",
+				(name) ? name : (hash) ? hash : "");
+	}
+
+cleanup:
+	safe_CFRelease(&itemToDelete);
+
+	return result;
+}
+
+int
+keychain_delete_certificate(int argc, char * const *argv)
+{
+	CFTypeRef keychainOrArray = NULL;
+	char *name = NULL;
+	char *hash = NULL;
+	Boolean delete_trust = FALSE;
+	int ch, result = 0;
+	
+    while ((ch = getopt(argc, argv, "hc:Z:t")) != -1)
+	{
+		switch  (ch)
+		{
+			case 'c':
+				name = optarg;
+				break;
+			case 'Z':
+				hash = optarg;
+				break;
+			case 't':
+				delete_trust = TRUE;
+				break;
+			case '?':
+			default:
+				result = 2; /* @@@ Return 2 triggers usage message. */
+				goto cleanup;
+		}
+	}
+	
+	argc -= optind;
+	argv += optind;
+	
+	keychainOrArray = keychain_create_array(argc, argv);
+	
+	result = do_delete_certificate(keychainOrArray, name, hash, delete_trust);
+
+cleanup:
+	safe_CFRelease(&keychainOrArray);
+	
 	return result;
 }
 

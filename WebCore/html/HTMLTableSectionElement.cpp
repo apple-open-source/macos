@@ -1,6 +1,4 @@
 /**
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1997 Martin Jones (mjones@kde.org)
  *           (C) 1997 Torben Weis (weis@kde.org)
  *           (C) 1998 Waldo Bastian (bastian@kde.org)
@@ -86,7 +84,7 @@ PassRefPtr<HTMLElement> HTMLTableSectionElement::insertRow(int index, ExceptionC
     if (index < -1 || index > numRows)
         ec = INDEX_SIZE_ERR; // per the DOM
     else {
-        r = new HTMLTableRowElement(document());
+        r = new HTMLTableRowElement(trTag, document());
         if (numRows == index || index == -1)
             appendChild(r, ec);
         else {
@@ -169,7 +167,7 @@ void HTMLTableSectionElement::setVAlign(const String &value)
 
 PassRefPtr<HTMLCollection> HTMLTableSectionElement::rows()
 {
-    return new HTMLCollection(this, HTMLCollection::TSectionRows);
+    return HTMLCollection::create(this, TSectionRows);
 }
 
 }

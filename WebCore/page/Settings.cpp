@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,13 +28,12 @@
 
 #include "Frame.h"
 #include "FrameTree.h"
+#include "HistoryItem.h"
 #include "Page.h"
 #include "PageCache.h"
-#include "HistoryItem.h"
+#include <limits>
 
-#if ENABLE(DATABASE)
-#include "DatabaseTracker.h"
-#endif
+using namespace std;
 
 namespace WebCore {
 
@@ -44,24 +43,39 @@ static void setNeedsReapplyStylesInAllFrames(Page* page)
         frame->setNeedsReapplyStyles();
 }
 
+#if USE(SAFARI_THEME)
+bool Settings::gShouldPaintNativeControls = false;
+#endif
+
 Settings::Settings(Page* page)
     : m_page(page)
     , m_editableLinkBehavior(EditableLinkDefaultBehavior)
+    , m_textDirectionSubmenuInclusionBehavior(TextDirectionSubmenuAutomaticallyIncluded)
     , m_minimumFontSize(0)
     , m_minimumLogicalFontSize(0)
     , m_defaultFontSize(0)
     , m_defaultFixedFontSize(0)
+    , m_maximumDecodedImageSize(numeric_limits<size_t>::max())
     , m_isJavaEnabled(false)
     , m_loadsImagesAutomatically(false)
     , m_privateBrowsingEnabled(false)
+    , m_caretBrowsingEnabled(false)
     , m_arePluginsEnabled(false)
+    , m_databasesEnabled(false)
+    , m_localStorageEnabled(false)
     , m_isJavaScriptEnabled(false)
+    , m_isWebSecurityEnabled(true)
+    , m_allowUniversalAccessFromFileURLs(true)
     , m_javaScriptCanOpenWindowsAutomatically(false)
     , m_shouldPrintBackgrounds(false)
     , m_textAreasAreResizable(false)
+#if ENABLE(DASHBOARD_SUPPORT)
     , m_usesDashboardBackwardCompatibilityMode(false)
+#endif
     , m_needsAdobeFrameReloadingQuirk(false)
     , m_needsKeyboardEventDisambiguationQuirks(false)
+    , m_needsLeopardMailQuirks(false)
+    , m_needsTigerMailQuirks(false)
     , m_isDOMPasteAllowed(false)
     , m_shrinksStandaloneImagesToFit(true)
     , m_usesPageCache(false)
@@ -71,7 +85,24 @@ Settings::Settings(Page* page)
     , m_authorAndUserStylesEnabled(true)
     , m_needsSiteSpecificQuirks(false)
     , m_fontRenderingMode(0)
+    , m_webArchiveDebugModeEnabled(false)
     , m_inApplicationChromeMode(false)
+    , m_offlineWebApplicationCacheEnabled(false)
+    , m_shouldPaintCustomScrollbars(false)
+    , m_zoomsTextOnly(false)
+    , m_enforceCSSMIMETypeInStrictMode(true)
+    , m_usesEncodingDetector(false)
+    , m_allowScriptsToCloseWindows(false)
+    , m_editingBehavior(
+#if PLATFORM(MAC)
+        EditingMacBehavior
+#else
+        EditingWindowsBehavior
+#endif
+        )
+    // FIXME: This should really be disabled by default as it makes platforms that don't support the feature download files
+    // they can't use by. Leaving enabled for now to not change existing behavior.
+    , m_downloadableBinaryFontsEnabled(true)
 {
     // A Frame may not have been created yet, so we initialize the AtomicString 
     // hash before trying to use it.
@@ -178,6 +209,16 @@ void Settings::setJavaScriptEnabled(bool isJavaScriptEnabled)
     m_isJavaScriptEnabled = isJavaScriptEnabled;
 }
 
+void Settings::setWebSecurityEnabled(bool isWebSecurityEnabled)
+{
+    m_isWebSecurityEnabled = isWebSecurityEnabled;
+}
+
+void Settings::setAllowUniversalAccessFromFileURLs(bool allowUniversalAccessFromFileURLs)
+{
+    m_allowUniversalAccessFromFileURLs = allowUniversalAccessFromFileURLs;
+}
+
 void Settings::setJavaEnabled(bool isJavaEnabled)
 {
     m_isJavaEnabled = isJavaEnabled;
@@ -186,6 +227,16 @@ void Settings::setJavaEnabled(bool isJavaEnabled)
 void Settings::setPluginsEnabled(bool arePluginsEnabled)
 {
     m_arePluginsEnabled = arePluginsEnabled;
+}
+
+void Settings::setDatabasesEnabled(bool databasesEnabled)
+{
+    m_databasesEnabled = databasesEnabled;
+}
+
+void Settings::setLocalStorageEnabled(bool localStorageEnabled)
+{
+    m_localStorageEnabled = localStorageEnabled;
 }
 
 void Settings::setPrivateBrowsingEnabled(bool privateBrowsingEnabled)
@@ -233,10 +284,17 @@ void Settings::setEditableLinkBehavior(EditableLinkBehavior editableLinkBehavior
     m_editableLinkBehavior = editableLinkBehavior;
 }
 
+void Settings::setTextDirectionSubmenuInclusionBehavior(TextDirectionSubmenuInclusionBehavior behavior)
+{
+    m_textDirectionSubmenuInclusionBehavior = behavior;
+}
+
+#if ENABLE(DASHBOARD_SUPPORT)
 void Settings::setUsesDashboardBackwardCompatibilityMode(bool usesDashboardBackwardCompatibilityMode)
 {
     m_usesDashboardBackwardCompatibilityMode = usesDashboardBackwardCompatibilityMode;
 }
+#endif
 
 // FIXME: This quirk is needed because of Radar 4674537 and 5211271. We need to phase it out once Adobe
 // can fix the bug from their end.
@@ -253,6 +311,16 @@ void Settings::setNeedsKeyboardEventDisambiguationQuirks(bool needsQuirks)
     m_needsKeyboardEventDisambiguationQuirks = needsQuirks;
 }
 
+void Settings::setNeedsLeopardMailQuirks(bool needsQuirks)
+{
+    m_needsLeopardMailQuirks = needsQuirks;
+}
+
+void Settings::setNeedsTigerMailQuirks(bool needsQuirks)
+{
+    m_needsTigerMailQuirks = needsQuirks;
+}
+    
 void Settings::setDOMPasteAllowed(bool DOMPasteAllowed)
 {
     m_isDOMPasteAllowed = DOMPasteAllowed;
@@ -324,10 +392,70 @@ void Settings::setNeedsSiteSpecificQuirks(bool needsQuirks)
     m_needsSiteSpecificQuirks = needsQuirks;
 }
 
+void Settings::setWebArchiveDebugModeEnabled(bool enabled)
+{
+    m_webArchiveDebugModeEnabled = enabled;
+}
+
+void Settings::setLocalStorageDatabasePath(const String& path)
+{
+    m_localStorageDatabasePath = path;
+}
 
 void Settings::setApplicationChromeMode(bool mode)
 {
     m_inApplicationChromeMode = mode;
+}
+
+void Settings::setOfflineWebApplicationCacheEnabled(bool enabled)
+{
+    m_offlineWebApplicationCacheEnabled = enabled;
+}
+
+void Settings::setShouldPaintCustomScrollbars(bool shouldPaintCustomScrollbars)
+{
+    m_shouldPaintCustomScrollbars = shouldPaintCustomScrollbars;
+}
+
+void Settings::setZoomsTextOnly(bool zoomsTextOnly)
+{
+    if (zoomsTextOnly == m_zoomsTextOnly)
+        return;
+    
+    m_zoomsTextOnly = zoomsTextOnly;
+    setNeedsReapplyStylesInAllFrames(m_page);
+}
+
+void Settings::setEnforceCSSMIMETypeInStrictMode(bool enforceCSSMIMETypeInStrictMode)
+{
+    m_enforceCSSMIMETypeInStrictMode = enforceCSSMIMETypeInStrictMode;
+}
+
+#if USE(SAFARI_THEME)
+void Settings::setShouldPaintNativeControls(bool shouldPaintNativeControls)
+{
+    gShouldPaintNativeControls = shouldPaintNativeControls;
+}
+#endif
+
+void Settings::setUsesEncodingDetector(bool usesEncodingDetector)
+{
+    m_usesEncodingDetector = usesEncodingDetector;
+}
+
+void Settings::setAllowScriptsToCloseWindows(bool allowScriptsToCloseWindows)
+{
+    m_allowScriptsToCloseWindows = allowScriptsToCloseWindows;
+}
+
+void Settings::setCaretBrowsingEnabled(bool caretBrowsingEnabled)
+{
+    m_caretBrowsingEnabled = caretBrowsingEnabled;
+}
+
+void Settings::setDownloadableBinaryFontsEnabled(bool downloadableBinaryFontsEnabled)
+{
+    m_downloadableBinaryFontsEnabled = downloadableBinaryFontsEnabled;
 }
 
 } // namespace WebCore

@@ -1,11 +1,9 @@
 /*
-    This file is part of the KDE libraries
-
     Copyright (C) 1998 Lars Knoll (knoll@mpi-hd.mpg.de)
     Copyright (C) 2001 Dirk Mueller (mueller@kde.org)
     Copyright (C) 2002 Waldo Bastian (bastian@kde.org)
     Copyright (C) 2006 Samuel Weinig (sam.weinig@gmail.com)
-    Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
+    Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -29,50 +27,61 @@
 #include "config.h"
 #include "CachedScript.h"
 
-#include "Cache.h"
 #include "CachedResourceClient.h"
 #include "CachedResourceClientWalker.h"
-#include "loader.h"
+#include "TextResourceDecoder.h"
 #include <wtf/Vector.h>
 
 namespace WebCore {
 
-CachedScript::CachedScript(DocLoader* dl, const String& url, const String& charset)
+CachedScript::CachedScript(const String& url, const String& charset)
     : CachedResource(url, Script)
-    , m_encoding(charset)
+    , m_decoder(TextResourceDecoder::create("application/javascript", charset))
+    , m_decodedDataDeletionTimer(this, &CachedScript::decodedDataDeletionTimerFired)
 {
     // It's javascript we want.
     // But some websites think their scripts are <some wrong mimetype here>
     // and refuse to serve them if we only accept application/x-javascript.
     setAccept("*/*");
-    // load the file
-    cache()->loader()->load(dl, this, false);
-    m_loading = true;
-    if (!m_encoding.isValid())
-        m_encoding = Latin1Encoding();
 }
 
 CachedScript::~CachedScript()
 {
 }
 
-void CachedScript::ref(CachedResourceClient* c)
+void CachedScript::didAddClient(CachedResourceClient* c)
 {
-    CachedResource::ref(c);
     if (!m_loading)
         c->notifyFinished(this);
 }
 
+void CachedScript::allClientsRemoved()
+{
+    m_decodedDataDeletionTimer.startOneShot(0);
+}
+
 void CachedScript::setEncoding(const String& chs)
 {
-    TextEncoding encoding(chs);
-    if (encoding.isValid())
-        m_encoding = encoding;
+    m_decoder->setEncoding(chs, TextResourceDecoder::EncodingFromHTTPHeader);
 }
 
 String CachedScript::encoding() const
 {
-    return m_encoding.name();
+    return m_decoder->encoding().name();
+}
+
+const String& CachedScript::script()
+{
+    ASSERT(!isPurgeable());
+
+    if (!m_script && m_data) {
+        m_script = m_decoder->decode(m_data->data(), encodedSize());
+        m_script += m_decoder->flush();
+        setDecodedSize(m_script.length() * sizeof(UChar));
+    }
+
+    m_decodedDataDeletionTimer.startOneShot(0);
+    return m_script;
 }
 
 void CachedScript::data(PassRefPtr<SharedBuffer> data, bool allDataReceived)
@@ -82,8 +91,6 @@ void CachedScript::data(PassRefPtr<SharedBuffer> data, bool allDataReceived)
 
     m_data = data;
     setEncodedSize(m_data.get() ? m_data->size() : 0);
-    if (m_data.get())
-        m_script = m_encoding.decode(m_data->data(), encodedSize());
     m_loading = false;
     checkNotify();
 }
@@ -105,4 +112,17 @@ void CachedScript::error()
     checkNotify();
 }
 
+void CachedScript::destroyDecodedData()
+{
+    m_script = String();
+    setDecodedSize(0);
+    if (isSafeToMakePurgeable())
+        makePurgeable(true);
 }
+
+void CachedScript::decodedDataDeletionTimerFired(Timer<CachedScript>*)
+{
+    destroyDecodedData();
+}
+
+} // namespace WebCore

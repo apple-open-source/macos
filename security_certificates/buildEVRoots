@@ -16,6 +16,17 @@ cat > "$TMPFILE" << EOF
 # These lines are processed by the buildEVRoots script to generate the plist.
 #
 
+# Buypass (Norway)
+# source: <sonr://Request/66633590>
+# confirmed by https://cert.webtrust.org/ViewSeal?id=848
+# confirmed by http://www.buypass.no/Bedrift/Produkter+og+tjenester/SSL/SSL%20dokumentasjon
+#
+# (2.16.578.1.26.1.3.3) = 
+#
+# root: Buypass Class 3 CA 1
+#
+2.16.578.1.26.1.3.3 "BuypassClass3CA1.cer"
+
 # Comodo
 # source: <http://www.mozilla.org/projects/security/certs/included/>
 # confirmed by <http://www.comodo.com/repository/EV_CPS_120806.pdf>
@@ -143,8 +154,18 @@ cat > "$TMPFILE" << EOF
 #
 # root: Security Communication RootCA1
 #
-1.2.392.200091.100.721.1 \
-"SCRoot1ca.cer"
+1.2.392.200091.100.721.1 "SCRoot1ca.cer" "SECOM-EVRoot1ca.cer"
+
+# SwissSign
+# source: <https://swisssign.com/english/download-document/20-swisssign-gold-ca-g2.html>
+# repository: https://swisssign.com/english/gold/view-category.html
+#
+# (2.16.756.1.89.1.2.1.1) = ...
+#
+# root: SwissSign Gold CA - G2
+#
+2.16.756.1.89.1.2.1.1 \
+"SwissSign-Gold_G2.der"
 
 # Trustwave (aka SecureTrust, formerly XRamp)
 # source: <http://www.mozilla.org/projects/security/certs/included/>

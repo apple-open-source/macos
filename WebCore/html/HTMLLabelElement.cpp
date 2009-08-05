@@ -34,11 +34,11 @@
 namespace WebCore {
 
 using namespace HTMLNames;
-using namespace EventNames;
 
-HTMLLabelElement::HTMLLabelElement(Document *doc)
-    : HTMLElement(labelTag, doc)
+HTMLLabelElement::HTMLLabelElement(const QualifiedName& tagName, Document *doc)
+    : HTMLElement(tagName, doc)
 {
+    ASSERT(hasTagName(labelTag));
 }
 
 HTMLLabelElement::~HTMLLabelElement()
@@ -59,7 +59,7 @@ HTMLElement* HTMLLabelElement::correspondingControl()
         while ((node = node->traverseNextNode(this))) {
             if (node->isHTMLElement()) {
                 HTMLElement* element = static_cast<HTMLElement*>(node);
-                if (element->isGenericFormElement())
+                if (element->isFormControlElement())
                     return element;
             }
         }
@@ -103,7 +103,7 @@ void HTMLLabelElement::defaultEventHandler(Event* evt)
 {
     static bool processingClick = false;
 
-    if (evt->type() == clickEvent && !processingClick) {
+    if (evt->type() == eventNames().clickEvent && !processingClick) {
         RefPtr<HTMLElement> control = correspondingControl();
 
         // If we can't find a control or if the control received the click

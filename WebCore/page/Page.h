@@ -1,6 +1,6 @@
-// -*- mode: c++; c-basic-offset: 4 -*-
 /*
- * Copyright (C) 2006 Apple Computer, Inc.
+ * Copyright (C) 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,23 +25,22 @@
 #include "Chrome.h"
 #include "ContextMenuController.h"
 #include "FrameLoaderTypes.h"
+#include "LinkHash.h"
 #include "PlatformString.h"
 #include <wtf/HashSet.h>
 #include <wtf/OwnPtr.h>
 
-#if PLATFORM(WIN) || (PLATFORM(WX) && PLATFORM(WIN_OS)) 
+#if PLATFORM(MAC)
+#include "SchedulePair.h"
+#endif
+
+#if PLATFORM(WIN) || (PLATFORM(WX) && PLATFORM(WIN_OS)) || (PLATFORM(QT) && defined(Q_WS_WIN))
 typedef struct HINSTANCE__* HINSTANCE;
 #endif
 
-typedef enum TextCaseSensitivity {
-    TextCaseSensitive,
-    TextCaseInsensitive
-};
-
-typedef enum FindDirection {
-    FindDirectionForward,
-    FindDirectionBackward
-};
+namespace JSC {
+    class Debugger;
+}
 
 namespace WebCore {
 
@@ -49,6 +48,7 @@ namespace WebCore {
     class ChromeClient;
     class ContextMenuClient;
     class ContextMenuController;
+    class Document;
     class DragClient;
     class DragController;
     class EditorClient;
@@ -57,19 +57,31 @@ namespace WebCore {
     class InspectorClient;
     class InspectorController;
     class Node;
+    class PageGroup;
+    class PluginData;
     class ProgressTracker;
-    class Selection;
+    class VisibleSelection;
     class SelectionController;
+#if ENABLE(DOM_STORAGE)
+    class SessionStorage;
+#endif
     class Settings;
+#if ENABLE(WML)
+    class WMLPageState;
+#endif
+
+    enum FindDirection { FindDirectionForward, FindDirectionBackward };
 
     class Page : Noncopyable {
     public:
         static void setNeedsReapplyStyles();
-        static const HashSet<Page*>* frameNamespace(const String&);
 
         Page(ChromeClient*, ContextMenuClient*, EditorClient*, DragClient*, InspectorClient*);
         ~Page();
         
+        static void refreshPlugins(bool reload);
+        PluginData* pluginData() const;
+
         EditorClient* editorClient() const { return m_editorClient; }
 
         void setMainFrame(PassRefPtr<Frame>);
@@ -84,11 +96,15 @@ namespace WebCore {
         bool goBack();
         bool goForward();
         void goToItem(HistoryItem*, FrameLoadType);
-        
-        void setGroupName(const String&);
-        String groupName() const { return m_groupName; }
 
-        const HashSet<Page*>* frameNamespace() const;
+        HistoryItem* globalHistoryItem() const { return m_globalHistoryItem.get(); }
+        void setGlobalHistoryItem(HistoryItem*);
+
+        void setGroupName(const String&);
+        const String& groupName() const;
+
+        PageGroup& group() { if (!m_group) initGroup(); return *m_group; }
+        PageGroup* groupPtr() { return m_group; } // can return 0
 
         void incrementFrameCount() { ++m_frameCount; }
         void decrementFrameCount() { --m_frameCount; }
@@ -113,7 +129,15 @@ namespace WebCore {
         unsigned int markAllMatchesForText(const String&, TextCaseSensitivity, bool shouldHighlight, unsigned);
         void unmarkAllTextMatches();
 
-        const Selection& selection() const;
+#if PLATFORM(MAC)
+        void addSchedulePair(PassRefPtr<SchedulePair>);
+        void removeSchedulePair(PassRefPtr<SchedulePair>);
+        SchedulePairHashSet* scheduledRunLoopPairs() { return m_scheduledRunLoopPairs.get(); }
+
+        OwnPtr<SchedulePairHashSet> m_scheduledRunLoopPairs;
+#endif
+
+        const VisibleSelection& selection() const;
 
         void setDefersLoading(bool);
         bool defersLoading() const { return m_defersLoading; }
@@ -123,31 +147,75 @@ namespace WebCore {
         bool inLowQualityImageInterpolationMode() const;
         void setInLowQualityImageInterpolationMode(bool = true);
 
+        bool cookieEnabled() const { return m_cookieEnabled; }
+        void setCookieEnabled(bool enabled) { m_cookieEnabled = enabled; }
+
+        float mediaVolume() const { return m_mediaVolume; }
+        void setMediaVolume(float volume);
+
+        // Notifications when the Page starts and stops being presented via a native window.
+        void didMoveOnscreen();
+        void willMoveOffscreen();
+
         void userStyleSheetLocationChanged();
         const String& userStyleSheet() const;
 
-        void setJavaScriptURLsAreAllowed(bool);
-        bool javaScriptURLsAreAllowed() const;
+        static void setDebuggerForAllPages(JSC::Debugger*);
+        void setDebugger(JSC::Debugger*);
+        JSC::Debugger* debugger() const { return m_debugger; }
 
-#if PLATFORM(WIN) || (PLATFORM(WX) && PLATFORM(WIN_OS))
+#if PLATFORM(WIN) || (PLATFORM(WX) && PLATFORM(WIN_OS)) || (PLATFORM(QT) && defined(Q_WS_WIN))
         // The global DLL or application instance used for all windows.
         static void setInstanceHandle(HINSTANCE instanceHandle) { s_instanceHandle = instanceHandle; }
         static HINSTANCE instanceHandle() { return s_instanceHandle; }
 #endif
 
+        static void removeAllVisitedLinks();
+
+        static void allVisitedStateChanged(PageGroup*);
+        static void visitedStateChanged(PageGroup*, LinkHash visitedHash);
+
+#if ENABLE(DOM_STORAGE)
+        SessionStorage* sessionStorage(bool optionalCreate = true);
+        void setSessionStorage(PassRefPtr<SessionStorage>);
+#endif
+
+#if ENABLE(WML)
+        WMLPageState* wmlPageState();
+#endif
+
+        void setCustomHTMLTokenizerTimeDelay(double);
+        bool hasCustomHTMLTokenizerTimeDelay() const { return m_customHTMLTokenizerTimeDelay != -1; }
+        double customHTMLTokenizerTimeDelay() const { ASSERT(m_customHTMLTokenizerTimeDelay != -1); return m_customHTMLTokenizerTimeDelay; }
+
+        void setCustomHTMLTokenizerChunkSize(int);
+        bool hasCustomHTMLTokenizerChunkSize() const { return m_customHTMLTokenizerChunkSize != -1; }
+        int customHTMLTokenizerChunkSize() const { ASSERT(m_customHTMLTokenizerChunkSize != -1); return m_customHTMLTokenizerChunkSize; }
+
+        void setMemoryCacheClientCallsEnabled(bool);
+        bool areMemoryCacheClientCallsEnabled() const { return m_areMemoryCacheClientCallsEnabled; }
+
+        void setJavaScriptURLsAreAllowed(bool);
+        bool javaScriptURLsAreAllowed() const;
+
     private:
+        void initGroup();
+
         OwnPtr<Chrome> m_chrome;
         OwnPtr<SelectionController> m_dragCaretController;
         OwnPtr<DragController> m_dragController;
         OwnPtr<FocusController> m_focusController;
         OwnPtr<ContextMenuController> m_contextMenuController;
-        OwnPtr<InspectorController> m_inspectorController;
+        RefPtr<InspectorController> m_inspectorController;
         OwnPtr<Settings> m_settings;
         OwnPtr<ProgressTracker> m_progress;
         
         RefPtr<BackForwardList> m_backForwardList;
         RefPtr<Frame> m_mainFrame;
-        RefPtr<Node> m_focusedNode;
+
+        RefPtr<HistoryItem> m_globalHistoryItem;
+
+        mutable RefPtr<PluginData> m_pluginData;
 
         EditorClient* m_editorClient;
 
@@ -158,6 +226,9 @@ namespace WebCore {
         bool m_defersLoading;
 
         bool m_inLowQualityInterpolationMode;
+        bool m_cookieEnabled;
+        bool m_areMemoryCacheClientCallsEnabled;
+        float m_mediaVolume;
 
         bool m_javaScriptURLsAreAllowed;
 
@@ -168,8 +239,24 @@ namespace WebCore {
         mutable bool m_didLoadUserStyleSheet;
         mutable time_t m_userStyleSheetModificationTime;
 
-#if PLATFORM(WIN) || (PLATFORM(WX) && defined(__WXMSW__))
+        OwnPtr<PageGroup> m_singlePageGroup;
+        PageGroup* m_group;
+
+        JSC::Debugger* m_debugger;
+
+        double m_customHTMLTokenizerTimeDelay;
+        int m_customHTMLTokenizerChunkSize;
+
+#if ENABLE(DOM_STORAGE)
+        RefPtr<SessionStorage> m_sessionStorage;
+#endif
+
+#if PLATFORM(WIN) || (PLATFORM(WX) && defined(__WXMSW__)) || (PLATFORM(QT) && defined(Q_WS_WIN))
         static HINSTANCE s_instanceHandle;
+#endif
+
+#if ENABLE(WML)
+        OwnPtr<WMLPageState> m_wmlPageState;
 #endif
     };
 

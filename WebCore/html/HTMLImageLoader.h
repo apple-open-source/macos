@@ -25,46 +25,21 @@
 #ifndef HTMLImageLoader_h
 #define HTMLImageLoader_h
 
-#include "CachedResourceClient.h"
+#include "ImageLoader.h"
 
 namespace WebCore {
 
-class Element;
-
-class HTMLImageLoader : public CachedResourceClient {
+class HTMLImageLoader : public ImageLoader {
 public:
     HTMLImageLoader(Element*);
     virtual ~HTMLImageLoader();
 
-    virtual void updateFromElement();
-
     virtual void dispatchLoadEvent();
+    virtual String sourceURI(const AtomicString&) const;
 
-    Element* element() const { return m_element; }
-    bool imageComplete() const { return m_imageComplete; }
-
-    CachedImage* image() const { return m_image; }
-    void setImage(CachedImage*);
-
-    void setLoadManually(bool loadManually) { m_loadManually = loadManually; }
-
-    // CachedResourceClient API
     virtual void notifyFinished(CachedResource*);
-
-    bool haveFiredLoadEvent() const { return m_firedLoad; }
-protected:
-    void setLoadingImage(CachedImage*);
-    
-    void setHaveFiredLoadEvent(bool firedLoad) { m_firedLoad = firedLoad; }
-
-private:
-    Element* m_element;
-    CachedImage* m_image;
-    bool m_firedLoad : 1;
-    bool m_imageComplete : 1;
-    bool m_loadManually : 1;
 };
 
-} //namespace
+}
 
 #endif

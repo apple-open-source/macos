@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,8 +36,10 @@ class FontDescription;
 
 class FontSelector : public RefCounted<FontSelector> {
 public:
-    virtual ~FontSelector() {};
-    virtual FontData* getFontData(const FontDescription& fontDescription, const AtomicString& familyName) = 0;
+    virtual ~FontSelector() { }
+    virtual FontData* getFontData(const FontDescription&, const AtomicString& familyName) = 0;
+
+    virtual void fontCacheInvalidated() { }
 };
 
 } // namespace WebCore

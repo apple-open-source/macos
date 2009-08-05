@@ -201,7 +201,7 @@ authorizationdb(int argc, char * const * argv)
 		AuthorizationFree(auth_ref, 0);
 
 	if (!do_quiet)
-		fprintf(stderr, "%s (%ld)\n", status ? "NO" : "YES", status);
+		fprintf(stderr, "%s (%d)\n", status ? "NO" : "YES", (int)status);
 	
 	return (status ? -1 : 0);
 }
@@ -337,12 +337,12 @@ authorize(int argc, char * const *argv)
 		write_auth_ref_to_stdout(auth_ref);
 			
 	if (!do_quiet)
-		fprintf(stderr, "%s (%ld) ", status ? "NO" : "YES", status);
+		fprintf(stderr, "%s (%d) ", status ? "NO" : "YES", (int)status);
 
 	if (!do_quiet && !status && granted_rights)
 	{
 		uint32_t index;
-		fprintf(stderr, "{ %ld: ", granted_rights->count);
+		fprintf(stderr, "{ %d: ", (int)granted_rights->count);
 		for (index = 0; index < granted_rights->count; index++)
 		{
 			fprintf(stderr, "\"%s\"%s %c ", granted_rights->items[index].name, 
@@ -402,7 +402,7 @@ execute_with_privileges(int argc, char * const *argv)
 	status = AuthorizationExecuteWithPrivileges(auth_ref,argv[0], 0, (argc > 1) ? &argv[1] : NULL, &communications_pipe);
 
 	if (!do_quiet)
-		fprintf(stderr, "%s (%ld) ", status ? "NO" : "YES", status);
+		fprintf(stderr, "%s (%d) ", status ? "NO" : "YES", (int)status);
 	
 	if (!status)
 	{

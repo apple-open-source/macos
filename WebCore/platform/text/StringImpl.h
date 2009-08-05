@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -22,15 +22,14 @@
 #ifndef StringImpl_h
 #define StringImpl_h
 
-#include <kjs/identifier.h>
 #include <limits.h>
 #include <wtf/ASCIICType.h>
-#include <wtf/Forward.h>
+#include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
 #include <wtf/unicode/Unicode.h>
 
-#if PLATFORM(CF)
+#if PLATFORM(CF) || (PLATFORM(QT) && PLATFORM(DARWIN))
 typedef const struct __CFString * CFStringRef;
 #endif
 
@@ -44,12 +43,21 @@ class AtomicString;
 class StringBuffer;
 
 struct CStringTranslator;
-struct Length;
+struct HashAndCharactersTranslator;
 struct StringHash;
 struct UCharBufferTranslator;
 
+enum TextCaseSensitivity { TextCaseSensitive, TextCaseInsensitive };
+
+typedef bool (*CharacterMatchFunctionPtr)(UChar);
+
 class StringImpl : public RefCounted<StringImpl> {
+    friend class AtomicString;
+    friend struct CStringTranslator;
+    friend struct HashAndCharactersTranslator;
+    friend struct UCharBufferTranslator;
 private:
+    friend class ThreadGlobalData;
     StringImpl();
     StringImpl(const UChar*, unsigned length);
     StringImpl(const char*, unsigned length);
@@ -70,6 +78,7 @@ public:
     static PassRefPtr<StringImpl> create(const UChar*, unsigned length);
     static PassRefPtr<StringImpl> create(const char*, unsigned length);
     static PassRefPtr<StringImpl> create(const char*);
+    static PassRefPtr<StringImpl> createUninitialized(unsigned length, UChar*& data);
 
     static PassRefPtr<StringImpl> createWithTerminatingNullCharacter(const StringImpl&);
 
@@ -83,6 +92,7 @@ public:
     bool hasTerminatingNullCharacter() { return m_hasTerminatingNullCharacter; }
 
     unsigned hash() { if (m_hash == 0) m_hash = computeHash(m_data, m_length); return m_hash; }
+    unsigned existingHash() const { ASSERT(m_hash); return m_hash; }
     static unsigned computeHash(const UChar*, unsigned len);
     static unsigned computeHash(const char*);
     
@@ -90,23 +100,32 @@ public:
     // Since StringImpl objects are immutable, there's no other reason to make a copy.
     PassRefPtr<StringImpl> copy();
 
+    // Makes a deep copy like copy() but only for a substring.
+    // (This ensures that you always get something suitable for a thread while subtring
+    // may not.  For example, in the empty string case, substring returns empty() which
+    // is not safe for another thread.)
+    PassRefPtr<StringImpl> substringCopy(unsigned pos, unsigned len  = UINT_MAX);
+
     PassRefPtr<StringImpl> substring(unsigned pos, unsigned len = UINT_MAX);
 
     UChar operator[](unsigned i) { ASSERT(i < m_length); return m_data[i]; }
     UChar32 characterStartingAt(unsigned);
 
-    Length toLength();
-
     bool containsOnlyWhitespace();
 
-    int toInt(bool* ok = 0); // ignores trailing garbage, unlike DeprecatedString
-    int64_t toInt64(bool* ok = 0); // ignores trailing garbage, unlike DeprecatedString
-    uint64_t toUInt64(bool* ok = 0); // ignores trailing garbage, unlike DeprecatedString
+    int toIntStrict(bool* ok = 0, int base = 10);
+    unsigned toUIntStrict(bool* ok = 0, int base = 10);
+    int64_t toInt64Strict(bool* ok = 0, int base = 10);
+    uint64_t toUInt64Strict(bool* ok = 0, int base = 10);
+
+    int toInt(bool* ok = 0); // ignores trailing garbage
+    unsigned toUInt(bool* ok = 0); // ignores trailing garbage
+    int64_t toInt64(bool* ok = 0); // ignores trailing garbage
+    uint64_t toUInt64(bool* ok = 0); // ignores trailing garbage
+
     double toDouble(bool* ok = 0);
     float toFloat(bool* ok = 0);
 
-    Length* toCoordsArray(int& len);
-    Length* toLengthArray(int& len);
     bool isLower();
     PassRefPtr<StringImpl> lower();
     PassRefPtr<StringImpl> upper();
@@ -117,14 +136,17 @@ public:
     PassRefPtr<StringImpl> stripWhiteSpace();
     PassRefPtr<StringImpl> simplifyWhiteSpace();
 
+    PassRefPtr<StringImpl> removeCharacters(CharacterMatchFunctionPtr);
+
     int find(const char*, int index = 0, bool caseSensitive = true);
     int find(UChar, int index = 0);
+    int find(CharacterMatchFunctionPtr, int index = 0);
     int find(StringImpl*, int index, bool caseSensitive = true);
 
     int reverseFind(UChar, int index);
     int reverseFind(StringImpl*, int index, bool caseSensitive = true);
     
-    bool startsWith(StringImpl* m_data, bool caseSensitive = true) { return find(m_data, 0, caseSensitive) == 0; }
+    bool startsWith(StringImpl* m_data, bool caseSensitive = true) { return reverseFind(m_data, 0, caseSensitive) == 0; }
     bool endsWith(StringImpl*, bool caseSensitive = true);
 
     PassRefPtr<StringImpl> replace(UChar, UChar);
@@ -138,23 +160,32 @@ public:
 
     WTF::Unicode::Direction defaultWritingDirection();
 
-#if PLATFORM(CF)
+#if PLATFORM(CF) || (PLATFORM(QT) && PLATFORM(DARWIN))
     CFStringRef createCFString();
 #endif
 #ifdef __OBJC__
     operator NSString*();
 #endif
 
+    void operator delete(void*);
+
 private:
-    friend class AtomicString;
-    friend struct UCharBufferTranslator;
-    friend struct CStringTranslator;
+    // Allocation from a custom buffer is only allowed internally to avoid
+    // mismatched allocators. Callers should use create().
+    void* operator new(size_t size);
+    void* operator new(size_t size, void* address);
+
+    static PassRefPtr<StringImpl> createStrippingNullCharactersSlowCase(const UChar*, unsigned length);
 
     unsigned m_length;
     const UChar* m_data;
     mutable unsigned m_hash;
     bool m_inTable;
     bool m_hasTerminatingNullCharacter;
+    // In some cases, we allocate the StringImpl struct and its data
+    // within a single heap buffer. In this case, the m_data pointer
+    // is an "internal buffer", and does not need to be deallocated.
+    bool m_bufferIsInternal;
 };
 
 bool equal(StringImpl*, StringImpl*);
@@ -255,6 +286,29 @@ static inline bool isSpaceOrNewline(UChar c)
     // Use isASCIISpace() for basic Latin-1.
     // This will include newlines, which aren't included in Unicode DirWS.
     return c <= 0x7F ? WTF::isASCIISpace(c) : WTF::Unicode::direction(c) == WTF::Unicode::WhiteSpaceNeutral;
+}
+
+// This is a hot function because it's used when parsing HTML.
+inline PassRefPtr<StringImpl> StringImpl::createStrippingNullCharacters(const UChar* characters, unsigned length)
+{
+    ASSERT(characters);
+    ASSERT(length);
+
+    // Optimize for the case where there are no Null characters by quickly
+    // searching for nulls, and then using StringImpl::create, which will
+    // memcpy the whole buffer.  This is faster than assigning character by
+    // character during the loop. 
+
+    // Fast case.
+    int foundNull = 0;
+    for (unsigned i = 0; !foundNull && i < length; i++) {
+        int c = characters[i]; // more efficient than using UChar here (at least on Intel Mac OS)
+        foundNull |= !c;
+    }
+    if (!foundNull)
+        return StringImpl::create(characters, length);
+
+    return StringImpl::createStrippingNullCharactersSlowCase(characters, length);
 }
 
 }

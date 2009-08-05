@@ -27,15 +27,30 @@
  */
 
 #include "config.h"
-#include "JSHistory.h"
+#include "JSHistoryCustom.h"
 
 #include "Frame.h"
 #include "History.h"
-#include "kjs_window.h"
+#include <runtime/PrototypeFunction.h>
 
-using namespace KJS;
+using namespace JSC;
 
 namespace WebCore {
+
+static JSValue nonCachingStaticBackFunctionGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot&)
+{
+    return new (exec) NativeFunctionWrapper(exec, exec->lexicalGlobalObject()->prototypeFunctionStructure(), 0, propertyName, jsHistoryPrototypeFunctionBack);
+}
+
+static JSValue nonCachingStaticForwardFunctionGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot&)
+{
+    return new (exec) NativeFunctionWrapper(exec, exec->lexicalGlobalObject()->prototypeFunctionStructure(), 0, propertyName, jsHistoryPrototypeFunctionForward);
+}
+
+static JSValue nonCachingStaticGoFunctionGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot&)
+{
+    return new (exec) NativeFunctionWrapper(exec, exec->lexicalGlobalObject()->prototypeFunctionStructure(), 1, propertyName, jsHistoryPrototypeFunctionGo);
+}
 
 bool JSHistory::customGetOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
 {
@@ -49,15 +64,20 @@ bool JSHistory::customGetOwnPropertySlot(ExecState* exec, const Identifier& prop
         return false;
 
     // Check for the few functions that we allow, even when called cross-domain.
-    const HashEntry* entry = Lookup::findEntry(JSHistoryPrototype::info.propHashTable, propertyName);
+    const HashEntry* entry = JSHistoryPrototype::s_info.propHashTable(exec)->entry(exec, propertyName);
     if (entry) {
         // Allow access to back(), forward() and go() from any frame.
-        if ((entry->attr & Function)
-                && (entry->value.functionValue == jsHistoryPrototypeFunctionBack
-                    || entry->value.functionValue == jsHistoryPrototypeFunctionForward
-                    || entry->value.functionValue == jsHistoryPrototypeFunctionGo)) {
-            slot.setStaticEntry(this, entry, nonCachingStaticFunctionGetter);
-            return true;
+        if (entry->attributes() & Function) {
+            if (entry->function() == jsHistoryPrototypeFunctionBack) {
+                slot.setCustom(this, nonCachingStaticBackFunctionGetter);
+                return true;
+            } else if (entry->function() == jsHistoryPrototypeFunctionForward) {
+                slot.setCustom(this, nonCachingStaticForwardFunctionGetter);
+                return true;
+            } else if (entry->function() == jsHistoryPrototypeFunctionGo) {
+                slot.setCustom(this, nonCachingStaticGoFunctionGetter);
+                return true;
+            }
         }
     } else {
         // Allow access to toString() cross-domain, but always Object.toString.
@@ -68,11 +88,11 @@ bool JSHistory::customGetOwnPropertySlot(ExecState* exec, const Identifier& prop
     }
 
     printErrorMessageForFrame(impl()->frame(), message);
-    slot.setUndefined(this);
+    slot.setUndefined();
     return true;
 }
 
-bool JSHistory::customPut(ExecState* exec, const Identifier& propertyName, JSValue* value, int attr)
+bool JSHistory::customPut(ExecState* exec, const Identifier&, JSValue, PutPropertySlot&)
 {
     // Only allow putting by frames in the same origin.
     if (!allowsAccessFromFrame(exec, impl()->frame()))

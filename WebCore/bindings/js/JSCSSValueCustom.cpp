@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,11 +27,11 @@
 #include "JSCSSValue.h"
 
 #include "CSSPrimitiveValue.h"
-#include "CSSValue.h"
 #include "CSSValueList.h"
 #include "JSCSSPrimitiveValue.h"
 #include "JSCSSValueList.h"
-#include "kjs_binding.h"
+#include "JSWebKitCSSTransformValue.h"
+#include "WebKitCSSTransformValue.h"
 
 #if ENABLE(SVG)
 #include "JSSVGColor.h"
@@ -40,33 +40,36 @@
 #include "SVGPaint.h"
 #endif
 
+using namespace JSC;
+
 namespace WebCore {
 
-KJS::JSValue* toJS(KJS::ExecState* exec, CSSValue* value)
+JSValue toJS(ExecState* exec, CSSValue* value)
 {
     if (!value)
-        return KJS::jsNull();
+        return jsNull();
 
-    KJS::DOMObject* ret = KJS::ScriptInterpreter::getDOMObject(value);
+    DOMObject* wrapper = getCachedDOMObjectWrapper(exec->globalData(), value);
 
-    if (ret)
-        return ret;
+    if (wrapper)
+        return wrapper;
 
-    if (value->isValueList())
-        ret = new JSCSSValueList(JSCSSValueListPrototype::self(exec), static_cast<CSSValueList*>(value));
+    if (value->isWebKitCSSTransformValue())
+        wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, WebKitCSSTransformValue, value);
+    else if (value->isValueList())
+        wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, CSSValueList, value);
 #if ENABLE(SVG)
     else if (value->isSVGPaint())
-        ret = new JSSVGPaint(JSSVGPaintPrototype::self(exec), static_cast<SVGPaint*>(value));
+        wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, SVGPaint, value);
     else if (value->isSVGColor())
-        ret = new JSSVGColor(JSSVGColorPrototype::self(exec), static_cast<SVGColor*>(value));
+        wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, SVGColor, value);
 #endif
     else if (value->isPrimitiveValue())
-        ret = new JSCSSPrimitiveValue(JSCSSPrimitiveValuePrototype::self(exec), static_cast<CSSPrimitiveValue*>(value));
+        wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, CSSPrimitiveValue, value);
     else
-        ret = new JSCSSValue(JSCSSValuePrototype::self(exec), value);
+        wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, CSSValue, value);
 
-    KJS::ScriptInterpreter::putDOMObject(value, ret);
-    return ret;
+    return wrapper;
 }
 
 } // namespace WebCore

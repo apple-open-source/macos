@@ -24,7 +24,7 @@
 #define SVGFEBlendElement_h
 
 #if ENABLE(SVG) && ENABLE(SVG_FILTERS)
-#include "SVGFEBlend.h"
+#include "FEBlend.h"
 #include "SVGFilterPrimitiveStandardAttributes.h"
 
 namespace WebCore
@@ -36,17 +36,15 @@ namespace WebCore
         virtual ~SVGFEBlendElement();
 
         virtual void parseMappedAttribute(MappedAttribute*);
-        virtual SVGFEBlend* filterEffect(SVGResourceFilter*) const;
-
-    protected:
-        virtual const SVGElement* contextElement() const { return this; }
+        virtual SVGFilterEffect* filterEffect(SVGResourceFilter*) const;
+        bool build(FilterBuilder*);
 
     private:
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFEBlendElement, String, String, In1, in1)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFEBlendElement, String, String, In2, in2)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFEBlendElement, int, int, Mode, mode)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGFEBlendElement, SVGNames::feBlendTagString, SVGNames::inAttrString, String, In1, in1)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGFEBlendElement, SVGNames::feBlendTagString, SVGNames::in2AttrString, String, In2, in2)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGFEBlendElement, SVGNames::feBlendTagString, SVGNames::modeAttrString, int, Mode, mode)
 
-        mutable SVGFEBlend* m_filterEffect;
+        mutable RefPtr<FEBlend> m_filterEffect;
     };
 
 } // namespace WebCore

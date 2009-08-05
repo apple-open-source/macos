@@ -1,4 +1,3 @@
-// -*- mode: c++; c-basic-offset: 4 -*-
 /*
  *  Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
  *
@@ -22,9 +21,11 @@
 #ifndef WTF_OwnPtr_h
 #define WTF_OwnPtr_h
 
+#include "Assertions.h"
+#include "Noncopyable.h"
+#include "TypeTraits.h"
 #include <algorithm>
-#include <wtf/Assertions.h>
-#include <wtf/Noncopyable.h>
+#include <memory>
 
 #if PLATFORM(WIN)
 
@@ -40,10 +41,6 @@ typedef struct HRGN__* HRGN;
 namespace WTF {
 
     // Unlike most of our smart pointers, OwnPtr can take either the pointer type or the pointed-to type.
-
-    // FIXME: Share a single RemovePointer class template with RetainPtr.
-    template <typename T> struct OwnPtrRemovePointer { typedef T type; };
-    template <typename T> struct OwnPtrRemovePointer<T*> { typedef T type; };
 
     template <typename T> inline void deleteOwnedPtr(T* ptr)
     {
@@ -63,16 +60,21 @@ namespace WTF {
 
     template <typename T> class OwnPtr : Noncopyable {
     public:
-        typedef typename OwnPtrRemovePointer<T>::type ValueType;
+        typedef typename RemovePointer<T>::Type ValueType;
         typedef ValueType* PtrType;
 
         explicit OwnPtr(PtrType ptr = 0) : m_ptr(ptr) { }
+        OwnPtr(std::auto_ptr<ValueType> autoPtr) : m_ptr(autoPtr.release()) { }
         ~OwnPtr() { deleteOwnedPtr(m_ptr); }
 
         PtrType get() const { return m_ptr; }
         PtrType release() { PtrType ptr = m_ptr; m_ptr = 0; return ptr; }
 
+        // FIXME: This should be renamed to adopt. 
         void set(PtrType ptr) { ASSERT(!ptr || m_ptr != ptr); deleteOwnedPtr(m_ptr); m_ptr = ptr; }
+
+        void adopt(std::auto_ptr<ValueType> autoPtr) { ASSERT(!autoPtr.get() || m_ptr != autoPtr.get()); deleteOwnedPtr(m_ptr); m_ptr = autoPtr.release(); }
+
         void clear() { deleteOwnedPtr(m_ptr); m_ptr = 0; }
 
         ValueType& operator*() const { ASSERT(m_ptr); return *m_ptr; }

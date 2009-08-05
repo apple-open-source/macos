@@ -3,7 +3,7 @@
               (C) 1997 Torben Weis (weis@kde.org)
               (C) 1998 Waldo Bastian (bastian@kde.org)
               (C) 1999 Lars Knoll (knoll@kde.org)
-    Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
+    Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -26,21 +26,24 @@
 
 #include "QualifiedName.h"
 #include <wtf/Forward.h>
+#include <wtf/OwnPtr.h>
 #include <wtf/RefPtr.h>
 #include "HTMLParserErrorCodes.h"
 
 namespace WebCore {
 
+class DoctypeToken;
 class Document;
 class DocumentFragment;
 class HTMLDocument;
 class HTMLFormElement;
 class HTMLHeadElement;
 class HTMLMapElement;
+class HTMLParserQuirks;
 class Node;
-class Token;
 
 struct HTMLStackElem;
+struct Token;
 
 /**
  * The parser for HTML. It receives a stream of tokens from the HTMLTokenizer, and
@@ -57,6 +60,9 @@ public:
      */
     PassRefPtr<Node> parseToken(Token*);
     
+    // Parses a doctype token.
+    void parseDoctypeToken(DoctypeToken*);
+
     /**
      * tokenizer says it's not going to be sending us any more tokens
      */
@@ -88,11 +94,14 @@ private:
     bool isindexCreateErrorCheck(Token*, RefPtr<Node>&);
     bool mapCreateErrorCheck(Token*, RefPtr<Node>&);
     bool nestedCreateErrorCheck(Token*, RefPtr<Node>&);
+    bool nestedPCloserCreateErrorCheck(Token*, RefPtr<Node>&);
     bool nestedStyleCreateErrorCheck(Token*, RefPtr<Node>&);
     bool noembedCreateErrorCheck(Token*, RefPtr<Node>&);
     bool noframesCreateErrorCheck(Token*, RefPtr<Node>&);
     bool nolayerCreateErrorCheck(Token*, RefPtr<Node>&);
     bool noscriptCreateErrorCheck(Token*, RefPtr<Node>&);
+    bool pCloserCreateErrorCheck(Token*, RefPtr<Node>&);
+    bool pCloserStrictCreateErrorCheck(Token*, RefPtr<Node>&);
     bool selectCreateErrorCheck(Token*, RefPtr<Node>&);
     bool tableCellCreateErrorCheck(Token*, RefPtr<Node>&);
     bool tableSectionCreateErrorCheck(Token*, RefPtr<Node>&);
@@ -130,36 +139,60 @@ private:
     void startBody(); // inserts the isindex element
     PassRefPtr<Node> handleIsindex(Token*);
 
+    void checkIfHasPElementInScope();
+    bool hasPElementInScope()
+    {
+        if (m_hasPElementInScope == Unknown)
+            checkIfHasPElementInScope();
+        return m_hasPElementInScope == InScope;
+    }
+
     void reportError(HTMLParserErrorCode errorCode, const AtomicString* tagName1 = 0, const AtomicString* tagName2 = 0, bool closeTags = false)
     { if (!m_reportErrors) return; reportErrorToConsole(errorCode, tagName1, tagName2, closeTags); }
 
     void reportErrorToConsole(HTMLParserErrorCode, const AtomicString* tagName1, const AtomicString* tagName2, bool closeTags);
     
-    Document* document;
+    Document* m_document;
 
     // The currently active element (the one new elements will be added to). Can be a document fragment, a document or an element.
-    Node* current;
+    Node* m_current;
     // We can't ref a document, but we don't want to constantly check if a node is a document just to decide whether to deref.
-    bool didRefCurrent;
+    bool m_didRefCurrent;
 
-    HTMLStackElem* blockStack;
+    HTMLStackElem* m_blockStack;
+
+    // The number of tags with priority minBlockLevelTagPriority or higher
+    // currently in m_blockStack. The parser enforces a cap on this value by
+    // adding such new elements as siblings instead of children once it is reached.
+    size_t m_blocksInStack;
+
+    enum ElementInScopeState { NotInScope, InScope, Unknown }; 
+    ElementInScopeState m_hasPElementInScope;
 
     RefPtr<HTMLFormElement> m_currentFormElement; // currently active form
     RefPtr<HTMLMapElement> m_currentMapElement; // current map
-    HTMLHeadElement* head; // head element; needed for HTML which defines <base> after </head>
+    RefPtr<HTMLHeadElement> m_head; // head element; needed for HTML which defines <base> after </head>
     RefPtr<Node> m_isindexElement; // a possible <isindex> element in the head
 
-    bool inBody;
-    bool haveContent;
-    bool haveFrameSet;
+    bool m_inBody;
+    bool m_haveContent;
+    bool m_haveFrameSet;
 
     AtomicString m_skipModeTag; // tells the parser to discard all tags until it reaches the one specified
 
     bool m_isParsingFragment;
     bool m_reportErrors;
     bool m_handlingResidualStyleAcrossBlocks;
-    int inStrayTableContent;
+    int m_inStrayTableContent;
+
+    OwnPtr<HTMLParserQuirks> m_parserQuirks;
 };
+
+#if defined(BUILDING_ON_LEOPARD) || defined(BUILDING_ON_TIGER)
+bool shouldCreateImplicitHead(Document*);
+#else
+inline bool shouldCreateImplicitHead(Document*) { return true; }
+#endif
 
 }
     

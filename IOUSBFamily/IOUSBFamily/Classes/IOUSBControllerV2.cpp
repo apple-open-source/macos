@@ -942,6 +942,19 @@ IOUSBControllerV2::PutTDonDoneQueue(IOUSBControllerIsochEndpoint* pED, IOUSBCont
 {
     IOUSBControllerIsochListElement	*deferredTD;
 	
+	if ((pED->doneQueue != NULL) && (pED->doneEnd == NULL))
+	{
+		IOUSBControllerIsochListElement		*lastTD;
+		
+		// I cannot log a message here because we are running with pre-emption turned off
+		// Instead, for rdar://6488628, I will attempt to patch up the pED. If the event detected here was present before we 
+		// disabled pre-emption, there should be an error message in the system log.
+		lastTD = pED->doneQueue;
+		while (lastTD->_logicalNext != NULL)
+			lastTD = (IOUSBControllerIsochListElement*)lastTD->_logicalNext;
+		pED->doneEnd = lastTD;
+	}
+	
 	// Do not call USBLog here, as this can be called from AddIsocFramesToSchedule, which holds off preemption
     if (checkDeferred)
     {

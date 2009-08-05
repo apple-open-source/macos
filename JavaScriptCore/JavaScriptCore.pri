@@ -1,53 +1,97 @@
 # JavaScriptCore - Qt4 build info
 VPATH += $$PWD
 
-INCLUDEPATH += tmp
-INCLUDEPATH += $$PWD $$PWD/kjs $$PWD/bindings $$PWD/bindings/c $$PWD/wtf
-DEPENDPATH += $$PWD $$PWD/kjs $$PWD/bindings $$PWD/bindings/c $$PWD/wtf
-DEFINES -= KJS_IDENTIFIER_HIDE_GLOBALS 
-qt-port:INCLUDEPATH += $$PWD/bindings/qt
-qt-port:DEFINES += BUILDING_QT__
-gtk-port:DEFINES += BUILDING_GTK__
+CONFIG(debug, debug|release) {
+    isEmpty(GENERATED_SOURCES_DIR):GENERATED_SOURCES_DIR = generated/debug
+    OBJECTS_DIR = obj/debug
+} else { # Release
+    isEmpty(GENERATED_SOURCES_DIR):GENERATED_SOURCES_DIR = generated/release
+    OBJECTS_DIR = obj/release
+}
 
-# http://bugs.webkit.org/show_bug.cgi?id=16406
-# [Gtk] JavaScriptCore needs -lpthread
-gtk-port:!win32-*:LIBS += -lpthread
+INCLUDEPATH += $$GENERATED_SOURCES_DIR \
+               $$PWD \
+               $$PWD/parser \
+               $$PWD/bytecompiler \
+               $$PWD/debugger \
+               $$PWD/runtime \
+               $$PWD/wtf \
+               $$PWD/wtf/unicode \
+               $$PWD/interpreter \
+               $$PWD/jit \
+               $$PWD/profiler \
+               $$PWD/wrec \
+               $$PWD/API \
+               $$PWD/.. \
+               $$PWD/ForwardingHeaders \
+               $$PWD/bytecode \
+               $$PWD/assembler \
 
-win32-msvc*: INCLUDEPATH += $$PWD/os-win32
+DEFINES += BUILDING_QT__ BUILDING_JavaScriptCore BUILDING_WTF
 
-isEmpty(GENERATED_SOURCES_DIR):GENERATED_SOURCES_DIR = tmp
+GENERATED_SOURCES_DIR_SLASH = $$GENERATED_SOURCES_DIR/
+win32-* {
+    GENERATED_SOURCES_DIR_SLASH ~= s|/|\|
+    LIBS += -lwinmm
+}
+
+# Default rules to turn JIT on/off
+!contains(DEFINES, ENABLE_JIT=.) {
+    isEqual(QT_ARCH,i386)|isEqual(QT_ARCH,windows) {
+        # Require gcc >= 4.1
+        CONFIG(release):linux-g++*:greaterThan(QT_GCC_MAJOR_VERSION,3):greaterThan(QT_GCC_MINOR_VERSION,0) {
+            DEFINES += ENABLE_JIT=1
+        }
+        win32-msvc* {
+            DEFINES += ENABLE_JIT=1
+        }
+    }
+}
+
+# Rules when JIT enabled
+contains(DEFINES, ENABLE_JIT=1) {
+    !contains(DEFINES, WREC=.): DEFINES += ENABLE_WREC=1
+    !contains(DEFINES, ENABLE_JIT_OPTIMIZE_CALL=.): DEFINES += ENABLE_JIT_OPTIMIZE_CALL=1
+    !contains(DEFINES, ENABLE_JIT_OPTIMIZE_PROPERTY_ACCESS=.): DEFINES += ENABLE_JIT_OPTIMIZE_PROPERTY_ACCESS=1
+    !contains(DEFINES, ENABLE_JIT_OPTIMIZE_ARITHMETIC=.): DEFINES += ENABLE_JIT_OPTIMIZE_ARITHMETIC=1
+    linux-g++* {
+        !contains(DEFINES, WTF_USE_JIT_STUB_ARGUMENT_VA_LIST=.): DEFINES += WTF_USE_JIT_STUB_ARGUMENT_VA_LIST=1
+        QMAKE_CXXFLAGS += -fno-stack-protector
+        QMAKE_CFLAGS += -fno-stack-protector
+    }
+    win32-msvc* {
+        !contains(DEFINES, WTF_USE_JIT_STUB_ARGUMENT_REGISTER=.): DEFINES += WTF_USE_JIT_STUB_ARGUMENT_REGISTER=1
+    }
+}
 
 include(pcre/pcre.pri)
 
 LUT_FILES += \
-    kjs/date_object.cpp \
-    kjs/number_object.cpp \
-    kjs/string_object.cpp \
-    kjs/array_object.cpp \
-    kjs/math_object.cpp \
-    kjs/regexp_object.cpp
+    runtime/DatePrototype.cpp \
+    runtime/NumberConstructor.cpp \
+    runtime/StringPrototype.cpp \
+    runtime/ArrayPrototype.cpp \
+    runtime/MathObject.cpp \
+    runtime/RegExpConstructor.cpp \
+    runtime/RegExpObject.cpp
 
 KEYWORDLUT_FILES += \
-    kjs/keywords.table
+    parser/Keywords.table
 
-KJSBISON += \
-    kjs/grammar.y
+JSCBISON += \
+    parser/Grammar.y
 
 SOURCES += \
     wtf/Assertions.cpp \
+    wtf/ByteArray.cpp \
     wtf/HashTable.cpp \
+    wtf/MainThread.cpp \
+    wtf/RandomNumber.cpp \
+    wtf/RefCountedLeakCounter.cpp \
+    wtf/TypeTraits.cpp \
+    wtf/unicode/CollatorDefault.cpp \
+    wtf/unicode/icu/CollatorICU.cpp \
     wtf/unicode/UTF8.cpp \
-    bindings/NP_jsobject.cpp \
-    bindings/npruntime.cpp \
-    bindings/runtime_array.cpp \
-    bindings/runtime.cpp \
-    bindings/runtime_method.cpp \
-    bindings/runtime_object.cpp \
-    bindings/runtime_root.cpp \
-    bindings/c/c_class.cpp \
-    bindings/c/c_instance.cpp \
-    bindings/c/c_runtime.cpp \
-    bindings/c/c_utility.cpp \
     API/JSBase.cpp \
     API/JSCallbackConstructor.cpp \
     API/JSCallbackFunction.cpp \
@@ -57,99 +101,153 @@ SOURCES += \
     API/JSObjectRef.cpp \
     API/JSStringRef.cpp \
     API/JSValueRef.cpp \
-    kjs/JSGlobalObject.cpp \
-    kjs/JSVariableObject.cpp
+    API/OpaqueJSString.cpp \
+    runtime/InitializeThreading.cpp \
+    runtime/JSGlobalData.cpp \
+    runtime/JSGlobalObject.cpp \
+    runtime/JSStaticScopeObject.cpp \
+    runtime/JSVariableObject.cpp \
+    runtime/JSActivation.cpp \
+    runtime/JSNotAnObject.cpp \
+    runtime/LiteralParser.cpp \
+    runtime/TimeoutChecker.cpp \
+    bytecode/CodeBlock.cpp \
+    bytecode/StructureStubInfo.cpp \
+    bytecode/JumpTable.cpp \
+    jit/JIT.cpp \
+    jit/JITCall.cpp \
+    jit/JITArithmetic.cpp \
+    jit/JITOpcodes.cpp \
+    jit/JITPropertyAccess.cpp \
+    jit/ExecutableAllocator.cpp \
+    jit/JITStubs.cpp \
+    bytecompiler/BytecodeGenerator.cpp \
+    runtime/ExceptionHelpers.cpp \
+    runtime/JSPropertyNameIterator.cpp \
+    interpreter/Interpreter.cpp \
+    bytecode/Opcode.cpp \
+    bytecode/SamplingTool.cpp \
+    wrec/CharacterClass.cpp \
+    wrec/CharacterClassConstructor.cpp \
+    wrec/WREC.cpp \
+    wrec/WRECFunctors.cpp \
+    wrec/WRECGenerator.cpp \
+    wrec/WRECParser.cpp \
+    interpreter/RegisterFile.cpp
+
+win32-*: SOURCES += jit/ExecutableAllocatorWin.cpp
+else: SOURCES += jit/ExecutableAllocatorPosix.cpp
 
 # AllInOneFile.cpp helps gcc analize and optimize code
 # Other compilers may be able to do this at link time
-gtk-port:CONFIG(release) {
 SOURCES += \
-    kjs/AllInOneFile.cpp
-} else {
-SOURCES += \
-    kjs/function.cpp \
-    kjs/debugger.cpp \
-    kjs/array_instance.cpp \
-    kjs/array_object.cpp \
-    kjs/bool_object.cpp \
-    kjs/collector.cpp \
-    kjs/CommonIdentifiers.cpp \
-    kjs/date_object.cpp \
-    kjs/DateMath.cpp \
-    kjs/dtoa.cpp \
-    kjs/error_object.cpp \
-    kjs/ExecState.cpp \
-    kjs/function_object.cpp \
-    kjs/identifier.cpp \
-    kjs/internal.cpp \
-    kjs/interpreter.cpp \
-    kjs/JSImmediate.cpp \
-    kjs/JSLock.cpp \
-    kjs/JSWrapperObject.cpp \
-    kjs/lexer.cpp \
-    kjs/list.cpp \
-    kjs/lookup.cpp \
-    kjs/math_object.cpp \
-    kjs/nodes.cpp \
-    kjs/nodes2string.cpp \
-    kjs/number_object.cpp \
-    kjs/object.cpp \
-    kjs/object_object.cpp \
-    kjs/operations.cpp \
-    kjs/Parser.cpp \
-    kjs/property_map.cpp \
-    kjs/property_slot.cpp \
-    kjs/PropertyNameArray.cpp \
-    kjs/regexp.cpp \
-    kjs/regexp_object.cpp \
-    kjs/scope_chain.cpp \
-    kjs/string_object.cpp \
-    kjs/ustring.cpp \
-    kjs/value.cpp \
-    wtf/FastMalloc.cpp
-
-!qt-port:SOURCES += \
-    wtf/TCSystemAlloc.cpp
-}
-
-qt-port:SOURCES += \
-    bindings/qt/qt_class.cpp \
-    bindings/qt/qt_instance.cpp \
-    bindings/qt/qt_runtime.cpp
-
-!CONFIG(QTDIR_build) {
-    defineTest(addExtraCompiler) {
-        QMAKE_EXTRA_COMPILERS += $$1
-        generated_files.depends += compiler_$${1}_make_all
-        export(QMAKE_EXTRA_COMPILERS)
-        export(generated_files.depends)
-        return(true)
-    }
-}
+    runtime/ArgList.cpp \
+    runtime/Arguments.cpp \
+    runtime/ArrayConstructor.cpp \
+    runtime/ArrayPrototype.cpp \
+    runtime/BooleanConstructor.cpp \
+    runtime/BooleanObject.cpp \
+    runtime/BooleanPrototype.cpp \
+    runtime/CallData.cpp \
+    runtime/Collector.cpp \
+    runtime/CommonIdentifiers.cpp \
+    runtime/ConstructData.cpp \
+    wtf/CurrentTime.cpp \
+    runtime/DateConstructor.cpp \
+    runtime/DateInstance.cpp \
+    runtime/DateMath.cpp \
+    runtime/DatePrototype.cpp \
+    debugger/Debugger.cpp \
+    debugger/DebuggerCallFrame.cpp \
+    debugger/DebuggerActivation.cpp \
+    wtf/dtoa.cpp \
+    runtime/Error.cpp \
+    runtime/ErrorConstructor.cpp \
+    runtime/ErrorInstance.cpp \
+    runtime/ErrorPrototype.cpp \
+    interpreter/CallFrame.cpp \
+    runtime/FunctionConstructor.cpp \
+    runtime/FunctionPrototype.cpp \
+    runtime/GetterSetter.cpp \
+    runtime/GlobalEvalFunction.cpp \
+    runtime/Identifier.cpp \
+    runtime/InternalFunction.cpp \
+    runtime/Completion.cpp \
+    runtime/JSArray.cpp \
+    runtime/JSByteArray.cpp \
+    runtime/JSCell.cpp \
+    runtime/JSFunction.cpp \
+    runtime/JSGlobalObjectFunctions.cpp \
+    runtime/JSImmediate.cpp \
+    runtime/JSLock.cpp \
+    runtime/JSNumberCell.cpp \
+    runtime/JSObject.cpp \
+    runtime/JSString.cpp \
+    runtime/JSValue.cpp \
+    runtime/JSWrapperObject.cpp \
+    parser/Lexer.cpp \
+    runtime/Lookup.cpp \
+    runtime/MathObject.cpp \
+    runtime/NativeErrorConstructor.cpp \
+    runtime/NativeErrorPrototype.cpp \
+    parser/Nodes.cpp \
+    runtime/NumberConstructor.cpp \
+    runtime/NumberObject.cpp \
+    runtime/NumberPrototype.cpp \
+    runtime/ObjectConstructor.cpp \
+    runtime/ObjectPrototype.cpp \
+    runtime/Operations.cpp \
+    parser/Parser.cpp \
+    parser/ParserArena.cpp \
+    runtime/PropertyNameArray.cpp \
+    runtime/PropertySlot.cpp \
+    runtime/PrototypeFunction.cpp \
+    runtime/RegExp.cpp \
+    runtime/RegExpConstructor.cpp \
+    runtime/RegExpObject.cpp \
+    runtime/RegExpPrototype.cpp \
+    runtime/ScopeChain.cpp \
+    runtime/SmallStrings.cpp \
+    runtime/StringConstructor.cpp \
+    runtime/StringObject.cpp \
+    runtime/StringPrototype.cpp \
+    runtime/Structure.cpp \
+    runtime/StructureChain.cpp \
+    runtime/UString.cpp \
+    profiler/HeavyProfile.cpp \
+    profiler/Profile.cpp \
+    profiler/ProfileGenerator.cpp \
+    profiler/ProfileNode.cpp \
+    profiler/Profiler.cpp \
+    profiler/TreeProfile.cpp \
+    wtf/FastMalloc.cpp \
+    wtf/Threading.cpp \
+    wtf/qt/ThreadingQt.cpp \
+    wtf/qt/MainThreadQt.cpp
 
 # GENERATOR 1-A: LUT creator
 lut.output = $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.lut.h
-lut.commands = perl $$PWD/kjs/create_hash_table ${QMAKE_FILE_NAME} -i > ${QMAKE_FILE_OUT}
+lut.commands = perl $$PWD/create_hash_table ${QMAKE_FILE_NAME} -i > ${QMAKE_FILE_OUT}
 lut.depend = ${QMAKE_FILE_NAME}
 lut.input = LUT_FILES
 lut.CONFIG += no_link
 addExtraCompiler(lut)
 
 # GENERATOR 1-B: particular LUT creator (for 1 file only)
-keywordlut.output = $$GENERATED_SOURCES_DIR/lexer.lut.h
-keywordlut.commands = perl $$PWD/kjs/create_hash_table ${QMAKE_FILE_NAME} -i > ${QMAKE_FILE_OUT}
+keywordlut.output = $$GENERATED_SOURCES_DIR/Lexer.lut.h
+keywordlut.commands = perl $$PWD/create_hash_table ${QMAKE_FILE_NAME} -i > ${QMAKE_FILE_OUT}
 keywordlut.depend = ${QMAKE_FILE_NAME}
 keywordlut.input = KEYWORDLUT_FILES
 keywordlut.CONFIG += no_link
 addExtraCompiler(keywordlut)
 
 # GENERATOR 2: bison grammar
-kjsbison.output = $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.cpp
-kjsbison.commands = bison -d -p kjsyy ${QMAKE_FILE_NAME} -o ${QMAKE_FILE_BASE}.tab.c && $(MOVE) ${QMAKE_FILE_BASE}.tab.c ${QMAKE_FILE_OUT} && $(MOVE) ${QMAKE_FILE_BASE}.tab.h $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.h
-kjsbison.depend = ${QMAKE_FILE_NAME}
-kjsbison.input = KJSBISON
-kjsbison.variable_out = GENERATED_SOURCES
-kjsbison.dependency_type = TYPE_C
-kjsbison.CONFIG = target_predeps
-kjsbison.clean = ${QMAKE_FILE_OUT} ${QMAKE_VAR_GENERATED_SOURCES_DIR}${QMAKE_FILE_BASE}.h
-addExtraCompiler(kjsbison)
+jscbison.output = $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.cpp
+jscbison.commands = bison -d -p jscyy ${QMAKE_FILE_NAME} -o $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.tab.c && $(MOVE) $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.tab.c ${QMAKE_FILE_OUT} && $(MOVE) $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.tab.h $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.h
+jscbison.depend = ${QMAKE_FILE_NAME}
+jscbison.input = JSCBISON
+jscbison.variable_out = GENERATED_SOURCES
+jscbison.dependency_type = TYPE_C
+jscbison.CONFIG = target_predeps
+addExtraCompilerWithHeader(jscbison)
+

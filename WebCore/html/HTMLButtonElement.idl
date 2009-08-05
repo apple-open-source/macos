@@ -28,11 +28,11 @@ module html {
         readonly attribute  HTMLFormElement      form;
                  attribute  [ConvertNullToNullString] DOMString            accessKey;
                  attribute  boolean              disabled;
+                 attribute  boolean              autofocus;
                  attribute  [ConvertNullToNullString] DOMString            name;
-                 attribute  long                 tabIndex;
         readonly attribute  DOMString            type;
                  attribute  [ConvertNullToNullString] DOMString            value;
-
+        readonly attribute boolean               willValidate;
         void click();
     };
 

@@ -28,8 +28,8 @@
 #include "config.h"
 #include "SharedTimer.h"
 
-#include "SystemTime.h"
 #include <wtf/Assertions.h>
+#include <wtf/CurrentTime.h>
 #include <glib.h>
 
 namespace WebCore {
@@ -64,7 +64,7 @@ void setSharedTimerFireTime(double fireTime)
 
     stopSharedTimer();
     if (intervalInMS == 0)
-        sharedTimer = g_idle_add_full(G_PRIORITY_DEFAULT, timeout_cb, NULL, NULL);
+        sharedTimer = g_idle_add(timeout_cb, NULL);
     else
         sharedTimer = g_timeout_add_full(G_PRIORITY_DEFAULT, intervalInMS, timeout_cb, NULL, NULL);
 }

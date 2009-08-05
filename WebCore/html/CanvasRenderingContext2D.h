@@ -26,7 +26,9 @@
 #ifndef CanvasRenderingContext2D_h
 #define CanvasRenderingContext2D_h
 
+#include "TransformationMatrix.h"
 #include "FloatSize.h"
+#include "Font.h"
 #include "GraphicsTypes.h"
 #include "Path.h"
 #include "PlatformString.h"
@@ -45,13 +47,19 @@ namespace WebCore {
     class GraphicsContext;
     class HTMLCanvasElement;
     class HTMLImageElement;
+    class ImageData;
+    class KURL;
+    class TextMetrics;
 
     typedef int ExceptionCode;
 
-    class CanvasRenderingContext2D : public RefCounted<CanvasRenderingContext2D> {
+    class CanvasRenderingContext2D : Noncopyable {
     public:
         CanvasRenderingContext2D(HTMLCanvasElement*);
-
+        
+        void ref();
+        void deref();
+        
         HTMLCanvasElement* canvas() const { return m_canvas; }
 
         CanvasStyle* strokeStyle() const;
@@ -97,6 +105,7 @@ namespace WebCore {
         void rotate(float angleInRadians);
         void translate(float tx, float ty);
         void transform(float m11, float m12, float m21, float m22, float dx, float dy);
+        void setTransform(float m11, float m12, float m21, float m22, float dx, float dy);
 
         void setStrokeColor(const String& color);
         void setStrokeColor(float grayLevel);
@@ -121,7 +130,7 @@ namespace WebCore {
         void bezierCurveTo(float cp1x, float cp1y, float cp2x, float cp2y, float x, float y);
         void arcTo(float x0, float y0, float x1, float y1, float radius, ExceptionCode&);
         void arc(float x, float y, float r, float sa, float ea, bool clockwise, ExceptionCode&);
-        void rect(float x, float y, float width, float height, ExceptionCode&);
+        void rect(float x, float y, float width, float height);
 
         void fill();
         void stroke();
@@ -129,10 +138,10 @@ namespace WebCore {
 
         bool isPointInPath(const float x, const float y);
 
-        void clearRect(float x, float y, float width, float height, ExceptionCode&);
-        void fillRect(float x, float y, float width, float height, ExceptionCode&);
-        void strokeRect(float x, float y, float width, float height, ExceptionCode&);
-        void strokeRect(float x, float y, float width, float height, float lineWidth, ExceptionCode&);
+        void clearRect(float x, float y, float width, float height);
+        void fillRect(float x, float y, float width, float height);
+        void strokeRect(float x, float y, float width, float height);
+        void strokeRect(float x, float y, float width, float height, float lineWidth);
 
         void setShadow(float width, float height, float blur);
         void setShadow(float width, float height, float blur, const String& color);
@@ -158,21 +167,42 @@ namespace WebCore {
 
         void setCompositeOperation(const String&);
 
-        PassRefPtr<CanvasGradient> createLinearGradient(float x0, float y0, float x1, float y1);
-        PassRefPtr<CanvasGradient> createRadialGradient(float x0, float y0, float r0, float x1, float y1, float r1);
+        PassRefPtr<CanvasGradient> createLinearGradient(float x0, float y0, float x1, float y1, ExceptionCode&);
+        PassRefPtr<CanvasGradient> createRadialGradient(float x0, float y0, float r0, float x1, float y1, float r1, ExceptionCode&);
         PassRefPtr<CanvasPattern> createPattern(HTMLImageElement*, const String& repetitionType, ExceptionCode&);
         PassRefPtr<CanvasPattern> createPattern(HTMLCanvasElement*, const String& repetitionType, ExceptionCode&);
-
+        
+        PassRefPtr<ImageData> createImageData(float width, float height) const;
+        PassRefPtr<ImageData> getImageData(float sx, float sy, float sw, float sh, ExceptionCode&) const;
+        void putImageData(ImageData*, float dx, float dy, ExceptionCode&);
+        void putImageData(ImageData*, float dx, float dy, float dirtyX, float dirtyY, float dirtyWidth, float dirtyHeight, ExceptionCode&);
+        
         void reset();
-        void detachCanvas() { m_canvas = 0; }
+
+        String font() const;
+        void setFont(const String&);
+        
+        String textAlign() const;
+        void setTextAlign(const String&);
+        
+        String textBaseline() const;
+        void setTextBaseline(const String&);
+        
+        void fillText(const String& text, float x, float y);
+        void fillText(const String& text, float x, float y, float maxWidth);
+        void strokeText(const String& text, float x, float y);
+        void strokeText(const String& text, float x, float y, float maxWidth);
+        PassRefPtr<TextMetrics> measureText(const String& text);
+
+        LineCap getLineCap() const { return state().m_lineCap; }
+        LineJoin getLineJoin() const { return state().m_lineJoin; }
 
     private:
         struct State {
             State();
-
+            
             RefPtr<CanvasStyle> m_strokeStyle;
             RefPtr<CanvasStyle> m_fillStyle;
-            Path m_path;
             float m_lineWidth;
             LineCap m_lineCap;
             LineJoin m_lineJoin;
@@ -182,27 +212,48 @@ namespace WebCore {
             String m_shadowColor;
             float m_globalAlpha;
             CompositeOperator m_globalComposite;
-            bool m_appliedStrokePattern;
-            bool m_appliedFillPattern;
-#if PLATFORM(CG)
-            CGAffineTransform m_strokeStylePatternTransform;
-            CGAffineTransform m_fillStylePatternTransform;
-#endif
+            TransformationMatrix m_transform;
+            bool m_invertibleCTM;
+            
+            // Text state.
+            TextAlign m_textAlign;
+            TextBaseline m_textBaseline;
+            
+            String m_unparsedFont;
+            Font m_font;
+            bool m_realizedFont;
         };
+        Path m_path;
 
         State& state() { return m_stateStack.last(); }
         const State& state() const { return m_stateStack.last(); }
 
         void applyShadow();
 
-        void willDraw(const FloatRect&);
+        enum CanvasWillDrawOption {
+            CanvasWillDrawApplyTransform = 1,
+            CanvasWillDrawApplyShadow = 1 << 1,
+            CanvasWillDrawApplyClip = 1 << 2,
+            CanvasWillDrawApplyAll = 0xffffffff
+        };
+        
+        void willDraw(const FloatRect&, unsigned options = CanvasWillDrawApplyAll);
 
         GraphicsContext* drawingContext() const;
 
         void applyStrokePattern();
         void applyFillPattern();
 
+        void drawTextInternal(const String& text, float x, float y, bool fill, float maxWidth = 0, bool useMaxWidth = false);
+
+        const Font& accessFont();
+
+#if ENABLE(DASHBOARD_SUPPORT)
         void clearPathForDashboardBackwardCompatibilityMode();
+#endif
+        
+        void prepareGradientForDashboard(CanvasGradient* gradient) const;
+        void checkOrigin(const KURL&);
 
         HTMLCanvasElement* m_canvas;
         Vector<State, 1> m_stateStack;

@@ -9,7 +9,7 @@
 <book lang="en" id="userman" xreflabel="bzip2 Manual">
 
  <bookinfo>
-  <title>bzip2 and libbzip2, version 1.0.4</title>
+  <title>bzip2 and libbzip2, version 1.0.5</title>
   <subtitle>A program and library for data compression</subtitle>
   <copyright>
    <year>&bz-lifespan;</year>

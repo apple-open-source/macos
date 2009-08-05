@@ -27,20 +27,15 @@
 
 #include "Document.h"
 #include "Element.h"
+#include "MappedAttribute.h"
 
 namespace WebCore {
-
-NamedMappedAttrMap::NamedMappedAttrMap(Element *e)
-    : NamedAttrMap(e)
-    , m_mappedAttributeCount(0)
-{
-}
 
 void NamedMappedAttrMap::clearAttributes()
 {
     m_classNames.clear();
     m_mappedAttributeCount = 0;
-    NamedAttrMap::clearAttributes();
+    NamedNodeMap::clearAttributes();
 }
 
 bool NamedMappedAttrMap::isMappedAttributeMap() const
@@ -52,8 +47,9 @@ int NamedMappedAttrMap::declCount() const
 {
     int result = 0;
     for (unsigned i = 0; i < length(); i++) {
-        MappedAttribute* attr = attributeItem(i);
-        if (attr->decl())
+        Attribute* attr = attributeItem(i);
+        if (attr->isMappedAttribute() &&
+            static_cast<MappedAttribute*>(attr)->decl())
             result++;
     }
     return result;
@@ -67,8 +63,9 @@ bool NamedMappedAttrMap::mapsEquivalent(const NamedMappedAttrMap* otherMap) cons
     
     // The values for each decl must match.
     for (unsigned i = 0; i < length(); i++) {
-        MappedAttribute* attr = attributeItem(i);
-        if (attr->decl()) {
+        Attribute* attr = attributeItem(i);
+        if (attr->isMappedAttribute() &&
+            static_cast<MappedAttribute*>(attr)->decl()) {
             Attribute* otherAttr = otherMap->getAttributeItem(attr->name());
             if (!otherAttr || (attr->value() != otherAttr->value()))
                 return false;
@@ -77,15 +74,14 @@ bool NamedMappedAttrMap::mapsEquivalent(const NamedMappedAttrMap* otherMap) cons
     return true;
 }
 
-void NamedMappedAttrMap::parseClassAttribute(const String& classStr) 
+void NamedMappedAttrMap::setClass(const String& classStr) 
 { 
-    if (!element->hasClass()) { 
+    if (!element()->hasClass()) { 
         m_classNames.clear(); 
         return;
     }
 
-    m_classNames.parseClassAttribute(classStr, element->document()->inCompatMode()); 
+    m_classNames.set(classStr, element()->document()->inCompatMode()); 
 }
-
 
 }

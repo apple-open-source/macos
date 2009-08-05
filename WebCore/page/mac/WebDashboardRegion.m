@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -22,10 +22,16 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
-#include "config.h"
+
+#import "config.h"
 #import "WebDashboardRegion.h"
 
+#import <wtf/UnusedParam.h>
+
+#if ENABLE(DASHBOARD_SUPPORT)
+
 @implementation WebDashboardRegion
+
 - initWithRect:(NSRect)r clip:(NSRect)c type:(WebDashboardRegionType)t
 {
     self = [super init];
@@ -35,8 +41,10 @@
     return self;
 }
 
-- (id)copyWithZone:(NSZone *)zone
+- (id)copyWithZone:(NSZone *)unusedZone
 {
+    UNUSED_PARAM(unusedZone);
+
     return [self retain];
 }
 
@@ -55,21 +63,32 @@
     return type;
 }
 
-- (NSString *)description
+static const char* typeName(WebDashboardRegionType type)
 {
-    return [NSString stringWithFormat:@"rect:%@ clip:%@ type:%s",
-        NSStringFromRect(rect),
-        NSStringFromRect(clip),
-        type == WebDashboardRegionTypeNone ? "None" :
-            (type == WebDashboardRegionTypeCircle ? "Circle" :
-                (type == WebDashboardRegionTypeRectangle ? "Rectangle" :
-                    (type == WebDashboardRegionTypeScrollerRectangle ? "ScrollerRectangle" :
-                        "Unknown")))];
+    switch (type) {
+        case WebDashboardRegionTypeNone:
+            return "None";
+        case WebDashboardRegionTypeCircle:
+            return "Circle";
+        case WebDashboardRegionTypeRectangle:
+            return "Rectangle";
+        case WebDashboardRegionTypeScrollerRectangle:
+            return "ScrollerRectangle";
+    }
+    return "Unknown";
 }
 
+- (NSString *)description
+{
+    return [NSString stringWithFormat:@"rect:%@ clip:%@ type:%s", NSStringFromRect(rect), NSStringFromRect(clip), typeName(type)];
+}
+
+// FIXME: Overriding isEqual: without overriding hash will cause trouble if this ever goes into a NSSet or is the key in an NSDictionary.
 - (BOOL)isEqual:(id)other
 {
-    return NSEqualRects (rect, [other dashboardRegionRect]) && NSEqualRects (clip, [other dashboardRegionClip]) && type == [other dashboardRegionType];
+    return NSEqualRects(rect, [other dashboardRegionRect]) && NSEqualRects(clip, [other dashboardRegionClip]) && type == [other dashboardRegionType];
 }
 
 @end
+
+#endif

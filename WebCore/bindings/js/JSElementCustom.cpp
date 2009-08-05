@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,24 +30,30 @@
 #include "config.h"
 #include "JSElement.h"
 
-#include "Attr.h"
-#include "Document.h"
-#include "Element.h"
 #include "CSSHelper.h"
+#include "Document.h"
 #include "ExceptionCode.h"
 #include "HTMLFrameElementBase.h"
 #include "HTMLNames.h"
-#include "PlatformString.h"
-#include "kjs_binding.h"
-#include "kjs_dom.h"
+#include "JSAttr.h"
+#include "JSHTMLElementWrapperFactory.h"
+#include "JSNodeList.h"
+#include "NodeList.h"
+
+#if ENABLE(SVG)
+#include "JSSVGElementWrapperFactory.h"
+#include "SVGElement.h"
+#endif
+
+using namespace JSC;
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-static inline bool allowSettingSrcToJavascriptURL(KJS::ExecState* exec, Element* element, String name, String value)
+static inline bool allowSettingSrcToJavascriptURL(ExecState* exec, Element* element, const String& name, const String& value)
 {
-    if ((element->hasTagName(iframeTag) || element->hasTagName(frameTag)) && equalIgnoringCase(name, "src") && parseURL(value).startsWith("javascript:", false)) {
+    if ((element->hasTagName(iframeTag) || element->hasTagName(frameTag)) && equalIgnoringCase(name, "src") && protocolIsJavaScript(parseURL(value))) {
         HTMLFrameElementBase* frame = static_cast<HTMLFrameElementBase*>(element);
         if (!checkNodeSecurity(exec, frame->contentDocument()))
             return false;
@@ -55,73 +61,91 @@ static inline bool allowSettingSrcToJavascriptURL(KJS::ExecState* exec, Element*
     return true;
 } 
 
-KJS::JSValue* JSElement::setAttribute(KJS::ExecState* exec, const KJS::List& args)
+JSValue JSElement::setAttribute(ExecState* exec, const ArgList& args)
 {
     ExceptionCode ec = 0;
-    String name = args[0]->toString(exec);
-    String value = args[1]->toString(exec);
+    AtomicString name = args.at(0).toString(exec);
+    AtomicString value = args.at(1).toString(exec);
 
     Element* imp = impl();
     if (!allowSettingSrcToJavascriptURL(exec, imp, name, value))
-        return KJS::jsUndefined();
+        return jsUndefined();
 
     imp->setAttribute(name, value, ec);
-    KJS::setDOMException(exec, ec);
-    return KJS::jsUndefined();
+    setDOMException(exec, ec);
+    return jsUndefined();
 }
 
-KJS::JSValue* JSElement::setAttributeNode(KJS::ExecState* exec, const KJS::List& args)
+JSValue JSElement::setAttributeNode(ExecState* exec, const ArgList& args)
 {
     ExceptionCode ec = 0;
-    bool newAttrOk;
-    Attr* newAttr = toAttr(args[0], newAttrOk);
-    if (!newAttrOk) {
+    Attr* newAttr = toAttr(args.at(0));
+    if (!newAttr) {
         setDOMException(exec, TYPE_MISMATCH_ERR);
-        return KJS::jsUndefined();
+        return jsUndefined();
     }
 
     Element* imp = impl();
     if (!allowSettingSrcToJavascriptURL(exec, imp, newAttr->name(), newAttr->value()))
-        return KJS::jsUndefined();
+        return jsUndefined();
 
-    KJS::JSValue* result = toJS(exec, WTF::getPtr(imp->setAttributeNode(newAttr, ec)));
-    KJS::setDOMException(exec, ec);
+    JSValue result = toJS(exec, WTF::getPtr(imp->setAttributeNode(newAttr, ec)));
+    setDOMException(exec, ec);
     return result;
 }
 
-KJS::JSValue* JSElement::setAttributeNS(KJS::ExecState* exec, const KJS::List& args)
+JSValue JSElement::setAttributeNS(ExecState* exec, const ArgList& args)
 {
     ExceptionCode ec = 0;
-    String namespaceURI = valueToStringWithNullCheck(exec, args[0]);
-    String qualifiedName = args[1]->toString(exec);
-    String value = args[2]->toString(exec);
+    AtomicString namespaceURI = valueToStringWithNullCheck(exec, args.at(0));
+    AtomicString qualifiedName = args.at(1).toString(exec);
+    AtomicString value = args.at(2).toString(exec);
 
     Element* imp = impl();
     if (!allowSettingSrcToJavascriptURL(exec, imp, qualifiedName, value))
-        return KJS::jsUndefined();
+        return jsUndefined();
 
     imp->setAttributeNS(namespaceURI, qualifiedName, value, ec);
-    KJS::setDOMException(exec, ec);
-    return KJS::jsUndefined();
+    setDOMException(exec, ec);
+    return jsUndefined();
 }
 
-KJS::JSValue* JSElement::setAttributeNodeNS(KJS::ExecState* exec, const KJS::List& args)
+JSValue JSElement::setAttributeNodeNS(ExecState* exec, const ArgList& args)
 {
     ExceptionCode ec = 0;
-    bool newAttrOk;
-    Attr* newAttr = toAttr(args[0], newAttrOk);
-    if (!newAttrOk) {
-        KJS::setDOMException(exec, TYPE_MISMATCH_ERR);
-        return KJS::jsUndefined();
+    Attr* newAttr = toAttr(args.at(0));
+    if (!newAttr) {
+        setDOMException(exec, TYPE_MISMATCH_ERR);
+        return jsUndefined();
     }
 
     Element* imp = impl();
     if (!allowSettingSrcToJavascriptURL(exec, imp, newAttr->name(), newAttr->value()))
-        return KJS::jsUndefined();
+        return jsUndefined();
 
-    KJS::JSValue* result = toJS(exec, WTF::getPtr(imp->setAttributeNodeNS(newAttr, ec)));
-    KJS::setDOMException(exec, ec);
+    JSValue result = toJS(exec, WTF::getPtr(imp->setAttributeNodeNS(newAttr, ec)));
+    setDOMException(exec, ec);
     return result;
 }
 
+JSValue toJSNewlyCreated(ExecState* exec, Element* element)
+{
+    if (!element)
+        return jsNull();
+
+    ASSERT(!getCachedDOMNodeWrapper(element->document(), element));
+
+    JSNode* wrapper;        
+    if (element->isHTMLElement())
+        wrapper = createJSHTMLWrapper(exec, static_cast<HTMLElement*>(element));
+#if ENABLE(SVG)
+    else if (element->isSVGElement())
+        wrapper = createJSSVGWrapper(exec, static_cast<SVGElement*>(element));
+#endif
+    else
+        wrapper = CREATE_DOM_NODE_WRAPPER(exec, Element, element);
+
+    return wrapper;    
+}
+    
 } // namespace WebCore

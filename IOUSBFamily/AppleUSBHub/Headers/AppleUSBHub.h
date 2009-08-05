@@ -124,6 +124,7 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
 	bool								_needToAckSetPowerState;
 	bool								_checkPortsThreadActive;
 	bool								_abandonCheckPorts;						// T if we should abandon the check ports thread
+	bool								_doPortActionLock;						// Lock to synchronize accesses to any "PortAction" (supend/reenumerate)
     IOTimerEventSource *				_timerSource;
     UInt32								_timeoutFlag;
     UInt32								_portTimeStamp[32];
@@ -132,7 +133,6 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
 	UInt32								_raisedPowerStateCount;					// to keep track of when ports want our power state raised
 	UInt32								_outstandingResumes;
 
-	IOLock *							_doPortActionLock;						// Lock to synchronize accesses to any "PortAction" (supend/reenumerate)
 
     // Errata stuff
     UInt32								_errataBits;
@@ -175,6 +175,9 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
     void				IncrementOutstandingResumes(void);
     void				DecrementOutstandingResumes(void);
     static IOReturn		ChangeOutstandingResumes(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
+    IOReturn			TakeDoPortActionLock(void);
+    IOReturn			ReleaseDoPortActionLock(void);
+    static IOReturn		ChangeDoPortActionLock(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
 	
     // Hub functions
     void			UnpackPortFlags(void);

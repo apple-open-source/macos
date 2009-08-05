@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2009 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -288,7 +288,7 @@ IOReturn IOAudioStream::setFormat(const IOAudioStreamFormat *streamFormat, const
         
             lockStreamForIO();
             
-            audioEngine->pauseAudioEngine();
+			audioEngine->pauseAudioEngine();
             
             if (callDriver) {
                 result = audioEngine->performFormatChange(this, &validFormat, &validFormatExtension, newSampleRate);
@@ -353,7 +353,7 @@ IOReturn IOAudioStream::setFormat(const IOAudioStreamFormat *streamFormat, const
                 audioEngine->sendFormatChangeNotification(this);
             }
             
-            audioEngine->resumeAudioEngine();
+			audioEngine->resumeAudioEngine();
     
             unlockStreamForIO();
             

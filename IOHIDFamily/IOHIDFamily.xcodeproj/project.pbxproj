@@ -789,8 +789,8 @@
 		844056C509B3687B0011BEEB /* IOHIDTransactionElement.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = IOHIDTransactionElement.c; sourceTree = "<group>"; };
 		844056C609B3687B0011BEEB /* IOHIDTransactionElement.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOHIDTransactionElement.h; sourceTree = "<group>"; };
 		84420C780649B38A0040EE78 /* IOHIDInterface.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOHIDInterface.cpp; sourceTree = "<group>"; };
-		8445CFF50CEA0C5000363C83 /* IOHIDEventDriver.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOHIDEventDriver.kext; sourceTree = BUILT_PRODUCTS_DIR; };
-		8445D0180CEA0C8B00363C83 /* IOHIDEventDriverSafeBoot.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOHIDEventDriverSafeBoot.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		8445CFF50CEA0C5000363C83 /* IOHIDEventDriver.kext */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.kernel-extension"; path = IOHIDEventDriver.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		8445D0180CEA0C8B00363C83 /* IOHIDEventDriverSafeBoot.kext */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.kernel-extension"; path = IOHIDEventDriverSafeBoot.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		84470BAD04B0C488002A8D37 /* IOHIDDeviceShim.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOHIDDeviceShim.cpp; sourceTree = "<group>"; };
 		84470BAE04B0C488002A8D37 /* IOHIDDeviceShim.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOHIDDeviceShim.h; sourceTree = "<group>"; };
 		845EBBCB08B264FC00DFA9E8 /* IOHIDFamilyPrivate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDFamilyPrivate.h; sourceTree = "<group>"; };
@@ -822,11 +822,11 @@
 		84D291ED0CC5E8FA00698218 /* AppleEmbeddedHIDEventService.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AppleEmbeddedHIDEventService.cpp; sourceTree = "<group>"; };
 		84D291EE0CC5E8FA00698218 /* AppleEmbeddedHIDEventService.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppleEmbeddedHIDEventService.h; sourceTree = "<group>"; };
 		84D291F50CC5EA7E00698218 /* Info-IOHIDFamily-Embedded.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "Info-IOHIDFamily-Embedded.plist"; sourceTree = "<group>"; };
-		84D292660CC90C8E00698218 /* IOHIDFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOHIDFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		84D292660CC90C8E00698218 /* IOHIDFamily.kext */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.kernel-extension"; path = IOHIDFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		84D2931C0CC90C8E00698218 /* InstallHeaders */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = InstallHeaders; sourceTree = BUILT_PRODUCTS_DIR; };
 		84D293600CC90E6400698218 /* IOHIDEventServiceUserClient.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOHIDEventServiceUserClient.cpp; sourceTree = "<group>"; };
 		84D293610CC90E6400698218 /* IOHIDEventServiceUserClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDEventServiceUserClient.h; sourceTree = "<group>"; };
-		84D293FD0CD0243200698218 /* IOHIDLib.plugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOHIDLib.plugin; sourceTree = BUILT_PRODUCTS_DIR; };
+		84D293FD0CD0243200698218 /* IOHIDLib.plugin */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = folder; path = IOHIDLib.plugin; sourceTree = BUILT_PRODUCTS_DIR; };
 		84E935EA088DE4D100F552B3 /* System.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = System.framework; path = /System/Library/Frameworks/System.framework; sourceTree = "<absolute>"; };
 		84EC18AD08D8FB1200E9F643 /* IOHIDEventSystem.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOHIDEventSystem.cpp; sourceTree = "<group>"; };
 		84EC18AE08D8FB1200E9F643 /* IOHIDEventSystem.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOHIDEventSystem.h; sourceTree = "<group>"; };

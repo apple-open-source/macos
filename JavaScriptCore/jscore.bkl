@@ -34,16 +34,35 @@ JavaScriptCore Bakefile project file.
 
     <include file="../WebKit/wx/wxwk-settings.bkl"/>
     <include file="JavaScriptCoreSources.bkl"/>
-    
-    <set var="BUILDDIR">obj-$(FORMAT)</set>
 
     <template id="jscore_base" template="icu,pthreads,wxwk_build_settings">
         <sources>
-            $(JSCORE_SOURCES_API)
-            $(JSCORE_SOURCES_BINDINGS)
-            $(JSCORE_SOURCES_KJS)
-            $(JSCORE_SOURCES_PCRE)
-            $(WTF_SOURCES)
+            $(JSCORE_API_SOURCES)
+            $(JSCORE_BYTECOMPILER_SOURCES)
+            $(JSCORE_DEBUGGER_SOURCES)
+            $(JSCORE_JSC_SOURCES)
+            $(JSCORE_PCRE_SOURCES)
+            $(JSCORE_PARSER_SOURCES)
+            $(JSCORE_PROFILER_SOURCES)
+            $(JSCORE_RUNTIME_SOURCES)
+            $(JSCORE_VM_SOURCES)
+            $(JSCORE_WTF_SOURCES)
+        </sources>
+
+        <set var="ASSEMBLER_SOURCES">
+            <if cond="WX_PORT=='gtk2'">
+                $(JSCORE_VM_SOURCES_POSIX)
+            </if>
+            <if cond="PLATFORM_OS=='mac'">
+                $(JSCORE_VM_SOURCES_POSIX)
+            </if>
+            <if cond="WX_PORT=='msw'">
+                $(JSCORE_VM_SOURCES_WIN)
+            </if>
+        </set>
+
+        <sources>
+            $(ASSEMBLER_SOURCES)
         </sources>
         <install-to>$(WKOUTPUTDIR)</install-to>
         <pic>on</pic>
@@ -51,14 +70,22 @@ JavaScriptCore Bakefile project file.
 
         <include>$(SRCDIR)</include>
         <include>$(SRCDIR)/..</include>
+        <include>$(SRCDIR)/API</include>
+        <include>$(SRCDIR)/assembler</include>
+        <include>$(SRCDIR)/bytecompiler</include>
         <include>$(SRCDIR)/DerivedSources/JavaScriptCore</include>
         <include>$(SRCDIR)/ForwardingHeaders</include>
-        <include>$(SRCDIR)/bindings/c</include>
-        <include>$(SRCDIR)/bindings/jni</include>
-        <include>$(SRCDIR)/bindings</include>
-        <include>$(SRCDIR)/kjs</include>
+        <include>$(SRCDIR)/debugger</include>
+        <include>$(SRCDIR)/parser</include>
         <include>$(SRCDIR)/pcre</include>
+        <include>$(SRCDIR)/profiler</include>
+        <include>$(SRCDIR)/runtime</include>
+        <include>$(SRCDIR)/interpreter</include>
+        <include>$(SRCDIR)/bytecode</include>
+        <include>$(SRCDIR)/wrec</include>
+        <include>$(SRCDIR)/jit</include>
         <include>$(SRCDIR)/wtf</include>
+        <include>$(SRCDIR)/wtf/unicode</include>
 
         <define>ENABLE_XSLT=1</define>
 
@@ -66,7 +93,7 @@ JavaScriptCore Bakefile project file.
             <!-- FIXME: we need proper configure checks -->
             <define>HAVE_FUNC_ISNAN</define>
             <!-- check for undefined symbols for debugging reasons -->
-            <ldflags>-Wl,--no-undefined</ldflags>
+            <ldflags>-Wl</ldflags>
         </if>
 
         <if cond="PLATFORM_WIN32=='1'">
@@ -78,24 +105,33 @@ JavaScriptCore Bakefile project file.
 
     </template>
     
-    <exe id="testkjs" template="icu,jscore,pthreads">
+    <exe id="jsc" template="icu,jscore,pthreads,wxwk">
         <cxx-rtti>off</cxx-rtti>
         <cxx-exceptions>off</cxx-exceptions>
         <debug-info>on</debug-info>
         <depends>jscore</depends>
         <include>$(SRCDIR)</include>
         <include>$(WK_ROOT)/JavaScriptCore</include>
-        <include>$(WK_ROOT)/JavaScriptCore/kjs</include>
+        <include>$(WK_ROOT)/JavaScriptCore/assembler</include>
+        <include>$(WK_ROOT)/JavaScriptCore/bytecompiler</include>
+        <include>$(WK_ROOT)/JavaScriptCore/debugger</include>
+        <include>$(WK_ROOT)/JavaScriptCore/parser</include>
         <include>$(WK_ROOT)/JavaScriptCore/pcre</include>
+        <include>$(WK_ROOT)/JavaScriptCore/profiler</include>
+        <include>$(WK_ROOT)/JavaScriptCore/runtime</include>
+        <include>$(WK_ROOT)/JavaScriptCore/interpreter</include>
+        <include>$(WK_ROOT)/JavaScriptCore/bytecode</include>
+        <include>$(WK_ROOT)/JavaScriptCore/jit</include>
+        <include>$(WK_ROOT)/JavaScriptCore/wrec</include>
         <include>$(WK_ROOT)/JavaScriptCore/wtf</include>
         <dirname>$(WKOUTPUTDIR)</dirname>
-        <sources>$(SRCDIR)/kjs/testkjs.cpp</sources>
-        <if cond="FORMAT=='gnu'">
-            <ldflags>$(WKOUTPUTDIR)/libjscore.a</ldflags>
-        </if>
+        <sources>$(SRCDIR)/jsc.cpp</sources>
+        <set var="READLINE_LIB">
+            <if cond="WX_PORT=='mac'">edit</if>
+        </set>
+        <sys-lib>$(READLINE_LIB)</sys-lib>
         <if cond="FORMAT in ['msvc','msvs2005prj']">
             <include>$(WK_ROOT)/WebKitLibraries/win/include</include>
-            <sys-lib>jscore</sys-lib>
             <sys-lib>winmm</sys-lib> <!-- for timeGetTime -->
             <lib-path>$(WKOUTPUTDIR)</lib-path>
             <lib-path>$(WK_ROOT)/WebKitLibraries/win/lib</lib-path>
@@ -108,7 +144,7 @@ JavaScriptCore Bakefile project file.
         <command>bash make-generated-sources.sh</command>
     </action>
 
-    <lib id="jscore" template="jscore_base">
+    <lib id="jscore" template="jscore_base,wx-lib">
 
     </lib>
 </makefile>

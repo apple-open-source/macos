@@ -28,7 +28,6 @@
 #define RenderThemeGdk_h
 
 #include "RenderTheme.h"
-#include "GraphicsContext.h"
 
 #include <gtk/gtk.h>
 
@@ -37,6 +36,7 @@ namespace WebCore {
 class RenderThemeGtk : public RenderTheme {
 public:
     RenderThemeGtk();
+    virtual ~RenderThemeGtk();
 
     // A method asking if the theme's controls actually care about redrawing when hovered.
     virtual bool supportsHover(const RenderStyle* style) const { return true; }
@@ -53,7 +53,7 @@ public:
     // A method to obtain the baseline position for a "leaf" control.  This will only be used if a baseline
     // position cannot be determined by examining child content. Checkboxes and radio buttons are examples of
     // controls that need to do this.
-    virtual short baselinePosition(const RenderObject*) const;
+    virtual int baselinePosition(const RenderObject*) const;
 
     // The platform selection color.
     virtual Color platformActiveSelectionBackgroundColor() const;
@@ -67,7 +67,7 @@ public:
     virtual Color inactiveListBoxSelectionBackgroundColor() const;
     virtual Color inactiveListBoxSelectionForegroundColor() const;
 
-    virtual double caretBlinkFrequency() const;
+    virtual double caretBlinkInterval() const;
 
     // System fonts.
     virtual void systemFont(int propId, FontDescription&) const;

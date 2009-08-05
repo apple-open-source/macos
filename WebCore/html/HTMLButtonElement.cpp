@@ -30,58 +30,77 @@
 #include "FormDataList.h"
 #include "HTMLFormElement.h"
 #include "HTMLNames.h"
+#include "ScriptEventListener.h"
 #include "KeyboardEvent.h"
+#include "MappedAttribute.h"
 #include "RenderButton.h"
+#include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
-using namespace EventNames;
 using namespace HTMLNames;
 
-HTMLButtonElement::HTMLButtonElement(Document* doc, HTMLFormElement* form)
-    : HTMLGenericFormElement(buttonTag, doc, form)
+HTMLButtonElement::HTMLButtonElement(const QualifiedName& tagName, Document* doc, HTMLFormElement* form)
+    : HTMLFormControlElement(tagName, doc, form)
     , m_type(SUBMIT)
     , m_activeSubmit(false)
 {
+    ASSERT(hasTagName(buttonTag));
 }
 
 HTMLButtonElement::~HTMLButtonElement()
 {
 }
 
-RenderObject* HTMLButtonElement::createRenderer(RenderArena* arena, RenderStyle* style)
+RenderObject* HTMLButtonElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
     return new (arena) RenderButton(this);
 }
 
-const AtomicString& HTMLButtonElement::type() const
+const AtomicString& HTMLButtonElement::formControlType() const
 {
-    return getAttribute(typeAttr);
+    switch (m_type) {
+        case SUBMIT: {
+            DEFINE_STATIC_LOCAL(const AtomicString, submit, ("submit"));
+            return submit;
+        }
+        case BUTTON: {
+            DEFINE_STATIC_LOCAL(const AtomicString, button, ("button"));
+            return button;
+        }
+        case RESET: {
+            DEFINE_STATIC_LOCAL(const AtomicString, reset, ("reset"));
+            return reset;
+        }
+    }
+
+    ASSERT_NOT_REACHED();
+    return emptyAtom;
 }
 
 void HTMLButtonElement::parseMappedAttribute(MappedAttribute* attr)
 {
     if (attr->name() == typeAttr) {
-        if (equalIgnoringCase(attr->value(), "submit"))
-            m_type = SUBMIT;
-        else if (equalIgnoringCase(attr->value(), "reset"))
+        if (equalIgnoringCase(attr->value(), "reset"))
             m_type = RESET;
         else if (equalIgnoringCase(attr->value(), "button"))
             m_type = BUTTON;
+        else
+            m_type = SUBMIT;
     } else if (attr->name() == alignAttr) {
         // Don't map 'align' attribute.  This matches what Firefox and IE do, but not Opera.
         // See http://bugs.webkit.org/show_bug.cgi?id=12071
     } else if (attr->name() == onfocusAttr) {
-        setHTMLEventListener(focusEvent, attr);
+        setAttributeEventListener(eventNames().focusEvent, createAttributeEventListener(this, attr));
     } else if (attr->name() == onblurAttr) {
-        setHTMLEventListener(blurEvent, attr);
+        setAttributeEventListener(eventNames().blurEvent, createAttributeEventListener(this, attr));
     } else
-        HTMLGenericFormElement::parseMappedAttribute(attr);
+        HTMLFormControlElement::parseMappedAttribute(attr);
 }
 
 void HTMLButtonElement::defaultEventHandler(Event* evt)
 {
-    if (evt->type() == DOMActivateEvent && !disabled()) {
+    if (evt->type() == eventNames().DOMActivateEvent && !disabled()) {
         if (form() && m_type == SUBMIT) {
             m_activeSubmit = true;
             form()->prepareSubmit(evt);
@@ -92,12 +111,12 @@ void HTMLButtonElement::defaultEventHandler(Event* evt)
     }
 
     if (evt->isKeyboardEvent()) {
-        if (evt->type() == keydownEvent && static_cast<KeyboardEvent*>(evt)->keyIdentifier() == "U+0020") {
+        if (evt->type() == eventNames().keydownEvent && static_cast<KeyboardEvent*>(evt)->keyIdentifier() == "U+0020") {
             setActive(true, true);
             // No setDefaultHandled() - IE dispatches a keypress in this case.
             return;
         }
-        if (evt->type() == keypressEvent) {
+        if (evt->type() == eventNames().keypressEvent) {
             switch (static_cast<KeyboardEvent*>(evt)->charCode()) {
                 case '\r':
                     dispatchSimulatedClick(evt);
@@ -111,7 +130,7 @@ void HTMLButtonElement::defaultEventHandler(Event* evt)
                     break;
             }
         }
-        if (evt->type() == keyupEvent && static_cast<KeyboardEvent*>(evt)->keyIdentifier() == "U+0020") {
+        if (evt->type() == eventNames().keyupEvent && static_cast<KeyboardEvent*>(evt)->keyIdentifier() == "U+0020") {
             if (active())
                 dispatchSimulatedClick(evt);
             evt->setDefaultHandled();
@@ -119,7 +138,7 @@ void HTMLButtonElement::defaultEventHandler(Event* evt)
         }
     }
 
-    HTMLGenericFormElement::defaultEventHandler(evt);
+    HTMLFormControlElement::defaultEventHandler(evt);
 }
 
 bool HTMLButtonElement::isSuccessfulSubmitButton() const

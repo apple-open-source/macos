@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,6 +38,39 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
+class TextTokenizer : public Tokenizer {
+public:
+    TextTokenizer(Document*);
+    virtual ~TextTokenizer();
+    TextTokenizer(HTMLViewSourceDocument*);
+
+    virtual void write(const SegmentedString&, bool appendData);
+    virtual void finish();
+    virtual bool isWaitingForScripts() const;
+    
+    inline void checkBuffer(int len = 10)
+    {
+        if ((m_dest - m_buffer) > m_size - len) {
+            // Enlarge buffer
+            int newSize = std::max(m_size * 2, m_size + len);
+            int oldOffset = m_dest - m_buffer;
+            m_buffer = static_cast<UChar*>(fastRealloc(m_buffer, newSize * sizeof(UChar)));
+            m_dest = m_buffer + oldOffset;
+            m_size = newSize;
+        }
+    }
+        
+private:
+    Document* m_doc;
+    Element* m_preElement;
+
+    bool m_skipLF;
+    
+    int m_size;
+    UChar* m_buffer;
+    UChar* m_dest;
+};
+
 TextTokenizer::TextTokenizer(Document* doc)
     : m_doc(doc)
     , m_preElement(0)
@@ -59,9 +92,15 @@ TextTokenizer::TextTokenizer(HTMLViewSourceDocument* doc)
     m_size = 254;
     m_buffer = static_cast<UChar*>(fastMalloc(sizeof(UChar) * m_size));
     m_dest = m_buffer;
-}    
+}
 
-bool TextTokenizer::write(const SegmentedString& s, bool appendData)
+TextTokenizer::~TextTokenizer()
+{
+    // finish() should have been called to prevent any leaks
+    ASSERT(!m_buffer);
+}
+
+void TextTokenizer::write(const SegmentedString& s, bool)
 {
     ExceptionCode ec;
 
@@ -93,13 +132,13 @@ bool TextTokenizer::write(const SegmentedString& s, bool appendData)
     }
 
     if (!m_preElement && !inViewSourceMode()) {
-        RefPtr<Element> rootElement = m_doc->createElementNS(xhtmlNamespaceURI, "html", ec);
+        RefPtr<Element> rootElement = m_doc->createElement(htmlTag, false);
         m_doc->appendChild(rootElement, ec);
 
-        RefPtr<Element> body = m_doc->createElementNS(xhtmlNamespaceURI, "body", ec);
+        RefPtr<Element> body = m_doc->createElement(bodyTag, false);
         rootElement->appendChild(body, ec);
 
-        RefPtr<Element> preElement = m_doc->createElementNS(xhtmlNamespaceURI, "pre", ec);
+        RefPtr<Element> preElement = m_doc->createElement(preTag, false);
         preElement->setAttribute("style", "word-wrap: break-word; white-space: pre-wrap;", ec);
 
         body->appendChild(preElement, ec);
@@ -110,7 +149,7 @@ bool TextTokenizer::write(const SegmentedString& s, bool appendData)
     String string = String(m_buffer, m_dest - m_buffer);
     if (inViewSourceMode()) {
         static_cast<HTMLViewSourceDocument*>(m_doc)->addViewSourceText(string);
-        return false;
+        return;
     }
 
     unsigned charsLeft = string.length();
@@ -119,15 +158,15 @@ bool TextTokenizer::write(const SegmentedString& s, bool appendData)
         RefPtr<Text> text = Text::createWithLengthLimit(m_doc, string, charsLeft);
         m_preElement->appendChild(text, ec);
     }
-
-    return false;
 }
 
 void TextTokenizer::finish()
 {
     m_preElement = 0;
     fastFree(m_buffer);
-        
+    m_buffer = 0;
+    m_dest = 0;
+
     m_doc->finishedParsing();
 }
 
@@ -137,14 +176,19 @@ bool TextTokenizer::isWaitingForScripts() const
     return false;
 }
 
-TextDocument::TextDocument(DOMImplementation* implementation, Frame* frame)
-    : HTMLDocument(implementation, frame)
+TextDocument::TextDocument(Frame* frame)
+    : HTMLDocument(frame)
 {
 }
 
 Tokenizer* TextDocument::createTokenizer()
 {
     return new TextTokenizer(this);
+}
+
+Tokenizer* createTextTokenizer(HTMLViewSourceDocument* document)
+{
+    return new TextTokenizer(document);
 }
 
 }

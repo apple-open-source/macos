@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2007-2008 Trolltech ASA
+    Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -28,8 +28,10 @@
 
 #include "FormData.h"
 
+QT_BEGIN_NAMESPACE
 class QFile;
 class QNetworkReply;
+QT_END_NAMESPACE
 
 namespace WebCore {
 
@@ -39,13 +41,19 @@ class QNetworkReplyHandler : public QObject
 {
     Q_OBJECT
 public:
-    QNetworkReplyHandler(ResourceHandle *handle);
+    enum LoadMode {
+        LoadNormal,
+        LoadDeferred
+    };
+
+    QNetworkReplyHandler(ResourceHandle *handle, LoadMode);
+    void setLoadMode(LoadMode);
 
     QNetworkReply* reply() const { return m_reply; }
 
     void abort();
 
-    QNetworkReply *release();
+    QNetworkReply* release();
 
 private slots:
     void finish();
@@ -54,13 +62,23 @@ private slots:
 
 private:
     void start();
+    void resetState();
+    void sendQueuedItems();
 
     QNetworkReply* m_reply;
     ResourceHandle* m_resourceHandle;
     bool m_redirected;
     bool m_responseSent;
+    LoadMode m_loadMode;
     QNetworkAccessManager::Operation m_method;
     QNetworkRequest m_request;
+    uint   m_startTime;
+
+    // defer state holding
+    bool m_shouldStart;
+    bool m_shouldFinish;
+    bool m_shouldSendResponse;
+    bool m_shouldForwardData;
 };
 
 // Self destructing QIODevice for FormData

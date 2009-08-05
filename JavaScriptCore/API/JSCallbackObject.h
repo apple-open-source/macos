@@ -1,6 +1,5 @@
-// -*- mode: c++; c-basic-offset: 4 -*-
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Eric Seidel <eric@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,64 +29,84 @@
 
 #include "JSObjectRef.h"
 #include "JSValueRef.h"
-#include "object.h"
+#include "JSObject.h"
 
-namespace KJS {
+namespace JSC {
 
 template <class Base>
-class JSCallbackObject : public Base
-{
+class JSCallbackObject : public Base {
 public:
-    JSCallbackObject(ExecState*, JSClassRef, JSValue* prototype, void* data);
+    JSCallbackObject(ExecState*, PassRefPtr<Structure>, JSClassRef, void* data);
     JSCallbackObject(JSClassRef);
     virtual ~JSCallbackObject();
 
+    void setPrivate(void* data);
+    void* getPrivate();
+
+    static const ClassInfo info;
+
+    JSClassRef classRef() const { return m_callbackObjectData->jsClass; }
+    bool inherits(JSClassRef) const;
+
+    static PassRefPtr<Structure> createStructure(JSValue proto) 
+    { 
+        return Structure::create(proto, TypeInfo(ObjectType, ImplementsHasInstance | OverridesHasInstance)); 
+    }
+
+private:
     virtual UString className() const;
 
     virtual bool getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot&);
     virtual bool getOwnPropertySlot(ExecState*, unsigned, PropertySlot&);
     
-    virtual void put(ExecState*, const Identifier&, JSValue*, int attr);
-    virtual void put(ExecState*, unsigned, JSValue*, int attr);
+    virtual void put(ExecState*, const Identifier&, JSValue, PutPropertySlot&);
 
     virtual bool deleteProperty(ExecState*, const Identifier&);
     virtual bool deleteProperty(ExecState*, unsigned);
 
-    virtual bool implementsConstruct() const;
-    virtual JSObject* construct(ExecState*, const List& args);
-
-    virtual bool implementsHasInstance() const;
-    virtual bool hasInstance(ExecState *exec, JSValue *value);
-
-    virtual bool implementsCall() const;
-    virtual JSValue* callAsFunction(ExecState*, JSObject* thisObj, const List &args);
+    virtual bool hasInstance(ExecState* exec, JSValue value, JSValue proto);
 
     virtual void getPropertyNames(ExecState*, PropertyNameArray&);
 
     virtual double toNumber(ExecState*) const;
     virtual UString toString(ExecState*) const;
 
-    void setPrivate(void* data);
-    void* getPrivate();
-    
-    virtual const ClassInfo *classInfo() const { return &info; }
-    static const ClassInfo info;
+    virtual ConstructType getConstructData(ConstructData&);
+    virtual CallType getCallData(CallData&);
+    virtual const ClassInfo* classInfo() const { return &info; }
 
-    bool inherits(JSClassRef) const;
-    
-private:
     void init(ExecState*);
+ 
+    static JSCallbackObject* asCallbackObject(JSValue);
+ 
+    static JSValue JSC_HOST_CALL call(ExecState*, JSObject* functionObject, JSValue thisValue, const ArgList&);
+    static JSObject* construct(ExecState*, JSObject* constructor, const ArgList&);
+   
+    static JSValue staticValueGetter(ExecState*, const Identifier&, const PropertySlot&);
+    static JSValue staticFunctionGetter(ExecState*, const Identifier&, const PropertySlot&);
+    static JSValue callbackGetter(ExecState*, const Identifier&, const PropertySlot&);
+
+    struct JSCallbackObjectData {
+        JSCallbackObjectData(void* privateData, JSClassRef jsClass)
+            : privateData(privateData)
+            , jsClass(jsClass)
+        {
+            JSClassRetain(jsClass);
+        }
+        
+        ~JSCallbackObjectData()
+        {
+            JSClassRelease(jsClass);
+        }
+        
+        void* privateData;
+        JSClassRef jsClass;
+    };
     
-    static JSValue* cachedValueGetter(ExecState*, JSObject*, const Identifier&, const PropertySlot&);
-    static JSValue* staticValueGetter(ExecState*, JSObject*, const Identifier&, const PropertySlot& slot);
-    static JSValue* staticFunctionGetter(ExecState*, JSObject*, const Identifier&, const PropertySlot& slot);
-    static JSValue* callbackGetter(ExecState*, JSObject*, const Identifier&, const PropertySlot&);
-    
-    void* m_privateData;
-    JSClassRef m_class;
+    OwnPtr<JSCallbackObjectData> m_callbackObjectData;
 };
 
-} // namespace KJS
+} // namespace JSC
 
 // include the actual template class implementation
 #include "JSCallbackObjectFunctions.h"

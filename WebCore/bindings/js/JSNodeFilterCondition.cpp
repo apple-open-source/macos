@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2007 Apple Inc. All rights reserved.
+ *  Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -20,41 +20,60 @@
 #include "config.h"
 #include "JSNodeFilterCondition.h"
 
-#include "Document.h"
-#include "Frame.h"
 #include "JSNode.h"
 #include "JSNodeFilter.h"
 #include "NodeFilter.h"
-#include "kjs_proxy.h"
+#include <runtime/JSLock.h>
 
 namespace WebCore {
 
-JSNodeFilterCondition::JSNodeFilterCondition(KJS::JSObject* filter)
+using namespace JSC;
+
+ASSERT_CLASS_FITS_IN_CELL(JSNodeFilterCondition);
+
+JSNodeFilterCondition::JSNodeFilterCondition(JSValue filter)
     : m_filter(filter)
 {
 }
 
 void JSNodeFilterCondition::mark()
 {
-    m_filter->mark();
+    if (!m_filter.marked())
+        m_filter.mark();
 }
 
-short JSNodeFilterCondition::acceptNode(Node* filterNode) const
+short JSNodeFilterCondition::acceptNode(JSC::ExecState* exec, Node* filterNode) const
 {
-    Node* node = filterNode;
-    Frame* frame = node->document()->frame();
-    KJSProxy* proxy = frame->scriptProxy();
-    if (proxy && m_filter->implementsCall()) {
-        KJS::JSLock lock;
-        KJS::ExecState* exec = proxy->globalObject()->globalExec();
-        KJS::List args;
-        args.append(toJS(exec, node));
-        KJS::JSObject* obj = m_filter;
-        KJS::JSValue* result = obj->call(exec, obj, args);
-        return result->toInt32(exec);
-    }
+    JSLock lock(false);
 
-    return NodeFilter::FILTER_REJECT;
+    CallData callData;
+    CallType callType = m_filter.getCallData(callData);
+    if (callType == CallTypeNone)
+        return NodeFilter::FILTER_ACCEPT;
+
+   // The exec argument here should only be null if this was called from a
+   // non-JavaScript language, and this is a JavaScript filter, and the document
+   // in question is not associated with the frame. In that case, we're going to
+   // behave incorrectly, and just reject nodes instead of calling the filter function.
+   // To fix that we'd need to come up with a way to find a suitable JavaScript
+   // execution context for the filter function to run in.
+    if (!exec)
+        return NodeFilter::FILTER_REJECT;
+
+    MarkedArgumentBuffer args;
+    args.append(toJS(exec, filterNode));
+    if (exec->hadException())
+        return NodeFilter::FILTER_REJECT;
+
+    JSValue result = call(exec, m_filter, callType, callData, m_filter, args);
+    if (exec->hadException())
+        return NodeFilter::FILTER_REJECT;
+
+    int intResult = result.toInt32(exec);
+    if (exec->hadException())
+        return NodeFilter::FILTER_REJECT;
+
+    return intResult;
 }
 
 } // namespace WebCore

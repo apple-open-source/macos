@@ -27,10 +27,11 @@
 #include "config.h"
 #include "ContextMenu.h"
 
+#include "ContextMenuController.h"
 #include "CSSComputedStyleDeclaration.h"
 #include "CSSProperty.h"
 #include "CSSPropertyNames.h"
-#include "ContextMenuController.h"
+#include "CString.h"
 #include "Document.h"
 #include "DocumentLoader.h"
 #include "Editor.h"
@@ -40,19 +41,11 @@
 #include "LocalizedStrings.h"
 #include "Node.h"
 #include "Page.h"
-#include "CString.h"
 #include "ResourceRequest.h"
 #include "SelectionController.h"
+#include "Settings.h"
 #include "TextIterator.h"
 #include <memory>
-
-#if PLATFORM(GTK)
-// FIXME: We shouldn't use WebKit from WebCore.
-#include "webkitprivate.h"
-#include "webkitwebview.h"
-#include <glib/gi18n.h>
-#include "NotImplemented.h"
-#endif
 
 using namespace std;
 using namespace WTF;
@@ -119,11 +112,21 @@ static void createAndAppendSpellingAndGrammarSubMenu(const HitTestResult& result
         contextMenuItemTagCheckSpellingWhileTyping());
     ContextMenuItem grammarWithSpelling(CheckableActionType, ContextMenuItemTagCheckGrammarWithSpelling, 
         contextMenuItemTagCheckGrammarWithSpelling());
+#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+    ContextMenuItem correctSpelling(CheckableActionType, ContextMenuItemTagCorrectSpellingAutomatically, 
+        contextMenuItemTagCorrectSpellingAutomatically());
+#endif
 
     spellingAndGrammarMenu.appendItem(showSpellingPanel);
     spellingAndGrammarMenu.appendItem(checkSpelling);
+#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+    spellingAndGrammarMenu.appendItem(*separatorItem());
+#endif
     spellingAndGrammarMenu.appendItem(checkAsYouType);
     spellingAndGrammarMenu.appendItem(grammarWithSpelling);
+#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+    spellingAndGrammarMenu.appendItem(correctSpelling);
+#endif
 
     spellingAndGrammarMenuItem.setSubMenu(&spellingAndGrammarMenu);
 }
@@ -162,95 +165,8 @@ static void createAndAppendSpeechSubMenu(const HitTestResult& result, ContextMen
     speechMenuItem.setSubMenu(&speechMenu);
 }
 #endif
-
-#if PLATFORM(GTK)
-static bool createAndAppendInputMethodsSubMenu(const HitTestResult& result, ContextMenuItem& inputMethodsMenuItem)
-{
-    WebKitWebView* webView = WebKit::kit(result.innerNonSharedNode()->document()->frame()->page());
-    if (!webView)
-        return false;
-
-    GdkScreen* screen = gtk_widget_has_screen(GTK_WIDGET(webView)) ? gtk_widget_get_screen(GTK_WIDGET(webView)) : gdk_screen_get_default();
-    if (!screen)
-        return false;
-
-    GtkSettings* settings = gtk_settings_get_for_screen(screen);
-    gboolean showMenu;
-    g_object_get(G_OBJECT(settings), "gtk-show-input-method-menu", &showMenu, NULL);
-    if (!showMenu)
-        return false;
-
-    WebKitWebViewPrivate* priv = WEBKIT_WEB_VIEW_GET_PRIVATE(webView);
-    GtkWidget* imContextMenu = gtk_menu_new();
-    gtk_im_multicontext_append_menuitems(GTK_IM_MULTICONTEXT(priv->imContext), GTK_MENU_SHELL(imContextMenu));
-
-    ContextMenu inputMethodsMenu(result);
-    inputMethodsMenu.setPlatformDescription(GTK_MENU(imContextMenu));
-    inputMethodsMenuItem.setSubMenu(&inputMethodsMenu);
-
-    return true;
-}
-
-// Values taken from gtktextutil.c
-typedef struct {
-  const char *label;
-  gunichar ch;
-} GtkUnicodeMenuEntry;
-static const GtkUnicodeMenuEntry bidi_menu_entries[] = {
-  { N_("LRM _Left-to-right mark"), 0x200E },
-  { N_("RLM _Right-to-left mark"), 0x200F },
-  { N_("LRE Left-to-right _embedding"), 0x202A },
-  { N_("RLE Right-to-left e_mbedding"), 0x202B },
-  { N_("LRO Left-to-right _override"), 0x202D },
-  { N_("RLO Right-to-left o_verride"), 0x202E },
-  { N_("PDF _Pop directional formatting"), 0x202C },
-  { N_("ZWS _Zero width space"), 0x200B },
-  { N_("ZWJ Zero width _joiner"), 0x200D },
-  { N_("ZWNJ Zero width _non-joiner"), 0x200C }
-};
-
-static void insertControlCharacter(GtkWidget* widget, Frame* frame)
-{
-    GtkUnicodeMenuEntry* entry = (GtkUnicodeMenuEntry*)g_object_get_data(G_OBJECT(widget), "gtk-unicode-menu-entry");
-    notImplemented();
-}
-
-static bool createAndAppendUnicodeSubMenu(const HitTestResult& result, ContextMenuItem& unicodeMenuItem)
-{
-    WebKitWebView* webView = WebKit::kit(result.innerNonSharedNode()->document()->frame()->page());
-    if (!webView)
-        return false;
-
-    GdkScreen* screen = gtk_widget_has_screen(GTK_WIDGET(webView)) ? gtk_widget_get_screen(GTK_WIDGET(webView)) : gdk_screen_get_default();
-    if (!screen)
-        return false;
-
-    GtkSettings* settings = gtk_settings_get_for_screen(screen);
-    gboolean showMenu;
-    g_object_get(G_OBJECT(settings), "gtk-show-unicode-menu", &showMenu, NULL);
-    if (!showMenu)
-        return false;
-
-    GtkWidget* unicodeContextMenu = gtk_menu_new();
-    unsigned i;
-    for (i = 0; i < G_N_ELEMENTS(bidi_menu_entries); i++) {
-        GtkWidget* menuitem = gtk_menu_item_new_with_mnemonic(_(bidi_menu_entries[i].label));
-        g_object_set_data(G_OBJECT(menuitem), "gtk-unicode-menu-entry", (gpointer)&bidi_menu_entries[i]);
-        g_signal_connect(menuitem, "activate", G_CALLBACK(insertControlCharacter), (gpointer)result.innerNonSharedNode()->document()->frame());
-        gtk_widget_show(menuitem);
-        gtk_menu_shell_append(GTK_MENU_SHELL(unicodeContextMenu), menuitem);
-        // FIXME: Make the item sensitive as insertControlCharacter() is implemented
-        gtk_widget_set_sensitive(menuitem, FALSE);
-    }
-
-    ContextMenu unicodeMenu(result);
-    unicodeMenu.setPlatformDescription(GTK_MENU(unicodeContextMenu));
-    unicodeMenuItem.setSubMenu(&unicodeMenu);
-
-    return true;
-}
-#else
-
+ 
+#if !PLATFORM(GTK)
 static void createAndAppendWritingDirectionSubMenu(const HitTestResult& result, ContextMenuItem& writingDirectionMenuItem)
 {
     ContextMenu writingDirectionMenu(result);
@@ -266,12 +182,66 @@ static void createAndAppendWritingDirectionSubMenu(const HitTestResult& result, 
 
     writingDirectionMenuItem.setSubMenu(&writingDirectionMenu);
 }
+
+static void createAndAppendTextDirectionSubMenu(const HitTestResult& result, ContextMenuItem& textDirectionMenuItem)
+{
+    ContextMenu textDirectionMenu(result);
+
+    ContextMenuItem defaultItem(ActionType, ContextMenuItemTagTextDirectionDefault, contextMenuItemTagDefaultDirection());
+    ContextMenuItem ltr(CheckableActionType, ContextMenuItemTagTextDirectionLeftToRight, contextMenuItemTagLeftToRight());
+    ContextMenuItem rtl(CheckableActionType, ContextMenuItemTagTextDirectionRightToLeft, contextMenuItemTagRightToLeft());
+
+    textDirectionMenu.appendItem(defaultItem);
+    textDirectionMenu.appendItem(ltr);
+    textDirectionMenu.appendItem(rtl);
+
+    textDirectionMenuItem.setSubMenu(&textDirectionMenu);
+}
+#endif
+
+#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+static void createAndAppendSubstitutionsSubMenu(const HitTestResult& result, ContextMenuItem& substitutionsMenuItem)
+{
+    ContextMenu substitutionsMenu(result);
+
+    ContextMenuItem showSubstitutions(ActionType, ContextMenuItemTagShowSubstitutions, contextMenuItemTagShowSubstitutions(true));
+    ContextMenuItem smartCopyPaste(CheckableActionType, ContextMenuItemTagSmartCopyPaste, contextMenuItemTagSmartCopyPaste());
+    ContextMenuItem smartQuotes(CheckableActionType, ContextMenuItemTagSmartQuotes, contextMenuItemTagSmartQuotes());
+    ContextMenuItem smartDashes(CheckableActionType, ContextMenuItemTagSmartDashes, contextMenuItemTagSmartDashes());
+    ContextMenuItem smartLinks(CheckableActionType, ContextMenuItemTagSmartLinks, contextMenuItemTagSmartLinks());
+    ContextMenuItem textReplacement(CheckableActionType, ContextMenuItemTagTextReplacement, contextMenuItemTagTextReplacement());
+
+    substitutionsMenu.appendItem(showSubstitutions);
+    substitutionsMenu.appendItem(*separatorItem());
+    substitutionsMenu.appendItem(smartCopyPaste);
+    substitutionsMenu.appendItem(smartQuotes);
+    substitutionsMenu.appendItem(smartDashes);
+    substitutionsMenu.appendItem(smartLinks);
+    substitutionsMenu.appendItem(textReplacement);
+
+    substitutionsMenuItem.setSubMenu(&substitutionsMenu);
+}
+
+static void createAndAppendTransformationsSubMenu(const HitTestResult& result, ContextMenuItem& transformationsMenuItem)
+{
+    ContextMenu transformationsMenu(result);
+
+    ContextMenuItem makeUpperCase(ActionType, ContextMenuItemTagMakeUpperCase, contextMenuItemTagMakeUpperCase());
+    ContextMenuItem makeLowerCase(ActionType, ContextMenuItemTagMakeLowerCase, contextMenuItemTagMakeLowerCase());
+    ContextMenuItem capitalize(ActionType, ContextMenuItemTagCapitalize, contextMenuItemTagCapitalize());
+
+    transformationsMenu.appendItem(makeUpperCase);
+    transformationsMenu.appendItem(makeLowerCase);
+    transformationsMenu.appendItem(capitalize);
+
+    transformationsMenuItem.setSubMenu(&transformationsMenu);
+}
 #endif
 
 static bool selectionContainsPossibleWord(Frame* frame)
 {
     // Current algorithm: look for a character that's not just a separator.
-    for (TextIterator it(frame->selectionController()->toRange().get()); !it.atEnd(); it.advance()) {
+    for (TextIterator it(frame->selection()->toNormalizedRange().get()); !it.atEnd(); it.advance()) {
         int length = it.length();
         const UChar* characters = it.characters();
         for (int i = 0; i < length; ++i)
@@ -331,7 +301,7 @@ void ContextMenu::populate()
     if (!node)
         return;
 #if PLATFORM(GTK)
-    if (!result.isContentEditable() && node->isControl())
+    if (!result.isContentEditable() && (node->isElementNode() && static_cast<Element*>(node)->isFormControlElement()))
         return;
 #endif
     Frame* frame = node->document()->frame();
@@ -401,18 +371,16 @@ void ContextMenu::populate()
             }
         }
     } else { // Make an editing context menu
-        SelectionController* selectionController = frame->selectionController();
-        bool inPasswordField = selectionController->isInPasswordField();
+        SelectionController* selection = frame->selection();
+        bool inPasswordField = selection->isInPasswordField();
         
         if (!inPasswordField) {
             // Consider adding spelling-related or grammar-related context menu items (never both, since a single selected range
             // is never considered a misspelling and bad grammar at the same time)
-            bool misspelling = frame->editor()->isSelectionMisspelled();
-            bool badGrammar = !misspelling && (frame->editor()->isGrammarCheckingEnabled() && frame->editor()->isSelectionUngrammatical());
-            
+            bool misspelling;
+            bool badGrammar;
+            Vector<String> guesses = frame->editor()->guessesForMisspelledOrUngrammaticalSelection(misspelling, badGrammar);
             if (misspelling || badGrammar) {
-                Vector<String> guesses = misspelling ? frame->editor()->guessesForMisspelledSelection()
-                    : frame->editor()->guessesForUngrammaticalSelection();
                 size_t size = guesses.size();
                 if (size == 0) {
                     // If there's bad grammar but no suggestions (e.g., repeated word), just leave off the suggestions
@@ -438,6 +406,16 @@ void ContextMenu::populate()
                 } else
                     appendItem(IgnoreGrammarItem);
                 appendItem(*separatorItem());
+#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+            } else {
+                // If the string was autocorrected, generate a contextual menu item allowing it to be changed back.
+                String replacedString = result.replacedString();
+                if (!replacedString.isEmpty()) {
+                    ContextMenuItem item(ActionType, ContextMenuItemTagChangeBack, contextMenuItemTagChangeBack(replacedString));
+                    appendItem(item);
+                    appendItem(*separatorItem());
+                }
+#endif
             }
         }
 
@@ -488,6 +466,16 @@ void ContextMenu::populate()
             createAndAppendSpellingSubMenu(m_hitTestResult, SpellingMenuItem);
             appendItem(SpellingMenuItem);
 #endif
+#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+            ContextMenuItem substitutionsMenuItem(SubmenuType, ContextMenuItemTagSubstitutionsMenu, 
+                contextMenuItemTagSubstitutionsMenu());
+            createAndAppendSubstitutionsSubMenu(m_hitTestResult, substitutionsMenuItem);
+            appendItem(substitutionsMenuItem);
+            ContextMenuItem transformationsMenuItem(SubmenuType, ContextMenuItemTagTransformationsMenu, 
+                contextMenuItemTagTransformationsMenu());
+            createAndAppendTransformationsSubMenu(m_hitTestResult, transformationsMenuItem);
+            appendItem(transformationsMenuItem);
+#endif
             ContextMenuItem  FontMenuItem(SubmenuType, ContextMenuItemTagFontMenu, 
                 contextMenuItemTagFontMenu());
             createAndAppendFontSubMenu(m_hitTestResult, FontMenuItem);
@@ -498,27 +486,25 @@ void ContextMenu::populate()
             createAndAppendSpeechSubMenu(m_hitTestResult, SpeechMenuItem);
             appendItem(SpeechMenuItem);
 #endif
-#if PLATFORM(GTK)
-        }
-
-        ContextMenuItem InputMethodsMenuItem(ActionType, ContextMenuItemTagInputMethods, contextMenuItemTagInputMethods());
-        bool showInputMethodsMenu = inPasswordField ? false : createAndAppendInputMethodsSubMenu(m_hitTestResult, InputMethodsMenuItem);
-        ContextMenuItem UnicodeMenuItem(ActionType, ContextMenuItemTagUnicode, contextMenuItemTagUnicode());
-        bool showUnicodeMenu = createAndAppendUnicodeSubMenu(m_hitTestResult, UnicodeMenuItem);
-
-        if (showInputMethodsMenu || showUnicodeMenu)
-            appendItem(*separatorItem());
-        if (showInputMethodsMenu)
-            appendItem(InputMethodsMenuItem);
-        if (showUnicodeMenu)
-            appendItem(UnicodeMenuItem);
-#else
+#if !PLATFORM(GTK)
             ContextMenuItem WritingDirectionMenuItem(SubmenuType, ContextMenuItemTagWritingDirectionMenu, 
                 contextMenuItemTagWritingDirectionMenu());
             createAndAppendWritingDirectionSubMenu(m_hitTestResult, WritingDirectionMenuItem);
             appendItem(WritingDirectionMenuItem);
-        }
+            if (Page* page = frame->page()) {
+                if (Settings* settings = page->settings()) {
+                    bool includeTextDirectionSubmenu = settings->textDirectionSubmenuInclusionBehavior() == TextDirectionSubmenuAlwaysIncluded
+                        || (settings->textDirectionSubmenuInclusionBehavior() == TextDirectionSubmenuAutomaticallyIncluded && frame->editor()->hasBidiSelection());
+                    if (includeTextDirectionSubmenu) {
+                        ContextMenuItem TextDirectionMenuItem(SubmenuType, ContextMenuItemTagTextDirectionMenu, 
+                            contextMenuItemTagTextDirectionMenu());
+                        createAndAppendTextDirectionSubMenu(m_hitTestResult, TextDirectionMenuItem);
+                        appendItem(TextDirectionMenuItem);
+                    }
+                }
+            }
 #endif
+        }
     }
 }
 
@@ -569,9 +555,27 @@ void ContextMenu::checkOrEnableIfNeeded(ContextMenuItem& item) const
             ExceptionCode ec = 0;
             RefPtr<CSSStyleDeclaration> style = frame->document()->createCSSStyleDeclaration();
             String direction = item.action() == ContextMenuItemTagLeftToRight ? "ltr" : "rtl";
-            style->setProperty(CSS_PROP_DIRECTION, direction, false, ec);
+            style->setProperty(CSSPropertyDirection, direction, false, ec);
             shouldCheck = frame->editor()->selectionHasStyle(style.get()) != FalseTriState;
             shouldEnable = true;
+            break;
+        }
+        case ContextMenuItemTagTextDirectionDefault: {
+            Editor::Command command = frame->editor()->command("MakeTextWritingDirectionNatural");
+            shouldCheck = command.state() == TrueTriState;
+            shouldEnable = command.isEnabled();
+            break;
+        }
+        case ContextMenuItemTagTextDirectionLeftToRight: {
+            Editor::Command command = frame->editor()->command("MakeTextWritingDirectionLeftToRight");
+            shouldCheck = command.state() == TrueTriState;
+            shouldEnable = command.isEnabled();
+            break;
+        }
+        case ContextMenuItemTagTextDirectionRightToLeft: {
+            Editor::Command command = frame->editor()->command("MakeTextWritingDirectionRightToLeft");
+            shouldCheck = command.state() == TrueTriState;
+            shouldEnable = command.isEnabled();
             break;
         }
         case ContextMenuItemTagCopy:
@@ -582,7 +586,7 @@ void ContextMenu::checkOrEnableIfNeeded(ContextMenuItem& item) const
             break;
         case ContextMenuItemTagIgnoreSpelling:
         case ContextMenuItemTagLearnSpelling:
-            shouldEnable = frame->selectionController()->isRange();
+            shouldEnable = frame->selection()->isRange();
             break;
         case ContextMenuItemTagPaste:
             shouldEnable = frame->editor()->canDHTMLPaste() || frame->editor()->canPaste();
@@ -600,13 +604,13 @@ void ContextMenu::checkOrEnableIfNeeded(ContextMenuItem& item) const
         case ContextMenuItemTagUnderline: {
             ExceptionCode ec = 0;
             RefPtr<CSSStyleDeclaration> style = frame->document()->createCSSStyleDeclaration();
-            style->setProperty(CSS_PROP__WEBKIT_TEXT_DECORATIONS_IN_EFFECT, "underline", false, ec);
+            style->setProperty(CSSPropertyWebkitTextDecorationsInEffect, "underline", false, ec);
             shouldCheck = frame->editor()->selectionHasStyle(style.get()) != FalseTriState;
             shouldEnable = frame->editor()->canEditRichly();
             break;
         }
         case ContextMenuItemTagLookUpInDictionary:
-            shouldEnable = frame->selectionController()->isRange();
+            shouldEnable = frame->selection()->isRange();
             break;
         case ContextMenuItemTagCheckGrammarWithSpelling:
 #ifndef BUILDING_ON_TIGER
@@ -618,7 +622,7 @@ void ContextMenu::checkOrEnableIfNeeded(ContextMenuItem& item) const
         case ContextMenuItemTagItalic: {
             ExceptionCode ec = 0;
             RefPtr<CSSStyleDeclaration> style = frame->document()->createCSSStyleDeclaration();
-            style->setProperty(CSS_PROP_FONT_STYLE, "italic", false, ec);
+            style->setProperty(CSSPropertyFontStyle, "italic", false, ec);
             shouldCheck = frame->editor()->selectionHasStyle(style.get()) != FalseTriState;
             shouldEnable = frame->editor()->canEditRichly();
             break;
@@ -626,7 +630,7 @@ void ContextMenu::checkOrEnableIfNeeded(ContextMenuItem& item) const
         case ContextMenuItemTagBold: {
             ExceptionCode ec = 0;
             RefPtr<CSSStyleDeclaration> style = frame->document()->createCSSStyleDeclaration();
-            style->setProperty(CSS_PROP_FONT_WEIGHT, "bold", false, ec);
+            style->setProperty(CSSPropertyFontWeight, "bold", false, ec);
             shouldCheck = frame->editor()->selectionHasStyle(style.get()) != FalseTriState;
             shouldEnable = frame->editor()->canEditRichly();
             break;
@@ -649,6 +653,56 @@ void ContextMenu::checkOrEnableIfNeeded(ContextMenuItem& item) const
         case ContextMenuItemTagCheckSpellingWhileTyping:
             shouldCheck = frame->editor()->isContinuousSpellCheckingEnabled();
             break;
+#if PLATFORM(MAC)
+        case ContextMenuItemTagSubstitutionsMenu:
+        case ContextMenuItemTagTransformationsMenu:
+            break;
+        case ContextMenuItemTagShowSubstitutions:
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+            if (frame->editor()->substitutionsPanelIsShowing())
+                item.setTitle(contextMenuItemTagShowSubstitutions(false));
+            else
+                item.setTitle(contextMenuItemTagShowSubstitutions(true));
+            shouldEnable = frame->editor()->canEdit();
+#endif
+            break;
+        case ContextMenuItemTagMakeUpperCase:
+        case ContextMenuItemTagMakeLowerCase:
+        case ContextMenuItemTagCapitalize:
+        case ContextMenuItemTagChangeBack:
+            shouldEnable = frame->editor()->canEdit();
+            break;
+        case ContextMenuItemTagCorrectSpellingAutomatically:
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+            shouldCheck = frame->editor()->isAutomaticSpellingCorrectionEnabled();
+#endif
+            break;
+        case ContextMenuItemTagSmartCopyPaste:
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+            shouldCheck = frame->editor()->smartInsertDeleteEnabled();
+#endif
+            break;
+        case ContextMenuItemTagSmartQuotes:
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+            shouldCheck = frame->editor()->isAutomaticQuoteSubstitutionEnabled();
+#endif
+            break;
+        case ContextMenuItemTagSmartDashes:
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+            shouldCheck = frame->editor()->isAutomaticDashSubstitutionEnabled();
+#endif
+            break;
+        case ContextMenuItemTagSmartLinks:
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+            shouldCheck = frame->editor()->isAutomaticLinkDetectionEnabled();
+#endif
+            break;
+        case ContextMenuItemTagTextReplacement:
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+            shouldCheck = frame->editor()->isAutomaticTextReplacementEnabled();
+#endif
+            break;
+#endif
 #if PLATFORM(GTK)
         case ContextMenuItemTagGoBack:
             shouldEnable = frame->loader()->canGoBackOrForward(-1);
@@ -704,6 +758,7 @@ void ContextMenu::checkOrEnableIfNeeded(ContextMenuItem& item) const
         case ContextMenuItemTagStartSpeaking:
         case ContextMenuItemTagStopSpeaking:
         case ContextMenuItemTagWritingDirectionMenu:
+        case ContextMenuItemTagTextDirectionMenu:
         case ContextMenuItemTagPDFSinglePageScrolling:
         case ContextMenuItemTagPDFFacingPagesScrolling:
         case ContextMenuItemTagInspectElement:

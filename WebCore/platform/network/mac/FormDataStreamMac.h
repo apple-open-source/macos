@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005, 2006, 2008 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,9 +34,16 @@
 @class NSMutableURLRequest;
 
 namespace WebCore {
+
     class FormData;
+    class ResourceHandle;
+
     void setHTTPBody(NSMutableURLRequest *, PassRefPtr<FormData>);
-    FormData* httpBodyFromStream(NSInputStream* stream);
-}
+    FormData* httpBodyFromStream(NSInputStream *);
+
+    void associateStreamWithResourceHandle(NSInputStream *, ResourceHandle*);
+    void disassociateStreamWithResourceHandle(NSInputStream *);
+
+} // namespace WebCore
 
 #endif // FormDataStreamMac_h

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,57 +28,66 @@
 #define JSSVGPODTypeWrapper_h
 
 #if ENABLE(SVG)
-
-#include "Frame.h"
-#include <wtf/RefCounted.h>
 #include "SVGElement.h"
-
-#include <wtf/Assertions.h>
-#include <wtf/HashMap.h>
+#include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
 template<typename PODType>
-class JSSVGPODTypeWrapper : public RefCounted<JSSVGPODTypeWrapper<PODType> >
-{
+class JSSVGPODTypeWrapper : public RefCounted<JSSVGPODTypeWrapper<PODType> > {
 public:
     virtual ~JSSVGPODTypeWrapper() { }
 
-    // Getter wrapper
     virtual operator PODType() = 0;
-
-    // Setter wrapper
     virtual void commitChange(PODType, SVGElement*) = 0;
 };
 
+// This file contains JS wrapper objects for SVG datatypes, that are passed around by value
+// in WebCore/svg (aka. 'POD types'). For instance SVGMatrix is mapped to TransformationMatrix, and
+// passed around as const reference. SVG DOM demands these objects to be "live", changes to any
+// of the writable attributes of SVGMatrix need to be reflected in the object which exposed the
+// SVGMatrix object (ie. 'someElement.transform.matrix.a = 50.0', in that case 'SVGTransform').
+// The SVGTransform class stores its "TransformationMatrix m_matrix" object on the stack. If it would
+// be stored as pointer we could just build an auto-generated JSSVG* wrapper object around it
+// and all changes to that object would automatically affect the TransformationMatrix* object stored
+// in the SVGTransform object. For the sake of efficiency and memory we don't pass around any
+// primitive values as pointers, so a custom JS wrapper object is needed for all SVG types, that
+// are internally represented by POD types (SVGRect <-> FloatRect, SVGPoint <-> FloatPoint, ...).
+// Those custom wrappers are called JSSVGPODTypeWrapper and are capable of updating the POD types
+// by taking function pointers to the getter & setter functions of the "creator object", the object
+// which exposed a SVG POD type. For example, the JSSVGPODTypeWrapper object wrapping a SVGMatrix
+// object takes (SVGTransform*, &SVGTransform::matrix, &SVGTransform::setMatrix). A JS call like
+// "someElement.transform.matrix.a = 50.0' causes the JSSVGMatrix object to call SVGTransform::setMatrix,
+// method, which in turn notifies 'someElement' that the 'SVGNames::transformAttr' has changed.
+// That's a short sketch of our SVG DOM implementation.
+
+// Represents a JS wrapper object for SVGAnimated* classes, exposing SVG POD types that contain writable properties
+// (Two cases: SVGAnimatedLength exposing SVGLength, SVGAnimatedRect exposing SVGRect)
+
+#if COMPILER(MSVC)
+// GetterMethod and SetterMethod are each 12 bytes. We have to pack to a size
+// greater than or equal to that to avoid an alignment warning (C4121). 16 is
+// the next-largest size allowed for packing, so we use that.
+#pragma pack(16)
+#endif
 template<typename PODType, typename PODTypeCreator>
-class JSSVGPODTypeWrapperCreatorReadWrite : public JSSVGPODTypeWrapper<PODType>
-{
+class JSSVGDynamicPODTypeWrapper : public JSSVGPODTypeWrapper<PODType> {
 public:
     typedef PODType (PODTypeCreator::*GetterMethod)() const; 
     typedef void (PODTypeCreator::*SetterMethod)(PODType);
 
-    JSSVGPODTypeWrapperCreatorReadWrite(PODTypeCreator* creator, GetterMethod getter, SetterMethod setter)
-        : m_creator(creator)
-        , m_getter(getter)
-        , m_setter(setter)
+    static PassRefPtr<JSSVGDynamicPODTypeWrapper> create(PassRefPtr<PODTypeCreator> creator, GetterMethod getter, SetterMethod setter)
     {
-        ASSERT(creator);
-        ASSERT(getter);
-        ASSERT(setter);
+        return adoptRef(new JSSVGDynamicPODTypeWrapper(creator, getter, setter));
     }
 
-    virtual ~JSSVGPODTypeWrapperCreatorReadWrite() { }
+    virtual operator PODType()
+    {
+        return (m_creator.get()->*m_getter)();
+    }
 
-    // Getter wrapper
-    virtual operator PODType() { return (m_creator.get()->*m_getter)(); }
-
-    // Setter wrapper
     virtual void commitChange(PODType type, SVGElement* context)
     {
-        if (!m_setter)
-            return;
-
         (m_creator.get()->*m_setter)(type);
 
         if (context)
@@ -85,62 +95,146 @@ public:
     }
 
 private:
-    // Update callbacks
-    RefPtr<PODTypeCreator> m_creator;
-    GetterMethod m_getter;
-    SetterMethod m_setter;
-};
-
-template<typename PODType>
-class JSSVGPODTypeWrapperCreatorReadOnly : public JSSVGPODTypeWrapper<PODType>
-{
-public:
-    JSSVGPODTypeWrapperCreatorReadOnly(PODType type)
-        : m_podType(type)
-    { }
-
-    virtual ~JSSVGPODTypeWrapperCreatorReadOnly() { }
-
-    // Getter wrapper
-    virtual operator PODType() { return m_podType; }
-
-    // Setter wrapper
-    virtual void commitChange(PODType type, SVGElement*)
-    {
-        m_podType = type;
-    }
-
-private:
-    PODType m_podType;
-};
-
-template<typename PODType>
-class SVGPODListItem;
-
-template<typename PODType>
-class JSSVGPODTypeWrapperCreatorForList : public JSSVGPODTypeWrapper<PODType>
-{
-public:
-    typedef PODType (SVGPODListItem<PODType>::*GetterMethod)() const; 
-    typedef void (SVGPODListItem<PODType>::*SetterMethod)(PODType);
-
-    JSSVGPODTypeWrapperCreatorForList(SVGPODListItem<PODType>* creator, const QualifiedName& attributeName)
+    JSSVGDynamicPODTypeWrapper(PassRefPtr<PODTypeCreator> creator, GetterMethod getter, SetterMethod setter)
         : m_creator(creator)
-        , m_getter(&SVGPODListItem<PODType>::value)
-        , m_setter(&SVGPODListItem<PODType>::setValue)
-        , m_associatedAttributeName(attributeName)
+        , m_getter(getter)
+        , m_setter(setter)
     {
         ASSERT(m_creator);
         ASSERT(m_getter);
         ASSERT(m_setter);
     }
 
-    virtual ~JSSVGPODTypeWrapperCreatorForList() { }
+    // Update callbacks
+    RefPtr<PODTypeCreator> m_creator;
+    GetterMethod m_getter;
+    SetterMethod m_setter;
+};
 
-    // Getter wrapper
-    virtual operator PODType() { return (m_creator.get()->*m_getter)(); }
+// Represents a JS wrapper object for SVG POD types (not for SVGAnimated* clases). Any modification to the SVG POD
+// types don't cause any updates unlike JSSVGDynamicPODTypeWrapper. This class is used for return values (ie. getBBox())
+// and for properties where SVG specification explicitely states, that the contents of the POD type are immutable.
 
-    // Setter wrapper
+template<typename PODType>
+class JSSVGStaticPODTypeWrapper : public JSSVGPODTypeWrapper<PODType> {
+public:
+    static PassRefPtr<JSSVGStaticPODTypeWrapper> create(PODType type)
+    {
+        return adoptRef(new JSSVGStaticPODTypeWrapper(type));
+    }
+
+    virtual operator PODType()
+    {
+        return m_podType;
+    }
+
+    virtual void commitChange(PODType type, SVGElement*)
+    {
+        m_podType = type;
+    }
+
+protected:
+    JSSVGStaticPODTypeWrapper(PODType type)
+        : m_podType(type)
+    {
+    }
+
+    PODType m_podType;
+};
+
+template<typename PODType, typename ParentTypeArg>
+class JSSVGStaticPODTypeWrapperWithPODTypeParent : public JSSVGStaticPODTypeWrapper<PODType> {
+public:
+    typedef JSSVGPODTypeWrapper<ParentTypeArg> ParentType;
+
+    static PassRefPtr<JSSVGStaticPODTypeWrapperWithPODTypeParent> create(PODType type, PassRefPtr<ParentType> parent)
+    {
+        return adoptRef(new JSSVGStaticPODTypeWrapperWithPODTypeParent(type, parent));
+    }
+
+    virtual void commitChange(PODType type, SVGElement* context)
+    {
+        JSSVGStaticPODTypeWrapper<PODType>::commitChange(type, context);
+        m_parentType->commitChange(ParentTypeArg(type), context);    
+    }
+
+private:
+    JSSVGStaticPODTypeWrapperWithPODTypeParent(PODType type, PassRefPtr<ParentType> parent)
+        : JSSVGStaticPODTypeWrapper<PODType>(type)
+        , m_parentType(parent)
+    {
+    }
+
+    RefPtr<ParentType> m_parentType;
+};
+
+#if COMPILER(MSVC)
+// GetterMethod and SetterMethod are each 12 bytes. We have to pack to a size
+// greater than or equal to that to avoid an alignment warning (C4121). 16 is
+// the next-largest size allowed for packing, so we use that.
+#pragma pack(16)
+#endif
+template<typename PODType, typename ParentType>
+class JSSVGStaticPODTypeWrapperWithParent : public JSSVGPODTypeWrapper<PODType> {
+public:
+    typedef PODType (ParentType::*GetterMethod)() const;
+    typedef void (ParentType::*SetterMethod)(const PODType&);
+
+    static PassRefPtr<JSSVGStaticPODTypeWrapperWithParent> create(PassRefPtr<ParentType> parent, GetterMethod getter, SetterMethod setter)
+    {
+        return adoptRef(new JSSVGStaticPODTypeWrapperWithParent(parent, getter, setter));
+    }
+
+    virtual operator PODType()
+    {
+        return (m_parent.get()->*m_getter)();
+    }
+
+    virtual void commitChange(PODType type, SVGElement*)
+    {
+        (m_parent.get()->*m_setter)(type);
+    }
+
+private:
+    JSSVGStaticPODTypeWrapperWithParent(PassRefPtr<ParentType> parent, GetterMethod getter, SetterMethod setter)
+        : m_parent(parent)
+        , m_getter(getter)
+        , m_setter(setter)
+    {
+        ASSERT(m_parent);
+        ASSERT(m_getter);
+        ASSERT(m_setter);
+    }
+
+    // Update callbacks
+    RefPtr<ParentType> m_parent;
+    GetterMethod m_getter;
+    SetterMethod m_setter;
+};
+
+template<typename PODType>
+class SVGPODListItem;
+
+// Just like JSSVGDynamicPODTypeWrapper, but only used for SVGList* objects wrapping around POD values.
+
+template<typename PODType>
+class JSSVGPODTypeWrapperCreatorForList : public JSSVGPODTypeWrapper<PODType> {
+public:
+    typedef SVGPODListItem<PODType> PODListItemPtrType;
+
+    typedef PODType (SVGPODListItem<PODType>::*GetterMethod)() const; 
+    typedef void (SVGPODListItem<PODType>::*SetterMethod)(PODType);
+
+    static PassRefPtr<JSSVGPODTypeWrapperCreatorForList> create(PassRefPtr<PODListItemPtrType> creator, const QualifiedName& attributeName)
+    {
+        return adoptRef(new JSSVGPODTypeWrapperCreatorForList(creator, attributeName));
+    }
+
+    virtual operator PODType()
+    {
+        return (m_creator.get()->*m_getter)();
+    }
+
     virtual void commitChange(PODType type, SVGElement* context)
     {
         if (!m_setter)
@@ -153,8 +247,19 @@ public:
     }
 
 private:
+    JSSVGPODTypeWrapperCreatorForList(PassRefPtr<PODListItemPtrType> creator, const QualifiedName& attributeName)
+        : m_creator(creator)
+        , m_getter(&PODListItemPtrType::value)
+        , m_setter(&PODListItemPtrType::setValue)
+        , m_associatedAttributeName(attributeName)
+    {
+        ASSERT(m_creator);
+        ASSERT(m_getter);
+        ASSERT(m_setter);
+    }
+
     // Update callbacks
-    RefPtr<SVGPODListItem<PODType> > m_creator;
+    RefPtr<PODListItemPtrType> m_creator;
     GetterMethod m_getter;
     SetterMethod m_setter;
     const QualifiedName& m_associatedAttributeName;
@@ -162,25 +267,31 @@ private:
 
 // Caching facilities
 template<typename PODType, typename PODTypeCreator>
-struct PODTypeReadWriteHashInfo {
+struct PODTypeWrapperCacheInfo {
     typedef PODType (PODTypeCreator::*GetterMethod)() const; 
     typedef void (PODTypeCreator::*SetterMethod)(PODType);
 
     // Empty value
-    PODTypeReadWriteHashInfo()
+    PODTypeWrapperCacheInfo()
         : creator(0)
         , getter(0)
         , setter(0)
-    { }
+    {
+    }
 
     // Deleted value
-    explicit PODTypeReadWriteHashInfo(bool)
+    PODTypeWrapperCacheInfo(WTF::HashTableDeletedValueType)
         : creator(reinterpret_cast<PODTypeCreator*>(-1))
         , getter(0)
         , setter(0)
-    { }
+    {
+    }
+    bool isHashTableDeletedValue() const
+    {
+        return creator == reinterpret_cast<PODTypeCreator*>(-1);
+    }
 
-    PODTypeReadWriteHashInfo(PODTypeCreator* _creator, GetterMethod _getter, SetterMethod _setter)
+    PODTypeWrapperCacheInfo(PODTypeCreator* _creator, GetterMethod _getter, SetterMethod _setter)
         : creator(_creator)
         , getter(_getter)
         , setter(_setter)
@@ -189,7 +300,7 @@ struct PODTypeReadWriteHashInfo {
         ASSERT(getter);
     }
 
-    bool operator==(const PODTypeReadWriteHashInfo& other) const
+    bool operator==(const PODTypeWrapperCacheInfo& other) const
     {
         return creator == other.creator && getter == other.getter && setter == other.setter;
     }
@@ -200,13 +311,15 @@ struct PODTypeReadWriteHashInfo {
 };
 
 template<typename PODType, typename PODTypeCreator>
-struct PODTypeReadWriteHashInfoHash {
-    static unsigned hash(const PODTypeReadWriteHashInfo<PODType, PODTypeCreator>& info)
+struct PODTypeWrapperCacheInfoHash {
+    typedef PODTypeWrapperCacheInfo<PODType, PODTypeCreator> CacheInfo;
+
+    static unsigned hash(const CacheInfo& info)
     {
-        return StringImpl::computeHash((::UChar*) &info, sizeof(PODTypeReadWriteHashInfo<PODType, PODTypeCreator>) / sizeof(::UChar));
+        return StringImpl::computeHash(reinterpret_cast<const UChar*>(&info), sizeof(CacheInfo) / sizeof(UChar));
     }
 
-    static bool equal(const PODTypeReadWriteHashInfo<PODType, PODTypeCreator>& a, const PODTypeReadWriteHashInfo<PODType, PODTypeCreator>& b)
+    static bool equal(const CacheInfo& a, const CacheInfo& b)
     {
         return a == b;
     }
@@ -215,65 +328,76 @@ struct PODTypeReadWriteHashInfoHash {
 };
 
 template<typename PODType, typename PODTypeCreator>
-struct PODTypeReadWriteHashInfoTraits : WTF::GenericHashTraits<PODTypeReadWriteHashInfo<PODType, PODTypeCreator> > {
+struct PODTypeWrapperCacheInfoTraits : WTF::GenericHashTraits<PODTypeWrapperCacheInfo<PODType, PODTypeCreator> > {
+    typedef PODTypeWrapperCacheInfo<PODType, PODTypeCreator> CacheInfo;
+
     static const bool emptyValueIsZero = true;
     static const bool needsDestruction = false;
 
-    static const PODTypeReadWriteHashInfo<PODType, PODTypeCreator>& deletedValue()
+    static const CacheInfo& emptyValue()
     {
-        static PODTypeReadWriteHashInfo<PODType, PODTypeCreator> key(true);
+        DEFINE_STATIC_LOCAL(CacheInfo, key, ());
         return key;
     }
 
-    static const PODTypeReadWriteHashInfo<PODType, PODTypeCreator>& emptyValue()
+    static void constructDeletedValue(CacheInfo& slot)
     {
-        static PODTypeReadWriteHashInfo<PODType, PODTypeCreator> key;
-        return key;
+        new (&slot) CacheInfo(WTF::HashTableDeletedValue);
+    }
+
+    static bool isDeletedValue(const CacheInfo& value)
+    {
+        return value.isHashTableDeletedValue();
     }
 };
 
 template<typename PODType, typename PODTypeCreator>
-class JSSVGPODTypeWrapperCache
-{
+class JSSVGDynamicPODTypeWrapperCache {
 public:
     typedef PODType (PODTypeCreator::*GetterMethod)() const; 
     typedef void (PODTypeCreator::*SetterMethod)(PODType);
 
-    typedef HashMap<PODTypeReadWriteHashInfo<PODType, PODTypeCreator>, JSSVGPODTypeWrapperCreatorReadWrite<PODType, PODTypeCreator>*, PODTypeReadWriteHashInfoHash<PODType, PODTypeCreator>, PODTypeReadWriteHashInfoTraits<PODType, PODTypeCreator> > ReadWriteHashMap;
-    typedef typename ReadWriteHashMap::const_iterator ReadWriteHashMapIterator;
+    typedef PODTypeWrapperCacheInfo<PODType, PODTypeCreator> CacheInfo;
+    typedef PODTypeWrapperCacheInfoHash<PODType, PODTypeCreator> CacheInfoHash;
+    typedef PODTypeWrapperCacheInfoTraits<PODType, PODTypeCreator> CacheInfoTraits;
 
-    static ReadWriteHashMap& readWriteHashMap()
+    typedef JSSVGPODTypeWrapper<PODType> WrapperBase;
+    typedef JSSVGDynamicPODTypeWrapper<PODType, PODTypeCreator> DynamicWrapper;
+    typedef HashMap<CacheInfo, DynamicWrapper*, CacheInfoHash, CacheInfoTraits> DynamicWrapperHashMap;
+    typedef typename DynamicWrapperHashMap::const_iterator DynamicWrapperHashMapIterator;
+
+    static DynamicWrapperHashMap& dynamicWrapperHashMap()
     {
-        static ReadWriteHashMap _readWriteHashMap;
-        return _readWriteHashMap;
+        DEFINE_STATIC_LOCAL(DynamicWrapperHashMap, s_dynamicWrapperHashMap, ());
+        return s_dynamicWrapperHashMap;
     }
 
     // Used for readwrite attributes only
-    static JSSVGPODTypeWrapper<PODType>* lookupOrCreateWrapper(PODTypeCreator* creator, GetterMethod getter, SetterMethod setter)
+    static PassRefPtr<WrapperBase> lookupOrCreateWrapper(PODTypeCreator* creator, GetterMethod getter, SetterMethod setter)
     {
-        ReadWriteHashMap& map(readWriteHashMap());
-        PODTypeReadWriteHashInfo<PODType, PODTypeCreator> info(creator, getter, setter);
+        DynamicWrapperHashMap& map(dynamicWrapperHashMap());
+        CacheInfo info(creator, getter, setter);
 
         if (map.contains(info))
             return map.get(info);
 
-        JSSVGPODTypeWrapperCreatorReadWrite<PODType, PODTypeCreator>* wrapper = new JSSVGPODTypeWrapperCreatorReadWrite<PODType, PODTypeCreator>(creator, getter, setter);
-        map.set(info, wrapper);
-        return wrapper;
+        RefPtr<DynamicWrapper> wrapper = DynamicWrapper::create(creator, getter, setter);
+        map.set(info, wrapper.get());
+        return wrapper.release();
     }
 
-    static void forgetWrapper(JSSVGPODTypeWrapper<PODType>* wrapper)
+    static void forgetWrapper(WrapperBase* wrapper)
     {
-        ReadWriteHashMap& map(readWriteHashMap());
+        DynamicWrapperHashMap& map(dynamicWrapperHashMap());
 
-        ReadWriteHashMapIterator it = map.begin();
-        ReadWriteHashMapIterator end = map.end();
+        DynamicWrapperHashMapIterator it = map.begin();
+        DynamicWrapperHashMapIterator end = map.end();
 
         for (; it != end; ++it) {
             if (it->second != wrapper)
                 continue;
 
-            // It's guaruanteed that there's just one object we need to take care of.
+            // It's guaranteed that there's just one object we need to take care of.
             map.remove(it->first);
             break;
         }

@@ -38,7 +38,7 @@ SVGLengthList::~SVGLengthList()
 {
 }
 
-void SVGLengthList::parse(const String& value, const SVGStyledElement* context, SVGLengthMode mode)
+void SVGLengthList::parse(const String& value, SVGLengthMode mode)
 {
     ExceptionCode ec = 0;
     clear(ec);
@@ -51,12 +51,28 @@ void SVGLengthList::parse(const String& value, const SVGStyledElement* context, 
             ptr++;
         if (ptr == start)
             break;
-        SVGLength length(context, mode);
+        SVGLength length(mode);
         if (!length.setValueAsString(String(start, ptr - start)))
             return;
         appendItem(length, ec);
         skipOptionalSpacesOrDelimiter(ptr, end);
     }
+}
+
+String SVGLengthList::valueAsString() const
+{
+    String result;
+
+    ExceptionCode ec = 0;
+    for (unsigned int i = 0; i < numberOfItems(); ++i) {
+        if (i > 0)
+            result += ", ";
+
+        result += getItem(i, ec).valueAsString();
+        ASSERT(ec == 0);
+    }
+
+    return result;
 }
 
 }

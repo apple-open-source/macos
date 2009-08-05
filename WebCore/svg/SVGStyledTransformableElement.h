@@ -24,13 +24,15 @@
 #define SVGStyledTransformableElement_h
 
 #if ENABLE(SVG)
+#include "Path.h"
 #include "SVGStyledLocatableElement.h"
 #include "SVGTransformable.h"
 
 namespace WebCore {
 
-    class AffineTransform;
-    class SVGTransformList;
+    extern char SVGStyledTransformableElementIdentifier[];
+
+    class TransformationMatrix;
 
     class SVGStyledTransformableElement : public SVGStyledLocatableElement,
                                           public SVGTransformable {
@@ -40,12 +42,13 @@ namespace WebCore {
         
         virtual bool isStyledTransformable() const { return true; }
 
-        virtual AffineTransform getCTM() const;
-        virtual AffineTransform getScreenCTM() const;
+        virtual TransformationMatrix getCTM() const;
+        virtual TransformationMatrix getScreenCTM() const;
         virtual SVGElement* nearestViewportElement() const;
         virtual SVGElement* farthestViewportElement() const;
         
-        virtual AffineTransform animatedLocalTransform() const;
+        virtual TransformationMatrix animatedLocalTransform() const;
+        virtual TransformationMatrix* supplementalTransform();
 
         virtual FloatRect getBBox() const;
 
@@ -54,11 +57,16 @@ namespace WebCore {
 
         // "base class" methods for all the elements which render as paths
         virtual Path toPathData() const { return Path(); }
-        virtual Path toClipPath() const { return toPathData(); }
+        virtual Path toClipPath() const;
         virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
 
     protected:
-        ANIMATED_PROPERTY_DECLARATIONS(SVGStyledTransformableElement, SVGTransformList*, RefPtr<SVGTransformList>, Transform, transform)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGStyledTransformableElement, SVGStyledTransformableElementIdentifier,
+                                       SVGNames::transformAttrString, SVGTransformList, Transform, transform)
+
+    private:
+        // Used by <animateMotion>
+        OwnPtr<TransformationMatrix> m_supplementalTransform;
     };
 
 } // namespace WebCore

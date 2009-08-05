@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,11 +26,11 @@
 #include "config.h"
 #include "Clipboard.h"
 
+#include "CachedImage.h"
 #include "DOMImplementation.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "Image.h"
-#include "PluginInfoStore.h"
 
 namespace WebCore {
 
@@ -124,15 +124,20 @@ void Clipboard::setDestinationOperation(DragOperation op)
 
 void Clipboard::setDropEffect(const String &effect)
 {
-    if (m_policy == ClipboardReadable || m_policy == ClipboardTypesReadable) {
+    if (!m_forDragging)
+        return;
+
+    if (m_policy == ClipboardReadable || m_policy == ClipboardTypesReadable)
         m_dropEffect = effect;
-    }
 }
 
 void Clipboard::setEffectAllowed(const String &effect)
 {
+    if (!m_forDragging)
+        return;
+
     if (m_policy == ClipboardWritable)
         m_effectAllowed = effect;
 }
 
-}
+} // namespace WebCore

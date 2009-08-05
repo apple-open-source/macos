@@ -1,6 +1,7 @@
 /*
    Copyright (C) 2007 Eric Seidel <eric@webkit.org>
    Copyright (C) 2007 Nikolas Zimmermann <zimmermann@kde.org>
+   Copyright (C) 2008 Apple Inc. All rights reserved.
 
    This library is free software; you can redistribute it and/or
    modify it under the terms of the GNU Library General Public
@@ -37,8 +38,9 @@ namespace WebCore {
 
         virtual void parseMappedAttribute(MappedAttribute*);
 
-        virtual void childrenChanged(bool changedByParser = false);
+        virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
         virtual void insertedIntoDocument();
+        virtual void removedFromDocument();
 
         unsigned unitsPerEm() const;
         int xHeight() const;
@@ -52,14 +54,15 @@ namespace WebCore {
         int descent() const;
         String fontFamily() const;
 
-        SVGFontElement* associatedFontElement() const;
+        SVGFontElement* associatedFontElement() const { return m_fontElement; }
         void rebuildFontFace();
+        void removeFromMappedElementSheet();
 
     private:
         RefPtr<CSSFontFaceRule> m_fontFaceRule;
         RefPtr<CSSMutableStyleDeclaration> m_styleDeclaration;
 
-        RefPtr<SVGFontElement> m_fontElement;
+        SVGFontElement* m_fontElement;
     };
 
 } // namespace WebCore

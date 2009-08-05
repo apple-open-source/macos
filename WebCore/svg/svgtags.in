@@ -1,14 +1,22 @@
+namespace="SVG"
+namespaceURI="http://www.w3.org/2000/svg"
+guardFactoryWith="ENABLE(SVG)"
+exportStrings
+
 a
-#if 0 
+#if ENABLE_SVG_FONTS
 altGlyph
+#endif
+#if 0
 altGlyphDef
 altGlyphItem
 #endif
-#ifdef ENABLE_SVG_ANIMATION
+#if ENABLE_SVG_ANIMATION
 animate
 animateColor
-animateMotion
+animateMotion JSInterfaceName=SVGElement
 animateTransform
+set
 #endif
 circle
 clipPath
@@ -22,7 +30,7 @@ definition_src
 defs
 desc
 ellipse
-#ifdef ENABLE_SVG_FILTERS
+#if ENABLE_SVG_FILTERS
 feBlend
 feColorMatrix
 feComponentTransfer
@@ -53,7 +61,7 @@ feTile
 feTurbulence
 filter
 #endif
-#ifdef ENABLE_SVG_FONTS
+#if ENABLE_SVG_FONTS
 font
 font_face
 font_face_format
@@ -61,16 +69,18 @@ font_face_name
 font_face_src
 font_face_uri
 #endif
-#ifdef ENABLE_SVG_FOREIGN_OBJECT
+#if ENABLE_SVG_FOREIGN_OBJECT
 foreignObject
 #endif
 g
-#ifdef ENABLE_SVG_FONTS
+#if ENABLE_SVG_FONTS
 glyph
 #endif
 #if 0
 glyphRef
-hkern
+#endif
+#if ENABLE_SVG_FONTS
+hkern interfaceName=SVGHKernElement, JSInterfaceName=SVGElement
 #endif
 image
 line
@@ -78,30 +88,29 @@ linearGradient
 marker
 mask
 metadata
-#ifdef ENABLE_SVG_FONTS
+#if ENABLE_SVG_FONTS
 missing_glyph
 #endif
-mpath
+mpath interfaceName=SVGMPathElement, JSInterfaceName=SVGElement
 path
 pattern
 polygon
 polyline
 radialGradient
 rect
-script
-set
+script constructorNeedsCreatedByParser
 stop
-style
-svg
+style constructorNeedsCreatedByParser
+svg interfaceName=SVGSVGElement
 switch
 symbol
 text
 textPath
 title
-tref
-tspan
+tref interfaceName=SVGTRefElement
+tspan interfaceName=SVGTSpanElement
 use
 view
 #if 0
-vkern
+vkern interfaceName=SVGVKernElement
 #endif

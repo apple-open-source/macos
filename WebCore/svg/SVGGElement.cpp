@@ -49,6 +49,7 @@ void SVGGElement::parseMappedAttribute(MappedAttribute* attr)
         return;
     if (SVGExternalResourcesRequired::parseMappedAttribute(attr))
         return;
+
     SVGStyledTransformableElement::parseMappedAttribute(attr);
 }
 
@@ -59,23 +60,22 @@ void SVGGElement::svgAttributeChanged(const QualifiedName& attrName)
     if (!renderer())
         return;
 
-    if (attrName == SVGNames::clipPathUnitsAttr ||
-        SVGTests::isKnownAttribute(attrName) || 
+    if (SVGTests::isKnownAttribute(attrName) || 
         SVGLangSpace::isKnownAttribute(attrName) ||
         SVGExternalResourcesRequired::isKnownAttribute(attrName) ||
         SVGStyledTransformableElement::isKnownAttribute(attrName))
         renderer()->setNeedsLayout(true);
 }
 
-void SVGGElement::childrenChanged(bool changedByParser)
+void SVGGElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
 {
-    SVGStyledTransformableElement::childrenChanged(changedByParser);
+    SVGStyledTransformableElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
 
     if (renderer())
         renderer()->setNeedsLayout(true);
 }
 
-RenderObject* SVGGElement::createRenderer(RenderArena* arena, RenderStyle* style)
+RenderObject* SVGGElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
     return new (arena) RenderSVGTransformableContainer(this);
 }

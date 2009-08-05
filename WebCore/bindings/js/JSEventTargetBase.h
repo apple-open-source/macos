@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  *           (C) 2007 Nikolas Zimmermann <zimmermann@kde.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,129 +27,66 @@
 #ifndef JSEventTargetBase_h
 #define JSEventTargetBase_h
 
-#include "Document.h"
 #include "Event.h"
 #include "EventNames.h"
 #include "JSEvent.h"
-#include "kjs_events.h"
-#include "kjs_window.h"
 
-namespace KJS {
+#define JS_EVENT_LISTENER_FOR_EACH_LISTENER(specificEventTarget, macro) \
+    macro(specificEventTarget, OnAbort, abortEvent) \
+    macro(specificEventTarget, OnBlur, blurEvent) \
+    macro(specificEventTarget, OnChange, changeEvent) \
+    macro(specificEventTarget, OnClick, clickEvent) \
+    macro(specificEventTarget, OnContextMenu, contextmenuEvent) \
+    macro(specificEventTarget, OnDblClick, dblclickEvent) \
+    macro(specificEventTarget, OnError, errorEvent) \
+    macro(specificEventTarget, OnFocus, focusEvent) \
+    macro(specificEventTarget, OnInput, inputEvent) \
+    macro(specificEventTarget, OnKeyDown, keydownEvent) \
+    macro(specificEventTarget, OnKeyPress, keypressEvent) \
+    macro(specificEventTarget, OnKeyUp, keyupEvent) \
+    macro(specificEventTarget, OnLoad, loadEvent) \
+    macro(specificEventTarget, OnMouseDown, mousedownEvent) \
+    macro(specificEventTarget, OnMouseMove, mousemoveEvent) \
+    macro(specificEventTarget, OnMouseOut, mouseoutEvent) \
+    macro(specificEventTarget, OnMouseOver, mouseoverEvent) \
+    macro(specificEventTarget, OnMouseUp, mouseupEvent) \
+    macro(specificEventTarget, OnMouseWheel, mousewheelEvent) \
+    macro(specificEventTarget, OnBeforeCut, beforecutEvent) \
+    macro(specificEventTarget, OnCut, cutEvent) \
+    macro(specificEventTarget, OnBeforeCopy, beforecopyEvent) \
+    macro(specificEventTarget, OnCopy, copyEvent) \
+    macro(specificEventTarget, OnBeforePaste, beforepasteEvent) \
+    macro(specificEventTarget, OnPaste, pasteEvent) \
+    macro(specificEventTarget, OnDragEnter, dragenterEvent) \
+    macro(specificEventTarget, OnDragOver, dragoverEvent) \
+    macro(specificEventTarget, OnDragLeave, dragleaveEvent) \
+    macro(specificEventTarget, OnDrop, dropEvent) \
+    macro(specificEventTarget, OnDragStart, dragstartEvent) \
+    macro(specificEventTarget, OnDrag, dragEvent) \
+    macro(specificEventTarget, OnDragEnd, dragendEvent) \
+    macro(specificEventTarget, OnReset, resetEvent) \
+    macro(specificEventTarget, OnResize, resizeEvent) \
+    macro(specificEventTarget, OnScroll, scrollEvent) \
+    macro(specificEventTarget, OnSearch, searchEvent) \
+    macro(specificEventTarget, OnSelect, selectEvent) \
+    macro(specificEventTarget, OnSelectStart, selectstartEvent) \
+    macro(specificEventTarget, OnSubmit, submitEvent) \
+    macro(specificEventTarget, OnUnload, unloadEvent) \
 
-    extern const struct HashTable JSEventTargetPropertiesTable;
-    extern const struct HashTable JSEventTargetPrototypeTable;
+#define EVENT_LISTENER_GETTER(specificEventTarget, name, event) \
+JSC::JSValue js##specificEventTarget##name(JSC::ExecState*, const JSC::Identifier&, const JSC::PropertySlot& slot) \
+{ \
+    return static_cast<JS##specificEventTarget*>(slot.slotBase())->getListener(event); \
+} \
 
-}
+#define EVENT_LISTENER_SETTER(specificEventTarget, name, event) \
+void setJS##specificEventTarget##name(JSC::ExecState* exec, JSC::JSObject* baseObject, JSC::JSValue value) \
+{ \
+    static_cast<JS##specificEventTarget*>(baseObject)->setListener(exec, event, value); \
+} \
 
-namespace WebCore {
-
-    using namespace EventNames;
-
-    class AtomicString;
-    class EventTarget;
-
-    // Event target properties (shared across all JSEventTarget* classes)
-    struct JSEventTargetProperties {
-        enum {
-            AddEventListener, RemoveEventListener, DispatchEvent,
-            OnAbort, OnBlur, OnChange, OnClick, OnContextMenu, OnDblClick, OnError,
-            OnDragEnter, OnDragOver, OnDragLeave, OnDrop, OnDragStart, OnDrag, OnDragEnd,
-            OnBeforeCut, OnCut, OnBeforeCopy, OnCopy, OnBeforePaste, OnPaste, OnSelectStart,
-            OnFocus, OnInput, OnKeyDown, OnKeyPress, OnKeyUp, OnLoad, OnMouseDown,
-            OnMouseMove, OnMouseOut, OnMouseOver, OnMouseUp, OnMouseWheel, OnReset,
-            OnResize, OnScroll, OnSearch, OnSelect, OnSubmit, OnUnload
-        };
-    };
-
-    // Helper function for the partial specializated template functions below 
-    bool retrieveEventTargetAndCorrespondingNode(KJS::ExecState*, KJS::JSObject* thisObj, Node*&, EventTarget*&);
-
-    // Functions
-    KJS::JSValue* jsEventTargetAddEventListener(KJS::ExecState*, KJS::JSObject*, const KJS::List&);
-    KJS::JSValue* jsEventTargetRemoveEventListener(KJS::ExecState*, KJS::JSObject*, const KJS::List&);
-    KJS::JSValue* jsEventTargetDispatchEvent(KJS::ExecState*, KJS::JSObject*, const KJS::List&);
-
-    // Helper function for getValueProperty/putValueProperty
-    AtomicString eventNameForPropertyToken(int token);
-
-    template<class JSEventTarget>
-    class JSEventTargetBase {
-    public:
-        JSEventTargetBase() { }
-
-        KJS::JSValue* getValueProperty(const JSEventTarget* owner, KJS::ExecState* exec, int token) const
-        {
-            AtomicString eventName = eventNameForPropertyToken(token);
-            if (!eventName.isEmpty())
-                return owner->getListener(eventName);
-
-            return KJS::jsUndefined();
-        }
-
-        void putValueProperty(const JSEventTarget* owner, KJS::ExecState* exec, int token, KJS::JSValue* value, int attr)
-        {
-            AtomicString eventName = eventNameForPropertyToken(token);
-            if (!eventName.isEmpty())
-                owner->setListener(exec, eventName, value);
-        }
-
-    private:
-        friend class JSEventTargetNode;
-        friend class JSEventTargetSVGElementInstance;
-
-        template<class JSParent>
-        bool getOwnPropertySlot(JSEventTarget* owner, KJS::ExecState* exec, const KJS::Identifier& propertyName, KJS::PropertySlot& slot)
-        {
-            return KJS::getStaticValueSlot<JSEventTarget, JSParent>(exec, &KJS::JSEventTargetPropertiesTable, owner, propertyName, slot);
-        }
-
-        template<class JSParent>
-        void put(JSEventTarget* owner, KJS::ExecState* exec, const KJS::Identifier& propertyName, KJS::JSValue* value, int attr)
-        {
-            KJS::lookupPut<JSEventTarget, JSParent>(exec, propertyName, value, attr, &KJS::JSEventTargetPropertiesTable, owner);
-        }
-    };
-
-    // This class is a modified version of the code the KJS_DEFINE_PROTOTYPE_WITH_PROTOTYPE
-    // and KJS_IMPLEMENT_PROTOTYPE macros produce - the idea is that classes like JSEventTargetNode
-    // and JSEventTargetSVGElementInstance can share a single prototype just differing in the
-    // naming "EventTargetNodePrototype" vs "EventTargetSVGElementInstancePrototype". Above mentioned
-    // macros force the existance of several prototype tables for each of the classes - avoid that.
-    template<class JSEventTargetPrototypeParent, class JSEventTargetPrototypeInformation>
-    class JSEventTargetPrototype : public KJS::JSObject {
-    public:
-        JSEventTargetPrototype(KJS::ExecState* exec)
-            : KJS::JSObject(JSEventTargetPrototypeParent::self(exec))
-        {
-        }
-
-        static KJS::JSObject* self(KJS::ExecState* exec)
-        {
-            static KJS::Identifier* prototypeName = new KJS::Identifier(JSEventTargetPrototypeInformation::prototypeClassName());
-
-            KJS::JSGlobalObject* globalObject = exec->lexicalGlobalObject();
-            if (KJS::JSValue* objectValue = globalObject->getDirect(*prototypeName)) {
-                ASSERT(objectValue->isObject());
-                return static_cast<KJS::JSObject*>(objectValue);
-            }
-
-            KJS::JSObject* newObject = new JSEventTargetPrototype<JSEventTargetPrototypeParent, JSEventTargetPrototypeInformation>(exec);
-            globalObject->putDirect(*prototypeName, newObject, KJS::Internal | KJS::DontEnum);
-            return newObject;
-        }
-
-        bool getOwnPropertySlot(KJS::ExecState* exec, const KJS::Identifier& propertyName, KJS::PropertySlot& slot)
-        {
-            return KJS::getStaticFunctionSlot<KJS::JSObject>(exec, &KJS::JSEventTargetPrototypeTable, this, propertyName, slot);
-        }
-
-        virtual const KJS::ClassInfo* classInfo() const
-        {
-            static const KJS::ClassInfo s_classInfo = { JSEventTargetPrototypeInformation::prototypeClassName(), 0, &KJS::JSEventTargetPrototypeTable };
-            return &s_classInfo;
-        }
-    };
-
-} // namespace WebCore
+#define DECLARE_JS_EVENT_LISTENERS(specificEventTarget) \
+    JS_EVENT_LISTENER_FOR_EACH_LISTENER(specificEventTarget, EVENT_LISTENER_GETTER) \
+    JS_EVENT_LISTENER_FOR_EACH_LISTENER(specificEventTarget, EVENT_LISTENER_SETTER) \
 
 #endif // JSEventTargetBase_h

@@ -26,11 +26,11 @@
 #include "config.h"
 #include "Image.h"
 
-#include "AffineTransform.h"
 #include "BitmapImage.h"
+#include "FloatConversion.h"
 #include "FloatRect.h"
 #include "GraphicsContext.h"
-#include "NotImplemented.h"
+#include "TransformationMatrix.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -52,27 +52,30 @@ namespace WebCore {
 // this is in GraphicsContextWx.cpp
 int getWxCompositingOperation(CompositeOperator op, bool hasAlpha);
 
-void FrameData::clear()
+bool FrameData::clear(bool clearMetadata)
 {
+    if (clearMetadata)
+        m_haveMetadata = false;
+
     if (m_frame) {
         delete m_frame;
         m_frame = 0;
-        m_duration = 0.;
-        m_hasAlpha = true;
+        return true;
     }
+    return false;
 }
 
 // ================================================
 // Image Class
 // ================================================
 
-Image* Image::loadPlatformResource(const char *name)
+PassRefPtr<Image> Image::loadPlatformResource(const char *name)
 {
     Vector<char> arr = loadResourceIntoArray(name);
-    Image* img = new BitmapImage();
-    RefPtr<SharedBuffer> buffer = new SharedBuffer(arr.data(), arr.size());
+    RefPtr<Image> img = BitmapImage::create();
+    RefPtr<SharedBuffer> buffer = SharedBuffer::create(arr.data(), arr.size());
     img->setData(buffer, true);
-    return img;
+    return img.release();
 }
 
 void BitmapImage::initPlatformData()
@@ -87,30 +90,71 @@ void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& dst, const FloatR
     if (!m_source.initialized())
         return;
 
+    if (mayFillWithSolidColor()) {
+        fillWithSolidColor(ctxt, dst, solidColor(), op);
+        return;
+    }
+
 #if USE(WXGC)
     wxGCDC* context = (wxGCDC*)ctxt->platformContext();
+    wxGraphicsContext* gc = context->GetGraphicsContext();
+    wxGraphicsBitmap* bitmap = frameAtIndex(m_currentFrame);
 #else
     wxWindowDC* context = ctxt->platformContext();
+    wxBitmap* bitmap = frameAtIndex(m_currentFrame);
 #endif
 
-    wxBitmap* bitmap = frameAtIndex(m_currentFrame);
+    startAnimation();
     if (!bitmap) // If it's too early we won't have an image yet.
         return;
-
-    IntSize selfSize = size();                
-    FloatRect srcRect(src);
-    FloatRect dstRect(dst);
     
     // If we're drawing a sub portion of the image or scaling then create
     // a pattern transformation on the image and draw the transformed pattern.
     // Test using example site at http://www.meyerweb.com/eric/css/edge/complexspiral/demo.html
     // FIXME: NYI
    
+    ctxt->save();
+
+    // Set the compositing operation.
+    ctxt->setCompositeOperation(op);
+    
+#if USE(WXGC)
+    float scaleX = src.width() / dst.width();
+    float scaleY = src.height() / dst.height();
+
+    FloatRect adjustedDestRect = dst;
+    FloatSize selfSize = currentFrameSize();
+    
+    if (src.size() != selfSize) {
+        adjustedDestRect.setLocation(FloatPoint(dst.x() - src.x() / scaleX, dst.y() - src.y() / scaleY));
+        adjustedDestRect.setSize(FloatSize(selfSize.width() / scaleX, selfSize.height() / scaleY));
+    }
+
+    gc->Clip(dst.x(), dst.y(), dst.width(), dst.height());
+#if wxCHECK_VERSION(2,9,0)
+    gc->DrawBitmap(*bitmap, adjustedDestRect.x(), adjustedDestRect.y(), adjustedDestRect.width(), adjustedDestRect.height());
+#else
+    gc->DrawGraphicsBitmap(*bitmap, adjustedDestRect.x(), adjustedDestRect.y(), adjustedDestRect.width(), adjustedDestRect.height());
+#endif
+
+#else // USE(WXGC)
+    IntRect srcIntRect(src);
+    IntRect dstIntRect(dst);
+    bool rescaling = false;
+    if ((dstIntRect.width() != srcIntRect.width()) || (dstIntRect.height() != srcIntRect.height()))
+    {
+        rescaling = true;
+        wxImage img = bitmap->ConvertToImage();
+        img.Rescale(dstIntRect.width(), dstIntRect.height());
+        bitmap = new wxBitmap(img);
+    } 
+    
     wxMemoryDC mydc; 
     ASSERT(bitmap->GetRefData());
     mydc.SelectObject(*bitmap); 
-    context->Blit((wxCoord)dst.x(),(wxCoord)dst.y(), (wxCoord)dst.width(), (wxCoord)dst.height(), &mydc, 
-                    (wxCoord)src.x(), (wxCoord)src.y(), wxCOPY, true); 
+    
+    context->Blit((wxCoord)dstIntRect.x(),(wxCoord)dstIntRect.y(), (wxCoord)dstIntRect.width(), (wxCoord)dstIntRect.height(), &mydc, 
+                    (wxCoord)srcIntRect.x(), (wxCoord)srcIntRect.y(), wxCOPY, true); 
     mydc.SelectObject(wxNullBitmap);
     
     // NB: delete is causing crashes during page load, but not during the deletion
@@ -118,50 +162,78 @@ void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& dst, const FloatR
     // suddenly becomes invalid after returning. It's possible these errors deal
     // with reentrancy and threding problems.
     //delete bitmap;
-    startAnimation();
+    if (rescaling)
+    {
+        delete bitmap;
+        bitmap = NULL;
+    }
+#endif
+
+    ctxt->restore();
 }
 
-
-void BitmapImage::drawPattern(GraphicsContext* ctxt, const FloatRect& srcRect, const AffineTransform& patternTransform, const FloatPoint& phase, CompositeOperator, const FloatRect& dstRect)
+void BitmapImage::drawPattern(GraphicsContext* ctxt, const FloatRect& srcRect, const TransformationMatrix& patternTransform, const FloatPoint& phase, CompositeOperator, const FloatRect& dstRect)
 {
     if (!m_source.initialized())
         return;
 
 #if USE(WXGC)
     wxGCDC* context = (wxGCDC*)ctxt->platformContext();
+    wxGraphicsBitmap* bitmap = frameAtIndex(m_currentFrame);
 #else
     wxWindowDC* context = ctxt->platformContext();
+    wxBitmap* bitmap = frameAtIndex(m_currentFrame);
 #endif
+
+    if (!bitmap) // If it's too early we won't have an image yet.
+        return;
 
     ctxt->save();
     ctxt->clip(IntRect(dstRect.x(), dstRect.y(), dstRect.width(), dstRect.height()));
-    wxBitmap* bitmap = frameAtIndex(m_currentFrame);
-    if (!bitmap) // If it's too early we won't have an image yet.
-        return;
     
     float currentW = 0;
     float currentH = 0;
     
 #if USE(WXGC)
     wxGraphicsContext* gc = context->GetGraphicsContext();
-    gc->ConcatTransform(patternTransform);
-#endif
 
+    float adjustedX = phase.x() + srcRect.x() *
+                      narrowPrecisionToFloat(patternTransform.a());
+    float adjustedY = phase.y() + srcRect.y() *
+                      narrowPrecisionToFloat(patternTransform.d());
+                      
+    gc->ConcatTransform(patternTransform);
+#else
     wxMemoryDC mydc;
     mydc.SelectObject(*bitmap);
+#endif
 
-    while ( currentW < dstRect.width() ) {
-        while ( currentH < dstRect.height() ) {
+    wxPoint origin(context->GetDeviceOrigin());
+    wxSize clientSize(context->GetSize());
+
+    while ( currentW < dstRect.width()  && currentW < clientSize.x - origin.x ) {
+        while ( currentH < dstRect.height() && currentH < clientSize.y - origin.y) {
+#if USE(WXGC)
+#if wxCHECK_VERSION(2,9,0)
+            gc->DrawBitmap(*bitmap, adjustedX + currentW, adjustedY + currentH, (wxDouble)srcRect.width(), (wxDouble)srcRect.height());
+#else
+            gc->DrawGraphicsBitmap(*bitmap, adjustedX + currentW, adjustedY + currentH, (wxDouble)srcRect.width(), (wxDouble)srcRect.height());
+#endif
+#else
             context->Blit((wxCoord)dstRect.x() + currentW, (wxCoord)dstRect.y() + currentH,  
                             (wxCoord)srcRect.width(), (wxCoord)srcRect.height(), &mydc, 
                             (wxCoord)srcRect.x(), (wxCoord)srcRect.y(), wxCOPY, true); 
+#endif
             currentH += srcRect.height();
         }
         currentW += srcRect.width();
         currentH = 0;
     }
     ctxt->restore();
+
+#if !USE(WXGC)
     mydc.SelectObject(wxNullBitmap);
+#endif    
     
     // NB: delete is causing crashes during page load, but not during the deletion
     // itself. It occurs later on when a valid bitmap created in frameAtIndex
@@ -175,7 +247,7 @@ void BitmapImage::drawPattern(GraphicsContext* ctxt, const FloatRect& srcRect, c
 
 void BitmapImage::checkForSolidColor()
 {
-
+    m_checkedForSolidColor = true;
 }
 
 void BitmapImage::invalidatePlatformData()

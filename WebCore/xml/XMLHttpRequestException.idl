@@ -29,20 +29,22 @@
 module xml {
 
     interface [
-        GenerateConstructor
+        GenerateConstructor,
+        NoStaticTables
     ] XMLHttpRequestException {
 
         readonly attribute unsigned short   code;
         readonly attribute DOMString        name;
         readonly attribute DOMString        message;
 
-#if defined(LANGUAGE_JAVASCRIPT)
+#if defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
         // Override in a Mozilla compatible format
         [DontEnum] DOMString toString();
 #endif
 
         // XMLHttpRequestExceptionCode
         const unsigned short NETWORK_ERR = 101;
+        const unsigned short ABORT_ERR = 102;
     };
 
 }

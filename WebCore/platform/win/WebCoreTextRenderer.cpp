@@ -52,10 +52,8 @@ static void doDrawTextAtPoint(GraphicsContext& context, const String& text, cons
     context.setFillColor(color);
     if (isOneLeftToRightRun(run))
         font.drawText(&context, run, point);
-    else {
-        context.setFont(font);
-        context.drawBidiText(run, point);
-    }
+    else
+        context.drawBidiText(font, run, point);
 
     if (underlinedIndex >= 0) {
         ASSERT(underlinedIndex < static_cast<int>(text.length()));
@@ -113,6 +111,16 @@ void WebCoreSetShouldUseFontSmoothing(bool smooth)
 bool WebCoreShouldUseFontSmoothing()
 {
     return shouldUseFontSmoothing;
+}
+
+void WebCoreSetAlwaysUsesComplexTextCodePath(bool complex)
+{
+    Font::setCodePath(complex ? Font::Complex : Font::Auto);
+}
+
+bool WebCoreAlwaysUsesComplexTextCodePath()
+{
+    return Font::codePath() == Font::Complex;
 }
 
 } // namespace WebCore

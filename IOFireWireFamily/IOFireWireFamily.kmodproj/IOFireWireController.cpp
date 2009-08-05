@@ -1501,10 +1501,18 @@ void IOFireWireController::doBusReset( void )
 	
 	status = fFWIM->resetBus( useIBR );
 
-	if( fWaitingForSelfID > kMaxWaitForValidSelfID )
+	if( status == kIOReturnSuccess )
 	{
-		fFWIM->notifyInvalidSelfIDs();
-		fWaitingForSelfID = 0;
+		if( fWaitingForSelfID > kMaxWaitForValidSelfID )
+		{
+			fFWIM->notifyInvalidSelfIDs();
+			fWaitingForSelfID = 0;
+		}
+	}
+	else
+	{
+		fDelayedStateChangeCmd->cancel( kIOReturnAborted );
+		fBusState = kRunning;
 	}
 }
 
@@ -1964,7 +1972,9 @@ for(i=0; i<numOwnIDs; i++)
                       
     // Initialize root node to be our node, we'll update it below to be the highest node ID.
     fRootNodeID = ourID = (OSSwapBigToHostInt32(*ownIDs) & kFWPhyPacketPhyID) >> kFWPhyPacketPhyIDPhase;
-    fLocalNodeID = ourID | (kFWLocalBusAddress>>kCSRNodeIDPhase);
+    if( fRootNodeID > 0x3e )
+		fRootNodeID = 0x3e;
+	fLocalNodeID = ourID | (kFWLocalBusAddress>>kCSRNodeIDPhase);
 
 	fGapCountMismatch = false;
 	
@@ -2036,8 +2046,8 @@ for(i=0; i<numOwnIDs; i++)
 			}
 			fNodeIDs[currID] = idPtr;
 			prevID = currID;
-			if(fRootNodeID < currID)
-				fRootNodeID = currID;
+			if((fRootNodeID < currID) && (currID <= 0x3e))
+  				fRootNodeID = currID;
         }
 		*idPtr++ = IDs[2*i];
     }

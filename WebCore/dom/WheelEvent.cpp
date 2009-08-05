@@ -1,10 +1,8 @@
-/**
- * This file is part of the DOM implementation for KDE.
- *
+/*
  * Copyright (C) 2001 Peter Kelly (pmk@post.com)
  * Copyright (C) 2001 Tobias Anton (anton@stud.fbi.fh-darmstadt.de)
  * Copyright (C) 2006 Samuel Weinig (sam.weinig@gmail.com)
- * Copyright (C) 2003, 2005, 2006 Apple Computer, Inc.
+ * Copyright (C) 2003, 2005, 2006, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -26,12 +24,9 @@
 #include "WheelEvent.h"
 
 #include "EventNames.h"
-
 #include <wtf/MathExtras.h>
 
 namespace WebCore {
-
-using namespace EventNames;
 
 WheelEvent::WheelEvent()
     : m_wheelDeltaX(0)
@@ -39,30 +34,25 @@ WheelEvent::WheelEvent()
 {
 }
 
-WheelEvent::WheelEvent(float wheelDeltaX, float wheelDeltaY, AbstractView* view,
+WheelEvent::WheelEvent(float wheelTicksX, float wheelTicksY, PassRefPtr<AbstractView> view,
                        int screenX, int screenY, int pageX, int pageY,
                        bool ctrlKey, bool altKey, bool shiftKey, bool metaKey)
-    : MouseRelatedEvent(mousewheelEvent,
+    : MouseRelatedEvent(eventNames().mousewheelEvent,
                         true, true, view, 0, screenX, screenY, pageX, pageY, 
                         ctrlKey, altKey, shiftKey, metaKey)
-    , m_wheelDeltaX(lroundf(wheelDeltaX) * 120)
-    , m_wheelDeltaY(lroundf(wheelDeltaY) * 120) // Normalize to the Windows 120 multiple
+    , m_wheelDeltaX(lroundf(wheelTicksX * 120))
+    , m_wheelDeltaY(lroundf(wheelTicksY * 120)) // Normalize to the Windows 120 multiple
 {
-    // Rounding delta to zero makes no sense and breaks Google Maps, <http://bugs.webkit.org/show_bug.cgi?id=16078>.
-    if (wheelDeltaX && !m_wheelDeltaX)
-        m_wheelDeltaX = (wheelDeltaX > 0) ? 120 : -120;
-    if (wheelDeltaY && !m_wheelDeltaY)
-        m_wheelDeltaY = (wheelDeltaY > 0) ? 120 : -120;
 }
 
-void WheelEvent::initWheelEvent(int wheelDeltaX, int wheelDeltaY, AbstractView* view,
+void WheelEvent::initWheelEvent(int wheelDeltaX, int wheelDeltaY, PassRefPtr<AbstractView> view,
                                 int screenX, int screenY, int pageX, int pageY,
                                 bool ctrlKey, bool altKey, bool shiftKey, bool metaKey)
 {
     if (dispatched())
         return;
     
-    initUIEvent(mousewheelEvent, true, true, view, 0);
+    initUIEvent(eventNames().mousewheelEvent, true, true, view, 0);
     
     m_screenX = screenX;
     m_screenY = screenY;

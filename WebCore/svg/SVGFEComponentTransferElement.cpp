@@ -26,28 +26,27 @@
 #include "SVGFEComponentTransferElement.h"
 
 #include "Attr.h"
+#include "MappedAttribute.h"
+#include "SVGFEFuncAElement.h"
+#include "SVGFEFuncBElement.h"
+#include "SVGFEFuncGElement.h"
+#include "SVGFEFuncRElement.h"
 #include "SVGNames.h"
 #include "SVGRenderStyle.h"
-#include "SVGFEFuncRElement.h"
-#include "SVGFEFuncGElement.h"
-#include "SVGFEFuncBElement.h"
-#include "SVGFEFuncAElement.h"
 #include "SVGResourceFilter.h"
 
 namespace WebCore {
 
 SVGFEComponentTransferElement::SVGFEComponentTransferElement(const QualifiedName& tagName, Document* doc)
     : SVGFilterPrimitiveStandardAttributes(tagName, doc)
+    , m_in1(this, SVGNames::inAttr)
     , m_filterEffect(0)
 {
 }
 
 SVGFEComponentTransferElement::~SVGFEComponentTransferElement()
 {
-    delete m_filterEffect;
 }
-
-ANIMATED_PROPERTY_DEFINITIONS(SVGFEComponentTransferElement, String, String, string, In1, in1, SVGNames::inAttr, m_in1)
 
 void SVGFEComponentTransferElement::parseMappedAttribute(MappedAttribute* attr)
 {
@@ -58,26 +57,38 @@ void SVGFEComponentTransferElement::parseMappedAttribute(MappedAttribute* attr)
         SVGFilterPrimitiveStandardAttributes::parseMappedAttribute(attr);
 }
 
-SVGFEComponentTransfer* SVGFEComponentTransferElement::filterEffect(SVGResourceFilter* filter) const
+SVGFilterEffect* SVGFEComponentTransferElement::filterEffect(SVGResourceFilter* filter) const
 {
-    if (!m_filterEffect)
-        m_filterEffect = new SVGFEComponentTransfer(filter);
+    ASSERT_NOT_REACHED();
+    return 0;
+}
+
+bool SVGFEComponentTransferElement::build(FilterBuilder* builder)
+{
+    FilterEffect* input1 = builder->getEffectById(in1());
     
-    m_filterEffect->setIn(in1());
-    setStandardAttributes(m_filterEffect);
+    if(!input1)
+        return false;
+
+    ComponentTransferFunction red;
+    ComponentTransferFunction green;
+    ComponentTransferFunction blue;
+    ComponentTransferFunction alpha;
     
     for (Node* n = firstChild(); n != 0; n = n->nextSibling()) {
         if (n->hasTagName(SVGNames::feFuncRTag))
-            m_filterEffect->setRedFunction(static_cast<SVGFEFuncRElement*>(n)->transferFunction());
+            red = static_cast<SVGFEFuncRElement*>(n)->transferFunction();
         else if (n->hasTagName(SVGNames::feFuncGTag))
-            m_filterEffect->setGreenFunction(static_cast<SVGFEFuncGElement*>(n)->transferFunction());
+            green = static_cast<SVGFEFuncGElement*>(n)->transferFunction();
         else if (n->hasTagName(SVGNames::feFuncBTag))
-            m_filterEffect->setBlueFunction(static_cast<SVGFEFuncBElement*>(n)->transferFunction());
+           blue = static_cast<SVGFEFuncBElement*>(n)->transferFunction();
         else if (n->hasTagName(SVGNames::feFuncATag))
-            m_filterEffect->setAlphaFunction(static_cast<SVGFEFuncAElement*>(n)->transferFunction());
+            alpha = static_cast<SVGFEFuncAElement*>(n)->transferFunction();
     }
-
-    return m_filterEffect;
+    
+    builder->add(result(), FEComponentTransfer::create(input1, red, green, blue, alpha));
+    
+    return true;
 }
 
 }

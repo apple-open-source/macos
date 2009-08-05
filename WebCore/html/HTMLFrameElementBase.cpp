@@ -1,11 +1,9 @@
-/**
- * This file is part of the DOM implementation for KDE.
- *
+/*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Simon Hausmann (hausmann@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2006 Apple Computer, Inc.
+ * Copyright (C) 2004, 2006, 2008, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -22,6 +20,7 @@
  * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301, USA.
  */
+
 #include "config.h"
 #include "HTMLFrameElementBase.h"
 
@@ -35,18 +34,19 @@
 #include "FrameView.h"
 #include "HTMLFrameSetElement.h"
 #include "HTMLNames.h"
+#include "ScriptEventListener.h"
 #include "KURL.h"
+#include "MappedAttribute.h"
 #include "Page.h"
 #include "RenderFrame.h"
 #include "Settings.h"
 
 namespace WebCore {
 
-using namespace EventNames;
 using namespace HTMLNames;
 
-HTMLFrameElementBase::HTMLFrameElementBase(const QualifiedName& tagName, Document *doc)
-    : HTMLFrameOwnerElement(tagName, doc)
+HTMLFrameElementBase::HTMLFrameElementBase(const QualifiedName& tagName, Document* document)
+    : HTMLFrameOwnerElement(tagName, document)
     , m_scrolling(ScrollbarAuto)
     , m_marginWidth(-1)
     , m_marginHeight(-1)
@@ -61,28 +61,25 @@ bool HTMLFrameElementBase::isURLAllowed(const AtomicString& URLString) const
     if (URLString.isEmpty())
         return true;
 
-    KURL completeURL(document()->completeURL(URLString.deprecatedString()));
-    completeURL.setRef(DeprecatedString::null);
+    const KURL& completeURL = document()->completeURL(URLString);
 
     // Don't allow more than 200 total frames in a set. This seems
     // like a reasonable upper bound, and otherwise mutually recursive
     // frameset pages can quickly bring the program to its knees with
     // exponential growth in the number of frames.
-
-    // FIXME: This limit could be higher, but WebKit has some
+    // FIXME: This limit could be higher, but because WebKit has some
     // algorithms that happen while loading which appear to be N^2 or
-    // worse in the number of frames
-    if (Frame* parentFrame = document()->frame())
+    // worse in the number of frames, we'll keep it at 200 for now.
+    if (Frame* parentFrame = document()->frame()) {
         if (parentFrame->page()->frameCount() > 200)
             return false;
+    }
 
     // We allow one level of self-reference because some sites depend on that.
     // But we don't allow more than one.
     bool foundSelfReference = false;
     for (Frame* frame = document()->frame(); frame; frame = frame->tree()->parent()) {
-        KURL frameURL = frame->loader()->url();
-        frameURL.setRef(DeprecatedString::null);
-        if (frameURL == completeURL) {
+        if (equalIgnoringRef(frame->loader()->url(), completeURL)) {
             if (foundSelfReference)
                 return false;
             foundSelfReference = true;
@@ -94,19 +91,19 @@ bool HTMLFrameElementBase::isURLAllowed(const AtomicString& URLString) const
 
 void HTMLFrameElementBase::openURL()
 {
-    ASSERT(!m_name.isEmpty());
+    ASSERT(!m_frameName.isEmpty());
 
     if (!isURLAllowed(m_URL))
         return;
 
     if (m_URL.isEmpty())
-        m_URL = "about:blank";
+        m_URL = blankURL().string();
 
     Frame* parentFrame = document()->frame();
     if (!parentFrame)
         return;
 
-    parentFrame->loader()->requestFrame(this, m_URL, m_name);
+    parentFrame->loader()->requestFrame(this, m_URL, m_frameName);
     if (contentFrame())
         contentFrame()->setInViewSourceMode(viewSourceMode());
 }
@@ -118,9 +115,9 @@ void HTMLFrameElementBase::parseMappedAttribute(MappedAttribute *attr)
     else if (attr->name() == idAttr) {
         // Important to call through to base for the id attribute so the hasID bit gets set.
         HTMLFrameOwnerElement::parseMappedAttribute(attr);
-        m_name = attr->value();
+        m_frameName = attr->value();
     } else if (attr->name() == nameAttr) {
-        m_name = attr->value();
+        m_frameName = attr->value();
         // FIXME: If we are already attached, this doesn't actually change the frame's name.
         // FIXME: If we are already attached, this doesn't check for frame name
         // conflicts and generate a unique frame name.
@@ -136,7 +133,7 @@ void HTMLFrameElementBase::parseMappedAttribute(MappedAttribute *attr)
     } else if (attr->name() == scrollingAttr) {
         // Auto and yes both simply mean "allow scrolling." No means "don't allow scrolling."
         if (equalIgnoringCase(attr->value(), "auto") || equalIgnoringCase(attr->value(), "yes"))
-            m_scrolling = ScrollbarAuto;
+            m_scrolling = document()->frameElementsShouldIgnoreScrolling() ? ScrollbarAlwaysOff : ScrollbarAuto;
         else if (equalIgnoringCase(attr->value(), "no"))
             m_scrolling = ScrollbarAlwaysOff;
         // FIXME: If we are already attached, this has no effect.
@@ -145,24 +142,22 @@ void HTMLFrameElementBase::parseMappedAttribute(MappedAttribute *attr)
         if (contentFrame())
             contentFrame()->setInViewSourceMode(viewSourceMode());
     } else if (attr->name() == onloadAttr) {
-        setHTMLEventListener(loadEvent, attr);
+        setAttributeEventListener(eventNames().loadEvent, createAttributeEventListener(this, attr));
     } else if (attr->name() == onbeforeunloadAttr) {
         // FIXME: should <frame> elements have beforeunload handlers?
-        setHTMLEventListener(beforeunloadEvent, attr);
-    } else if (attr->name() == onunloadAttr) {
-        setHTMLEventListener(unloadEvent, attr);
+        setAttributeEventListener(eventNames().beforeunloadEvent, createAttributeEventListener(this, attr));
     } else
         HTMLFrameOwnerElement::parseMappedAttribute(attr);
 }
 
 void HTMLFrameElementBase::setNameAndOpenURL()
 {
-    m_name = getAttribute(nameAttr);
-    if (m_name.isNull())
-        m_name = getAttribute(idAttr);
+    m_frameName = getAttribute(nameAttr);
+    if (m_frameName.isNull())
+        m_frameName = getAttribute(idAttr);
     
     if (Frame* parentFrame = document()->frame())
-        m_name = parentFrame->tree()->uniqueChildName(m_name);
+        m_frameName = parentFrame->tree()->uniqueChildName(m_frameName);
     
     openURL();
 }
@@ -203,7 +198,7 @@ void HTMLFrameElementBase::attach()
             renderPart->setWidget(frame->view());
 }
 
-String HTMLFrameElementBase::location() const
+KURL HTMLFrameElementBase::location() const
 {
     return src();
 }
@@ -302,7 +297,7 @@ void HTMLFrameElementBase::setScrolling(const String &value)
     setAttribute(scrollingAttr, value);
 }
 
-String HTMLFrameElementBase::src() const
+KURL HTMLFrameElementBase::src() const
 {
     return document()->completeURL(getAttribute(srcAttr));
 }
@@ -318,7 +313,7 @@ int HTMLFrameElementBase::width() const
         return 0;
     
     document()->updateLayoutIgnorePendingStylesheets();
-    return renderer()->width();
+    return toRenderBox(renderer())->width();
 }
 
 int HTMLFrameElementBase::height() const
@@ -327,7 +322,7 @@ int HTMLFrameElementBase::height() const
         return 0;
     
     document()->updateLayoutIgnorePendingStylesheets();
-    return renderer()->height();
+    return toRenderBox(renderer())->height();
 }
 
 } // namespace WebCore

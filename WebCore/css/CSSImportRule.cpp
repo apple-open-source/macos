@@ -1,9 +1,7 @@
-/**
- * This file is part of the DOM implementation for KDE.
- *
+/*
  * (C) 1999-2003 Lars Knoll (knoll@kde.org)
  * (C) 2002-2003 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2002, 2005, 2006 Apple Computer, Inc.
+ * Copyright (C) 2002, 2005, 2006, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,15 +23,13 @@
 #include "CSSImportRule.h"
 
 #include "CachedCSSStyleSheet.h"
-#include "CSSStyleSheet.h"
 #include "DocLoader.h"
 #include "Document.h"
-#include "KURL.h"
 #include "MediaList.h"
 
 namespace WebCore {
 
-CSSImportRule::CSSImportRule(StyleBase* parent, const String& href, MediaList* media)
+CSSImportRule::CSSImportRule(CSSStyleSheet* parent, const String& href, PassRefPtr<MediaList> media)
     : CSSRule(parent)
     , m_strHref(href)
     , m_lstMedia(media)
@@ -43,7 +39,7 @@ CSSImportRule::CSSImportRule(StyleBase* parent, const String& href, MediaList* m
     if (m_lstMedia)
         m_lstMedia->setParent(this);
     else
-        m_lstMedia = new MediaList(this, String());
+        m_lstMedia = MediaList::create(this, String());
 }
 
 CSSImportRule::~CSSImportRule()
@@ -53,20 +49,22 @@ CSSImportRule::~CSSImportRule()
     if (m_styleSheet)
         m_styleSheet->setParent(0);
     if (m_cachedSheet)
-        m_cachedSheet->deref(this);
+        m_cachedSheet->removeClient(this);
 }
 
-void CSSImportRule::setCSSStyleSheet(const String& url, const String& charset, const String& sheet)
+void CSSImportRule::setCSSStyleSheet(const String& url, const String& charset, const CachedCSSStyleSheet* sheet)
 {
     if (m_styleSheet)
         m_styleSheet->setParent(0);
-    m_styleSheet = new CSSStyleSheet(this, url, charset);
+    m_styleSheet = CSSStyleSheet::create(this, url, charset);
 
     CSSStyleSheet* parent = parentStyleSheet();
-    m_styleSheet->parseString(sheet, !parent || parent->useStrictParsing());
+    bool strict = !parent || parent->useStrictParsing();
+    m_styleSheet->parseString(sheet->sheetText(strict), strict);
     m_loading = false;
 
-    checkLoaded();
+    if (parent)
+        parent->checkLoaded();
 }
 
 bool CSSImportRule::isLoading() const
@@ -76,27 +74,26 @@ bool CSSImportRule::isLoading() const
 
 void CSSImportRule::insertedIntoParent()
 {
-    StyleBase* root = this;
-    StyleBase* parent;
-    while ((parent = root->parent()))
-        root = parent;
-    if (!root->isCSSStyleSheet())
+    CSSStyleSheet* parentSheet = parentStyleSheet();
+    if (!parentSheet)
         return;
-    DocLoader* docLoader = static_cast<CSSStyleSheet*>(root)->docLoader();
+
+    DocLoader* docLoader = parentSheet->doc()->docLoader();
     if (!docLoader)
         return;
 
     String absHref = m_strHref;
-    CSSStyleSheet* parentSheet = parentStyleSheet();
     if (!parentSheet->href().isNull())
         // use parent styleheet's URL as the base URL
-        absHref = KURL(parentSheet->href().deprecatedString(), m_strHref.deprecatedString()).string();
+        absHref = KURL(KURL(parentSheet->href()), m_strHref).string();
 
     // Check for a cycle in our import chain.  If we encounter a stylesheet
     // in our parent chain with the same URL, then just bail.
-    for (parent = static_cast<StyleBase*>(this)->parent(); parent; parent = parent->parent()) {
-        if (absHref == parent->baseURL())
+    StyleBase* root = this;
+    for (StyleBase* curr = parent(); curr; curr = curr->parent()) {
+        if (curr->isCSSStyleSheet() && absHref == static_cast<CSSStyleSheet*>(curr)->href())
             return;
+        root = curr;
     }
 
     m_cachedSheet = docLoader->requestCSSStyleSheet(absHref, parentSheet->charset());
@@ -104,10 +101,10 @@ void CSSImportRule::insertedIntoParent()
         // if the import rule is issued dynamically, the sheet may be
         // removed from the pending sheet count, so let the doc know
         // the sheet being imported is pending.
-        if (parentSheet && parentSheet->loadCompleted() && parentSheet->doc())
+        if (parentSheet && parentSheet->loadCompleted() && root == parentSheet)
             parentSheet->doc()->addPendingSheet();
         m_loading = true;
-        m_cachedSheet->ref(this);
+        m_cachedSheet->addClient(this);
     }
 }
 
@@ -124,6 +121,12 @@ String CSSImportRule::cssText() const
     result += ";";
 
     return result;
+}
+
+void CSSImportRule::addSubresourceStyleURLs(ListHashSet<KURL>& urls)
+{
+    if (m_styleSheet)
+        addSubresourceURL(urls, m_styleSheet->baseURL());
 }
 
 } // namespace WebCore

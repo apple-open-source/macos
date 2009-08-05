@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -335,7 +335,7 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
 		
 		// The transfer failed mid-transfer or was aborted by the USB layer. Either way the device will
         // be non-responsive until we reset it, or we discover it has been disconnected.
-		FinishDeviceRecovery ( resultingStatus );
+		ResetDeviceNow ( false );
 		commandInProgress = true; 
 		goto Exit;
 		

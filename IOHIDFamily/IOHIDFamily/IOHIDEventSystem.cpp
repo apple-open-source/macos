@@ -105,6 +105,12 @@ bool IOHIDEventSystem::start(IOService * provider)
 //====================================================================================================
 void IOHIDEventSystem::free()
 {
+	// we are going away. stop the workloop.
+	if (workLoop)
+    {
+        workLoop->disableAllEventSources();
+    }
+
     if ( _publishNotify )
     {
         _publishNotify->remove();

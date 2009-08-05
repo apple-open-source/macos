@@ -29,6 +29,7 @@
 #include "CachedImage.h"
 #include "DocLoader.h"
 #include "Document.h"
+#include "MappedAttribute.h"
 #include "SVGLength.h"
 #include "SVGNames.h"
 #include "SVGPreserveAspectRatio.h"
@@ -41,7 +42,7 @@ SVGFEImageElement::SVGFEImageElement(const QualifiedName& tagName, Document* doc
     , SVGURIReference()
     , SVGLangSpace()
     , SVGExternalResourcesRequired()
-    , m_preserveAspectRatio(new SVGPreserveAspectRatio())
+    , m_preserveAspectRatio(this, SVGNames::preserveAspectRatioAttr, SVGPreserveAspectRatio::create())
     , m_cachedImage(0)
     , m_filterEffect(0)
 {
@@ -49,12 +50,9 @@ SVGFEImageElement::SVGFEImageElement(const QualifiedName& tagName, Document* doc
 
 SVGFEImageElement::~SVGFEImageElement()
 {
-    delete m_filterEffect;
     if (m_cachedImage)
-        m_cachedImage->deref(this);
+        m_cachedImage->removeClient(this);
 }
-
-ANIMATED_PROPERTY_DEFINITIONS(SVGFEImageElement, SVGPreserveAspectRatio*, PreserveAspectRatio, preserveAspectRatio, PreserveAspectRatio, preserveAspectRatio, SVGNames::preserveAspectRatioAttr, m_preserveAspectRatio.get())
 
 void SVGFEImageElement::parseMappedAttribute(MappedAttribute* attr)
 {
@@ -68,10 +66,10 @@ void SVGFEImageElement::parseMappedAttribute(MappedAttribute* attr)
             if (!href().startsWith("#")) {
                 // FIXME: this code needs to special-case url fragments and later look them up using getElementById instead of loading them here
                 if (m_cachedImage)
-                    m_cachedImage->deref(this);
+                    m_cachedImage->removeClient(this);
                 m_cachedImage = ownerDocument()->docLoader()->requestImage(href());
                 if (m_cachedImage)
-                    m_cachedImage->ref(this);
+                    m_cachedImage->addClient(this);
             }
             return;
         }
@@ -87,24 +85,32 @@ void SVGFEImageElement::parseMappedAttribute(MappedAttribute* attr)
 void SVGFEImageElement::notifyFinished(CachedResource* finishedObj)
 {
     if (finishedObj == m_cachedImage && m_filterEffect)
-        m_filterEffect->setCachedImage(m_cachedImage);
+        m_filterEffect->setCachedImage(m_cachedImage.get());
 }
 
-SVGFEImage* SVGFEImageElement::filterEffect(SVGResourceFilter* filter) const
+SVGFilterEffect* SVGFEImageElement::filterEffect(SVGResourceFilter* filter) const
 {
-    if (!m_filterEffect)
-        m_filterEffect = new SVGFEImage(filter);
-    
-    // The resource may already be loaded!
-    if (m_cachedImage)
-        m_filterEffect->setCachedImage(m_cachedImage);
+    ASSERT_NOT_REACHED();
+    return 0;
+}
 
-    setStandardAttributes(m_filterEffect);
-    return m_filterEffect;
+bool SVGFEImageElement::build(FilterBuilder* builder)
+{
+    if(!m_cachedImage)
+        return false;
+
+    builder->add(result(), FEImage::create(m_cachedImage.get()));
+
+    return true;
+}
+
+void SVGFEImageElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const
+{
+    SVGFilterPrimitiveStandardAttributes::addSubresourceAttributeURLs(urls);
+
+    addSubresourceURL(urls, document()->completeURL(href()));
 }
 
 }
 
 #endif // ENABLE(SVG)
-
-// vim:ts=4:noet

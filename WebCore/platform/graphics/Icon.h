@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,8 +21,10 @@
 #ifndef Icon_h
 #define Icon_h
 
+#include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Forward.h>
+#include <wtf/Vector.h>
 
 #if PLATFORM(MAC)
 #include <wtf/RetainPtr.h>
@@ -36,7 +38,9 @@ typedef struct HICON__* HICON;
 #elif PLATFORM(QT)
 #include <QIcon>
 #elif PLATFORM(GTK)
-#include <gdk/gdk.h>
+typedef struct _GdkPixbuf GdkPixbuf;
+#elif PLATFORM(CHROMIUM)
+#include "PlatformIcon.h"
 #endif
 
 namespace WebCore {
@@ -47,29 +51,33 @@ class String;
     
 class Icon : public RefCounted<Icon> {
 public:
-    Icon();
+    static PassRefPtr<Icon> createIconForFile(const String& filename);
+    static PassRefPtr<Icon> createIconForFiles(const Vector<String>& filenames);
+
     ~Icon();
-    
-    static PassRefPtr<Icon> newIconForFile(const String& filename);
 
     void paint(GraphicsContext*, const IntRect&);
 
 #if PLATFORM(WIN)
-    Icon(HICON);
+    static PassRefPtr<Icon> create(HICON hIcon) { return adoptRef(new Icon(hIcon)); }
 #endif
 
 private:
 #if PLATFORM(MAC)
     Icon(NSImage*);
-#endif
-#if PLATFORM(MAC)
     RetainPtr<NSImage> m_nsImage;
 #elif PLATFORM(WIN)
+    Icon(HICON);
     HICON m_hIcon;
 #elif PLATFORM(QT)
+    Icon();
     QIcon m_icon;
 #elif PLATFORM(GTK)
+    Icon();
     GdkPixbuf* m_icon;
+#elif PLATFORM(CHROMIUM)
+    Icon(const PlatformIcon&);
+    PlatformIcon m_icon;
 #endif
 };
 

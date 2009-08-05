@@ -1,9 +1,4 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
- * Copyright (C) 2006 Michael Emmel mike.emmel@gmail.com
- * Copyright (C) 2007 Holger Hans Peter Freyther
- * All rights reserved.
- *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -28,31 +23,15 @@
 
 #include "config.h"
 #include "Frame.h"
+
 #include "NotImplemented.h"
 
-
 namespace WebCore {
-
-KJS::Bindings::Instance* Frame::createScriptInstanceForWidget(Widget*)
-{
-    notImplemented();
-    return 0;
-}
-
-void Frame::clearPlatformScriptObjects()
-{
-    notImplemented();
-}
 
 DragImageRef Frame::dragImageForSelection()
 {
     notImplemented();
     return 0;
-}
-
-void Frame::dashboardRegionsChanged()
-{
-    notImplemented();
 }
 
 }

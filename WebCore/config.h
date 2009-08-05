@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2004, 2005, 2006 Apple Inc.
- *
+ * 
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
  * License as published by the Free Software Foundation; either
@@ -18,7 +18,27 @@
  *
  */
 
+#if defined(HAVE_CONFIG_H) && HAVE_CONFIG_H
+#include "autotoolsconfig.h"
+#endif
+
 #include <wtf/Platform.h>
+
+#if PLATFORM(WIN_OS) && !defined(BUILDING_WX__)
+#if defined(BUILDING_JavaScriptCore) || defined(BUILDING_WTF)
+#define JS_EXPORTDATA __declspec(dllexport)
+#else
+#define JS_EXPORTDATA __declspec(dllimport)
+#endif
+#if defined(BUILDING_WebCore) || defined(BUILDING_WebKit)
+#define WEBKIT_EXPORTDATA __declspec(dllexport)
+#else
+#define WEBKIT_EXPORTDATA __declspec(dllimport)
+#endif
+#else
+#define JS_EXPORTDATA
+#define WEBKIT_EXPORTDATA
+#endif
 
 #define MOBILE 0
 
@@ -36,7 +56,7 @@
 #define WINVER 0x0500
 #endif
 
-// If we don't define these, they get defined in windef.h. 
+// If we don't define these, they get defined in windef.h.
 // We want to use std::min and std::max.
 #ifndef max
 #define max max
@@ -54,9 +74,13 @@
 
 #endif /* PLATFORM(WIN_OS) */
 
-#if !PLATFORM(SYMBIAN)
-#define IMPORT_C
-#define EXPORT_C
+// On MSW, wx headers need to be included before windows.h is.
+// The only way we can always ensure this is if we include wx here.
+#if PLATFORM(WX)
+// The defines in KeyboardCodes.h conflict with Windows as well, and the only way I've found
+// to address the problem is include KeyboarddCodes.h before windows.h, so do it here.
+#include "KeyboardCodes.h"
+#include <wx/defs.h>
 #endif
 
 #ifdef __cplusplus
@@ -71,23 +95,18 @@
 
 // this breaks compilation of <QFontDatabase>, at least, so turn it off for now
 // Also generates errors on wx on Windows, presumably because these functions
-// are used from wx headers. 
+// are used from wx headers.
 #if !PLATFORM(QT) && !PLATFORM(WX)
 #include <wtf/DisallowCType.h>
 #endif
 
-#if PLATFORM(GTK)
-#define WTF_USE_NPOBJECT 1
-#define WTF_USE_JAVASCRIPTCORE_BINDINGS 1
-#endif
-
-#if !COMPILER(MSVC) // can't get this to compile on Visual C++ yet
-#define AVOID_STATIC_CONSTRUCTORS 1
+#if COMPILER(MSVC)
+#define SKIP_STATIC_CONSTRUCTORS_ON_MSVC 1
+#else
+#define SKIP_STATIC_CONSTRUCTORS_ON_GCC 1
 #endif
 
 #if PLATFORM(WIN)
-#define WTF_USE_JAVASCRIPTCORE_BINDINGS 1
-#define WTF_USE_NPOBJECT 1
 #define WTF_PLATFORM_CG 1
 #undef WTF_PLATFORM_CAIRO
 #define WTF_USE_CFNETWORK 1
@@ -97,20 +116,28 @@
 #endif
 
 #if PLATFORM(MAC)
-#define WTF_USE_JAVASCRIPTCORE_BINDINGS 1
-#ifdef __LP64__
-#define WTF_USE_NPOBJECT 0
+// ATSUI vs. CoreText
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+#define WTF_USE_ATSUI 0
+#define WTF_USE_CORE_TEXT 1
 #else
-#define WTF_USE_NPOBJECT 1
-#endif
+#define WTF_USE_ATSUI 1
+#define WTF_USE_CORE_TEXT 0
 #endif
 
+// New theme
+#define WTF_USE_NEW_THEME 1
+
+// Accelerated compositing
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+#define WTF_USE_ACCELERATED_COMPOSITING 0
+#endif
+#endif // PLATFORM(MAC)
+
 #if PLATFORM(SYMBIAN)
-#define WTF_USE_JAVASCRIPTCORE_BINDINGS 1
-#define WTF_USE_NPOBJECT 1
 #undef WIN32
 #undef _WIN32
-#undef AVOID_STATIC_CONSTRUCTORS
+#undef SKIP_STATIC_CONSTRUCTORS_ON_GCC
 #define USE_SYSTEM_MALLOC 1
 #define U_HAVE_INT8_T 0
 #define U_HAVE_INT16_T 0
@@ -119,10 +146,21 @@
 #define U_HAVE_INTTYPES_H 0
 
 #include <stdio.h>
-#include <snprintf.h>
 #include <limits.h>
 #include <wtf/MathExtras.h>
 #endif
+
+#if !defined(WTF_USE_V8)
+/* Currently Chromium is the only platform which uses V8 by default */
+#if PLATFORM(CHROMIUM)
+#define WTF_USE_V8 1
+#else
+#define WTF_USE_V8 0
+#endif /* PLATFORM(CHROMIUM) */
+#endif /* !defined(WTF_USE_V8) */
+
+/* Using V8 implies not using JSC and vice versa */
+#define WTF_USE_JSC !WTF_USE_V8
 
 #if PLATFORM(CG)
 #ifndef CGFLOAT_DEFINED
@@ -138,4 +176,8 @@ typedef float CGFloat;
 #ifdef BUILDING_ON_TIGER
 #undef ENABLE_FTPDIR
 #define ENABLE_FTPDIR 0
+#endif
+
+#if PLATFORM(WIN) && PLATFORM(CG)
+#define WTF_USE_SAFARI_THEME 1
 #endif

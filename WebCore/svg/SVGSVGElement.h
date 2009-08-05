@@ -40,7 +40,7 @@ namespace WebCore
     class SVGTransform;
     class SVGViewSpec;
     class SVGViewElement;
-    class TimeScheduler;
+    class SMILTimeContainer;
     class SVGSVGElement : public SVGStyledLocatableElement,
                           public SVGTests,
                           public SVGLangSpace,
@@ -87,7 +87,7 @@ namespace WebCore
         FloatPoint currentTranslate() const;
         void setCurrentTranslate(const FloatPoint&);
         
-        TimeScheduler* timeScheduler() { return m_timeScheduler; }
+        SMILTimeContainer* timeContainer() const { return m_timeContainer.get(); }
         
         void pauseAnimations();
         void unpauseAnimations();
@@ -109,18 +109,18 @@ namespace WebCore
 
         static float createSVGNumber();
         static SVGLength createSVGLength();
-        static SVGAngle* createSVGAngle();
+        static PassRefPtr<SVGAngle> createSVGAngle();
         static FloatPoint createSVGPoint();
-        static AffineTransform createSVGMatrix();
+        static TransformationMatrix createSVGMatrix();
         static FloatRect createSVGRect();
         static SVGTransform createSVGTransform();
-        static SVGTransform createSVGTransformFromMatrix(const AffineTransform&);
+        static SVGTransform createSVGTransformFromMatrix(const TransformationMatrix&);
 
         virtual void parseMappedAttribute(MappedAttribute*);
 
         // 'virtual SVGLocatable' functions
-        virtual AffineTransform getCTM() const;
-        virtual AffineTransform getScreenCTM() const;
+        virtual TransformationMatrix getCTM() const;
+        virtual TransformationMatrix getScreenCTM() const;
 
         virtual bool rendererIsNeeded(RenderStyle* style) { return StyledElement::rendererIsNeeded(style); }
         virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
@@ -130,7 +130,7 @@ namespace WebCore
 
         virtual void svgAttributeChanged(const QualifiedName&);
 
-        virtual AffineTransform viewBoxToViewTransform(float viewWidth, float viewHeight) const;
+        virtual TransformationMatrix viewBoxToViewTransform(float viewWidth, float viewHeight) const;
 
         void inheritViewAttributes(SVGViewElement*);
 
@@ -145,19 +145,16 @@ namespace WebCore
         bool isOutermostSVG() const;
 
     private:
-        void addSVGWindowEventListener(const AtomicString& eventType, const Attribute* attr);   
+        ANIMATED_PROPERTY_DECLARATIONS(SVGSVGElement, SVGNames::svgTagString, SVGNames::xAttrString, SVGLength, X, x)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGSVGElement, SVGNames::svgTagString, SVGNames::yAttrString, SVGLength, Y, y)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGSVGElement, SVGNames::svgTagString, SVGNames::widthAttrString, SVGLength, Width, width)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGSVGElement, SVGNames::svgTagString, SVGNames::heightAttrString, SVGLength, Height, height)
 
-        ANIMATED_PROPERTY_FORWARD_DECLARATIONS(SVGExternalResourcesRequired, bool, ExternalResourcesRequired, externalResourcesRequired)
-        ANIMATED_PROPERTY_FORWARD_DECLARATIONS(SVGFitToViewBox, FloatRect, ViewBox, viewBox)
-        ANIMATED_PROPERTY_FORWARD_DECLARATIONS(SVGFitToViewBox, SVGPreserveAspectRatio*, PreserveAspectRatio, preserveAspectRatio)
-
-        ANIMATED_PROPERTY_DECLARATIONS(SVGSVGElement, SVGLength, SVGLength, X, x)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGSVGElement, SVGLength, SVGLength, Y, y)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGSVGElement, SVGLength, SVGLength, Width, width)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGSVGElement, SVGLength, SVGLength, Height, height)
+        virtual void documentWillBecomeInactive();
+        virtual void documentDidBecomeActive();
 
         bool m_useCurrentView;
-        TimeScheduler* m_timeScheduler;
+        RefPtr<SMILTimeContainer> m_timeContainer;
         FloatPoint m_translation;
         mutable OwnPtr<SVGViewSpec> m_viewSpec;
         IntSize m_containerSize;
@@ -168,5 +165,3 @@ namespace WebCore
 
 #endif // ENABLE(SVG)
 #endif
-
-// vim:ts=4:noet

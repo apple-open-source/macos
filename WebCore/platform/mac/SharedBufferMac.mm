@@ -24,17 +24,22 @@
  */
 
 #include "config.h"
-#include "FoundationExtras.h"
 #include "SharedBuffer.h"
+
 #include "WebCoreObjCExtras.h"
+#include <runtime/InitializeThreading.h>
 #include <string.h>
 #include <wtf/PassRefPtr.h>
+
+#ifdef BUILDING_ON_TIGER
+typedef unsigned NSUInteger;
+#endif
 
 using namespace WebCore;
 
 @interface WebCoreSharedBufferData : NSData
 {
-    SharedBuffer* sharedBuffer;
+    RefPtr<SharedBuffer> sharedBuffer;
 }
 
 - (id)initWithSharedBuffer:(SharedBuffer*)buffer;
@@ -42,24 +47,24 @@ using namespace WebCore;
 
 @implementation WebCoreSharedBufferData
 
-#ifndef BUILDING_ON_TIGER
 + (void)initialize
 {
+    JSC::initializeThreading();
+#ifndef BUILDING_ON_TIGER
     WebCoreObjCFinalizeOnMainThread(self);
-}
 #endif
+}
 
 - (void)dealloc
 {
-    sharedBuffer->deref();
+    if (WebCoreObjCScheduleDeallocateOnMainThread([WebCoreSharedBufferData class], self))
+        return;
     
     [super dealloc];
 }
 
 - (void)finalize
 {
-    sharedBuffer->deref();
-    
     [super finalize];
 }
 
@@ -67,15 +72,13 @@ using namespace WebCore;
 {
     self = [super init];
     
-    if (self) {
+    if (self)
         sharedBuffer = buffer;
-        sharedBuffer->ref();
-    }
     
     return self;
 }
 
-- (unsigned)length
+- (NSUInteger)length
 {
     return sharedBuffer->size();
 }
@@ -91,12 +94,7 @@ namespace WebCore {
 
 PassRefPtr<SharedBuffer> SharedBuffer::wrapNSData(NSData *nsData)
 {
-    return new SharedBuffer(nsData);
-}
-
-SharedBuffer::SharedBuffer(NSData *nsData)
-    : m_nsData(nsData)
-{
+    return adoptRef(new SharedBuffer((CFDataRef)nsData));
 }
 
 NSData *SharedBuffer::createNSData()
@@ -105,40 +103,13 @@ NSData *SharedBuffer::createNSData()
 }
 
 CFDataRef SharedBuffer::createCFData()
-{    
-    return (CFDataRef)HardRetainWithNSRelease([[WebCoreSharedBufferData alloc] initWithSharedBuffer:this]);
-}
-
-bool SharedBuffer::hasPlatformData() const
 {
-    return m_nsData;
-}
-
-const char* SharedBuffer::platformData() const
-{
-    return (const char*)[m_nsData.get() bytes];
-}
-
-unsigned SharedBuffer::platformDataSize() const
-{
-    return [m_nsData.get() length];
-}
-
-void SharedBuffer::maybeTransferPlatformData()
-{
-    if (!m_nsData)
-        return;
+    if (m_cfData) {
+        CFRetain(m_cfData.get());
+        return m_cfData.get();
+    }
     
-    ASSERT(m_buffer.size() == 0);
-        
-    m_buffer.append(reinterpret_cast<const char*>([m_nsData.get() bytes]), [m_nsData.get() length]);
-        
-    m_nsData = nil;
-}
-
-void SharedBuffer::clearPlatformData()
-{
-    m_nsData = 0;
+    return (CFDataRef)RetainPtr<WebCoreSharedBufferData>(AdoptNS, [[WebCoreSharedBufferData alloc] initWithSharedBuffer:this]).releaseRef();
 }
 
 PassRefPtr<SharedBuffer> SharedBuffer::createWithContentsOfFile(const String& filePath)

@@ -28,8 +28,6 @@
 #include "config.h"
 #include "CursorGtk.h"
 
-#include "DeprecatedString.h"
-#include "NotImplemented.h"
 #include <wtf/Assertions.h>
 
 #include <gdk/gdk.h>
@@ -64,7 +62,13 @@ Cursor::Cursor(const Cursor& other)
 
 Cursor::Cursor(Image*, const IntPoint&)
 {
-    notImplemented();
+    // FIXME: We don't support images for cursors yet.
+    // This is just a placeholder to avoid crashes.
+    Cursor other(crossCursor());
+    m_impl = other.m_impl;
+
+    if (m_impl)
+        gdk_cursor_ref(m_impl);
 }
 
 Cursor::~Cursor()
@@ -205,15 +209,61 @@ const Cursor& northWestSouthEastResizeCursor()
 
 const Cursor& columnResizeCursor()
 {
-    static Cursor c = gdk_cursor_new(GDK_DOUBLE_ARROW);
+    static Cursor c = gdk_cursor_new(GDK_SB_H_DOUBLE_ARROW);
     return c;
 }
 
 const Cursor& rowResizeCursor()
 {
-    static Cursor c = gdk_cursor_new(GDK_DOUBLE_ARROW);
+    static Cursor c = gdk_cursor_new(GDK_SB_V_DOUBLE_ARROW);
     return c;
 }
+    
+const Cursor& middlePanningCursor()
+{
+    return moveCursor();
+}
+
+const Cursor& eastPanningCursor()
+{
+    return eastResizeCursor();
+}
+
+const Cursor& northPanningCursor()
+{
+    return northResizeCursor();
+}
+
+const Cursor& northEastPanningCursor()
+{
+    return northEastResizeCursor();
+}
+
+const Cursor& northWestPanningCursor()
+{
+    return northWestResizeCursor();
+}
+
+const Cursor& southPanningCursor()
+{
+    return southResizeCursor();
+}
+
+const Cursor& southEastPanningCursor()
+{
+    return southEastResizeCursor();
+}
+
+const Cursor& southWestPanningCursor()
+{
+    return southWestResizeCursor();
+}
+
+const Cursor& westPanningCursor()
+{
+    return westResizeCursor();
+}
+    
 
 const Cursor& verticalTextCursor()
 {
@@ -223,8 +273,8 @@ const Cursor& verticalTextCursor()
 
 const Cursor& cellCursor()
 {
-    // TODO: Find a suitable cursor
-    return pointerCursor();
+    static Cursor c = gdk_cursor_new(GDK_PLUS);
+    return c;
 }
 
 const Cursor& contextMenuCursor()
@@ -235,8 +285,8 @@ const Cursor& contextMenuCursor()
 
 const Cursor& noDropCursor()
 {
-    // TODO: Find a suitable cursor
-    return pointerCursor();
+    static Cursor c = customCursorNew(CustomCursorNoDrop);
+    return c;
 }
 
 const Cursor& copyCursor()
@@ -247,8 +297,8 @@ const Cursor& copyCursor()
 
 const Cursor& progressCursor()
 {
-    // TODO: Find a suitable cursor
-    return pointerCursor();
+    static Cursor c = customCursorNew(CustomCursorProgress);
+    return c;
 }
 
 const Cursor& aliasCursor()
@@ -259,14 +309,13 @@ const Cursor& aliasCursor()
 
 const Cursor& noneCursor()
 {
-    // TODO: Find a suitable cursor
-    return pointerCursor();
+    static Cursor c = customCursorNew(CustomCursorNone);
+    return c;
 }
 
 const Cursor& notAllowedCursor()
 {
-    // TODO: Find a suitable cursor
-    return pointerCursor();
+    return noDropCursor();
 }
 
 const Cursor& zoomInCursor()
@@ -278,6 +327,18 @@ const Cursor& zoomInCursor()
 const Cursor& zoomOutCursor()
 {
     static Cursor c = customCursorNew(CustomCursorZoomOut);
+    return c;
+}
+
+const Cursor& grabCursor()
+{
+    static Cursor c = customCursorNew(CustomCursorGrab);
+    return c;
+}
+
+const Cursor& grabbingCursor()
+{
+    static Cursor c = customCursorNew(CustomCursorGrabbing);
     return c;
 }
 

@@ -1,4 +1,3 @@
-/* -*- mode: c++; c-basic-offset: 4 -*- */
 /*
  * Copyright (C) 2003, 2006, 2007 Apple Inc.  All rights reserved.
  *
@@ -83,9 +82,9 @@
 #define WTF_PRETTY_FUNCTION __FUNCTION__
 #endif
 
-// WTF logging functions can process %@ in the format string to log a NSObject* but the printf format attribute
-// emits a warning when %@ is used in the format string.  Until <rdar://problem/5195437> is resolved we can't include
-// the attribute when being used from Objective-C code in case it decides to use %@.
+/* WTF logging functions can process %@ in the format string to log a NSObject* but the printf format attribute
+   emits a warning when %@ is used in the format string.  Until <rdar://problem/5195437> is resolved we can't include
+   the attribute when being used from Objective-C code in case it decides to use %@. */
 #if COMPILER(GCC) && !defined(__OBJC__)
 #define WTF_ATTRIBUTE_PRINTF(formatStringArgument, extraArguments) __attribute__((__format__(printf, formatStringArgument, extraArguments)))
 #else
@@ -121,10 +120,21 @@ void WTFLogVerbose(const char* file, int line, const char* function, WTFLogChann
 /* CRASH -- gets us into the debugger or the crash reporter -- signals are ignored by the crash reporter so we must do better */
 
 #ifndef CRASH
-#define CRASH() *(int *)(uintptr_t)0xbbadbeef = 0
+#define CRASH() do { \
+    *(int *)(uintptr_t)0xbbadbeef = 0; \
+    ((void(*)())0)(); /* More reliable, but doesn't say BBADBEEF */ \
+} while(false)
 #endif
 
 /* ASSERT, ASSERT_WITH_MESSAGE, ASSERT_NOT_REACHED */
+
+#if PLATFORM(WIN_CE)
+/* FIXME: We include this here only to avoid a conflict with the ASSERT macro. */
+#include <windows.h>
+#undef min
+#undef max
+#undef ERROR
+#endif
 
 #if PLATFORM(WIN_OS)
 /* FIXME: Change to use something other than ASSERT to avoid this conflict with win32. */
@@ -136,6 +146,7 @@ void WTFLogVerbose(const char* file, int line, const char* function, WTFLogChann
 #define ASSERT(assertion) ((void)0)
 #define ASSERT_WITH_MESSAGE(assertion, ...) ((void)0)
 #define ASSERT_NOT_REACHED() ((void)0)
+#define ASSERT_UNUSED(variable, assertion) ((void)variable)
 
 #else
 
@@ -154,11 +165,13 @@ while (0)
         CRASH(); \
     } \
 while (0)
-#endif // COMPILER(MSVC7)
+#endif /* COMPILER(MSVC7) */
 #define ASSERT_NOT_REACHED() do { \
     WTFReportAssertionFailure(__FILE__, __LINE__, WTF_PRETTY_FUNCTION, 0); \
     CRASH(); \
 } while (0)
+
+#define ASSERT_UNUSED(variable, assertion) ASSERT(assertion)
 
 #endif
 
@@ -181,7 +194,7 @@ while (0)
 
 /* COMPILE_ASSERT */
 #ifndef COMPILE_ASSERT
-#define COMPILE_ASSERT(exp, name) typedef int dummy##name [(exp) ? 1 : -1];
+#define COMPILE_ASSERT(exp, name) typedef int dummy##name [(exp) ? 1 : -1]
 #endif
 
 /* FATAL */
@@ -229,4 +242,4 @@ while (0)
 #define LOG_VERBOSE(channel, ...) WTFLogVerbose(__FILE__, __LINE__, WTF_PRETTY_FUNCTION, &JOIN_LOG_CHANNEL_WITH_PREFIX(LOG_CHANNEL_PREFIX, channel), __VA_ARGS__)
 #endif
 
-#endif // WTF_Assertions_h
+#endif /* WTF_Assertions_h */

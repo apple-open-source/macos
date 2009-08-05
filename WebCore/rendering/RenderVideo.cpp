@@ -41,16 +41,31 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
+static const int cDefaultWidth = 300;
+static const int cDefaultHeight = 150;
+
 RenderVideo::RenderVideo(HTMLMediaElement* video)
-    : RenderMedia(video, video->player() ? video->player()->naturalSize() : IntSize(300, 150))
+    : RenderMedia(video)
 {
+    if (video->player())
+        setIntrinsicSize(video->player()->naturalSize());
+    else {
+        // Video in standalone media documents should not use the default 300x150
+        // size since they also have audio thrown at them. By setting the intrinsic
+        // size to 300x1 the video will resize itself in these cases, and audio will
+        // have the correct height (it needs to be > 0 for controls to render properly).
+        if (video->ownerDocument() && video->ownerDocument()->isMediaDocument())
+            setIntrinsicSize(IntSize(cDefaultWidth, 1));
+        else
+            setIntrinsicSize(IntSize(cDefaultWidth, cDefaultHeight));
+    }
 }
 
 RenderVideo::~RenderVideo()
 {
     if (MediaPlayer* p = player()) {
         p->setVisible(false);
-        p->setParentWidget(0);
+        p->setFrameView(0);
     }
 }
     
@@ -59,7 +74,7 @@ void RenderVideo::videoSizeChanged()
     if (!player())
         return;
     IntSize size = player()->naturalSize();
-    if (size != intrinsicSize()) {
+    if (!size.isEmpty() && size != intrinsicSize()) {
         setIntrinsicSize(size);
         setPrefWidthsDirty(true);
         setNeedsLayout(true);
@@ -68,7 +83,7 @@ void RenderVideo::videoSizeChanged()
 
 IntRect RenderVideo::videoBox() const 
 {
-    IntRect contentRect = contentBox();
+    IntRect contentRect = contentBoxRect();
     
     if (intrinsicSize().isEmpty() || contentRect.isEmpty())
         return IntRect();
@@ -120,16 +135,14 @@ void RenderVideo::updatePlayer()
     MediaPlayer* mediaPlayer = player();
     if (!mediaPlayer)
         return;
-    Document* doc = document();
-    if (doc->inPageCache())
+    if (!mediaElement()->inActiveDocument()) {
+        mediaPlayer->setVisible(false);
         return;
-    int x;
-    int y;
-    absolutePosition(x, y);
+    }
+    
     IntRect videoBounds = videoBox(); 
-    videoBounds.move(x, y);
-    mediaPlayer->setParentWidget(doc->view());
-    mediaPlayer->setRect(videoBounds);
+    mediaPlayer->setFrameView(document()->view());
+    mediaPlayer->setSize(IntSize(videoBounds.width(), videoBounds.height()));
     mediaPlayer->setVisible(true);
 }
 
@@ -167,16 +180,16 @@ bool RenderVideo::isHeightSpecified() const
     return false;
 }
 
-int RenderVideo::calcReplacedWidth() const
+int RenderVideo::calcReplacedWidth(bool includeMaxWidth) const
 {
     int width;
     if (isWidthSpecified())
         width = calcReplacedWidthUsing(style()->width());
     else
-        width = calcAspectRatioWidth();
+        width = calcAspectRatioWidth() * style()->effectiveZoom();
 
     int minW = calcReplacedWidthUsing(style()->minWidth());
-    int maxW = style()->maxWidth().isUndefined() ? width : calcReplacedWidthUsing(style()->maxWidth());
+    int maxW = !includeMaxWidth || style()->maxWidth().isUndefined() ? width : calcReplacedWidthUsing(style()->maxWidth());
 
     return max(minW, min(width, maxW));
 }
@@ -187,7 +200,7 @@ int RenderVideo::calcReplacedHeight() const
     if (isHeightSpecified())
         height = calcReplacedHeightUsing(style()->height());
     else
-        height = calcAspectRatioHeight();
+        height = calcAspectRatioHeight() * style()->effectiveZoom();
 
     int minH = calcReplacedHeightUsing(style()->minHeight());
     int maxH = style()->maxHeight().isUndefined() ? height : calcReplacedHeightUsing(style()->maxHeight());
@@ -217,7 +230,11 @@ void RenderVideo::calcPrefWidths()
 {
     ASSERT(prefWidthsDirty());
 
-    m_maxPrefWidth = calcReplacedWidth() + paddingLeft() + paddingRight() + borderLeft() + borderRight();
+    int paddingAndBorders = paddingLeft() + paddingRight() + borderLeft() + borderRight();
+    m_maxPrefWidth = calcReplacedWidth(false) + paddingAndBorders;
+
+    if (style()->maxWidth().isFixed() && style()->maxWidth().value() != undefinedLength)
+        m_maxPrefWidth = min(m_maxPrefWidth, style()->maxWidth().value() + (style()->boxSizing() == CONTENT_BOX ? paddingAndBorders : 0));
 
     if (style()->width().isPercent() || style()->height().isPercent() || 
         style()->maxWidth().isPercent() || style()->maxHeight().isPercent() ||

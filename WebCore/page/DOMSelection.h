@@ -40,12 +40,13 @@ namespace WebCore {
     class Range;
     class Node;
     class String;
+    class VisibleSelection;
 
     typedef int ExceptionCode;
 
     class DOMSelection : public RefCounted<DOMSelection> {
     public:
-        DOMSelection(Frame*);
+        static PassRefPtr<DOMSelection> create(Frame* frame) { return adoptRef(new DOMSelection(frame)); }
 
         Frame* frame() const;
         void disconnectFrame();
@@ -88,10 +89,13 @@ namespace WebCore {
 
         // Microsoft Selection Object API
         void empty();
-        //void clear();
-        //TextRange *createRange();
 
     private:
+        DOMSelection(Frame*);
+
+        // Convenience method for accessors, does not NULL check m_frame.
+        const VisibleSelection& visibleSelection() const;
+
         Frame* m_frame;
     };
 

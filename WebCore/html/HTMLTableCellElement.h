@@ -102,6 +102,8 @@ public:
     String width() const;
     void setWidth(const String&);
 
+    virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
+
 protected:
     int _row;
     int _col;

@@ -28,17 +28,17 @@
 
 #include "config.h"
 #include "JSCustomSQLStatementCallback.h"
+#if ENABLE(DATABASE)
 
-#include "CString.h"
 #include "Frame.h"
-#include "kjs_proxy.h"
+#include "ScriptController.h"
 #include "JSSQLResultSet.h"
 #include "JSSQLTransaction.h"
-#include "Page.h"
+#include <runtime/JSLock.h>
 
 namespace WebCore {
     
-using namespace KJS;
+using namespace JSC;
     
 JSCustomSQLStatementCallback::JSCustomSQLStatementCallback(JSObject* callback, Frame* frame)
     : m_callback(callback)
@@ -51,56 +51,45 @@ void JSCustomSQLStatementCallback::handleEvent(SQLTransaction* transaction, SQLR
     ASSERT(m_callback);
     ASSERT(m_frame);
         
-    if (!m_frame->scriptProxy()->isEnabled())
+    if (!m_frame->script()->isEnabled())
         return;
 
-    JSGlobalObject* globalObject = m_frame->scriptProxy()->globalObject();
+    JSGlobalObject* globalObject = m_frame->script()->globalObject();
     ExecState* exec = globalObject->globalExec();
         
-    KJS::JSLock lock;
-        
-    JSValue* handleEventFuncValue = m_callback->get(exec, "handleEvent");
-    JSObject* handleEventFunc = 0;
-    if (handleEventFuncValue->isObject()) {
-        handleEventFunc = static_cast<JSObject*>(handleEventFuncValue);
-        if (!handleEventFunc->implementsCall())
-            handleEventFunc = 0;
+    JSC::JSLock lock(false);
+
+    JSValue function = m_callback->get(exec, Identifier(exec, "handleEvent"));
+    CallData callData;
+    CallType callType = function.getCallData(callData);
+    if (callType == CallTypeNone) {
+        callType = m_callback->getCallData(callData);
+        if (callType == CallTypeNone) {
+            // FIXME: Should an exception be thrown here?
+            return;
+        }
+        function = m_callback;
     }
-        
-    if (!handleEventFunc && !m_callback->implementsCall()) {
-        // FIXME: Should an exception be thrown here?
-        return;
-    }
-        
+
     RefPtr<JSCustomSQLStatementCallback> protect(this);
-        
-    List args;
+
+    MarkedArgumentBuffer args;
     args.append(toJS(exec, transaction));
     args.append(toJS(exec, resultSet));
         
-    globalObject->startTimeoutCheck();
-    if (handleEventFunc)
-        handleEventFunc->call(exec, m_callback, args);
-    else
-        m_callback->call(exec, m_callback, args);
-    globalObject->stopTimeoutCheck();
-        
+    globalObject->globalData()->timeoutChecker.start();
+    call(exec, function, callType, callData, m_callback, args);
+    globalObject->globalData()->timeoutChecker.stop();
+
     if (exec->hadException()) {
-        JSObject* exception = exec->exception()->toObject(exec);
-        String message = exception->get(exec, exec->propertyNames().message)->toString(exec);
-        int lineNumber = exception->get(exec, "line")->toInt32(exec);
-        String sourceURL = exception->get(exec, "sourceURL")->toString(exec);
-        if (Interpreter::shouldPrintExceptions())
-            printf("SQLStatementCallback: %s\n", message.utf8().data());
-        if (Page* page = m_frame->page())
-            page->chrome()->addMessageToConsole(JSMessageSource, ErrorMessageLevel, message, lineNumber, sourceURL);
-        
+        reportCurrentException(exec);
+
         raisedException = true;
-        
-        exec->clearException();
     }
-        
-    Document::updateDocumentsRendering();
+
+    Document::updateStyleForAllDocuments();
 }
-    
+
 }
+
+#endif // ENABLE(DATABASE)

@@ -38,9 +38,10 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLTableRowElement::HTMLTableRowElement(Document* doc)
-    : HTMLTablePartElement(trTag, doc)
+HTMLTableRowElement::HTMLTableRowElement(const QualifiedName& tagName, Document* doc)
+    : HTMLTablePartElement(tagName, doc)
 {
+    ASSERT(hasTagName(trTag));
 }
 
 bool HTMLTableRowElement::checkDTD(const Node* newChild)
@@ -167,7 +168,7 @@ void HTMLTableRowElement::deleteCell(int index, ExceptionCode& ec)
 
 PassRefPtr<HTMLCollection> HTMLTableRowElement::cells()
 {
-    return new HTMLCollection(this, HTMLCollection::TRCells);
+    return HTMLCollection::create(this, TRCells);
 }
 
 void HTMLTableRowElement::setCells(HTMLCollection *, ExceptionCode& ec)

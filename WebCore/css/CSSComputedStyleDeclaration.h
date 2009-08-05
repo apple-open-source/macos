@@ -1,7 +1,6 @@
-/**
- *
- * Copyright (C)  2004  Zack Rusin <zack@kde.org>
- * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
+/*
+ * Copyright (C) 2004 Zack Rusin <zack@kde.org>
+ * Copyright (C) 2004, 2005, 2006, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -28,15 +27,12 @@
 namespace WebCore {
 
 class CSSMutableStyleDeclaration;
-class CSSProperty;
-class RenderObject;
-class RenderStyle;
 
 enum EUpdateLayout { DoNotUpdateLayout = false, UpdateLayout = true };
 
 class CSSComputedStyleDeclaration : public CSSStyleDeclaration {
 public:
-    CSSComputedStyleDeclaration(PassRefPtr<Node>);
+    friend PassRefPtr<CSSComputedStyleDeclaration> computedStyle(PassRefPtr<Node>);
     virtual ~CSSComputedStyleDeclaration();
 
     virtual String cssText() const;
@@ -47,13 +43,14 @@ public:
     virtual PassRefPtr<CSSValue> getPropertyCSSValue(int propertyID) const;
     virtual String getPropertyValue(int propertyID) const;
     virtual bool getPropertyPriority(int propertyID) const;
-    virtual int getPropertyShorthand(int propertyID) const { return -1; }
-    virtual bool isPropertyImplicit(int propertyID) const { return false; }
+    virtual int getPropertyShorthand(int /*propertyID*/) const { return -1; }
+    virtual bool isPropertyImplicit(int /*propertyID*/) const { return false; }
 
     virtual PassRefPtr<CSSMutableStyleDeclaration> copy() const;
     virtual PassRefPtr<CSSMutableStyleDeclaration> makeMutable();
 
     PassRefPtr<CSSValue> getPropertyCSSValue(int propertyID, EUpdateLayout) const;
+    PassRefPtr<CSSValue> getFontSizeCSSValuePreferringKeyword() const;
 #if ENABLE(SVG)
     PassRefPtr<CSSValue> getSVGPropertyCSSValue(int propertyID, EUpdateLayout) const;
 #endif
@@ -63,6 +60,8 @@ public:
     static void removeComputedInheritablePropertiesFrom(CSSMutableStyleDeclaration*);
 
 private:
+    CSSComputedStyleDeclaration(PassRefPtr<Node>);
+
     virtual void setCssText(const String&, ExceptionCode&);
 
     virtual String removeProperty(int propertyID, ExceptionCode&);
@@ -71,7 +70,10 @@ private:
     RefPtr<Node> m_node;
 };
 
-PassRefPtr<CSSComputedStyleDeclaration> computedStyle(Node*);
+inline PassRefPtr<CSSComputedStyleDeclaration> computedStyle(PassRefPtr<Node> node)
+{
+    return adoptRef(new CSSComputedStyleDeclaration(node));
+}
 
 } // namespace WebCore
 

@@ -60,6 +60,43 @@ bool SimpleFontData::shouldApplyMacAscentHack()
     return g_shouldApplyMacAscentHack;
 }
 
+void SimpleFontData::initGDIFont()
+{
+     HDC hdc = GetDC(0);
+     HGDIOBJ oldFont = SelectObject(hdc, m_font.hfont());
+     OUTLINETEXTMETRIC metrics;
+     GetOutlineTextMetrics(hdc, sizeof(metrics), &metrics);
+     TEXTMETRIC& textMetrics = metrics.otmTextMetrics;
+     m_ascent = textMetrics.tmAscent;
+     m_descent = textMetrics.tmDescent;
+     m_lineGap = textMetrics.tmExternalLeading;
+     m_lineSpacing = m_ascent + m_descent + m_lineGap;
+     m_xHeight = m_ascent * 0.56f; // Best guess for xHeight if no x glyph is present.
+
+     GLYPHMETRICS gm;
+     MAT2 mat = { 1, 0, 0, 1 };
+     DWORD len = GetGlyphOutline(hdc, 'x', GGO_METRICS, &gm, 0, 0, &mat);
+     if (len != GDI_ERROR && gm.gmptGlyphOrigin.y > 0)
+         m_xHeight = gm.gmptGlyphOrigin.y;
+
+     m_unitsPerEm = metrics.otmEMSquare;
+
+     SelectObject(hdc, oldFont);
+     ReleaseDC(0, hdc);
+
+     return;
+}
+
+void SimpleFontData::platformCommonDestroy()
+{
+    // We don't hash this on Win32, so it's effectively owned by us.
+    delete m_smallCapsFontData;
+    m_smallCapsFontData = 0;
+
+    ScriptFreeCache(&m_scriptCache);
+    delete m_scriptFontProperties;
+}
+
 SimpleFontData* SimpleFontData::smallCapsFontData(const FontDescription& fontDescription) const
 {
     if (!m_smallCapsFontData) {
@@ -73,7 +110,7 @@ SimpleFontData* SimpleFontData::smallCapsFontData(const FontDescription& fontDes
             GetObject(m_font.hfont(), sizeof(LOGFONT), &winfont);
             winfont.lfHeight = -lroundf(smallCapsHeight * (m_font.useGDI() ? 1 : 32));
             HFONT hfont = CreateFontIndirect(&winfont);
-            m_smallCapsFontData = new SimpleFontData(FontPlatformData(hfont, smallCapsHeight, fontDescription.bold(), fontDescription.italic(), m_font.useGDI()));
+            m_smallCapsFontData = new SimpleFontData(FontPlatformData(hfont, smallCapsHeight, m_font.syntheticBold(), m_font.syntheticOblique(), m_font.useGDI()));
         }
     }
     return m_smallCapsFontData;
@@ -88,7 +125,7 @@ bool SimpleFontData::containsCharacters(const UChar* characters, int length) con
     // FIXME: Microsoft documentation seems to imply that characters can be output using a given font and DC
     // merely by testing code page intersection.  This seems suspect though.  Can't a font only partially
     // cover a given code page?
-    IMLangFontLink2* langFontLink = FontCache::getFontLinkInterface();
+    IMLangFontLink2* langFontLink = fontCache()->getFontLinkInterface();
     if (!langFontLink)
         return false;
 
@@ -135,6 +172,18 @@ void SimpleFontData::determinePitch()
 
     RestoreDC(dc, -1);
     ReleaseDC(0, dc);
+}
+
+float SimpleFontData::widthForGDIGlyph(Glyph glyph) const
+{
+    HDC hdc = GetDC(0);
+    SetGraphicsMode(hdc, GM_ADVANCED);
+    HGDIOBJ oldFont = SelectObject(hdc, m_font.hfont());
+    int width;
+    GetCharWidthI(hdc, glyph, 1, 0, &width);
+    SelectObject(hdc, oldFont);
+    ReleaseDC(0, hdc);
+    return width + m_syntheticBoldOffset;
 }
 
 SCRIPT_FONTPROPERTIES* SimpleFontData::scriptFontProperties() const

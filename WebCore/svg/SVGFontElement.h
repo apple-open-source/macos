@@ -24,6 +24,8 @@
 #if ENABLE(SVG_FONTS)
 #include "SVGExternalResourcesRequired.h"
 #include "SVGGlyphElement.h"
+#include "SVGGlyphMap.h"
+#include "SVGHKernElement.h"
 #include "SVGStyledElement.h"
 
 namespace WebCore {
@@ -36,29 +38,29 @@ namespace WebCore {
         virtual ~SVGFontElement();
 
         virtual bool rendererIsNeeded(RenderStyle*) { return false; }    
-        virtual const SVGElement* contextElement() const { return this; }
 
-        void addGlyphToCache(SVGGlyphElement*);
-        void removeGlyphFromCache(SVGGlyphElement*);
+        void invalidateGlyphCache();
 
-        const Vector<SVGGlyphIdentifier>& glyphIdentifiersForString(const String&) const;
+        void getGlyphIdentifiersForString(const String&, Vector<SVGGlyphIdentifier>&) const;
 
-        // Returns the longest hash key length (the 'unicode' property value with the
-        // highest amount of characters) - ie. for <glyph unicode="ffl"/> it will return 3.
-        unsigned int maximumHashKeyLength() const { return m_maximumHashKeyLength; }
+        bool getHorizontalKerningPairForStringsAndGlyphs(const String& u1, const String& g1, const String& u2, const String& g2, SVGHorizontalKerningPair& kerningPair) const;
 
         SVGMissingGlyphElement* firstMissingGlyphElement() const;
 
-    private:
-        typedef HashMap<String, Vector<SVGGlyphIdentifier> > GlyphHashMap;
-        GlyphHashMap m_glyphMap;
+    protected:
+        virtual const SVGElement* contextElement() const { return this; }
 
-        unsigned int m_maximumHashKeyLength;
+    private:
+        void ensureGlyphCache() const;
+
+        typedef Vector<SVGHorizontalKerningPair> KerningPairVector;
+
+        mutable KerningPairVector m_kerningPairs;
+        mutable SVGGlyphMap m_glyphMap;
+        mutable bool m_isGlyphCacheValid;
     };
 
 } // namespace WebCore
 
 #endif // ENABLE(SVG_FONTS)
 #endif
-
-// vim:ts=4:noet

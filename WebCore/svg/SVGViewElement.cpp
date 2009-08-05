@@ -26,6 +26,7 @@
 #include "SVGViewElement.h"
 
 #include "Attr.h"
+#include "MappedAttribute.h"
 #include "PlatformString.h"
 #include "SVGFitToViewBox.h"
 #include "SVGNames.h"
@@ -49,7 +50,7 @@ SVGViewElement::~SVGViewElement()
 SVGStringList* SVGViewElement::viewTarget() const
 {
     if (!m_viewTarget)
-        m_viewTarget = new SVGStringList(SVGNames::viewTargetAttr);
+        m_viewTarget = SVGStringList::create(SVGNames::viewTargetAttr);
 
     return m_viewTarget.get();
 }

@@ -23,21 +23,20 @@
 #if ENABLE(SVG)
 #include "SVGURIReference.h"
 
-#include "SVGNames.h"
-#include "SVGStyledElement.h"
-#include "XLinkNames.h"
+#include "MappedAttribute.h"
 
 namespace WebCore {
 
+char SVGURIReferenceIdentifier[] = "SVGURIReference";
+
 SVGURIReference::SVGURIReference()
+    : m_href(this, XLinkNames::hrefAttr)
 {
 }
 
 SVGURIReference::~SVGURIReference()
 {
 }
-
-ANIMATED_PROPERTY_DEFINITIONS_WITH_CONTEXT(SVGURIReference, String, String, string, Href, href, XLinkNames::hrefAttr, m_href)
 
 bool SVGURIReference::parseMappedAttribute(MappedAttribute* attr)
 {

@@ -1,4 +1,3 @@
-/* -*- mode: c++; c-basic-offset: 4 -*- */
 /*
  *  Copyright (C) 2006 Apple Computer, Inc.
  *
@@ -27,4 +26,4 @@
 
 #define UNUSED_PARAM(x) (void)x
 
-#endif // WTF_UnusedParam_h
+#endif /* WTF_UnusedParam_h */

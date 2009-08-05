@@ -29,51 +29,53 @@
 #include "config.h"
 #include "JSSQLTransaction.h"
 
+#if ENABLE(DATABASE)
+
 #include "DOMWindow.h"
 #include "ExceptionCode.h"
 #include "JSCustomSQLStatementCallback.h"
 #include "JSCustomSQLStatementErrorCallback.h"
+#include "JSDOMWindowCustom.h"
 #include "SQLTransaction.h"
-#include "kjs_window.h"
 
-using namespace KJS;
+using namespace JSC;
 
 namespace WebCore {
     
-JSValue* JSSQLTransaction::executeSql(ExecState* exec, const List& args)
+JSValue JSSQLTransaction::executeSql(ExecState* exec, const ArgList& args)
 {
-    String sqlStatement = args[0]->toString(exec);
+    String sqlStatement = args.at(0).toString(exec);
     if (exec->hadException())
         return jsUndefined();
 
     // Now assemble the list of SQL arguments
     Vector<SQLValue> sqlValues;
-    if (!args[1]->isUndefinedOrNull()) {
-        JSObject* object = args[1]->getObject();
+    if (!args.at(1).isUndefinedOrNull()) {
+        JSObject* object = args.at(1).getObject();
         if (!object) {
             setDOMException(exec, TYPE_MISMATCH_ERR);
             return jsUndefined();
         }
 
-        JSValue* lengthValue = object->get(exec, exec->propertyNames().length);
+        JSValue lengthValue = object->get(exec, exec->propertyNames().length);
         if (exec->hadException())
             return jsUndefined();
-        unsigned length = lengthValue->toUInt32(exec);
+        unsigned length = lengthValue.toUInt32(exec);
         if (exec->hadException())
             return jsUndefined();
         
         for (unsigned i = 0 ; i < length; ++i) {
-            JSValue* value = object->get(exec, i);
+            JSValue value = object->get(exec, i);
             if (exec->hadException())
                 return jsUndefined();
             
-            if (value->isNull())
+            if (value.isNull())
                 sqlValues.append(SQLValue());
-            else if (value->isNumber())
-                sqlValues.append(value->getNumber());
+            else if (value.isNumber())
+                sqlValues.append(value.uncheckedGetNumber());
             else {
                 // Convert the argument to a string and append it
-                sqlValues.append(value->toString(exec));
+                sqlValues.append(value.toString(exec));
                 if (exec->hadException())
                     return jsUndefined();
             }
@@ -81,27 +83,27 @@ JSValue* JSSQLTransaction::executeSql(ExecState* exec, const List& args)
     }
 
     RefPtr<SQLStatementCallback> callback;
-    if (!args[2]->isUndefinedOrNull()) {
-        JSObject* object = args[2]->getObject();
+    if (!args.at(2).isUndefinedOrNull()) {
+        JSObject* object = args.at(2).getObject();
         if (!object) {
             setDOMException(exec, TYPE_MISMATCH_ERR);
             return jsUndefined();
         }
         
-        if (Frame* frame = Window::retrieveActive(exec)->impl()->frame())
-            callback = new JSCustomSQLStatementCallback(object, frame);
+        if (Frame* frame = asJSDOMWindow(exec->dynamicGlobalObject())->impl()->frame())
+            callback = JSCustomSQLStatementCallback::create(object, frame);
     }
     
     RefPtr<SQLStatementErrorCallback> errorCallback;
-    if (!args[3]->isUndefinedOrNull()) {
-        JSObject* object = args[3]->getObject();
+    if (!args.at(3).isUndefinedOrNull()) {
+        JSObject* object = args.at(3).getObject();
         if (!object) {
             setDOMException(exec, TYPE_MISMATCH_ERR);
             return jsUndefined();
         }
         
-        if (Frame* frame = Window::retrieveActive(exec)->impl()->frame())
-            errorCallback = new JSCustomSQLStatementErrorCallback(object, frame);
+        if (Frame* frame = asJSDOMWindow(exec->dynamicGlobalObject())->impl()->frame())
+            errorCallback = JSCustomSQLStatementErrorCallback::create(object, frame);
     }
     
     ExceptionCode ec = 0;
@@ -112,3 +114,5 @@ JSValue* JSSQLTransaction::executeSql(ExecState* exec, const List& args)
 }
 
 }
+
+#endif // ENABLE(DATABASE)

@@ -24,6 +24,7 @@
 #define _IOPowerSourcesPrivate_h_
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <IOKit/IOKitLib.h>
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS
@@ -44,7 +45,7 @@ __BEGIN_DECLS
         reference battery descriptions. De-reference each CFTypeRef member of the array
         using IOPSGetPowerSourceDescription.
 */
-extern CFArrayRef           IOPSCopyInternalBatteriesArray(CFTypeRef snapshot);
+CFArrayRef           IOPSCopyInternalBatteriesArray(CFTypeRef snapshot);
 
 
 /*! @function IOPSCopyUPSArray
@@ -54,7 +55,7 @@ extern CFArrayRef           IOPSCopyInternalBatteriesArray(CFTypeRef snapshot);
         reference UPS descriptions. De-reference each CFTypeRef member of the array
         using IOPSGetPowerSourceDescription.
 */
-extern CFArrayRef           IOPSCopyUPSArray(CFTypeRef snapshot);
+CFArrayRef           IOPSCopyUPSArray(CFTypeRef snapshot);
 
 /*! @function IOPSGetActiveBattery
     @abstract Returns the active battery.
@@ -65,7 +66,7 @@ extern CFArrayRef           IOPSCopyUPSArray(CFTypeRef snapshot);
     @result NULL if no batteries are present, a CFTypeRef indicating the active battery 
         otherwise. You must dereference this CFTypeRef with IOPSGetPowerSourceDescription().
 */
-extern CFTypeRef            IOPSGetActiveBattery(CFTypeRef snapshot);
+CFTypeRef            IOPSGetActiveBattery(CFTypeRef snapshot);
 
 /*! @function IOPSGetActiveUPS
     @abstract Returns the active UPS. 
@@ -76,7 +77,7 @@ extern CFTypeRef            IOPSGetActiveBattery(CFTypeRef snapshot);
     @result NULL if no UPS's are present, a CFTypeRef indicating the active UPS otherwise.
         You must dereference this CFTypeRef with IOPSGetPowerSourceDescription().
 */
-extern CFTypeRef            IOPSGetActiveUPS(CFTypeRef snapshot);
+CFTypeRef            IOPSGetActiveUPS(CFTypeRef snapshot);
 
 /*! @function IOPSGetProvidingPowerSourceType
     @abstract Indicates the power source the computer is currently drawing from.
@@ -84,7 +85,7 @@ extern CFTypeRef            IOPSGetActiveUPS(CFTypeRef snapshot);
     @param snapshot The CFTypeRef returned by IOPSCopyPowerSourcesInfo()
     @result One of: CFSTR(kIOPMACPowerKey), CFSTR(kIOPMBatteryPowerKey), CFSTR(kIOPMUPSPowerKey)
 */
-extern CFStringRef          IOPSGetProvidingPowerSourceType(CFTypeRef snapshot);
+CFStringRef          IOPSGetProvidingPowerSourceType(CFTypeRef snapshot);
 
 /*! @function IOPSPowerSourceSupported
     @abstract Indicates whether a power source is present on a given system.
@@ -93,7 +94,56 @@ extern CFStringRef          IOPSGetProvidingPowerSourceType(CFTypeRef snapshot);
     @param type A CFStringRef describing the type of power source (AC Power, Battery Power, UPS Power)
     @result kCFBooleanTrue if the power source is supported, kCFBooleanFalse otherwise.
 */
-extern CFBooleanRef         IOPSPowerSourceSupported(CFTypeRef snapshot, CFStringRef type);
+CFBooleanRef         IOPSPowerSourceSupported(CFTypeRef snapshot, CFStringRef type);
+
+
+/*! typedef IOPSPowerSourceID
+ *  An object of type IOPSPowerSourceID refers to a published power source. 
+ *  May be NULL. The IOPSPowerSourceID contains no visible itself; it may
+ *  only be passed as an argument to IOPS API.
+ */
+typedef struct OpaqueIOPSPowerSourceID *IOPSPowerSourceID;
+
+/*! IOPSCreatePowerSource
+Ê Ê Call this once per publishable power source to announce the presence of the power source.
+Ê Ê This call will not make the power source visible to the clients of IOPSCopyPowerSourcesInfo();
+Ê Ê call IOPSSetPowerSourceDetails to share details.
+Ê Ê Upon success, this parameter outPS will contain a reference to the new power source.
+Ê Ê This reference must be released with IOPSReleasePowerSource when (and if) the power source is no longer available
+Ê Ê as a power source to the OS.
+    powerSourceType is the caller's type of power source, defined in IOPSKeys.h
+Ê Ê Returns kIOReturnSuccess on success, see IOReturn.h for possible failure codes.
+Ê*/
+IOReturn IOPSCreatePowerSource(IOPSPowerSourceID *outPS, CFStringRef powerSourceType);
+
+/*! IOPSSetPowerSourceDetails
+Ê Ê Call this when a managed power source's state has substantially changed,
+Ê Ê and that state should be reflected in the OS.
+Ê Ê Generally you should not call this more than once a minute - most power sources
+Ê Ê change state so slowly that once per minute is enough to provide accurate UI.
+Ê Ê You may call this more frequently/immediately on any sudden changes in state,
+Ê Ê like sudden removal, or emergency low power warnings.
+
+Ê Ê The whichPS argument is the IOPSPowerSourceID returned from IOPSCreatePowerSource().
+    Only the process that created this IOPSPowerSourceID may update its details.
+
+Ê Ê Caller should populate the details dictionary with information describing the power source,
+Ê Ê using dictionary keys in IOPSKeys.h
+    Every dictionary provided here completely replaces any prior published dictionary.
+    
+Ê Ê Returns kIOReturnSuccess on success, see IOReturn.h for possible failure codes.
+*/
+IOReturn IOPSSetPowerSourceDetails(IOPSPowerSourceID whichPS, CFDictionaryRef details);
+
+/*! IOPSReleasePowerSource
+Ê Ê Call this when the managed power source has been physically removed from the system,
+Ê Ê or is no longer available as a power source.
+
+Ê Ê The whichPS argument is the IOPSPowerSourceID returned from IOPSCreatePowerSource().
+
+Ê Ê Returns kIOReturnSuccess on success, see IOReturn.h for possible failure codes.
+Ê*/
+IOReturn IOPSReleasePowerSource(IOPSPowerSourceID whichPS);
 
 __END_DECLS
 

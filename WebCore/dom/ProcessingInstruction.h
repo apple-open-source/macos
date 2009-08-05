@@ -25,6 +25,7 @@
 #define ProcessingInstruction_h
 
 #include "CachedResourceClient.h"
+#include "CachedResourceHandle.h"
 #include "ContainerNode.h"
 
 namespace WebCore {
@@ -53,22 +54,28 @@ public:
     virtual bool offsetInCharacters() const;
     virtual int maxCharacterOffset() const;
 
+    virtual void insertedIntoDocument();
+    virtual void removedFromDocument();
+    void setCreatedByParser(bool createdByParser) { m_createdByParser = createdByParser; }
+    virtual void finishParsingChildren();
+
     // Other methods (not part of DOM)
     String localHref() const { return m_localHref; }
     StyleSheet* sheet() const { return m_sheet.get(); }
-    bool checkStyleSheet();
-    virtual void setCSSStyleSheet(const String& url, const String& charset, const String& sheet);
+    void checkStyleSheet();
+    virtual void setCSSStyleSheet(const String& url, const String& charset, const CachedCSSStyleSheet*);
 #if ENABLE(XSLT)
     virtual void setXSLStyleSheet(const String& url, const String& sheet);
 #endif
-    void setCSSStyleSheet(CSSStyleSheet*);
+    void setCSSStyleSheet(PassRefPtr<CSSStyleSheet>);
     bool isLoading() const;
     virtual bool sheetLoaded();
-    virtual String toString() const;
 
 #if ENABLE(XSLT)
     bool isXSL() const { return m_isXSL; }
 #endif
+
+    virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
 
 private:
     void parseStyleSheet(const String& sheet);
@@ -76,9 +83,13 @@ private:
     String m_target;
     String m_data;
     String m_localHref;
-    CachedResource* m_cachedSheet;
+    String m_title;
+    String m_media;
+    CachedResourceHandle<CachedResource> m_cachedSheet;
     RefPtr<StyleSheet> m_sheet;
     bool m_loading;
+    bool m_alternate;
+    bool m_createdByParser;
 #if ENABLE(XSLT)
     bool m_isXSL;
 #endif

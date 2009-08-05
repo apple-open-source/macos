@@ -29,54 +29,55 @@
 #include "config.h"
 #include "JSDatabase.h"
 
+#if ENABLE(DATABASE)
+
+#include "DOMWindow.h"
 #include "Database.h"
 #include "Document.h"
-#include "DOMWindow.h"
 #include "ExceptionCode.h"
-#include "kjs_window.h"
 #include "JSCustomSQLTransactionCallback.h"
 #include "JSCustomSQLTransactionErrorCallback.h"
 #include "JSCustomVoidCallback.h"
+#include "JSDOMWindowCustom.h"
 #include "PlatformString.h"
 #include "SQLValue.h"
-#include <kjs/array_instance.h>
+#include <runtime/JSArray.h>
 
 namespace WebCore {
 
-using namespace KJS;
+using namespace JSC;
 
-JSValue* JSDatabase::changeVersion(ExecState* exec, const List& args)
+JSValue JSDatabase::changeVersion(ExecState* exec, const ArgList& args)
 {
-    String oldVersion = args[0]->toString(exec);
-    String newVersion = args[1]->toString(exec);
+    String oldVersion = args.at(0).toString(exec);
+    String newVersion = args.at(1).toString(exec);
 
-    Frame* frame = Window::retrieveActive(exec)->impl()->frame();
+    Frame* frame = asJSDOMWindow(exec->dynamicGlobalObject())->impl()->frame();
     if (!frame)
         return jsUndefined();
     
-    JSObject *object;
-    if (!(object = args[2]->getObject())) {
+    JSObject* object;
+    if (!(object = args.at(2).getObject())) {
         setDOMException(exec, TYPE_MISMATCH_ERR);
         return jsUndefined();
     }
     
-    RefPtr<SQLTransactionCallback> callback(new JSCustomSQLTransactionCallback(object, frame));
+    RefPtr<SQLTransactionCallback> callback(JSCustomSQLTransactionCallback::create(object, frame));
     
     RefPtr<SQLTransactionErrorCallback> errorCallback;
-    if (!args[3]->isNull()) {
-        if (!(object = args[3]->getObject())) {
+    if (!args.at(3).isNull()) {
+        if (!(object = args.at(3).getObject())) {
             setDOMException(exec, TYPE_MISMATCH_ERR);
             return jsUndefined();
         }
         
-        errorCallback = new JSCustomSQLTransactionErrorCallback(object, frame);
+        errorCallback = JSCustomSQLTransactionErrorCallback::create(object, frame);
     }
     
     RefPtr<VoidCallback> successCallback;
-    if (!args[4]->isNull()) {
-        bool ok;
-        successCallback = toVoidCallback(exec, args[4], ok);
-        if (!ok) {
+    if (!args.at(4).isNull()) {
+        successCallback = toVoidCallback(exec, args.at(4));
+        if (!successCallback) {
             setDOMException(exec, TYPE_MISMATCH_ERR);
             return jsUndefined();
         }
@@ -87,36 +88,35 @@ JSValue* JSDatabase::changeVersion(ExecState* exec, const List& args)
     return jsUndefined();
 }
 
-JSValue* JSDatabase::transaction(ExecState* exec, const List& args)
+JSValue JSDatabase::transaction(ExecState* exec, const ArgList& args)
 {
     JSObject* object;
     
-    if (!(object = args[0]->getObject())) {
+    if (!(object = args.at(0).getObject())) {
         setDOMException(exec, TYPE_MISMATCH_ERR);
         return jsUndefined();
     }        
  
-    Frame* frame = Window::retrieveActive(exec)->impl()->frame();
+    Frame* frame = asJSDOMWindow(exec->dynamicGlobalObject())->impl()->frame();
     if (!frame)
         return jsUndefined();
     
-    RefPtr<SQLTransactionCallback> callback(new JSCustomSQLTransactionCallback(object, frame));
+    RefPtr<SQLTransactionCallback> callback(JSCustomSQLTransactionCallback::create(object, frame));
     RefPtr<SQLTransactionErrorCallback> errorCallback;
     
-    if (args.size() > 1 && !args[1]->isNull()) {
-        if (!(object = args[1]->getObject())) {
+    if (args.size() > 1 && !args.at(1).isNull()) {
+        if (!(object = args.at(1).getObject())) {
             setDOMException(exec, TYPE_MISMATCH_ERR);
             return jsUndefined();
         }
 
-        errorCallback = new JSCustomSQLTransactionErrorCallback(object, frame);
+        errorCallback = JSCustomSQLTransactionErrorCallback::create(object, frame);
     }
 
     RefPtr<VoidCallback> successCallback;
-    if (args.size() > 2 && !args[2]->isNull()) {
-        bool ok;
-        successCallback = toVoidCallback(exec, args[2], ok);
-        if (!ok) {
+    if (args.size() > 2 && !args.at(2).isNull()) {
+        successCallback = toVoidCallback(exec, args.at(2));
+        if (!successCallback) {
             setDOMException(exec, TYPE_MISMATCH_ERR);
             return jsUndefined();
         }
@@ -128,3 +128,4 @@ JSValue* JSDatabase::transaction(ExecState* exec, const List& args)
 }
     
 }
+#endif // ENABLE(DATABASE)

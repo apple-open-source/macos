@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2008 Collabora, Ltd.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,8 +28,9 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <float.h>
 
-#include "AffineTransform.h"
+#include "TransformationMatrix.h"
 #include "AXObjectCache.h"
 #include "BitmapImage.h"
 #include "CachedResource.h"
@@ -37,6 +39,7 @@
 #include "ContextMenuItem.h"
 #include "CookieJar.h"
 #include "Cursor.h"
+#include "DNS.h"
 #include "DocumentFragment.h"
 #include "DocumentLoader.h"
 #include "DragController.h"
@@ -45,6 +48,7 @@
 #include "EventHandler.h"
 #include "FileChooser.h"
 #include "Font.h"
+#include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameView.h"
 #include "Icon.h"
@@ -62,16 +66,15 @@
 #include "Path.h"
 #include "PlatformMenuDescription.h"
 #include "PlatformMouseEvent.h"
-#include "PlatformScrollBar.h"
-#include "PluginInfoStore.h"
 #include "PopupMenu.h"
 #include "RenderTheme.h"
 #include "ResourceHandle.h"
 #include "ResourceHandleInternal.h"
 #include "ResourceLoader.h"
 #include "Screen.h"
+#include "ScrollbarTheme.h"
 #include "SearchPopupMenu.h"
-#include "ScrollBar.h"
+#include "Scrollbar.h"
 #include "SharedBuffer.h"
 #include "SharedTimer.h"
 #include "TextBoundaries.h"
@@ -85,17 +88,11 @@ Vector<char> loadResourceIntoArray(const char* resourceName)
     return resource;
 }
 
-void Widget::removeFromParent() { notImplemented(); }
-
-
 int findNextSentenceFromIndex(UChar const*,int,int,bool) { notImplemented(); return 0; }
 void findSentenceBoundary(UChar const*,int,int,int*,int*) { notImplemented(); }
 
 int WebCore::findNextWordFromIndex(UChar const*,int,int,bool) { notImplemented(); return 0; }
 
-void Frame::clearPlatformScriptObjects() { notImplemented(); }
-
-void Frame::dashboardRegionsChanged() { notImplemented(); }
 DragImageRef Frame::dragImageForSelection() { notImplemented(); return 0; }
 
 void GraphicsContext::addInnerRoundedRectClip(const IntRect& rect, int thickness) { notImplemented(); }
@@ -111,22 +108,12 @@ bool WebCore::cookiesEnabled(const Document* document) { notImplemented(); retur
 static WebCore::Cursor localCursor;
 const WebCore::Cursor& WebCore::moveCursor() { return localCursor; }
 
-namespace WebCore {
-    bool historyContains(const UChar*, unsigned) { return false; }
-}
-
 void WebCore::findWordBoundary(UChar const* str,int len,int position,int* start, int* end) { notImplemented(); *start=position; *end=position; }
-
-PluginInfo*PluginInfoStore::createPluginInfoForPluginAtIndex(unsigned) { notImplemented(); return 0;}
-unsigned PluginInfoStore::pluginCount() const { notImplemented(); return 0; }
-bool WebCore::PluginInfoStore::supportsMIMEType(const WebCore::String&) { notImplemented(); return false; }
-String PluginInfoStore::pluginNameForMIMEType(const String& mimeType) { notImplemented(); return String(); }
-void WebCore::refreshPlugins(bool) { notImplemented(); }
 
 void Widget::setIsSelected(bool) { notImplemented(); }
 
-void GraphicsContext::setShadow(IntSize const&,int,Color const&) { notImplemented(); }
-void GraphicsContext::clearShadow() { notImplemented(); }
+void GraphicsContext::setPlatformShadow(IntSize const&,int,Color const&) { notImplemented(); }
+void GraphicsContext::clearPlatformShadow() { notImplemented(); }
 void GraphicsContext::beginTransparencyLayer(float) { notImplemented(); }
 void GraphicsContext::endTransparencyLayer() { notImplemented(); }
 void GraphicsContext::clearRect(const FloatRect&) { notImplemented(); }
@@ -137,59 +124,17 @@ void GraphicsContext::setMiterLimit(float) { notImplemented(); }
 void GraphicsContext::setAlpha(float) { notImplemented(); }
 
 Color WebCore::focusRingColor() { return 0xFF0000FF; }
-void WebCore::setFocusRingColorChangeFunction(void (*)()) { }
 
-void Image::drawPattern(GraphicsContext*, const FloatRect& srcRect, const AffineTransform& patternTransform, const FloatPoint& phase, CompositeOperator, const FloatRect& destRect) { notImplemented(); } 
+void Image::drawPattern(GraphicsContext*, const FloatRect& srcRect, const TransformationMatrix& patternTransform, const FloatPoint& phase, CompositeOperator, const FloatRect& destRect) { notImplemented(); } 
 
-PlatformScrollbar::PlatformScrollbar(ScrollbarClient* client, ScrollbarOrientation orientation, ScrollbarControlSize controlSize) : Scrollbar(client, orientation, controlSize) { notImplemented(); }
-PlatformScrollbar::~PlatformScrollbar() { notImplemented(); }
-int PlatformScrollbar::width() const { notImplemented(); return 0; }
-int PlatformScrollbar::height() const { notImplemented(); return 0; }
-void PlatformScrollbar::setEnabled(bool) { notImplemented(); }
-void PlatformScrollbar::paint(GraphicsContext*, const IntRect& damageRect) { notImplemented(); }
-void PlatformScrollbar::updateThumbPosition() { notImplemented(); }
-void PlatformScrollbar::updateThumbProportion() { notImplemented(); }
-void PlatformScrollbar::setRect(const IntRect&) { notImplemented(); }
+ScrollbarTheme* ScrollbarTheme::nativeTheme() { notImplemented(); static ScrollbarTheme theme; return &theme; }
 
-FileChooser::FileChooser(FileChooserClient*, const String& initialFilename) { notImplemented(); }
-//PassRefPtr<FileChooser> FileChooser::create(FileChooserClient*, const String& initialFilename) { notImplemented(); return PassRefPtr<FileChooser>(); }
-FileChooser::~FileChooser() { notImplemented(); }
-void FileChooser::openFileChooser(Document*) { notImplemented(); }
 String FileChooser::basenameForWidth(const Font&, int width) const { notImplemented(); return String(); }
 
-PopupMenu::PopupMenu(PopupMenuClient*) { notImplemented(); }
-
-PopupMenu::~PopupMenu() { notImplemented(); }
-void PopupMenu::show(const IntRect&, FrameView*, int index) { notImplemented(); }
-void PopupMenu::hide() { notImplemented(); }
-void PopupMenu::updateFromElement() { notImplemented(); }
-bool PopupMenu::itemWritingDirectionIsNatural() { notImplemented(); return false; }
-
-Icon::Icon() { notImplemented(); }
-Icon::~Icon() { notImplemented(); }
-PassRefPtr<Icon> Icon::newIconForFile(const String& filename) { notImplemented(); return PassRefPtr<Icon>(new Icon()); }
+Icon::~Icon() { }
+PassRefPtr<Icon> Icon::createIconForFile(const String& filename) { notImplemented(); return 0; }
+PassRefPtr<Icon> Icon::createIconForFiles(const Vector<String>& filenames) { notImplemented(); return 0; }
 void Icon::paint(GraphicsContext*, const IntRect&) { notImplemented(); }
-
-ContextMenu::ContextMenu(const HitTestResult& result) : m_hitTestResult(result) { notImplemented(); }
-ContextMenu::~ContextMenu() { notImplemented(); }
-void ContextMenu::appendItem(ContextMenuItem&) { notImplemented(); }
-void ContextMenu::setPlatformDescription(PlatformMenuDescription) { notImplemented(); }
-
-ContextMenuItem::ContextMenuItem(PlatformMenuItemDescription) { notImplemented(); }
-ContextMenuItem::ContextMenuItem(ContextMenu*) { notImplemented(); }
-ContextMenuItem::ContextMenuItem(ContextMenuItemType type, ContextMenuAction action, const String& title, ContextMenu* subMenu) { notImplemented(); }
-ContextMenuItem::~ContextMenuItem() { notImplemented(); }
-PlatformMenuItemDescription ContextMenuItem::releasePlatformDescription() { notImplemented(); return m_platformDescription; }
-ContextMenuItemType ContextMenuItem::type() const { notImplemented(); return ActionType; }
-void ContextMenuItem::setType(ContextMenuItemType) { notImplemented(); }
-ContextMenuAction ContextMenuItem::action() const { notImplemented(); return ContextMenuItemTagNoAction; }
-void ContextMenuItem::setAction(ContextMenuAction) { notImplemented(); }
-String ContextMenuItem::title() const { notImplemented(); return String(); }
-void ContextMenuItem::setTitle(const String&) { notImplemented(); }
-//PlatformMenuDescription ContextMenuItem::platformSubMenu() const { notImplemented(); return 0; }
-void ContextMenuItem::setSubMenu(ContextMenu*) { notImplemented(); }
-void ContextMenuItem::setChecked(bool) { notImplemented(); }
-void ContextMenuItem::setEnabled(bool) { notImplemented(); }
 
 void Editor::showColorPanel() { notImplemented(); }
 void Editor::showFontPanel() { notImplemented(); }
@@ -206,12 +151,15 @@ SearchPopupMenu::SearchPopupMenu(PopupMenuClient* client) : PopupMenu(client) { 
 bool SearchPopupMenu::enabled() { return true; }
 
 namespace WebCore {
-float userIdleTime() { notImplemented(); return 0; }
-Vector<String> supportedKeySizes() { notImplemented(); return Vector<String>(); }
+float userIdleTime() { notImplemented(); return FLT_MAX; } // return an arbitrarily high userIdleTime so that releasing pages from the page cache isn't postponed
+void getSupportedKeySizes(Vector<String>&) { notImplemented(); }
 String signedPublicKeyAndChallengeString(unsigned keySizeIndex, const String &challengeString, const KURL &url) { return String(); }
 const char* currentTextBreakLocaleID() { notImplemented(); return "en_us"; }
 
 String KURL::fileSystemPath() const { notImplemented(); return String(); }
 
 PassRefPtr<SharedBuffer> SharedBuffer::createWithContentsOfFile(const String&) { notImplemented(); return 0; }
+
+void prefetchDNS(const String& hostname) { notImplemented(); }
+
 }

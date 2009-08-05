@@ -1,6 +1,4 @@
 /**
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  * Copyright (C) 2003 Apple Computer, Inc.
@@ -21,20 +19,23 @@
  * Boston, MA 02110-1301, USA.
  *
  */
+
 #include "config.h"
 #include "HTMLHRElement.h"
 
 #include "CSSPropertyNames.h"
 #include "CSSValueKeywords.h"
 #include "HTMLNames.h"
+#include "MappedAttribute.h"
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLHRElement::HTMLHRElement(Document *doc)
-    : HTMLElement(hrTag, doc)
+HTMLHRElement::HTMLHRElement(const QualifiedName& tagName, Document* doc)
+    : HTMLElement(tagName, doc)
 {
+    ASSERT(hasTagName(hrTag));
 }
 
 HTMLHRElement::~HTMLHRElement()
@@ -58,43 +59,43 @@ void HTMLHRElement::parseMappedAttribute(MappedAttribute *attr)
 {
     if (attr->name() == alignAttr) {
         if (equalIgnoringCase(attr->value(), "left")) {
-            addCSSProperty(attr, CSS_PROP_MARGIN_LEFT, "0");
-            addCSSProperty(attr, CSS_PROP_MARGIN_RIGHT, CSS_VAL_AUTO);
+            addCSSProperty(attr, CSSPropertyMarginLeft, "0");
+            addCSSProperty(attr, CSSPropertyMarginRight, CSSValueAuto);
         } else if (equalIgnoringCase(attr->value(), "right")) {
-            addCSSProperty(attr, CSS_PROP_MARGIN_LEFT, CSS_VAL_AUTO);
-            addCSSProperty(attr, CSS_PROP_MARGIN_RIGHT, "0");
+            addCSSProperty(attr, CSSPropertyMarginLeft, CSSValueAuto);
+            addCSSProperty(attr, CSSPropertyMarginRight, "0");
         } else {
-            addCSSProperty(attr, CSS_PROP_MARGIN_LEFT, CSS_VAL_AUTO);
-            addCSSProperty(attr, CSS_PROP_MARGIN_RIGHT, CSS_VAL_AUTO);
+            addCSSProperty(attr, CSSPropertyMarginLeft, CSSValueAuto);
+            addCSSProperty(attr, CSSPropertyMarginRight, CSSValueAuto);
         }
     } else if (attr->name() == widthAttr) {
         bool ok;
         int v = attr->value().toInt(&ok);
         if(ok && !v)
-            addCSSLength(attr, CSS_PROP_WIDTH, "1");
+            addCSSLength(attr, CSSPropertyWidth, "1");
         else
-            addCSSLength(attr, CSS_PROP_WIDTH, attr->value());
+            addCSSLength(attr, CSSPropertyWidth, attr->value());
     } else if (attr->name() == colorAttr) {
-        addCSSProperty(attr, CSS_PROP_BORDER_TOP_STYLE, CSS_VAL_SOLID);
-        addCSSProperty(attr, CSS_PROP_BORDER_RIGHT_STYLE, CSS_VAL_SOLID);
-        addCSSProperty(attr, CSS_PROP_BORDER_BOTTOM_STYLE, CSS_VAL_SOLID);
-        addCSSProperty(attr, CSS_PROP_BORDER_LEFT_STYLE, CSS_VAL_SOLID);
-        addCSSColor(attr, CSS_PROP_BORDER_COLOR, attr->value());
-        addCSSColor(attr, CSS_PROP_BACKGROUND_COLOR, attr->value());
+        addCSSProperty(attr, CSSPropertyBorderTopStyle, CSSValueSolid);
+        addCSSProperty(attr, CSSPropertyBorderRightStyle, CSSValueSolid);
+        addCSSProperty(attr, CSSPropertyBorderBottomStyle, CSSValueSolid);
+        addCSSProperty(attr, CSSPropertyBorderLeftStyle, CSSValueSolid);
+        addCSSColor(attr, CSSPropertyBorderColor, attr->value());
+        addCSSColor(attr, CSSPropertyBackgroundColor, attr->value());
     } else if (attr->name() == noshadeAttr) {
-        addCSSProperty(attr, CSS_PROP_BORDER_TOP_STYLE, CSS_VAL_SOLID);
-        addCSSProperty(attr, CSS_PROP_BORDER_RIGHT_STYLE, CSS_VAL_SOLID);
-        addCSSProperty(attr, CSS_PROP_BORDER_BOTTOM_STYLE, CSS_VAL_SOLID);
-        addCSSProperty(attr, CSS_PROP_BORDER_LEFT_STYLE, CSS_VAL_SOLID);
-        addCSSColor(attr, CSS_PROP_BORDER_COLOR, String("grey"));
-        addCSSColor(attr, CSS_PROP_BACKGROUND_COLOR, String("grey"));
+        addCSSProperty(attr, CSSPropertyBorderTopStyle, CSSValueSolid);
+        addCSSProperty(attr, CSSPropertyBorderRightStyle, CSSValueSolid);
+        addCSSProperty(attr, CSSPropertyBorderBottomStyle, CSSValueSolid);
+        addCSSProperty(attr, CSSPropertyBorderLeftStyle, CSSValueSolid);
+        addCSSColor(attr, CSSPropertyBorderColor, String("grey"));
+        addCSSColor(attr, CSSPropertyBackgroundColor, String("grey"));
     } else if (attr->name() == sizeAttr) {
         StringImpl* si = attr->value().impl();
         int size = si->toInt();
         if (size <= 1)
-            addCSSProperty(attr, CSS_PROP_BORDER_BOTTOM_WIDTH, String("0"));
+            addCSSProperty(attr, CSSPropertyBorderBottomWidth, String("0"));
         else
-            addCSSLength(attr, CSS_PROP_HEIGHT, String::number(size-2));
+            addCSSLength(attr, CSSPropertyHeight, String::number(size-2));
     } else
         HTMLElement::parseMappedAttribute(attr);
 }

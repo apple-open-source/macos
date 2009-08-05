@@ -43,41 +43,6 @@
 		DD66F3F608F7401B00C75FD7 /* JavaScriptCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DD66F3F508F7401B00C75FD7 /* JavaScriptCore.framework */; };
 /* End PBXBuildFile section */
 
-/* Begin PBXBuildRule section */
-		1C8715620B0BA46200E3CB7B /* PBXBuildRule */ = {
-			isa = PBXBuildRule;
-			compilerSpec = com.apple.compilers.gcc.4_0;
-			fileType = sourcecode.cpp;
-			isEditable = 1;
-			outputFiles = (
-			);
-		};
-		1C8715630B0BA46200E3CB7B /* PBXBuildRule */ = {
-			isa = PBXBuildRule;
-			compilerSpec = com.apple.compilers.gcc.4_0;
-			fileType = sourcecode.c;
-			isEditable = 1;
-			outputFiles = (
-			);
-		};
-		5D89690E0BB521EE009477BE /* PBXBuildRule */ = {
-			isa = PBXBuildRule;
-			compilerSpec = com.apple.compilers.gcc.4_0;
-			fileType = sourcecode.c;
-			isEditable = 1;
-			outputFiles = (
-			);
-		};
-		5D8969150BB52209009477BE /* PBXBuildRule */ = {
-			isa = PBXBuildRule;
-			compilerSpec = com.apple.compilers.gcc.4_0;
-			fileType = sourcecode.cpp;
-			isEditable = 1;
-			outputFiles = (
-			);
-		};
-/* End PBXBuildRule section */
-
 /* Begin PBXContainerItemProxy section */
 		1422E8C709DE3EAD00749B87 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -112,7 +77,7 @@
 		1C9051A00BA9F3050081E9D0 /* DebugRelease.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = DebugRelease.xcconfig; sourceTree = "<group>"; };
 		1C9051A10BA9F3050081E9D0 /* JavaScriptGlue.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = JavaScriptGlue.xcconfig; sourceTree = "<group>"; };
 		1C9051A20BA9F3050081E9D0 /* Version.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = Version.xcconfig; sourceTree = "<group>"; };
-		DD66F3D508F73ED700C75FD7 /* Info.plist */ = {isa = PBXFileReference; indentWidth = 4; lastKnownFileType = text.xml; path = Info.plist; sourceTree = "<group>"; tabWidth = 8; usesTabs = 0; };
+		DD66F3D508F73ED700C75FD7 /* Info.plist */ = {isa = PBXFileReference; indentWidth = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; tabWidth = 8; usesTabs = 0; };
 		DD66F3D608F73ED700C75FD7 /* JavaScriptGlue.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = JavaScriptGlue.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		DD66F3F508F7401B00C75FD7 /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = JavaScriptCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		F11798B20262465703CA149D /* JavaScriptGlue.cpp */ = {isa = PBXFileReference; indentWidth = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JavaScriptGlue.cpp; sourceTree = "<group>"; tabWidth = 8; usesTabs = 0; };
@@ -203,9 +168,6 @@
 		08FB77AEFE84172EC02AAC07 /* Classes */ = {
 			isa = PBXGroup;
 			children = (
-				F1EB7EAB02621EAF03CA149D /* JavaScriptGlue.exp */,
-				F11798B20262465703CA149D /* JavaScriptGlue.cpp */,
-				F11798B30262465703CA149D /* JavaScriptGlue.h */,
 				F11798B8026246FD03CA149D /* JSBase.cpp */,
 				F11798B9026246FD03CA149D /* JSBase.h */,
 				F11798BA026246FD03CA149D /* JSObject.cpp */,
@@ -216,6 +178,9 @@
 				F11798B7026246FD03CA149D /* JSUtils.h */,
 				F11798C80262545403CA149D /* JSValueWrapper.cpp */,
 				F11798C90262545403CA149D /* JSValueWrapper.h */,
+				F11798B20262465703CA149D /* JavaScriptGlue.cpp */,
+				F1EB7EAB02621EAF03CA149D /* JavaScriptGlue.exp */,
+				F11798B30262465703CA149D /* JavaScriptGlue.h */,
 				F11798CE0262579C03CA149D /* UserObjectImp.cpp */,
 				F11798CF0262579C03CA149D /* UserObjectImp.h */,
 			);
@@ -227,8 +192,8 @@
 		1058C7B0FEA5585E11CA2CBB /* Linked Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				DD66F3F508F7401B00C75FD7 /* JavaScriptCore.framework */,
 				F14FC9F30258E9A603CA149D /* CoreServices.framework */,
+				DD66F3F508F7401B00C75FD7 /* JavaScriptCore.framework */,
 			);
 			name = "Linked Frameworks";
 			sourceTree = "<group>";
@@ -236,8 +201,8 @@
 		1058C7B2FEA5585E11CA2CBB /* Other Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				0867D69BFE84028FC02AAC07 /* Foundation.framework */,
 				0867D6A5FE840307C02AAC07 /* AppKit.framework */,
+				0867D69BFE84028FC02AAC07 /* Foundation.framework */,
 			);
 			name = "Other Frameworks";
 			sourceTree = "<group>";
@@ -283,8 +248,6 @@
 				1422E87509DE3BE800749B87 /* Frameworks */,
 			);
 			buildRules = (
-				5D8969150BB52209009477BE /* PBXBuildRule */,
-				5D89690E0BB521EE009477BE /* PBXBuildRule */,
 			);
 			dependencies = (
 				5D2F21E30BDFAB9D0082B294 /* PBXTargetDependency */,
@@ -303,11 +266,11 @@
 				DD66F3C208F73ED700C75FD7 /* Resources */,
 				DD66F3C408F73ED700C75FD7 /* Sources */,
 				939D055E09DA033400984996 /* Check For Global Initializers */,
+				5D0D53490E9862A70029E223 /* Check For Weak VTables */,
 				DD66F3CD08F73ED700C75FD7 /* Frameworks */,
+				5DA0F0C00DC2B48900EA22B4 /* Remove Headers If Needed */,
 			);
 			buildRules = (
-				1C8715620B0BA46200E3CB7B /* PBXBuildRule */,
-				1C8715630B0BA46200E3CB7B /* PBXBuildRule */,
 			);
 			dependencies = (
 			);
@@ -349,6 +312,20 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		5D0D53490E9862A70029E223 /* Check For Weak VTables */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Check For Weak VTables";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ -f ../WebKitTools/Scripts/check-for-weak-vtables ]; then\n    ../WebKitTools/Scripts/check-for-weak-vtables || exit $?\nfi";
+		};
 		5D2F7D0A0C6878E000B5B72B /* Update Info.plist with version information */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -364,6 +341,20 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "# Touch Info.plist to let Xcode know it needs to copy it into the built product\ntouch \"$SRCROOT/Info.plist\"\n";
+		};
+		5DA0F0C00DC2B48900EA22B4 /* Remove Headers If Needed */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Remove Headers If Needed";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if (( MAC_OS_X_VERSION_MAJOR > 1050 )); then\n   rm -rf \"$BUILT_PRODUCTS_DIR/$PUBLIC_HEADERS_FOLDER_PATH\"/*.h;\nfi;\n";
 		};
 		939D055E09DA033400984996 /* Check For Global Initializers */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -503,8 +494,9 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1C9051A00BA9F3050081E9D0 /* DebugRelease.xcconfig */;
 			buildSettings = {
-				GCC_OPTIMIZATION_LEVEL = 0;
-				STRIP_INSTALLED_PRODUCT = NO;
+				DEBUG_DEFINES = "$(DEBUG_DEFINES_debug)";
+				GCC_OPTIMIZATION_LEVEL = "$(GCC_OPTIMIZATION_LEVEL_debug)";
+				STRIP_INSTALLED_PRODUCT = "$(STRIP_INSTALLED_PRODUCT_debug)";
 			};
 			name = Debug;
 		};
@@ -527,7 +519,6 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1C9051A10BA9F3050081E9D0 /* JavaScriptGlue.xcconfig */;
 			buildSettings = {
-				DEBUG_DEFINES = "";
 				INSTALL_PATH = "$(BUILT_PRODUCTS_DIR)";
 			};
 			name = Debug;
@@ -536,7 +527,6 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1C9051A10BA9F3050081E9D0 /* JavaScriptGlue.xcconfig */;
 			buildSettings = {
-				DEBUG_DEFINES = NDEBUG;
 				INSTALL_PATH = "$(BUILT_PRODUCTS_DIR)";
 			};
 			name = Release;
@@ -545,7 +535,10 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1C9051A10BA9F3050081E9D0 /* JavaScriptGlue.xcconfig */;
 			buildSettings = {
-				DEBUG_DEFINES = NDEBUG;
+				BUILD_VARIANTS = (
+					normal,
+					debug,
+				);
 				SECTORDER_FLAGS = (
 					"-sectorder",
 					__TEXT,

@@ -136,8 +136,8 @@ void printCFDate(
 	else {
 		month = months[gregDate.month - 1];
 	}
-	printf("%s %d, %ld %02d:%02d",
-		month, gregDate.day, gregDate.year, gregDate.hour, gregDate.minute);
+	printf("%s %d, %d %02d:%02d",
+		month, gregDate.day, (int)gregDate.year, gregDate.hour, gregDate.minute);
 }
 
 /* print a CFNumber */
@@ -149,7 +149,7 @@ void printCfNumber(
 		printf("***CFNumber overflow***");
 		return;
 	}
-	printf("%ld", s);
+	printf("%d", (int)s);
 }
 
 /* print a CFNumber as a SecTrustSettingsResult */

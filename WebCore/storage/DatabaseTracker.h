@@ -29,6 +29,8 @@
 #ifndef DatabaseTracker_h
 #define DatabaseTracker_h
 
+#if ENABLE(DATABASE)
+
 #include "DatabaseDetails.h"
 #include "PlatformString.h"
 #include "SQLiteDatabase.h"
@@ -82,6 +84,8 @@ public:
     
     static DatabaseTracker& tracker();
 
+    bool hasEntryForOrigin(SecurityOrigin*);
+
 private:
     DatabaseTracker();
 
@@ -90,7 +94,6 @@ private:
 
     String originPath(SecurityOrigin*) const;
     
-    bool hasEntryForOrigin(SecurityOrigin*);
     bool hasEntryForDatabase(SecurityOrigin*, const String& databaseIdentifier);
     
     bool addDatabase(SecurityOrigin*, const String& name, const String& path);
@@ -100,13 +103,13 @@ private:
 
     SQLiteDatabase m_database;
 
-    typedef HashMap<RefPtr<SecurityOrigin>, unsigned long long, SecurityOriginHash, SecurityOriginTraits> QuotaMap;
+    typedef HashMap<RefPtr<SecurityOrigin>, unsigned long long, SecurityOriginHash> QuotaMap;
     Mutex m_quotaMapGuard;
     mutable OwnPtr<QuotaMap> m_quotaMap;
 
     typedef HashSet<Database*> DatabaseSet;
     typedef HashMap<String, DatabaseSet*> DatabaseNameMap;
-    typedef HashMap<RefPtr<SecurityOrigin>, DatabaseNameMap*, SecurityOriginHash, SecurityOriginTraits> DatabaseOriginMap;
+    typedef HashMap<RefPtr<SecurityOrigin>, DatabaseNameMap*, SecurityOriginHash> DatabaseOriginMap;
 
     Mutex m_openDatabaseMapGuard;
     mutable OwnPtr<DatabaseOriginMap> m_openDatabaseMap;
@@ -129,4 +132,5 @@ private:
 
 } // namespace WebCore
 
+#endif // ENABLE(DATABASE)
 #endif // DatabaseTracker_h

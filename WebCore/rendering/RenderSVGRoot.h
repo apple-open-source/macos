@@ -1,8 +1,7 @@
 /*
     Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2007 Rob Buis <buis@kde.org>
-
-    This file is part of the KDE project
+    Copyright (C) 2009 Google, Inc.  All rights reserved.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -24,51 +23,66 @@
 #define RenderSVGRoot_h
 
 #if ENABLE(SVG)
-#include "RenderContainer.h"
+#include "RenderBox.h"
 #include "FloatRect.h"
+#include "SVGRenderSupport.h"
 
 namespace WebCore {
 
 class SVGStyledElement;
-class AffineTransform;
+class TransformationMatrix;
 
-class RenderSVGRoot : public RenderContainer {
+class RenderSVGRoot : public RenderBox, SVGRenderBase {
 public:
     RenderSVGRoot(SVGStyledElement*);
     ~RenderSVGRoot();
 
+    virtual RenderObjectChildList* virtualChildren() { return children(); }
+    virtual const RenderObjectChildList* virtualChildren() const { return children(); }
+    const RenderObjectChildList* children() const { return &m_children; }
+    RenderObjectChildList* children() { return &m_children; }
+
     virtual bool isSVGRoot() const { return true; }
     virtual const char* renderName() const { return "RenderSVGRoot"; }
 
-    virtual short lineHeight(bool b, bool isRootLineBox = false) const;
-    virtual short baselinePosition(bool b, bool isRootLineBox = false) const;
+    virtual int lineHeight(bool b, bool isRootLineBox = false) const;
+    virtual int baselinePosition(bool b, bool isRootLineBox = false) const;
     virtual void calcPrefWidths();
-    
+
     virtual void layout();
     virtual void paint(PaintInfo&, int parentX, int parentY);
-    
-    virtual IntRect absoluteClippedOverflowRect();
-    virtual void absoluteRects(Vector<IntRect>& rects, int tx, int ty);
-    virtual void addFocusRingRects(GraphicsContext*, int tx, int ty);
 
-    virtual AffineTransform absoluteTransform() const;
+    virtual TransformationMatrix localToParentTransform() const;
 
     bool fillContains(const FloatPoint&) const;
     bool strokeContains(const FloatPoint&) const;
-    FloatRect relativeBBox(bool includeStroke = true) const;
-    
-    virtual AffineTransform localTransform() const;
-   
-    FloatRect viewport() const;
+
+    virtual FloatRect objectBoundingBox() const;
+    virtual FloatRect repaintRectInLocalCoordinates() const;
+
+    // FIXME: Both of these overrides should be removed.
+    virtual TransformationMatrix localTransform() const;
+    virtual TransformationMatrix absoluteTransform() const;
 
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
-    
-private:
-    void calcViewport(); 
-    void applyContentTransforms(PaintInfo&, int parentX, int parentY);
 
-    FloatRect m_viewport;
-    IntRect m_absoluteBounds;
+    virtual void computeRectForRepaint(RenderBoxModelObject* repaintContainer, IntRect& repaintRect, bool fixed);
+
+    virtual void mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool useTransforms, bool fixed, TransformState&) const;
+
+private:
+    void calcViewport();
+    const FloatSize& viewportSize() const;
+
+    bool selfWillPaint() const;
+
+    IntSize parentOriginToBorderBox() const;
+    IntSize borderOriginToContentBox() const;
+    TransformationMatrix localToRepaintContainerTransform(const IntPoint& parentOriginInContainer) const;
+    TransformationMatrix localToBorderBoxTransform() const;
+
+    RenderObjectChildList m_children;
+    FloatSize m_viewportSize;
 };
 
 } // namespace WebCore

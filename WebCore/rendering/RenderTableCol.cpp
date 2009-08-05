@@ -7,7 +7,7 @@
  *           (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  * Copyright (C) 2003, 2004, 2005, 2006 Apple Computer, Inc.
- * Copyright (C) 2007 Trolltech ASA
+ * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -31,14 +31,13 @@
 #include "CachedImage.h"
 #include "HTMLNames.h"
 #include "HTMLTableColElement.h"
-#include "TextStream.h"
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
 RenderTableCol::RenderTableCol(Node* node)
-    : RenderContainer(node), m_span(1)
+    : RenderBox(node), m_span(1)
 {
     // init RenderObject attributes
     setInline(true); // our object is not Inline
@@ -48,9 +47,9 @@ RenderTableCol::RenderTableCol(Node* node)
 void RenderTableCol::updateFromElement()
 {
     int oldSpan = m_span;
-    Node* node = element();
-    if (node && (node->hasTagName(colTag) || node->hasTagName(colgroupTag))) {
-        HTMLTableColElement* tc = static_cast<HTMLTableColElement*>(node);
+    Node* n = node();
+    if (n && (n->hasTagName(colTag) || n->hasTagName(colgroupTag))) {
+        HTMLTableColElement* tc = static_cast<HTMLTableColElement*>(n);
         m_span = tc->span();
     } else
         m_span = !(style() && style()->display() == TABLE_COLUMN_GROUP);
@@ -70,35 +69,25 @@ bool RenderTableCol::canHaveChildren() const
     return style()->display() == TABLE_COLUMN_GROUP;
 }
 
-IntRect RenderTableCol::absoluteClippedOverflowRect()
+IntRect RenderTableCol::clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer)
 {
     // For now, just repaint the whole table.
     // FIXME: Find a better way to do this, e.g., need to repaint all the cells that we
     // might have propagated a background color or borders into.
+    // FIXME: check for repaintContainer each time here?
     RenderObject* table = parent();
     if (table && !table->isTable())
         table = table->parent();
     if (table && table->isTable())
-        return table->absoluteClippedOverflowRect();
+        return table->clippedOverflowRectForRepaint(repaintContainer);
 
     return IntRect();
 }
 
-void RenderTableCol::imageChanged(CachedImage* image)
+void RenderTableCol::imageChanged(WrappedImagePtr, const IntRect*)
 {
-    if (!image || !image->canRender() || !parent())
-        return;
-
     // FIXME: Repaint only the rect the image paints in.
     repaint();
 }
-
-#ifndef NDEBUG
-void RenderTableCol::dump(TextStream* stream, DeprecatedString ind) const
-{
-    *stream << " span=" << m_span;
-    RenderContainer::dump(stream, ind);
-}
-#endif
 
 }

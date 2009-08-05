@@ -23,37 +23,35 @@
 #include "SVGFEDiffuseLightingElement.h"
 
 #include "Attr.h"
+#include "MappedAttribute.h"
 #include "RenderObject.h"
 #include "SVGColor.h"
+#include "SVGFEDiffuseLighting.h"
 #include "SVGFELightElement.h"
 #include "SVGNames.h"
 #include "SVGParserUtilities.h"
 #include "SVGRenderStyle.h"
-#include "SVGFEDiffuseLighting.h"
 #include "SVGResourceFilter.h"
 
 namespace WebCore {
 
+char SVGKernelUnitLengthXIdentifier[] = "SVGKernelUnitLengthX";
+char SVGKernelUnitLengthYIdentifier[] = "SVGKernelUnitLengthY";
+
 SVGFEDiffuseLightingElement::SVGFEDiffuseLightingElement(const QualifiedName& tagName, Document* doc)
     : SVGFilterPrimitiveStandardAttributes(tagName, doc)
-    , m_diffuseConstant(1.0f)
-    , m_surfaceScale(1.0f)
-    , m_kernelUnitLengthX(0.0f)
-    , m_kernelUnitLengthY(0.0f)
+    , m_in1(this, SVGNames::inAttr)
+    , m_diffuseConstant(this, SVGNames::diffuseConstantAttr, 1.0f)
+    , m_surfaceScale(this, SVGNames::surfaceScaleAttr, 1.0f)
+    , m_kernelUnitLengthX(this, SVGNames::kernelUnitLengthAttr)
+    , m_kernelUnitLengthY(this, SVGNames::kernelUnitLengthAttr)
     , m_filterEffect(0)
 {
 }
 
 SVGFEDiffuseLightingElement::~SVGFEDiffuseLightingElement()
 {
-    delete m_filterEffect;
 }
-
-ANIMATED_PROPERTY_DEFINITIONS(SVGFEDiffuseLightingElement, String, String, string, In1, in1, SVGNames::inAttr, m_in1)
-ANIMATED_PROPERTY_DEFINITIONS(SVGFEDiffuseLightingElement, float, Number, number, DiffuseConstant, diffuseConstant, SVGNames::diffuseConstantAttr, m_diffuseConstant)
-ANIMATED_PROPERTY_DEFINITIONS(SVGFEDiffuseLightingElement, float, Number, number, SurfaceScale, surfaceScale, SVGNames::surfaceScaleAttr, m_surfaceScale)
-ANIMATED_PROPERTY_DEFINITIONS(SVGFEDiffuseLightingElement, float, Number, number, KernelUnitLengthX, kernelUnitLengthX, "kernelUnitLengthX", m_kernelUnitLengthX)
-ANIMATED_PROPERTY_DEFINITIONS(SVGFEDiffuseLightingElement, float, Number, number, KernelUnitLengthY, kernelUnitLengthY, "kernelUnitLengthY", m_kernelUnitLengthY)
 
 void SVGFEDiffuseLightingElement::parseMappedAttribute(MappedAttribute *attr)
 {
@@ -76,36 +74,30 @@ void SVGFEDiffuseLightingElement::parseMappedAttribute(MappedAttribute *attr)
 
 SVGFilterEffect* SVGFEDiffuseLightingElement::filterEffect(SVGResourceFilter* filter) const
 {
-    if (!m_filterEffect) 
-        m_filterEffect = new SVGFEDiffuseLighting(filter);
-
-    m_filterEffect->setIn(in1());
-    m_filterEffect->setDiffuseConstant(diffuseConstant());
-    m_filterEffect->setSurfaceScale(surfaceScale());
-    m_filterEffect->setKernelUnitLengthX(kernelUnitLengthX());
-    m_filterEffect->setKernelUnitLengthY(kernelUnitLengthY());
-
-    SVGFEDiffuseLightingElement* nonConstThis = const_cast<SVGFEDiffuseLightingElement*>(this);
-
-    RenderStyle* parentStyle = nonConstThis->styleForRenderer(parent()->renderer());
-    RenderStyle* filterStyle = nonConstThis->resolveStyle(parentStyle);
-    
-    m_filterEffect->setLightingColor(filterStyle->svgStyle()->lightingColor());
-    setStandardAttributes(m_filterEffect);
- 
-    parentStyle->deref(document()->renderArena());
-    filterStyle->deref(document()->renderArena());
-    
-    updateLights();
-    return m_filterEffect;
+    ASSERT_NOT_REACHED();
+    return 0;
 }
 
-void SVGFEDiffuseLightingElement::updateLights() const
+bool SVGFEDiffuseLightingElement::build(FilterBuilder* builder)
 {
-    if (!m_filterEffect)
-        return;
+    FilterEffect* input1 = builder->getEffectById(in1());
     
-    SVGLightSource* light = 0;
+    if(!input1)
+        return false;
+    
+    RefPtr<RenderStyle> filterStyle = styleForRenderer();
+    Color color = filterStyle->svgStyle()->lightingColor();
+    
+    RefPtr<FilterEffect> addedEffect = FEDiffuseLighting::create(input1, color, surfaceScale(), diffuseConstant(), 
+                                            kernelUnitLengthX(), kernelUnitLengthY(), findLights());
+    builder->add(result(), addedEffect.release());
+    
+    return true;
+}
+
+LightSource* SVGFEDiffuseLightingElement::findLights() const
+{
+    LightSource* light = 0;
     for (Node* n = firstChild(); n; n = n->nextSibling()) {
         if (n->hasTagName(SVGNames::feDistantLightTag) ||
             n->hasTagName(SVGNames::fePointLightTag) ||
@@ -116,11 +108,9 @@ void SVGFEDiffuseLightingElement::updateLights() const
         }
     }
 
-    m_filterEffect->setLightSource(light);
+    return light;
 }
 
 }
 
 #endif // ENABLE(SVG)
-
-// vim:ts=4:noet

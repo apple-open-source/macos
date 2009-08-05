@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,18 +29,16 @@
 #if ENABLE(VIDEO)
 
 #include "HTMLElement.h"
-#include "HTMLNames.h"
+#include "Timer.h"
 #include <limits>
 
 namespace WebCore {
 
-using namespace HTMLNames;
-    
-class MediaError;
-    
+class KURL;
+
 class HTMLSourceElement : public HTMLElement {
 public:
-    HTMLSourceElement(Document*);
+    HTMLSourceElement(const QualifiedName&, Document*);
     virtual ~HTMLSourceElement();
 
     virtual HTMLTagStatus endTagRequirement() const { return TagStatusForbidden; }
@@ -48,12 +46,20 @@ public:
     
     virtual void insertedIntoDocument();
     
-    String src() const;
+    KURL src() const;
     String media() const;
     String type() const;
     void setSrc(const String&);    
     void setMedia(const String&);
     void setType(const String&);
+    
+    void scheduleErrorEvent();
+    void cancelPendingErrorEvent();
+
+private:
+    void errorEventTimerFired(Timer<HTMLSourceElement>*);
+
+    Timer<HTMLSourceElement> m_errorEventTimer;
 };
 
 } //namespace

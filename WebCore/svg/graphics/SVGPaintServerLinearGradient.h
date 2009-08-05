@@ -35,7 +35,7 @@ namespace WebCore {
 
     class SVGPaintServerLinearGradient : public SVGPaintServerGradient {
     public:
-        SVGPaintServerLinearGradient(const SVGGradientElement* owner);
+        static PassRefPtr<SVGPaintServerLinearGradient> create(const SVGGradientElement* owner) { return adoptRef(new SVGPaintServerLinearGradient(owner)); }
         virtual ~SVGPaintServerLinearGradient();
 
         virtual SVGPaintServerType type() const { return LinearGradientPaintServer; }
@@ -48,11 +48,9 @@ namespace WebCore {
 
         virtual TextStream& externalRepresentation(TextStream&) const;
 
-#if PLATFORM(QT)
-        virtual QGradient setupGradient(GraphicsContext*&, const RenderObject*) const;
-#endif
-
     private:
+        SVGPaintServerLinearGradient(const SVGGradientElement* owner);
+
         FloatPoint m_start;
         FloatPoint m_end;
     };

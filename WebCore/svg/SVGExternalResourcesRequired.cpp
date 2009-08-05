@@ -26,21 +26,22 @@
 #include "SVGExternalResourcesRequired.h"
 
 #include "Attr.h"
-#include "SVGNames.h"
+#include "MappedAttribute.h"
 #include "SVGElement.h"
+#include "SVGNames.h"
 
 namespace WebCore {
 
+char SVGExternalResourcesRequiredIdentifier[] = "SVGExternalResourcesRequired";
+
 SVGExternalResourcesRequired::SVGExternalResourcesRequired()
-    : m_externalResourcesRequired(false)
+    : m_externalResourcesRequired(this, SVGNames::externalResourcesRequiredAttr, false)
 {
 }
 
 SVGExternalResourcesRequired::~SVGExternalResourcesRequired()
 {
 }
-
-ANIMATED_PROPERTY_DEFINITIONS_WITH_CONTEXT(SVGExternalResourcesRequired, bool, Boolean, boolean, ExternalResourcesRequired, externalResourcesRequired, SVGNames::externalResourcesRequiredAttr, m_externalResourcesRequired)
 
 bool SVGExternalResourcesRequired::parseMappedAttribute(MappedAttribute* attr)
 {

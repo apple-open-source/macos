@@ -1,6 +1,4 @@
 /*
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
@@ -26,7 +24,7 @@
 #ifndef HTMLFieldSetElement_h
 #define HTMLFieldSetElement_h
 
-#include "HTMLGenericFormElement.h"
+#include "HTMLFormControlElement.h"
 
 namespace WebCore {
     class RenderStyle;
@@ -38,9 +36,9 @@ class HTMLFormElement;
 class Document;
 class Node;
 
-class HTMLFieldSetElement : public HTMLGenericFormElement {
+class HTMLFieldSetElement : public HTMLFormControlElement {
 public:
-    HTMLFieldSetElement(Document*, HTMLFormElement* = 0);
+    HTMLFieldSetElement(const QualifiedName&, Document*, HTMLFormElement* = 0);
     virtual ~HTMLFieldSetElement();
     
     virtual int tagPriority() const { return 3; }
@@ -48,7 +46,9 @@ public:
 
     virtual bool isFocusable() const;
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
-    virtual const AtomicString& type() const;
+    virtual const AtomicString& formControlType() const;
+
+    virtual bool willValidate() const { return false; }
 };
 
 } //namespace

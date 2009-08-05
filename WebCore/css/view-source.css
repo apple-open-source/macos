@@ -27,12 +27,14 @@ body {
 }
 
 table {
+    width: 100%;
     border-spacing: 0;
     counter-reset: lines;
     white-space: pre-wrap !important;
     margin: 0;
     word-break: break-word;
-    font-family: monospace;
+    font-size: 10px;
+    font-family: Monaco, Lucida Console, monospace;
 }
 
 td {
@@ -41,14 +43,17 @@ td {
 }
 
 .webkit-line-gutter-backdrop, .webkit-line-number {
-    padding: 0 2px !important;
-    min-width: 21px;
+    /* Keep this in sync with inspector.css (.webkit-line-gutter-backdrop) */
+    -webkit-box-sizing: border-box;
+    padding: 0 4px !important;
+    width: 31px;
     background-color: rgb(240, 240, 240);
-    border-right: 1px solid rgb(128, 128, 128) !important;
+    border-right: 1px solid rgb(187, 187, 187) !important;
     -webkit-user-select: none;
 }
 
 .webkit-line-gutter-backdrop {
+    /* Keep this in sync with inspector.css (.webkit-line-gutter-backdrop) */
     position: absolute;
     z-index: -1;
     left: 0;
@@ -106,11 +111,12 @@ td {
 }
 
 .webkit-html-comment {
-    /* Keep this in sync with inspector.css (.comment) */
+    /* Keep this in sync with inspector.css (.webkit-html-comment) */
     color: rgb(35, 110, 37);
 }
 
 .webkit-html-doctype {
+    /* Keep this in sync with inspector.css (.webkit-html-doctype) */
     color: rgb(192, 192, 192);
 }
 
@@ -122,6 +128,7 @@ td {
     -webkit-box-shadow: black 0px 2px 5px;
     -webkit-border-radius: 9px;
     -webkit-border-fit: lines;
+    min-height: 13px;
     font-size: 9px;
     font-family: Lucida Grande;
     font-weight: bold;

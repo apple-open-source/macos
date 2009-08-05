@@ -25,8 +25,9 @@
 #if ENABLE(SVG) && ENABLE(SVG_FILTERS)
 #include "SVGFilterPrimitiveStandardAttributes.h"
 
-#include "SVGFilterElement.h"
+#include "MappedAttribute.h"
 #include "SVGFilterEffect.h"
+#include "SVGFilterElement.h"
 #include "SVGLength.h"
 #include "SVGNames.h"
 #include "SVGStyledElement.h"
@@ -34,43 +35,35 @@
 
 namespace WebCore {
 
+char SVGFilterPrimitiveStandardAttributesIdentifierIdentifier[] = "SVGFilterPrimitiveStandardAttributesIdentifier";
+
 SVGFilterPrimitiveStandardAttributes::SVGFilterPrimitiveStandardAttributes(const QualifiedName& tagName, Document* doc)
     : SVGStyledElement(tagName, doc)
-    , m_x(this, LengthModeWidth)
-    , m_y(this, LengthModeHeight)
-    , m_width(this, LengthModeWidth)
-    , m_height(this, LengthModeHeight)
+    , m_x(this, SVGNames::xAttr, LengthModeWidth, "0%")
+    , m_y(this, SVGNames::yAttr, LengthModeHeight, "0%")
+    , m_width(this, SVGNames::widthAttr, LengthModeWidth, "100%")
+    , m_height(this, SVGNames::heightAttr, LengthModeHeight, "100%")
+    , m_result(this, SVGNames::resultAttr)
 {
-    // Spec: If the attribute is not specified, the effect is as if a value of "0%" were specified.
-    setXBaseValue(SVGLength(this, LengthModeWidth, "0%"));
-    setYBaseValue(SVGLength(this, LengthModeHeight, "0%"));
-
-    // Spec: If the attribute is not specified, the effect is as if a value of "100%" were specified.
-    setWidthBaseValue(SVGLength(this, LengthModeWidth, "100%"));
-    setHeightBaseValue(SVGLength(this, LengthModeHeight, "100%"));
+    // Spec: If the x/y attribute is not specified, the effect is as if a value of "0%" were specified.
+    // Spec: If the width/height attribute is not specified, the effect is as if a value of "100%" were specified.
 }
 
 SVGFilterPrimitiveStandardAttributes::~SVGFilterPrimitiveStandardAttributes()
 {
 }
 
-ANIMATED_PROPERTY_DEFINITIONS(SVGFilterPrimitiveStandardAttributes, SVGLength, Length, length, X, x, SVGNames::xAttr.localName(), m_x)
-ANIMATED_PROPERTY_DEFINITIONS(SVGFilterPrimitiveStandardAttributes, SVGLength, Length, length, Y, y, SVGNames::yAttr.localName(), m_y)
-ANIMATED_PROPERTY_DEFINITIONS(SVGFilterPrimitiveStandardAttributes, SVGLength, Length, length, Width, width, SVGNames::widthAttr.localName(), m_width)
-ANIMATED_PROPERTY_DEFINITIONS(SVGFilterPrimitiveStandardAttributes, SVGLength, Length, length, Height, height, SVGNames::heightAttr.localName(), m_height)
-ANIMATED_PROPERTY_DEFINITIONS(SVGFilterPrimitiveStandardAttributes, String, String, string, Result, result, SVGNames::resultAttr.localName(), m_result)
-
 void SVGFilterPrimitiveStandardAttributes::parseMappedAttribute(MappedAttribute* attr)
 {
     const AtomicString& value = attr->value();
     if (attr->name() == SVGNames::xAttr)
-        setXBaseValue(SVGLength(this, LengthModeWidth, value));
+        setXBaseValue(SVGLength(LengthModeWidth, value));
     else if (attr->name() == SVGNames::yAttr)
-        setYBaseValue(SVGLength(this, LengthModeHeight, value));
+        setYBaseValue(SVGLength(LengthModeHeight, value));
     else if (attr->name() == SVGNames::widthAttr)
-        setWidthBaseValue(SVGLength(this, LengthModeWidth, value));
+        setWidthBaseValue(SVGLength(LengthModeWidth, value));
     else if (attr->name() == SVGNames::heightAttr)
-        setHeightBaseValue(SVGLength(this, LengthModeHeight, value));
+        setHeightBaseValue(SVGLength(LengthModeHeight, value));
     else if (attr->name() == SVGNames::resultAttr)
         setResultBaseValue(value);
     else
@@ -99,7 +92,7 @@ void SVGFilterPrimitiveStandardAttributes::setStandardAttributes(SVGFilterEffect
             _x = x().valueAsPercentage();
         } else {
             filterEffect->setXBoundingBoxMode(false);
-            _x = x().value();
+            _x = x().value(this);
         }
 
         if (y().unitType() == LengthTypePercentage) {
@@ -107,7 +100,7 @@ void SVGFilterPrimitiveStandardAttributes::setStandardAttributes(SVGFilterEffect
             _y = y().valueAsPercentage();
         } else {
             filterEffect->setYBoundingBoxMode(false);
-            _y = y().value();
+            _y = y().value(this);
         }
 
         if (width().unitType() == LengthTypePercentage) {
@@ -115,7 +108,7 @@ void SVGFilterPrimitiveStandardAttributes::setStandardAttributes(SVGFilterEffect
             _width = width().valueAsPercentage();
         } else {
             filterEffect->setWidthBoundingBoxMode(false);
-            _width = width().value();
+            _width = width().value(this);
         }
 
         if (height().unitType() == LengthTypePercentage) {
@@ -123,7 +116,7 @@ void SVGFilterPrimitiveStandardAttributes::setStandardAttributes(SVGFilterEffect
             _height = height().valueAsPercentage();
         } else {
             filterEffect->setHeightBoundingBoxMode(false);
-            _height = height().value();
+            _height = height().value(this);
         }
     }
 
@@ -134,5 +127,3 @@ void SVGFilterPrimitiveStandardAttributes::setStandardAttributes(SVGFilterEffect
 }
 
 #endif // ENABLE(SVG)
-
-// vim:ts=4:noet

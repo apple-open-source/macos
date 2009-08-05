@@ -1,8 +1,9 @@
 /*
  *  Copyright (C) 2000 Harri Porten (porten@kde.org)
  *  Copyright (C) 2006 Jon Shier (jshier@iastate.edu)
- *  Copyright (C) 2003, 2004, 2005, 2006, 2007 Apple Inc. All rights reseved.
+ *  Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reseved.
  *  Copyright (C) 2006 Alexey Proskuryakov (ap@webkit.org)
+ *  Copyright (C) 2009 Google Inc. All rights reseved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -24,79 +25,127 @@
 #include "ScheduledAction.h"
 
 #include "CString.h"
-#include "Chrome.h"
 #include "DOMWindow.h"
 #include "Document.h"
 #include "Frame.h"
 #include "FrameLoader.h"
-#include "Page.h"
-#include "kjs_proxy.h"
-#include "kjs_window.h"
+#include "JSDOMBinding.h"
+#include "JSDOMWindow.h"
+#include "ScriptController.h"
+#include "ScriptExecutionContext.h"
+#include "ScriptSourceCode.h"
+#include "ScriptValue.h"
+#include <runtime/JSLock.h>
 
-using namespace KJS;
+#if ENABLE(WORKERS)
+#include "JSWorkerContext.h"
+#include "WorkerContext.h"
+#include "WorkerThread.h"
+#endif
+
+using namespace JSC;
 
 namespace WebCore {
 
-ScheduledAction::ScheduledAction(JSValue* func, const List& args)
-    : m_func(func)
+ScheduledAction* ScheduledAction::create(ExecState* exec, const ArgList& args)
 {
-    List::const_iterator end = args.end();
-    for (List::const_iterator it = args.begin(); it != end; ++it)
+    JSValue v = args.at(0);
+    CallData callData;
+    if (v.getCallData(callData) == CallTypeNone) {
+        UString string = v.toString(exec);
+        if (exec->hadException())
+            return 0;
+        return new ScheduledAction(string);
+    }
+    ArgList argsTail;
+    args.getSlice(2, argsTail);
+    return new ScheduledAction(v, argsTail);
+}
+
+ScheduledAction::ScheduledAction(JSValue function, const ArgList& args)
+    : m_function(function)
+{
+    ArgList::const_iterator end = args.end();
+    for (ArgList::const_iterator it = args.begin(); it != end; ++it)
         m_args.append(*it);
 }
 
-
-void ScheduledAction::execute(Window* window)
+void ScheduledAction::execute(ScriptExecutionContext* context)
 {
+    if (context->isDocument())
+        execute(static_cast<Document*>(context));
+#if ENABLE(WORKERS)
+    else {
+        ASSERT(context->isWorkerContext());
+        execute(static_cast<WorkerContext*>(context));
+    }
+#else
+    ASSERT(context->isDocument());
+#endif
+}
+
+void ScheduledAction::executeFunctionInContext(JSGlobalObject* globalObject, JSValue thisValue)
+{
+    ASSERT(m_function);
+    JSLock lock(false);
+
+    CallData callData;
+    CallType callType = m_function.get().getCallData(callData);
+    if (callType == CallTypeNone)
+        return;
+
+    ExecState* exec = globalObject->globalExec();
+
+    MarkedArgumentBuffer args;
+    size_t size = m_args.size();
+    for (size_t i = 0; i < size; ++i)
+        args.append(m_args[i]);
+
+    globalObject->globalData()->timeoutChecker.start();
+    call(exec, m_function, callType, callData, thisValue, args);
+    globalObject->globalData()->timeoutChecker.stop();
+
+    if (exec->hadException())
+        reportCurrentException(exec);
+}
+
+void ScheduledAction::execute(Document* document)
+{
+    JSDOMWindow* window = toJSDOMWindow(document->frame());
+    if (!window)
+        return;
+
     RefPtr<Frame> frame = window->impl()->frame();
-    if (!frame)
+    if (!frame || !frame->script()->isEnabled())
         return;
 
-    if (!frame->scriptProxy()->isEnabled())
-        return;
+    frame->script()->setProcessingTimerCallback(true);
 
-    KJSProxy* scriptProxy = frame->scriptProxy();
-    Window* globalObject = scriptProxy->globalObject();
-
-    scriptProxy->setProcessingTimerCallback(true);
-
-    if (JSValue* func = m_func.get()) {
-        JSLock lock;
-        if (func->isObject() && static_cast<JSObject*>(func)->implementsCall()) {
-            ExecState* exec = window->globalExec();
-            ASSERT(window == globalObject);
-
-            List args;
-            size_t size = m_args.size();
-            for (size_t i = 0; i < size; ++i)
-                args.append(m_args[i]);
-
-            globalObject->startTimeoutCheck();
-            static_cast<JSObject*>(func)->call(exec, window, args);
-            globalObject->stopTimeoutCheck();
-            if (exec->hadException()) {
-                JSObject* exception = exec->exception()->toObject(exec);
-                exec->clearException();
-                String message = exception->get(exec, exec->propertyNames().message)->toString(exec);
-                int lineNumber = exception->get(exec, "line")->toInt32(exec);
-                if (Interpreter::shouldPrintExceptions())
-                    printf("(timer):%s\n", message.utf8().data());
-                if (Page* page = frame->page())
-                    page->chrome()->addMessageToConsole(JSMessageSource, ErrorMessageLevel, message, lineNumber, String());
-            }
-        }
+    if (m_function) {
+        executeFunctionInContext(window, window->shell());
+        Document::updateStyleForAllDocuments();
     } else
         frame->loader()->executeScript(m_code);
 
-    // Update our document's rendering following the execution of the timeout callback.
-    // FIXME: Why not use updateDocumentsRendering to update rendering of all documents?
-    // FIXME: Is this really the right point to do the update? We need a place that works
-    // for all possible entry points that might possibly execute script, but this seems
-    // to be a bit too low-level.
-    if (Document* doc = frame->document())
-        doc->updateRendering();
-
-    scriptProxy->setProcessingTimerCallback(false);
+    frame->script()->setProcessingTimerCallback(false);
 }
+
+#if ENABLE(WORKERS)
+void ScheduledAction::execute(WorkerContext* workerContext)
+{
+    // In a Worker, the execution should always happen on a worker thread.
+    ASSERT(workerContext->thread()->threadID() == currentThread());
+
+    WorkerScriptController* scriptController = workerContext->script();
+
+    if (m_function) {
+        JSWorkerContext* contextWrapper = scriptController->workerContextWrapper();
+        executeFunctionInContext(contextWrapper, contextWrapper);
+    } else {
+        ScriptSourceCode code(m_code, workerContext->url());
+        scriptController->evaluate(code);
+    }
+}
+#endif // ENABLE(WORKERS)
 
 } // namespace WebCore

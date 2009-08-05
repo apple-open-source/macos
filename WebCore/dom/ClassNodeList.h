@@ -35,14 +35,17 @@
 
 namespace WebCore {
 
-    class String;
-
     class ClassNodeList : public DynamicNodeList {
     public:
-        ClassNodeList(PassRefPtr<Node> rootNode, const String& classNames, DynamicNodeList::Caches*);
+        static PassRefPtr<ClassNodeList> create(PassRefPtr<Node> rootNode, const String& classNames, Caches* caches)
+        {
+            return adoptRef(new ClassNodeList(rootNode, classNames, caches));
+        }
 
     private:
-        virtual bool nodeMatches(Node*) const;
+        ClassNodeList(PassRefPtr<Node> rootNode, const String& classNames, Caches*);
+
+        virtual bool nodeMatches(Element*) const;
 
         ClassNames m_classNames;
     };

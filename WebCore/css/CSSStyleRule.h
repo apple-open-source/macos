@@ -1,9 +1,7 @@
 /*
- * This file is part of the DOM implementation for KDE.
- *
  * (C) 1999-2003 Lars Knoll (knoll@kde.org)
  * (C) 2002-2003 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2002, 2006 Apple Computer, Inc.
+ * Copyright (C) 2002, 2006, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,6 +23,7 @@
 #define CSSStyleRule_h
 
 #include "CSSRule.h"
+#include "CSSSelectorList.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 
@@ -33,37 +32,42 @@ namespace WebCore {
 class CSSMutableStyleDeclaration;
 class CSSSelector;
 
-typedef int ExceptionCode;
-
 class CSSStyleRule : public CSSRule {
 public:
-    CSSStyleRule(StyleBase* parent);
+    static PassRefPtr<CSSStyleRule> create(CSSStyleSheet* parent)
+    {
+        return adoptRef(new CSSStyleRule(parent));
+    }
     virtual ~CSSStyleRule();
-
-    virtual bool isStyleRule() { return true; }
 
     String selectorText() const;
     void setSelectorText(const String&, ExceptionCode&);
 
     CSSMutableStyleDeclaration* style() const { return m_style.get(); }
 
-    // Inherited from CSSRule
-    virtual unsigned short type() const { return STYLE_RULE; }
-
     virtual String cssText() const;
 
     // Not part of the CSSOM
     virtual bool parseString(const String&, bool = false);
 
-    void setSelector(CSSSelector* selector) { m_selector = selector; }
+    void adoptSelectorVector(Vector<CSSSelector*>& selectors) { m_selectorList.adoptSelectorVector(selectors); }
     void setDeclaration(PassRefPtr<CSSMutableStyleDeclaration>);
 
-    CSSSelector* selector() { return m_selector; }
+    const CSSSelectorList& selectorList() const { return m_selectorList; }
     CSSMutableStyleDeclaration* declaration() { return m_style.get(); }
- 
-protected:
+
+    virtual void addSubresourceStyleURLs(ListHashSet<KURL>& urls);
+
+private:
+    CSSStyleRule(CSSStyleSheet* parent);
+
+    virtual bool isStyleRule() { return true; }
+
+    // Inherited from CSSRule
+    virtual unsigned short type() const { return STYLE_RULE; }
+
     RefPtr<CSSMutableStyleDeclaration> m_style;
-    CSSSelector* m_selector;
+    CSSSelectorList m_selectorList;
 };
 
 } // namespace WebCore

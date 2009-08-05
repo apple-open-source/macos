@@ -45,20 +45,33 @@ namespace WebCore {
         TextCodecICU(const TextEncoding&);
         virtual ~TextCodecICU();
 
-        virtual String decode(const char*, size_t length, bool flush = false);
-        virtual CString encode(const UChar*, size_t length, bool allowEntities = false);
+        virtual String decode(const char*, size_t length, bool flush, bool stopOnError, bool& sawError);
+        virtual CString encode(const UChar*, size_t length, UnencodableHandling);
 
     private:
         void createICUConverter() const;
         void releaseICUConverter() const;
         bool needsGBKFallbacks() const { return m_needsGBKFallbacks; }
-        void setNeedsGBKFallbacks(bool needsFallbacks) { m_needsGBKFallbacks = needsFallbacks; } 
+        void setNeedsGBKFallbacks(bool needsFallbacks) { m_needsGBKFallbacks = needsFallbacks; }
+        
+        int decodeToBuffer(UChar* buffer, UChar* bufferLimit, const char*& source,
+            const char* sourceLimit, int32_t* offsets, bool flush, UErrorCode& err);
 
         TextEncoding m_encoding;
         unsigned m_numBufferedBytes;
-        unsigned char m_bufferedBytes[16]; // bigger than any single multi-byte character        
+        unsigned char m_bufferedBytes[16]; // bigger than any single multi-byte character
         mutable UConverter* m_converterICU;
         mutable bool m_needsGBKFallbacks;
+    };
+
+    struct ICUConverterWrapper {
+        ICUConverterWrapper()
+            : converter(0)
+        {
+        }
+        ~ICUConverterWrapper();
+
+        UConverter* converter;
     };
 
 } // namespace WebCore

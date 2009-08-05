@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2008 Collabora, Ltd.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,13 +27,12 @@
 #ifndef PluginPackage_H
 #define PluginPackage_H
 
-#include <winsock2.h>
-#include <windows.h>
-
-#include "Timer.h"
-#include "StringHash.h"
+#include "FileSystem.h"
 #include "PlatformString.h"
-#include "npfunctions.h"
+#include "PluginQuirkSet.h"
+#include "StringHash.h"
+#include "Timer.h"
+#include "npruntime_internal.h"
 #include <wtf/HashMap.h>
 #include <wtf/RefCounted.h>
 
@@ -43,20 +43,19 @@ namespace WebCore {
     class PluginPackage : public RefCounted<PluginPackage> {
     public:
         ~PluginPackage();
-        static PluginPackage* createPackage(const String& path, const FILETIME& lastModified);
+        static PassRefPtr<PluginPackage> createPackage(const String& path, const time_t& lastModified);
         
-        String name() const { return m_name; }
-        String description() const { return m_description; }
-        String fileName() const { return m_fileName; }
-        String parentDirectory() const { return m_parentDirectory; }
-
-        int compare(const PluginPackage&) const;
-        bool allowsMultipleInstances() const { return m_allowsMultipleInstances; }
+        const String& name() const { return m_name; }
+        const String& description() const { return m_description; }
+        const String& path() const { return m_path; }
+        const String& fileName() const { return m_fileName; }
+        const String& parentDirectory() const { return m_parentDirectory; }
+        time_t lastModified() const { return m_lastModified; }
 
         const MIMEToDescriptionsMap& mimeToDescriptions() const { return m_mimeToDescriptions; }
         const MIMEToExtensionsMap& mimeToExtensions() const { return m_mimeToExtensions; }
 
-        unsigned PluginPackage::hash() const;
+        unsigned hash() const;
         static bool equal(const PluginPackage& a, const PluginPackage& b);
 
         bool load();
@@ -64,19 +63,21 @@ namespace WebCore {
         void unloadWithoutShutdown();
 
         const NPPluginFuncs* pluginFuncs() const { return &m_pluginFuncs; }
+        int compareFileVersion(const PlatformModuleVersion&) const;
+        int compare(const PluginPackage&) const;
+        PluginQuirkSet quirks() const { return m_quirks; }
+        const PlatformModuleVersion& version() const { return m_moduleVersion; }
 
-        int compareFileVersion(unsigned compareVersionMS, unsigned compareVersionLS) const;
     private:
-        PluginPackage(const String& path, const FILETIME& lastModified);
+        PluginPackage(const String& path, const time_t& lastModified);
         bool fetchInfo();
-        void storeFileVersion(LPVOID versionInfoData);
         bool isPluginBlacklisted();
+        void determineQuirks(const String& mimeType);
+
+        void determineModuleVersionFromDescription();
 
         bool m_isLoaded;
         int m_loadCount;
-
-        DWORD m_fileVersionMS;
-        DWORD m_fileVersionLS;
 
         String m_description;
         String m_path;
@@ -84,11 +85,13 @@ namespace WebCore {
         String m_name;
         String m_parentDirectory;
 
+        PlatformModuleVersion m_moduleVersion;
+
         MIMEToDescriptionsMap m_mimeToDescriptions;
         MIMEToExtensionsMap m_mimeToExtensions;
 
-        HMODULE m_module;
-        FILETIME m_lastModified;
+        PlatformModule m_module;
+        time_t m_lastModified;
 
         NPP_ShutdownProcPtr m_NPP_Shutdown;
         NPPluginFuncs m_pluginFuncs;
@@ -98,29 +101,18 @@ namespace WebCore {
         void freeLibraryTimerFired(Timer<PluginPackage>*);
         Timer<PluginPackage> m_freeLibraryTimer;
 
-        bool m_allowsMultipleInstances;
+        PluginQuirkSet m_quirks;
     };
 
     struct PluginPackageHash {
-        static unsigned hash(const int key) { return reinterpret_cast<PluginPackage*>(key)->hash(); }
+        static unsigned hash(const uintptr_t key) { return reinterpret_cast<PluginPackage*>(key)->hash(); }
         static unsigned hash(const RefPtr<PluginPackage>& key) { return key->hash(); }
 
-        static bool equal(const int a, const int b) { return equal(reinterpret_cast<PluginPackage*>(a), reinterpret_cast<PluginPackage*>(b)); }
+        static bool equal(const uintptr_t a, const uintptr_t b) { return equal(reinterpret_cast<PluginPackage*>(a), reinterpret_cast<PluginPackage*>(b)); }
         static bool equal(const RefPtr<PluginPackage>& a, const RefPtr<PluginPackage>& b) { return PluginPackage::equal(*a.get(), *b.get()); }
         static const bool safeToCompareToEmptyOrDeleted = false;
     };
 
 } // namespace WebCore
-
-// FIXME: This is a workaround for a bug in WTF, where it's impossible to use a custom Hash function but with default traits.
-// It should be possible to do this without a StorageTraits specialization.
-namespace WTF {
-    template<> struct HashKeyStorageTraits<WebCore::PluginPackageHash, HashTraits<RefPtr<WebCore::PluginPackage> > > {
-        typedef IntTypes<sizeof(RefPtr<WebCore::PluginPackage>)>::SignedType IntType;
-        typedef WebCore::PluginPackageHash Hash;
-        typedef HashTraits<IntType> Traits;
-    };
-}
-
 
 #endif

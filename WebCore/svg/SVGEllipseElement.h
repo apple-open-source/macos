@@ -51,12 +51,10 @@ namespace WebCore {
         virtual bool hasRelativeValues() const;
 
     private:
-        ANIMATED_PROPERTY_FORWARD_DECLARATIONS(SVGExternalResourcesRequired, bool, ExternalResourcesRequired, externalResourcesRequired)
- 
-        ANIMATED_PROPERTY_DECLARATIONS(SVGEllipseElement, SVGLength, SVGLength, Cx, cx)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGEllipseElement, SVGLength, SVGLength, Cy, cy)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGEllipseElement, SVGLength, SVGLength, Rx, rx)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGEllipseElement, SVGLength, SVGLength, Ry, ry)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGEllipseElement, SVGNames::ellipseTagString, SVGNames::cxAttrString, SVGLength, Cx, cx)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGEllipseElement, SVGNames::ellipseTagString, SVGNames::cyAttrString, SVGLength, Cy, cy)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGEllipseElement, SVGNames::ellipseTagString, SVGNames::rxAttrString, SVGLength, Rx, rx)
+        ANIMATED_PROPERTY_DECLARATIONS(SVGEllipseElement, SVGNames::ellipseTagString, SVGNames::ryAttrString, SVGLength, Ry, ry)
     };
 
 } // namespace WebCore

@@ -25,7 +25,6 @@
  * The project should be able to build without this header, although we rarely test that.
  */
 
-
 /* Things that need to be defined globally should go into "config.h". */
 
 #if defined(__APPLE__)
@@ -57,11 +56,12 @@
 #define min min
 #endif
 
+#else
+#include <pthread.h>
 #endif // defined(WIN32) || defined(_WIN32)
 
 #include <sys/types.h>
 #include <fcntl.h>
-#include <pthread.h>
 #if defined(__APPLE__)
 #include <regex.h>
 #endif
@@ -100,14 +100,6 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreServices/CoreServices.h>
 
-#include <AvailabilityMacros.h>
-
-#if defined(__APPLE__)
-#if MAC_OS_X_VERSION_MAX_ALLOWED <= MAC_OS_X_VERSION_10_4
-#define BUILDING_ON_TIGER 1
-#endif
-#endif
-
 #ifdef __OBJC__
 #import <Cocoa/Cocoa.h>
 #endif
@@ -117,7 +109,7 @@
 #define delete ("if you use new/delete make sure to include config.h at the top of the file"()) 
 #endif
 
-/* Work around bug with C++ library that screws up Objective-C++ when exception support is disabled. */
+/* Work around a bug with C++ library that screws up Objective-C++ when exception support is disabled. */
 #if defined(__APPLE__)
 #undef try
 #undef catch

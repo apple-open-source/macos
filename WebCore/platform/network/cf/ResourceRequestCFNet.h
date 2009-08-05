@@ -1,4 +1,3 @@
-// -*- mode: c++; c-basic-offset: 4 -*-
 /*
  * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
  *
@@ -31,7 +30,7 @@ typedef const struct _CFURLRequest* CFURLRequestRef;
 
 namespace WebCore {
 
-    class ResourceRequest;
+    struct ResourceRequest;
 
     void getResourceRequest(ResourceRequest&, CFURLRequestRef);
     CFURLRequestRef cfURLRequest(const ResourceRequest&);

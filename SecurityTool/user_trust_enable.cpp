@@ -67,15 +67,17 @@ user_trust_enable(int argc, char * const *argv)
 	if(op == utoShow) {
 		bool utDisable = false;
 
-		try {
-			Dictionary prefsDict(kSecTrustSettingsPrefsDomain, Dictionary::US_System);
+#if !defined MAC_OS_X_VERSION_10_6 || MAC_OS_X_VERSION_MAX_ALLOWED < MAC_OS_X_VERSION_10_6
+		Dictionary* prefsDict = new Dictionary(kSecTrustSettingsPrefsDomain, Dictionary::US_System);
+#else
+		Dictionary* prefsDict = Dictionary::CreateDictionary(kSecTrustSettingsPrefsDomain, Dictionary::US_System);
+#endif
+		if (prefsDict != NULL)
+		{
+			utDisable = prefsDict->getBoolValue(kSecTrustSettingsDisableUserTrustSettings);
+			delete prefsDict;
+		}
 		
-			/* this returns false if the pref isn't there */
-			utDisable = prefsDict.getBoolValue(kSecTrustSettingsDisableUserTrustSettings);
-		}
-		catch(...) {
-			/* prefs not there, means disable = false */
-		}
 		fprintf(stdout, "User-level Trust Settings are %s\n",
 			utDisable ? "Disabled" : "Enabled");
 		return 0;
@@ -88,14 +90,16 @@ user_trust_enable(int argc, char * const *argv)
 	}
 
 	/* get a mutable copy of the existing prefs, or a fresh empty one */
-	MutableDictionary *prefsDict = NULL;
-	try {
-		prefsDict = new MutableDictionary(kSecTrustSettingsPrefsDomain, Dictionary::US_System);
-	}
-	catch(...) {
-		/* not there, create empty */
+#if !defined MAC_OS_X_VERSION_10_6 || MAC_OS_X_VERSION_MAX_ALLOWED < MAC_OS_X_VERSION_10_6
+	MutableDictionary *prefsDict = new MutableDictionary(kSecTrustSettingsPrefsDomain, Dictionary::US_System);
+#else
+	MutableDictionary *prefsDict = MutableDictionary::CreateMutableDictionary(kSecTrustSettingsPrefsDomain, Dictionary::US_System);
+#endif
+	if (prefsDict == NULL)
+	{
 		prefsDict = new MutableDictionary();
 	}
+
 	prefsDict->setValue(kSecTrustSettingsDisableUserTrustSettings, disabledBool);
 	if(prefsDict->writePlistToPrefs(kSecTrustSettingsPrefsDomain, Dictionary::US_System)) {
 		fprintf(stdout, "...User-level Trust Settings are %s\n",

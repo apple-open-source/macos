@@ -26,26 +26,23 @@
 #include "SVGFEOffsetElement.h"
 
 #include "Attr.h"
+#include "MappedAttribute.h"
 #include "SVGResourceFilter.h"
 
 namespace WebCore {
 
 SVGFEOffsetElement::SVGFEOffsetElement(const QualifiedName& tagName, Document* doc)
     : SVGFilterPrimitiveStandardAttributes(tagName, doc)
-    , m_dx(0.0f)
-    , m_dy(0.0f)
+    , m_in1(this, SVGNames::inAttr)
+    , m_dx(this, SVGNames::dxAttr)
+    , m_dy(this, SVGNames::dyAttr)
     , m_filterEffect(0)
 {
 }
 
 SVGFEOffsetElement::~SVGFEOffsetElement()
 {
-    delete m_filterEffect;
 }
-
-ANIMATED_PROPERTY_DEFINITIONS(SVGFEOffsetElement, String, String, string, In1, in1, SVGNames::inAttr, m_in1)
-ANIMATED_PROPERTY_DEFINITIONS(SVGFEOffsetElement, float, Number, number, Dx, dx, SVGNames::dxAttr, m_dx)
-ANIMATED_PROPERTY_DEFINITIONS(SVGFEOffsetElement, float, Number, number, Dy, dy, SVGNames::dyAttr, m_dy)
 
 void SVGFEOffsetElement::parseMappedAttribute(MappedAttribute* attr)
 {
@@ -60,21 +57,24 @@ void SVGFEOffsetElement::parseMappedAttribute(MappedAttribute* attr)
         SVGFilterPrimitiveStandardAttributes::parseMappedAttribute(attr);
 }
 
-SVGFEOffset* SVGFEOffsetElement::filterEffect(SVGResourceFilter* filter) const
+SVGFilterEffect* SVGFEOffsetElement::filterEffect(SVGResourceFilter* filter) const
 {
-    if (!m_filterEffect)
-        m_filterEffect = new SVGFEOffset(filter);
-    
-    m_filterEffect->setIn(in1());
-    m_filterEffect->setDx(dx());
-    m_filterEffect->setDy(dy());
+    ASSERT_NOT_REACHED();
+    return 0;
+}
 
-    setStandardAttributes(m_filterEffect); 
-    return m_filterEffect;
+bool SVGFEOffsetElement::build(FilterBuilder* builder)
+{
+    FilterEffect* input1 = builder->getEffectById(in1());
+
+    if(!input1)
+        return false;
+
+    builder->add(result(), FEOffset::create(input1, dx(), dy()));
+
+    return true;
 }
 
 }
 
 #endif // ENABLE(SVG)
-
-// vim:ts=4:noet

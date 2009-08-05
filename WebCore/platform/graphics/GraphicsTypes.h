@@ -50,11 +50,23 @@ namespace WebCore {
         CompositePlusLighter
     };
 
+    // FIXME: Currently these constants have to match the values used in the SVG
+    // DOM API. That's a mistake. We need to make cut that dependency.
+    enum GradientSpreadMethod {
+        SpreadMethodPad = 1,
+        SpreadMethodReflect = 2,
+        SpreadMethodRepeat = 3
+    };
+
     enum LineCap { ButtCap, RoundCap, SquareCap };
 
     enum LineJoin { MiterJoin, RoundJoin, BevelJoin };
 
     enum HorizontalAlignment { AlignLeft, AlignRight, AlignHCenter };
+
+    enum TextBaseline { AlphabeticTextBaseline, TopTextBaseline, MiddleTextBaseline, BottomTextBaseline, IdeographicTextBaseline, HangingTextBaseline };
+    
+    enum TextAlign { StartTextAlign, EndTextAlign, LeftTextAlign, CenterTextAlign, RightTextAlign };
 
     String compositeOperatorName(CompositeOperator);
     bool parseCompositeOperator(const String&, CompositeOperator&);
@@ -65,6 +77,12 @@ namespace WebCore {
     String lineJoinName(LineJoin);
     bool parseLineJoin(const String&, LineJoin&);
 
-}
+    String textAlignName(TextAlign);
+    bool parseTextAlign(const String&, TextAlign&);
+    
+    String textBaselineName(TextBaseline);
+    bool parseTextBaseline(const String&, TextBaseline&);
+
+} // namespace WebCore
 
 #endif

@@ -29,33 +29,22 @@
 #include "config.h"
 #include "JSCustomSQLTransactionCallback.h"
 
-#include "CString.h"
+#if ENABLE(DATABASE)
+
 #include "Frame.h"
-#include "Logging.h"
-#include "kjs_proxy.h"
+#include "ScriptController.h"
 #include "JSSQLTransaction.h"
 #include "Page.h"
+#include <runtime/JSLock.h>
+#include <wtf/MainThread.h>
+#include <wtf/RefCountedLeakCounter.h>
 
 namespace WebCore {
     
-using namespace KJS;
+using namespace JSC;
     
 #ifndef NDEBUG
-
-WTFLogChannel LogWebCoreSQLLeaks = { 0x00000000, "", WTFLogChannelOn };
-
-struct JSCustomSQLTransactionCallbackCounter { 
-    static int count; 
-    ~JSCustomSQLTransactionCallbackCounter() 
-    { 
-        if (count)
-            LOG(WebCoreSQLLeaks, "LEAK: %d JSCustomSQLTransactionCallback\n", count);
-    }
-};
-
-int JSCustomSQLTransactionCallbackCounter::count = 0;
-static JSCustomSQLTransactionCallbackCounter counter;
-
+static WTF::RefCountedLeakCounter counter("JSCustomSQLTransactionCallback");
 #endif
 
 // We have to clean up the data on the main thread for two reasons:
@@ -79,7 +68,7 @@ JSCustomSQLTransactionCallback::JSCustomSQLTransactionCallback(JSObject* callbac
     : m_data(new Data(callback, frame))
 {
 #ifndef NDEBUG
-    ++JSCustomSQLTransactionCallbackCounter::count;
+    counter.increment();
 #endif
 }
 
@@ -93,7 +82,7 @@ JSCustomSQLTransactionCallback::~JSCustomSQLTransactionCallback()
     callOnMainThread(deleteData, m_data);
 #ifndef NDEBUG
     m_data = 0;
-    --JSCustomSQLTransactionCallbackCounter::count;
+    counter.decrement();
 #endif
 }
 
@@ -103,54 +92,49 @@ void JSCustomSQLTransactionCallback::handleEvent(SQLTransaction* transaction, bo
     ASSERT(m_data->callback());
     ASSERT(m_data->frame());
 
-    if (!m_data->frame()->scriptProxy()->isEnabled())
+    if (!m_data->frame()->script()->isEnabled())
         return;
         
-    JSGlobalObject* globalObject = m_data->frame()->scriptProxy()->globalObject();
+    JSGlobalObject* globalObject = m_data->frame()->script()->globalObject();
     ExecState* exec = globalObject->globalExec();
         
-    KJS::JSLock lock;
+    JSC::JSLock lock(false);
         
-    JSValue* handleEventFuncValue = m_data->callback()->get(exec, "handleEvent");
-    JSObject* handleEventFunc = 0;
-    if (handleEventFuncValue->isObject()) {
-        handleEventFunc = static_cast<JSObject*>(handleEventFuncValue);
-        if (!handleEventFunc->implementsCall())
-            handleEventFunc = 0;
-    }
-        
-    if (!handleEventFunc && !m_data->callback()->implementsCall()) {
-        // FIXME: Should an exception be thrown here?
-        return;
+    JSValue handleEventFunction = m_data->callback()->get(exec, Identifier(exec, "handleEvent"));
+    CallData handleEventCallData;
+    CallType handleEventCallType = handleEventFunction.getCallData(handleEventCallData);
+    CallData callbackCallData;
+    CallType callbackCallType = CallTypeNone;
+
+    if (handleEventCallType == CallTypeNone) {
+        callbackCallType = m_data->callback()->getCallData(callbackCallData);
+        if (callbackCallType == CallTypeNone) {
+            // FIXME: Should an exception be thrown here?
+            return;
+        }
     }
         
     RefPtr<JSCustomSQLTransactionCallback> protect(this);
         
-    List args;
+    MarkedArgumentBuffer args;
     args.append(toJS(exec, transaction));
 
-    globalObject->startTimeoutCheck();
-    if (handleEventFunc)
-        handleEventFunc->call(exec, m_data->callback(), args);
+    globalObject->globalData()->timeoutChecker.start();
+    if (handleEventCallType != CallTypeNone)
+        call(exec, handleEventFunction, handleEventCallType, handleEventCallData, m_data->callback(), args);
     else
-        m_data->callback()->call(exec, m_data->callback(), args);
-    globalObject->stopTimeoutCheck();
+        call(exec, m_data->callback(), callbackCallType, callbackCallData, m_data->callback(), args);
+    globalObject->globalData()->timeoutChecker.stop();
         
     if (exec->hadException()) {
-        JSObject* exception = exec->exception()->toObject(exec);
-        String message = exception->get(exec, exec->propertyNames().message)->toString(exec);
-        int lineNumber = exception->get(exec, "line")->toInt32(exec);
-        String sourceURL = exception->get(exec, "sourceURL")->toString(exec);
-        if (Interpreter::shouldPrintExceptions())
-            printf("SQLTransactionCallback: %s\n", message.utf8().data());
-        if (Page* page = m_data->frame()->page())
-            page->chrome()->addMessageToConsole(JSMessageSource, ErrorMessageLevel, message, lineNumber, sourceURL);
-        exec->clearException();
+        reportCurrentException(exec);
         
         raisedException = true;
     }
         
-    Document::updateDocumentsRendering();
+    Document::updateStyleForAllDocuments();
 }
     
 }
+
+#endif // ENABLE(DATABASE)

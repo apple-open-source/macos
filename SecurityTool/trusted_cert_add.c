@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2006-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -219,14 +219,20 @@ trusted_cert_add(int argc, char * const *argv)
 	CFDataRef settingsOut = NULL;
 
 	/* optional usage constraints */
-	char *policy = NULL;
+//	char *policy = NULL;
 	char *appPath = NULL;
-	char *policyString = NULL;
+//	char *policyString = NULL;
 	SecTrustSettingsResult resultType = kSecTrustSettingsResultTrustRoot;
 	CSSM_RETURN allowErr = CSSM_OK;
 	SecTrustSettingsKeyUsage keyUse = 0;
-	CFMutableDictionaryRef trustSettings = NULL;
+	CFMutableArrayRef trustSettings = NULL;
 	int haveConstraints = 0;
+	
+	const int maxPolicies = 16; // upper limit on policies that can be set in one invocation
+	char *policyNames[maxPolicies];
+	char *policyStrings[maxPolicies];
+	int allowedErrors[maxPolicies];
+	int policyNameCount = 0, policyStringCount = 0, allowedErrorCount = 0;
 
 	if(argc < 2) {
 		return 2; /* @@@ Return 2 triggers usage message. */
@@ -257,7 +263,12 @@ trusted_cert_add(int argc, char * const *argv)
 				haveConstraints = 1;
 				break;
 			case 'p':
-				policy = optarg;
+				if (policyNameCount < maxPolicies) {
+					policyNames[policyNameCount++] = optarg;
+				} else {
+					fprintf(stderr, "Too many policy arguments.\n");
+					return 2;
+				}
 				haveConstraints = 1;
 				break;
 			case 'a':
@@ -265,10 +276,31 @@ trusted_cert_add(int argc, char * const *argv)
 				haveConstraints = 1;
 				break;
 			case 's':
-				policyString = optarg;
+				if (policyStringCount < maxPolicies) {
+					policyStrings[policyStringCount++] = optarg;
+				} else {
+					fprintf(stderr, "Too many policy string arguments.\n");
+					return 2;
+				}
 				haveConstraints = 1;
+				break;
 			case 'e':
-				allowErr = (CSSM_RETURN)atoi(optarg);
+				if (allowedErrorCount < maxPolicies) {
+					if (!strcmp("certExpired", optarg))
+						allowErr = -2147409654; // 0x8001210A = CSSMERR_TP_CERT_EXPIRED
+					else if (!strcmp("hostnameMismatch", optarg))
+						allowErr = -2147408896; // 0x80012400 = CSSMERR_APPLETP_HOSTNAME_MISMATCH
+					else
+						allowErr = (CSSM_RETURN)atoi(optarg);
+					if (!allowErr) {
+						fprintf(stderr, "Invalid value for allowed error.\n");
+						return 2;
+					}
+					allowedErrors[allowedErrorCount++] = allowErr;
+				} else {
+					fprintf(stderr, "Too many \"allowed error\" arguments.\n");
+					return 2;
+				}
 				haveConstraints = 1;
 				break;
 			case 'u':
@@ -335,15 +367,90 @@ trusted_cert_add(int argc, char * const *argv)
 		goto errOut;
 	}
 
-	/*
-	 * Note we're just providing the capability of one UsageConstraints
-	 * dictionary - doing multiple dictionaries from the cmd line is just
-	 * too hard. 
-	 */
+	/* build per-policy constraints dictionaries */
 	if(haveConstraints) {
-		ourRtn = appendConstraintsToDict(appPath, policy, policyString,
-			resultType, allowErr, keyUse, &trustSettings);
-		if(ourRtn) {
+		int i, j, k;
+		for (i=0; i<policyNameCount; i++) {
+			if (!trustSettings) {
+				trustSettings = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+			}
+			if (policyStringCount) {
+				for (j=0; j<policyStringCount; j++) {
+					if (allowedErrorCount) {
+						for (k=0; k<allowedErrorCount; k++) {
+							CFMutableDictionaryRef constraintDict = NULL;
+							ourRtn = appendConstraintsToDict(appPath,
+															 policyNames[i],
+															 policyStrings[j],
+															 resultType,
+															 allowedErrors[k],
+															 keyUse,
+															 &constraintDict);
+							if (!ourRtn) {
+								CFArrayAppendValue(trustSettings, constraintDict);
+								CFRelease(constraintDict); // array retains it
+							}
+						}
+					} else { // no allowed errors
+						CFMutableDictionaryRef constraintDict = NULL;
+						ourRtn = appendConstraintsToDict(appPath,
+														 policyNames[i],
+														 policyStrings[j],
+														 resultType, 0, keyUse,
+														 &constraintDict);
+						if (!ourRtn) {
+							CFArrayAppendValue(trustSettings, constraintDict);
+							CFRelease(constraintDict); // array retains it
+						}
+						
+					}
+				}
+			} else { // no policy strings
+				if (allowedErrorCount) {
+					for (k=0; k<allowedErrorCount; k++) {
+						CFMutableDictionaryRef constraintDict = NULL;
+						ourRtn = appendConstraintsToDict(appPath,
+														 policyNames[i],
+														 NULL,
+														 resultType,
+														 allowedErrors[k],
+														 keyUse,
+														 &constraintDict);
+						if (!ourRtn) {
+							CFArrayAppendValue(trustSettings, constraintDict);
+							CFRelease(constraintDict); // array retains it
+						}
+					}
+				} else { // no allowed errors
+					CFMutableDictionaryRef constraintDict = NULL;
+					ourRtn = appendConstraintsToDict(appPath,
+													 policyNames[i],
+													 NULL,
+													 resultType, 0, keyUse,
+													 &constraintDict);
+					if (!ourRtn) {
+						CFArrayAppendValue(trustSettings, constraintDict);
+						CFRelease(constraintDict); // array retains it
+					}
+				}
+			}
+			if(ourRtn) {
+				goto errOut;
+			}
+		}
+	}
+	
+	/* handle the case where no policies were specified */
+	if(haveConstraints && !trustSettings) {
+		CFMutableDictionaryRef constraintDict = NULL;
+		trustSettings = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+		ourRtn = appendConstraintsToDict(appPath, NULL, NULL,
+										 resultType, allowErr, keyUse,
+										 &constraintDict);
+		if (!ourRtn) {
+			CFArrayAppendValue(trustSettings, constraintDict);
+			CFRelease(constraintDict); // array retains it
+		} else {
 			goto errOut;
 		}
 	}

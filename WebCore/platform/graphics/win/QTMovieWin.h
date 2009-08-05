@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2007, 2008, 2009 Apple, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -84,13 +84,17 @@ public:
     void setVisible(bool);
     void paint(HDC, int x, int y);
 
-    void disableUnsupportedTracks(unsigned& enabledTrackCount);
+    void disableUnsupportedTracks(unsigned& enabledTrackCount, unsigned& totalTrackCount);
+    void setDisabled(bool);
+
+    bool hasVideo() const;
 
     static unsigned countSupportedTypes();
     static void getSupportedType(unsigned index, const UChar*& str, unsigned& len);
 
 private:
     QTMovieWinPrivate* m_private;
+    bool m_disabled;
     friend class QTMovieWinPrivate;
 };
 

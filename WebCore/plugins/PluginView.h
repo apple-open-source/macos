@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
- * Copyright (C) 2008 Collabora, Ltd. All rights reserved.
+ * Copyright (C) 2008 Collabora Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,26 +27,31 @@
 #ifndef PluginView_H
 #define PluginView_H
 
-#include <winsock2.h>
-#include <windows.h>
-
 #include "CString.h"
+#include "FrameLoadRequest.h"
 #include "IntRect.h"
 #include "KURL.h"
 #include "PlatformString.h"
 #include "PluginStream.h"
-#include "PluginQuirkSet.h"
 #include "ResourceRequest.h"
 #include "Timer.h"
 #include "Widget.h"
-#include "npapi.h"
+#include "npruntime_internal.h"
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/OwnPtr.h>
+#include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 
-namespace KJS {
+#if PLATFORM(WIN_OS) && PLATFORM(QT)
+typedef struct HWND__* HWND;
+typedef HWND PlatformPluginWidget;
+#else
+typedef PlatformWidget PlatformPluginWidget;
+#endif
+
+namespace JSC {
     namespace Bindings {
         class Instance;
     }
@@ -55,11 +60,12 @@ namespace KJS {
 namespace WebCore {
     class Element;
     class Frame;
-    struct FrameLoadRequest;
     class KeyboardEvent;
     class MouseEvent;
     class KURL;
+#if PLATFORM(WIN_OS) && !PLATFORM(WX) && ENABLE(NETSCAPE_PLUGIN_API)
     class PluginMessageThrottlerWin;
+#endif
     class PluginPackage;
     class PluginRequest;
     class PluginStream;
@@ -72,11 +78,37 @@ namespace WebCore {
         PluginStatusLoadedSuccessfully
     };
 
-    class PluginView : public Widget, private PluginStreamClient {
-    friend static LRESULT CALLBACK PluginViewWndProc(HWND, UINT, WPARAM, LPARAM);
-
+    class PluginRequest {
     public:
-        PluginView(Frame* parentFrame, const IntSize&, PluginPackage* plugin, Element*, const KURL&, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually);
+        PluginRequest(const FrameLoadRequest& frameLoadRequest, bool sendNotification, void* notifyData, bool shouldAllowPopups)
+            : m_frameLoadRequest(frameLoadRequest)
+            , m_notifyData(notifyData)
+            , m_sendNotification(sendNotification)
+            , m_shouldAllowPopups(shouldAllowPopups) { }
+    public:
+        const FrameLoadRequest& frameLoadRequest() const { return m_frameLoadRequest; }
+        void* notifyData() const { return m_notifyData; }
+        bool sendNotification() const { return m_sendNotification; }
+        bool shouldAllowPopups() const { return m_shouldAllowPopups; }
+    private:
+        FrameLoadRequest m_frameLoadRequest;
+        void* m_notifyData;
+        bool m_sendNotification;
+        bool m_shouldAllowPopups;
+    };
+
+    class PluginManualLoader {
+    public:
+        virtual ~PluginManualLoader() {}
+        virtual void didReceiveResponse(const ResourceResponse&) = 0;
+        virtual void didReceiveData(const char*, int) = 0;
+        virtual void didFinishLoading() = 0;
+        virtual void didFail(const ResourceError&) = 0;
+    };
+
+    class PluginView : public Widget, private PluginStreamClient, public PluginManualLoader {
+    public:
+        static PluginView* create(Frame* parentFrame, const IntSize&, Element*, const KURL&, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually);
         virtual ~PluginView();
 
         PluginPackage* plugin() const { return m_plugin.get(); }
@@ -85,7 +117,7 @@ namespace WebCore {
         void setNPWindowRect(const IntRect&);
         static PluginView* currentPluginView();
 
-        KJS::Bindings::Instance* bindingInstance();
+        PassRefPtr<JSC::Bindings::Instance> bindingInstance();
 
         PluginStatus status() const { return m_status; }
 
@@ -98,8 +130,14 @@ namespace WebCore {
         int32 write(NPStream* stream, int32 len, void* buffer);
         NPError destroyStream(NPStream* stream, NPReason reason);
         const char* userAgent();
+#if ENABLE(NETSCAPE_PLUGIN_API)
+        static const char* userAgentStatic();
+#endif
         void status(const char* message);
         NPError getValue(NPNVariable variable, void* value);
+#if ENABLE(NETSCAPE_PLUGIN_API)
+        static NPError getValueStatic(NPNVariable variable, void* value);
+#endif
         NPError setValue(NPPVariable variable, void* value);
         void invalidateRect(NPRect*);
         void invalidateRegion(NPRegion);
@@ -107,27 +145,43 @@ namespace WebCore {
         void pushPopupsEnabledState(bool state);
         void popPopupsEnabledState();
 
+        virtual void invalidateRect(const IntRect&);
+
         bool arePopupsAllowed() const;
+
+        void setJavaScriptPaused(bool);
 
         void disconnectStream(PluginStream*);
         void streamDidFinishLoading(PluginStream* stream) { disconnectStream(stream); }
 
         // Widget functions
-        virtual void setFrameGeometry(const IntRect&);
-        virtual void geometryChanged() const;
+        virtual void setFrameRect(const IntRect&);
+        virtual void frameRectsChanged();
         virtual void setFocus();
         virtual void show();
         virtual void hide();
         virtual void paint(GraphicsContext*, const IntRect&);
-        virtual IntRect windowClipRect() const;
+
+        // This method is used by plugins on all platforms to obtain a clip rect that includes clips set by WebCore,
+        // e.g., in overflow:auto sections.  The clip rects coordinates are in the containing window's coordinate space.
+        // This clip includes any clips that the widget itself sets up for its children.
+        IntRect windowClipRect() const;
+
         virtual void handleEvent(Event*);
         virtual void setParent(ScrollView*);
+        virtual void setParentVisible(bool);
 
-        virtual void attachToWindow();
-        virtual void detachFromWindow();
+        virtual bool isPluginView() const { return true; }
 
+        Frame* parentFrame() const { return m_parentFrame; }
+
+        void focusPluginElement();
+
+#if PLATFORM(WIN_OS) && !PLATFORM(WX) && ENABLE(NETSCAPE_PLUGIN_API)
+        static LRESULT CALLBACK PluginViewWndProc(HWND, UINT, WPARAM, LPARAM);
         LRESULT wndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
         WNDPROC pluginWndProc() const { return m_pluginWndProc; }
+#endif
 
         // Used for manual loading
         void didReceiveResponse(const ResourceResponse&);
@@ -138,6 +192,8 @@ namespace WebCore {
         static bool isCallingPlugin();
 
     private:
+        PluginView(Frame* parentFrame, const IntSize&, PluginPackage*, Element*, const KURL&, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually);
+
         void setParameters(const Vector<String>& paramNames, const Vector<String>& paramValues);
         void init();
         bool start();
@@ -145,10 +201,21 @@ namespace WebCore {
         static void setCurrentPluginView(PluginView*);
         NPError load(const FrameLoadRequest&, bool sendNotification, void* notifyData);
         NPError handlePost(const char* url, const char* target, uint32 len, const char* buf, bool file, void* notifyData, bool sendNotification, bool allowHeaders);
+        NPError handlePostReadFile(Vector<char>& buffer, uint32 len, const char* buf);
+        static void freeStringArray(char** stringArray, int length);
         void setCallingPlugin(bool) const;
+
+        void invalidateWindowlessPluginRect(const IntRect&);
+
+#if PLATFORM(WIN_OS) && !PLATFORM(WX) && ENABLE(NETSCAPE_PLUGIN_API)
+        void paintWindowedPluginIntoContext(GraphicsContext*, const IntRect&) const;
+        static HDC WINAPI hookedBeginPaint(HWND, PAINTSTRUCT*);
+        static BOOL WINAPI hookedEndPaint(HWND, const PAINTSTRUCT*);
+#endif
+
+        Frame* m_parentFrame;
         RefPtr<PluginPackage> m_plugin;
         Element* m_element;
-        Frame* m_parentFrame;
         bool m_isStarted;
         KURL m_url;
         KURL m_baseURL;
@@ -165,11 +232,10 @@ namespace WebCore {
         void popPopupsStateTimerFired(Timer<PluginView>*);
         Timer<PluginView> m_popPopupsStateTimer;
 
+#ifndef NP_NO_CARBON
         bool dispatchNPEvent(NPEvent&);
-        OwnPtr<PluginMessageThrottlerWin> m_messageThrottler;
-
-        void updateWindow() const;
-        void determineQuirks(const String& mimeType);
+#endif
+        void updatePluginWidget();
         void paintMissingPluginIcon(GraphicsContext*, const IntRect&);
 
         void handleKeyboardEvent(KeyboardEvent*);
@@ -192,23 +258,54 @@ namespace WebCore {
         HashSet<RefPtr<PluginStream> > m_streams;
         Vector<PluginRequest*> m_requests;
 
-        PluginQuirkSet m_quirks;
         bool m_isWindowed;
         bool m_isTransparent;
-        bool m_isVisible;
-        bool m_attachedToWindow;
         bool m_haveInitialized;
 
-        WNDPROC m_pluginWndProc;
-        HWND m_window; // for windowed plug-ins
-        mutable IntRect m_clipRect; // The clip rect to apply to a windowed plug-in
-        mutable IntRect m_windowRect; // Our window rect.
+#if PLATFORM(GTK) || defined(Q_WS_X11)
+        bool m_needsXEmbed;
+#endif
 
+#if PLATFORM(WIN_OS) && !PLATFORM(WX) && ENABLE(NETSCAPE_PLUGIN_API)
+        OwnPtr<PluginMessageThrottlerWin> m_messageThrottler;
+        WNDPROC m_pluginWndProc;
         unsigned m_lastMessage;
         bool m_isCallingPluginWndProc;
+        HDC m_wmPrintHDC;
+#endif
+
+#if (PLATFORM(QT) && PLATFORM(WIN_OS)) || defined(XP_MACOSX)
+        // On Mac OSX and Qt/Windows the plugin does not have its own native widget,
+        // but is using the containing window as its reference for positioning/painting.
+        PlatformPluginWidget m_window;
+public:
+        PlatformPluginWidget platformPluginWidget() const { return m_window; }
+        void setPlatformPluginWidget(PlatformPluginWidget widget) { m_window = widget; }
+#else
+public:
+        PlatformPluginWidget platformPluginWidget() const { return platformWidget(); }
+#endif
+
+private:
+
+#if PLATFORM(GTK) || defined(Q_WS_X11)
+        void setNPWindowIfNeeded();
+#elif defined(XP_MACOSX)
+        NP_CGContext m_npCgContext;
+        OwnPtr<Timer<PluginView> > m_nullEventTimer;
+
+        void setNPWindowIfNeeded();
+        void nullEventTimerFired(Timer<PluginView>*);
+        Point globalMousePosForPlugin() const;
+#endif
+
+        IntRect m_clipRect; // The clip rect to apply to a windowed plug-in
+        IntRect m_windowRect; // Our window rect.
 
         bool m_loadManually;
         RefPtr<PluginStream> m_manualStream;
+
+        bool m_isJavaScriptPaused;
 
         static PluginView* s_currentPluginView;
     };

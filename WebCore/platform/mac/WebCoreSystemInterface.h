@@ -40,12 +40,21 @@ typedef struct _NSRect NSRect;
 #endif
 
 #ifdef __OBJC__
+@class NSArray;
 @class NSButtonCell;
 @class NSData;
+@class NSDate;
 @class NSEvent;
 @class NSFont;
+@class NSImage;
+@class NSMenu;
 @class NSMutableURLRequest;
+@class NSString;
+@class NSTextFieldCell;
+@class NSURLConnection;
 @class NSURLRequest;
+@class NSURLResponse;
+@class NSView;
 @class QTMovie;
 @class QTMovieView;
 #else
@@ -73,13 +82,10 @@ typedef struct QTMovieView QTMovieView;
 extern "C" {
 #endif
 
-#define GLYPH_VECTOR_SIZE (50 * 32)
-
 // In alphabetical order.
 
 extern void (*wkAdvanceDefaultButtonPulseAnimation)(NSButtonCell *);
 extern BOOL (*wkCGContextGetShouldSmoothFonts)(CGContextRef);
-extern void (*wkClearGlyphVector)(void* glyphs);
 extern CFReadStreamRef (*wkCreateCustomCFReadStream)(void *(*formCreate)(CFReadStreamRef, void *), 
     void (*formFinalize)(CFReadStreamRef, void *), 
     Boolean (*formOpen)(CFReadStreamRef, CFStreamError *, Boolean *, void *), 
@@ -89,32 +95,17 @@ extern CFReadStreamRef (*wkCreateCustomCFReadStream)(void *(*formCreate)(CFReadS
     void (*formSchedule)(CFReadStreamRef, CFRunLoopRef, CFStringRef, void *), 
     void (*formUnschedule)(CFReadStreamRef, CFRunLoopRef, CFStringRef, void *),
     void *context);
-extern OSStatus (*wkConvertCharToGlyphs)(void* styleGroup, const UniChar*, unsigned numCharacters, void* glyphs);
 extern id (*wkCreateNSURLConnectionDelegateProxy)(void);
 extern void (*wkDrawBezeledTextFieldCell)(NSRect, BOOL enabled);
 extern void (*wkDrawTextFieldCellFocusRing)(NSTextFieldCell*, NSRect);
 extern void (*wkDrawCapsLockIndicator)(CGContextRef, CGRect);
 extern void (*wkDrawBezeledTextArea)(NSRect, BOOL enabled);
 extern void (*wkDrawFocusRing)(CGContextRef, CGColorRef, int radius);
-extern BOOL (*wkFontSmoothingModeIsLCD)(int mode);
-extern OSStatus (*wkGetATSStyleGroup)(ATSUStyle, void** styleGroup);
-extern CGFontRef (*wkGetCGFontFromNSFont)(NSFont*);
 extern NSFont* (*wkGetFontInLanguageForRange)(NSFont*, NSString*, NSRange);
 extern NSFont* (*wkGetFontInLanguageForCharacter)(NSFont*, UniChar);
-extern void (*wkGetFontMetrics)(CGFontRef, int* ascent, int* descent, int* lineGap, unsigned* unitsPerEm);
 extern BOOL (*wkGetGlyphTransformedAdvances)(CGFontRef, NSFont*, CGAffineTransform*, ATSGlyphRef*, CGSize* advance);
-extern ATSLayoutRecord* (*wkGetGlyphVectorFirstRecord)(void* glyphVector);
-extern int (*wkGetGlyphVectorNumGlyphs)(void* glyphVector);
-extern size_t (*wkGetGlyphVectorRecordSize)(void* glyphVector);
-extern void (*wkDrawMediaFullscreenButton)(CGContextRef context, CGRect rect, BOOL active);
-extern void (*wkDrawMediaMuteButton)(CGContextRef context, CGRect rect, BOOL active);
-extern void (*wkDrawMediaPauseButton)(CGContextRef context, CGRect rect, BOOL active);
-extern void (*wkDrawMediaPlayButton)(CGContextRef context, CGRect rect, BOOL active);
-extern void (*wkDrawMediaSeekBackButton)(CGContextRef context, CGRect rect, BOOL active);
-extern void (*wkDrawMediaSeekForwardButton)(CGContextRef context, CGRect rect, BOOL active);
-extern void (*wkDrawMediaSliderTrack)(CGContextRef context, CGRect rect, float percentLoaded);
-extern void (*wkDrawMediaSliderThumb)(CGContextRef context, CGRect rect, BOOL active);
-extern void (*wkDrawMediaUnMuteButton)(CGContextRef context, CGRect rect, BOOL active);
+extern void (*wkDrawMediaSliderTrack)(int themeStyle, CGContextRef context, CGRect rect, float timeLoaded, float currentTime, float duration);
+extern void (*wkDrawMediaUIPart)(int part, int themeStyle, CGContextRef context, CGRect rect, BOOL active);
 extern NSString* (*wkGetPreferredExtensionForMIMEType)(NSString*);
 extern NSArray* (*wkGetExtensionsForMIMEType)(NSString*);
 extern NSString* (*wkGetMIMETypeForExtension)(NSString*);
@@ -123,26 +114,49 @@ extern double (*wkGetNSURLResponseCalculatedExpiration)(NSURLResponse *response)
 extern NSDate *(*wkGetNSURLResponseLastModifiedDate)(NSURLResponse *response);
 extern BOOL (*wkGetNSURLResponseMustRevalidate)(NSURLResponse *response);
 extern void (*wkGetWheelEventDeltas)(NSEvent*, float* deltaX, float* deltaY, BOOL* continuous);
-extern OSStatus (*wkInitializeGlyphVector)(int count, void* glyphs);
-extern NSString* (*wkPathFromFont)(NSFont*);
+extern BOOL (*wkHitTestMediaUIPart)(int part, int themeStyle, CGRect bounds, CGPoint point);
+extern void (*wkMeasureMediaUIPart)(int part, int themeStyle, CGRect *bounds, CGSize *naturalSize);
 extern void (*wkPopupMenu)(NSMenu*, NSPoint location, float width, NSView*, int selectedItem, NSFont*);
+extern unsigned (*wkQTIncludeOnlyModernMediaFileTypes)(void);
 extern int (*wkQTMovieDataRate)(QTMovie*);
 extern float (*wkQTMovieMaxTimeLoaded)(QTMovie*);
+extern NSString *(*wkQTMovieMaxTimeLoadedChangeNotification)(void);
+extern float (*wkQTMovieMaxTimeSeekable)(QTMovie*);
 extern void (*wkQTMovieViewSetDrawSynchronously)(QTMovieView*, BOOL);
-extern void (*wkReleaseStyleGroup)(void* group);
 extern void (*wkSetCGFontRenderingMode)(CGContextRef, NSFont*);
 extern void (*wkSetDragImage)(NSImage*, NSPoint offset);
 extern void (*wkSetNSURLConnectionDefersCallbacks)(NSURLConnection *, BOOL);
 extern void (*wkSetNSURLRequestShouldContentSniff)(NSMutableURLRequest *, BOOL);
 extern void (*wkSetPatternBaseCTM)(CGContextRef, CGAffineTransform);
 extern void (*wkSetPatternPhaseInUserSpace)(CGContextRef, CGPoint);
-extern void (*wkSetUpFontCache)(size_t);
+extern void (*wkSetUpFontCache)();
 extern void (*wkSignalCFReadStreamEnd)(CFReadStreamRef stream);
 extern void (*wkSignalCFReadStreamError)(CFReadStreamRef stream, CFStreamError *error);
 extern void (*wkSignalCFReadStreamHasBytes)(CFReadStreamRef stream);
+extern unsigned (*wkInitializeMaximumHTTPConnectionCountPerHost)(unsigned preferredConnectionCount);
+
+#ifndef BUILDING_ON_TIGER
+extern void (*wkGetGlyphsForCharacters)(CGFontRef, const UniChar[], CGGlyph[], size_t);
+#else
+#define GLYPH_VECTOR_SIZE (50 * 32)
+
+extern void (*wkClearGlyphVector)(void* glyphs);
+extern OSStatus (*wkConvertCharToGlyphs)(void* styleGroup, const UniChar*, unsigned numCharacters, void* glyphs);
+extern CFStringRef (*wkCopyFullFontName)(CGFontRef font);
+extern OSStatus (*wkGetATSStyleGroup)(ATSUStyle, void** styleGroup);
+extern CGFontRef (*wkGetCGFontFromNSFont)(NSFont*);
+extern void (*wkGetFontMetrics)(CGFontRef, int* ascent, int* descent, int* lineGap, unsigned* unitsPerEm);
+extern ATSLayoutRecord* (*wkGetGlyphVectorFirstRecord)(void* glyphVector);
+extern void* wkGetGlyphsForCharacters;
+extern int (*wkGetGlyphVectorNumGlyphs)(void* glyphVector);
+extern size_t (*wkGetGlyphVectorRecordSize)(void* glyphVector);
+extern OSStatus (*wkInitializeGlyphVector)(int count, void* glyphs);
+extern void (*wkReleaseStyleGroup)(void* group);
 extern BOOL (*wkSupportsMultipartXMixedReplace)(NSMutableURLRequest *);
-extern Class (*wkNSURLProtocolClassForReqest)(NSURLRequest *);
-extern float (*wkSecondsSinceLastInputEvent)(void);
+#endif
+
+extern BOOL (*wkUseSharedMediaUI)();
+
 #ifdef __cplusplus
 }
 #endif

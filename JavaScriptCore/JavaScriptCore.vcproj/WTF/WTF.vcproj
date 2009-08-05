@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="Windows-1252"?>
+<?xml version="1.0" encoding="windows-1251"?>
 <VisualStudioProject
 	ProjectType="Visual C++"
 	Version="8.00"
@@ -17,9 +17,8 @@
 	<Configurations>
 		<Configuration
 			Name="Debug|Win32"
-			OutputDirectory="$(WebKitOutputDir)\lib"
 			ConfigurationType="4"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug.vsprops"
+			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug.vsprops;.\WTFCommon.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
@@ -27,8 +26,6 @@
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
-				Description=""
-				CommandLine=""
 			/>
 			<Tool
 				Name="VCXMLDataGeneratorTool"
@@ -41,9 +38,6 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="&quot;$(WebKitOutputDir)\obj\JavaScriptCore\$(ConfigurationName)\DerivedSources\&quot;;../../;&quot;../../os-win32/&quot;;../../pcre/;../../kjs/;../../wtf/;&quot;$(WebKitLibrariesDir)\include&quot;;&quot;$(WebKitLibrariesDir)\include\icu&quot;;../../../icu/include;../../bindings;../../bindings/c;../../bindings/jni;&quot;$(WebKitOutputDir)\include\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\include\pthreads&quot;"
-				PreprocessorDefinitions="HAVE_CONFIG_H;__STD_C"
-				ForcedIncludeFiles=""
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -56,7 +50,6 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				OutputFile="$(OutDir)\$(ProjectName)$(WebKitConfigSuffix).lib"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -76,9 +69,8 @@
 		</Configuration>
 		<Configuration
 			Name="Release|Win32"
-			OutputDirectory="$(WebKitOutputDir)\lib"
 			ConfigurationType="4"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\release.vsprops"
+			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\release.vsprops;.\WTFCommon.vsprops"
 			CharacterSet="1"
 			WholeProgramOptimization="1"
 			>
@@ -87,8 +79,6 @@
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
-				Description=""
-				CommandLine=""
 			/>
 			<Tool
 				Name="VCXMLDataGeneratorTool"
@@ -101,9 +91,6 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="&quot;$(WebKitOutputDir)\obj\JavaScriptCore\$(ConfigurationName)\DerivedSources\&quot;;../../;&quot;../../os-win32/&quot;;../../pcre/;../../kjs/;../../wtf/;&quot;$(WebKitLibrariesDir)\include&quot;;&quot;$(WebKitLibrariesDir)\include\icu&quot;;../../../icu/include;../../bindings;../../bindings/c;../../bindings/jni;&quot;$(WebKitOutputDir)\include\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\include\pthreads&quot;"
-				PreprocessorDefinitions="HAVE_CONFIG_H;__STD_C"
-				ForcedIncludeFiles=""
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -116,7 +103,6 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				OutputFile="$(OutDir)\$(ProjectName)$(WebKitConfigSuffix).lib"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -136,9 +122,8 @@
 		</Configuration>
 		<Configuration
 			Name="Debug_Internal|Win32"
-			OutputDirectory="$(WebKitOutputDir)\lib"
 			ConfigurationType="4"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug_internal.vsprops"
+			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug_internal.vsprops;.\WTFCommon.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
@@ -146,8 +131,6 @@
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
-				Description=""
-				CommandLine=""
 			/>
 			<Tool
 				Name="VCXMLDataGeneratorTool"
@@ -160,9 +143,6 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="&quot;$(WebKitOutputDir)\obj\JavaScriptCore\$(ConfigurationName)\DerivedSources\&quot;;../../;&quot;../../os-win32/&quot;;../../pcre/;../../kjs/;../../wtf/;&quot;$(WebKitLibrariesDir)\include&quot;;&quot;$(WebKitLibrariesDir)\include\icu&quot;;../../../icu/include;../../bindings;../../bindings/c;../../bindings/jni;&quot;$(WebKitOutputDir)\include\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\include\pthreads&quot;"
-				PreprocessorDefinitions="HAVE_CONFIG_H;__STD_C"
-				ForcedIncludeFiles=""
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -175,7 +155,6 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				OutputFile="$(OutDir)\$(ProjectName)$(WebKitConfigSuffix).lib"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -197,6 +176,14 @@
 	<References>
 	</References>
 	<Files>
+		<Filter
+			Name="win"
+			>
+			<File
+				RelativePath="..\..\wtf\win\MainThreadWin.cpp"
+				>
+			</File>
+		</Filter>
 		<File
 			RelativePath="..\..\wtf\AlwaysInline.h"
 			>
@@ -214,7 +201,47 @@
 			>
 		</File>
 		<File
+			RelativePath="..\..\wtf\ByteArray.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\ByteArray.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\unicode\Collator.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\unicode\CollatorDefault.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\unicode\icu\CollatorICU.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\CurrentTime.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\CurrentTime.h"
+			>
+		</File>
+		<File
 			RelativePath="..\..\wtf\Deque.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\dtoa.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\dtoa.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\FastAllocBase.h"
 			>
 		</File>
 		<File
@@ -274,11 +301,31 @@
 			>
 		</File>
 		<File
+			RelativePath="..\..\wtf\Locker.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\MainThread.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\MainThread.h"
+			>
+		</File>
+		<File
 			RelativePath="..\..\wtf\MathExtras.h"
 			>
 		</File>
 		<File
+			RelativePath="..\..\wtf\MessageQueue.h"
+			>
+		</File>
+		<File
 			RelativePath="..\..\wtf\Noncopyable.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\NotFound.h"
 			>
 		</File>
 		<File
@@ -302,7 +349,27 @@
 			>
 		</File>
 		<File
+			RelativePath="..\..\wtf\PtrAndFlags.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\RandomNumber.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\RandomNumber.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\RandomNumberSeed.h"
+			>
+		</File>
+		<File
 			RelativePath="..\..\wtf\RefCounted.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\RefCountedLeakCounter.cpp"
 			>
 		</File>
 		<File
@@ -315,6 +382,10 @@
 		</File>
 		<File
 			RelativePath="..\..\wtf\RetainPtr.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\StdLibExtras.h"
 			>
 		</File>
 		<File
@@ -339,6 +410,34 @@
 		</File>
 		<File
 			RelativePath="..\..\wtf\TCSystemAlloc.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\Threading.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\Threading.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\ThreadingWin.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\ThreadSpecific.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\ThreadSpecificWin.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\TypeTraits.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\TypeTraits.h"
 			>
 		</File>
 		<File

@@ -25,9 +25,10 @@
 
 module svg {
 
-    interface [Conditional=SVG] SVGAnimationElement : SVGElement,
+    interface [Conditional=SVG_ANIMATION] SVGAnimationElement : SVGElement,
                                                       SVGTests,
-                                                      SVGExternalResourcesRequired {
+                                                      SVGExternalResourcesRequired,
+                                                      ElementTimeControl {
         readonly attribute SVGElement targetElement;
 
         float getStartTime();

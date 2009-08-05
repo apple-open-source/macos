@@ -1,9 +1,7 @@
 /*
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2004, 2006 Apple Computer, Inc.
+ * Copyright (C) 2004, 2006, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,17 +23,13 @@
 #ifndef HTMLEmbedElement_h
 #define HTMLEmbedElement_h
 
-#include "HTMLPlugInElement.h"
-
-#if USE(JAVASCRIPTCORE_BINDINGS)
-#include <bindings/runtime.h>
-#endif
+#include "HTMLPlugInImageElement.h"
 
 namespace WebCore {
 
-class HTMLEmbedElement : public HTMLPlugInElement {
+class HTMLEmbedElement : public HTMLPlugInImageElement {
 public:
-    HTMLEmbedElement(Document*);
+    HTMLEmbedElement(const QualifiedName&, Document*);
     ~HTMLEmbedElement();
 
     virtual HTMLTagStatus endTagRequirement() const { return TagStatusForbidden; }
@@ -45,7 +39,7 @@ public:
     virtual void parseMappedAttribute(MappedAttribute*);
 
     virtual void attach();
-    virtual void detach();
+    virtual bool canLazyAttach() { return false; }
     virtual bool rendererIsNeeded(RenderStyle*);
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
     virtual void insertedIntoDocument();
@@ -53,13 +47,12 @@ public:
     virtual void attributeChanged(Attribute*, bool preserveDecls = false);
     
     virtual bool isURLAttribute(Attribute*) const;
+    virtual const QualifiedName& imageSourceAttributeName() const;
 
     virtual void updateWidget();
     void setNeedWidgetUpdate(bool needWidgetUpdate) { m_needWidgetUpdate = needWidgetUpdate; }
 
-#if USE(JAVASCRIPTCORE_BINDINGS)
-    virtual KJS::Bindings::Instance* getInstance() const;
-#endif
+    virtual RenderWidget* renderWidgetForJSBindings() const;
 
     String src() const;
     void setSrc(const String&);
@@ -67,9 +60,9 @@ public:
     String type() const;
     void setType(const String&);
 
-    DeprecatedString url;
-    String m_pluginPage;
-    String m_serviceType;
+    virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
+
+private:
     bool m_needWidgetUpdate;
 };
 

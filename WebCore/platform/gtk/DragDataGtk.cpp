@@ -17,6 +17,7 @@
 #include "config.h"
 #include "DragData.h"
 
+#include "Clipboard.h"
 #include "Document.h"
 #include "DocumentFragment.h"
 
@@ -56,7 +57,7 @@ Color DragData::asColor() const
     return Color();
 }
 
-Clipboard* DragData::createClipboard(ClipboardAccessPolicy) const
+PassRefPtr<Clipboard> DragData::createClipboard(ClipboardAccessPolicy) const
 {
     return 0;
 }

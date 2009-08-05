@@ -46,9 +46,8 @@
 #else
 #include <sys/types.h>
 #endif
-#include <stdlib.h>     /* for abort() */
 
-#if COMPILER(MSVC)
+#if PLATFORM(WIN_OS)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -104,7 +103,7 @@ struct TCMalloc_SpinLock {
       ("isync\n\t"
        "eieio\n\t"
        "stw %1, %0"
-#if PLATFORM(DARWIN)
+#if PLATFORM(DARWIN) || PLATFORM(PPC)
        : "=o" (lockword_)
 #else
        : "=m" (lockword_) 
@@ -179,7 +178,7 @@ static void TCMalloc_SlowLock(volatile unsigned int* lockword) {
     // from taking 30 seconds to 16 seconds.
 
     // Sleep for a few milliseconds
-#if COMPILER(MSVC)
+#if PLATFORM(WIN_OS)
     Sleep(2);
 #else
     struct timespec tm;
@@ -199,16 +198,16 @@ struct TCMalloc_SpinLock {
   pthread_mutex_t private_lock_;
 
   inline void Init() {
-    if (pthread_mutex_init(&private_lock_, NULL) != 0) abort();
+    if (pthread_mutex_init(&private_lock_, NULL) != 0) CRASH();
   }
   inline void Finalize() {
-    if (pthread_mutex_destroy(&private_lock_) != 0) abort();
+    if (pthread_mutex_destroy(&private_lock_) != 0) CRASH();
   }
   inline void Lock() {
-    if (pthread_mutex_lock(&private_lock_) != 0) abort();
+    if (pthread_mutex_lock(&private_lock_) != 0) CRASH();
   }
   inline void Unlock() {
-    if (pthread_mutex_unlock(&private_lock_) != 0) abort();
+    if (pthread_mutex_unlock(&private_lock_) != 0) CRASH();
   }
 };
 

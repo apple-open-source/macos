@@ -34,8 +34,10 @@ public:
 
     virtual const char* renderName() const { return "RenderReplaced"; }
 
-    virtual short lineHeight(bool firstLine, bool isRootLineBox = false) const;
-    virtual short baselinePosition(bool firstLine, bool isRootLineBox = false) const;
+    virtual bool canHaveChildren() const { return false; }
+
+    virtual int lineHeight(bool firstLine, bool isRootLineBox = false) const;
+    virtual int baselinePosition(bool firstLine, bool isRootLineBox = false) const;
 
     virtual void calcPrefWidths();
     
@@ -43,7 +45,7 @@ public:
     virtual int minimumReplacedHeight() const { return 0; }
 
     virtual void paint(PaintInfo&, int tx, int ty);
-    virtual void paintReplaced(PaintInfo&, int tx, int ty) { }
+    virtual void paintReplaced(PaintInfo&, int /*tx*/, int /*ty*/) { }
 
     virtual IntSize intrinsicSize() const;
 
@@ -53,29 +55,29 @@ public:
     virtual int overflowTop(bool includeInterior = true) const;
     virtual IntRect overflowRect(bool includeInterior = true) const;
 
-    virtual int caretMinOffset() const;
-    virtual int caretMaxOffset() const;
+    virtual IntRect clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer);
+
     virtual unsigned caretMaxRenderedOffset() const;
-    virtual VisiblePosition positionForCoordinates(int x, int y);
+    virtual VisiblePosition positionForPoint(const IntPoint&);
     
     virtual bool canBeSelectionLeaf() const { return true; }
-    virtual SelectionState selectionState() const { return static_cast<SelectionState>(m_selectionState); }
     virtual void setSelectionState(SelectionState);
-    virtual IntRect selectionRect(bool clipToVisibleContent = true);
+    virtual IntRect selectionRectForRepaint(RenderBoxModelObject* repaintContainer, bool clipToVisibleContent = true);
 
     bool isSelected() const;
 
 protected:
+    virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
+
     void setIntrinsicSize(const IntSize&);
+    virtual void intrinsicSizeChanged();
 
     bool shouldPaint(PaintInfo&, int& tx, int& ty);
-    void adjustOverflowForBoxShadow();
+    void adjustOverflowForBoxShadowAndReflect();
+    IntRect localSelectionRect(bool checkWhetherSelected = true) const;
 
 private:
     IntSize m_intrinsicSize;
-    
-    unsigned m_selectionState : 3; // SelectionState
-    bool m_hasOverflow : 1;
 };
 
 }

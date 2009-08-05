@@ -28,6 +28,7 @@
 #include <IOKit/IOKitKeys.h>
 #include <IOKit/IOMessage.h>
 #include <IOKit/pwr_mgt/IOPM.h>
+#include <IOKit/pwr_mgt/RootDomain.h>
 
 #include <IOKit/usb/IOUSBLog.h>
 
@@ -113,12 +114,6 @@ AppleUSBHub::init( OSDictionary * propTable )
 	_devZeroLockedTimeoutCounter = kDevZeroTimeoutCount;
 	_retryCount = kHubDriverRetryCount;
 	_checkPortsThreadActive	= false;
-	_doPortActionLock = IOLockAlloc();
-    if (!_doPortActionLock)
-	{
-        return false;
-	}
-	
 	return(true);
 }
 
@@ -295,7 +290,7 @@ ErrorExit:
     }
 		
 	_inStartMethod = false;
-	USBLog(6, "AppleUSBHub[%p]::ConfigureHubDriver - device name %s - done (with err) - calling DecrementOutstandingIO and LowerPowerState", this, _device->getName());
+	USBLog(6, "AppleUSBHub[%p]::ConfigureHubDriver - done (with err) - calling DecrementOutstandingIO and LowerPowerState", this);
     DecrementOutstandingIO();
 	LowerPowerState();
     return false;
@@ -459,12 +454,33 @@ AppleUSBHub::message( UInt32 type, IOService * provider,  void * argument )
 			err = DoPortAction( type, * (UInt32 *) argument, 0 );
 			break;
 		
+		// this should only go through DoPortAction if we are a HS hub. Otherwise, short circuit it
 		case kIOUSBMessageHubPortClearTT:
-			ttParams = (IOUSBHubPortClearTTParam *) argument;
-			err = DoPortAction( type, ttParams->portNumber, ttParams->options );
+			if ( _hsHub )
+			{
+				ttParams = (IOUSBHubPortClearTTParam *) argument;
+				err = DoPortAction( type, ttParams->portNumber, ttParams->options );
+			}
+			else
+			{
+				err = kIOReturnUnsupported;
+			}
+			break;
+		
+		// this does not need to go through DoPortAction, because it just sets an iVar in the port structure
+		case kIOUSBMessageHubSetPortRecoveryTime:
+			{
+				// this uses the same params as ReEnumeratePort
+				params = (IOUSBHubPortReEnumerateParam *) argument;
+				AppleUSBHubPort *port = _ports ? _ports[params->portNumber-1] : NULL;
+				if (port)
+				{
+					USBLog(5, "AppleUSBHub[%p]::message(kIOUSBMessageHubSetPortRecoveryTime) - port %d, setting _portResumeRecoveryTime to %d", this, (uint32_t)params->portNumber, (uint32_t)params->options);
+					port->_portResumeRecoveryTime = params->options;
+				}
+			}
 			break;
 			
-		case kIOUSBMessageHubSetPortRecoveryTime:
 		case kIOUSBMessageHubReEnumeratePort:
 			params = (IOUSBHubPortReEnumerateParam *) argument;
 			err = DoPortAction( type, params->portNumber, params->options );
@@ -662,18 +678,18 @@ AppleUSBHub::willTerminate( IOService * provider, IOOptionBits options )
 }
 
 
+
 bool
 AppleUSBHub::didTerminate( IOService * provider, IOOptionBits options, bool * defer )
 {
     USBLog(3, "AppleUSBHub[%p]::didTerminate isInactive[%s] _outstandingIO[%d]", this, isInactive() ? "true" : "false", (int)_outstandingIO);
     
-    if (!_outstandingIO && (_powerStateChangingTo == kIOUSBHubPowerStateStable) && IOLockTryLock(_doPortActionLock))
+    if (!_outstandingIO && (_powerStateChangingTo == kIOUSBHubPowerStateStable) && !_doPortActionLock)
     {
 		USBLog(5, "AppleUSBHub[%p]::didTerminate - closing _device(%p)", this, _device);
 		// Stop/close all ports, deallocate our ports
 		//
 		StopPorts();
-		IOLockUnlock(_doPortActionLock);
 		_device->close(this);
     }
     else
@@ -683,6 +699,7 @@ AppleUSBHub::didTerminate( IOService * provider, IOOptionBits options, bool * de
     }
     return super::didTerminate(provider, options, defer);
 }
+
 
 
 bool
@@ -698,12 +715,6 @@ AppleUSBHub::free( void )
 {
     USBLog(6, "AppleUSBHub[%p]::free isInactive = %d", this, isInactive());
 	
-	if (_doPortActionLock) 
-	{
-		IOLockFree(_doPortActionLock);
-		_doPortActionLock = NULL;
-	}
-
 	if (_timerSource)
     {
         _timerSource->release();
@@ -1487,7 +1498,8 @@ AppleUSBHub::HubPowerChange(unsigned long powerStateOrdinal)
 					}
 					if (!realError)
 					{
-						USBLog(5, "AppleUSBHub[%p]::HubPowerChange (hub @ 0x%x) - hub going to doze - some port has a recent status change - we will pick it up later", this, (uint32_t)_locationID);
+						USBLog(2, "AppleUSBHub[%p]::HubPowerChange (hub @ 0x%x) - hub going to doze - some port has a recent status change - we will pick it up later.  Calling EnsureUsability()", this, (uint32_t)_locationID);
+						EnsureUsability();
 					}
 				}
 				else
@@ -1569,6 +1581,13 @@ AppleUSBHub::HubPowerChange(unsigned long powerStateOrdinal)
 				else
 				{
 					USBLog(5, "AppleUSBHub[%p]::HubPowerChange _isRootHub or _device was NULL - not suspending", this );
+					// for the root hub, we need to stop processing root hub status changes now
+					if ( _interruptPipe )
+					{
+						USBLog(5, "AppleUSBHub[%p]::HubPowerChange - aborting pipe!!", this);
+						_abortExpected = true;
+						_interruptPipe->Abort();
+					}
 				}
 			}
 			else
@@ -2513,7 +2532,14 @@ AppleUSBHub::DoPortAction(UInt32 type, UInt32 portNumber, UInt32 options )
 	}
 			
 	USBLog(5,"+AppleUSBHub[%p]::DoPortAction(%s) for port (%d), options (0x%x) _myPowerState(%d), getting _doPortActionLock", this, HubMessageToString(type), (uint32_t)portNumber, (uint32_t)options, (uint32_t)_myPowerState);
-	IOLockLock(_doPortActionLock);
+	err = TakeDoPortActionLock();
+	if (err != kIOReturnSuccess)
+	{
+		USBLog(1, "AppleUSBHub[%p]::DoPortAction - unable to take the DoPortAction lock (err %p)", this, (void*)err);
+		return err;
+	}
+	
+	
 	
 	// no longer do this as it affects the interrupt read pipe for all ports
 	// USBLog(5,"AppleUSBHub[%p]::DoPortAction - got _doPortActionLock, calling IncrementOutstandingIO", this);
@@ -2603,8 +2629,6 @@ AppleUSBHub::DoPortAction(UInt32 type, UInt32 portNumber, UInt32 options )
                 break;
 			
 			case kIOUSBMessageHubSetPortRecoveryTime:
-				USBLog(5, "AppleUSBHub[%p]::DoPortAction - port %d, setting _portResumeRecoveryTime to %d", this, (uint32_t)portNumber, (uint32_t)options);
-				err = port->_portResumeRecoveryTime = options;
                 break;
 				
 		}
@@ -2620,7 +2644,7 @@ AppleUSBHub::DoPortAction(UInt32 type, UInt32 portNumber, UInt32 options )
 	// since holding this lock can cause us to delay a close call, we will do an Increment/Decrement to cause a check here
 	// we will Increment before we unlock the lock and Decrement afterwards
 	IncrementOutstandingIO();
-	IOLockUnlock(_doPortActionLock);
+	ReleaseDoPortActionLock();
 	DecrementOutstandingIO();
 	
 	USBLog(6,"AppleUSBHub[%p]::DoPortAction - calling LowerPowerState", this);
@@ -2992,6 +3016,10 @@ AppleUSBHub::ProcessStatusChanged()
 						if ( port )
 						{
 							SInt32			retries = 200;
+
+							// rdar://6558060. make sure the system is not dozing. this is a light weight call
+							USBLog(6,"AppleUSBHub[%p]::ProcessStatusChanged. Calling wakeFromDoze", this);
+							getPMRootDomain()->wakeFromDoze();
 
 							USBLog(6,"AppleUSBHub[%p]::ProcessStatusChanged port number %d, calling IncrementOutstandingIO and port->StatusChanged", this, portNum);
 							// note that the StatusChanged call below will happen on another thread
@@ -3871,14 +3899,13 @@ AppleUSBHub::DecrementOutstandingIO(void)
 	}
 	else if (_needToClose)
 	{
-		if (!outstandingIO && (_myPowerState == kIOUSBHubPowerStateOn) && (IOLockTryLock(_doPortActionLock)))
+		if (!outstandingIO && (_myPowerState == kIOUSBHubPowerStateOn) && !_doPortActionLock)
 		{
 			_needToClose = false;						// so that we don't do this twice..
 			USBLog(3, "AppleUSBHub[%p]::DecrementOutstandingIO(%d) isInactive(%s) outstandingIO(%d) _powerStateChangingTo(%d) - closing device", this, localSerial, isInactive() ? "true" : "false", (int)outstandingIO, (int)_powerStateChangingTo);
 			// Stop/close all ports, deallocate our ports
 			//
 			StopPorts();
-			IOLockUnlock(_doPortActionLock);
 			_device->close(this);
 		}
 		else
@@ -4147,6 +4174,105 @@ AppleUSBHub::ChangeOutstandingResumes(OSObject *target, void *param1, void *para
 		*retCount = me->_outstandingResumes;
 	
     return ret;
+}
+
+
+
+IOReturn			
+AppleUSBHub::TakeDoPortActionLock(void)
+{
+	if (!_workLoop || !_gate)
+	{
+		USBLog(1, "AppleUSBHub[%p]::TakeDoPortActionLock - no WorkLoop or no gate!", this);
+		return kIOReturnNotPermitted;
+	}
+	if (_workLoop->onThread())
+	{
+		USBLog(1, "AppleUSBHub[%p]::TakeDoPortActionLock - called onThread -- not allowed!", this);
+		return kIOReturnNotPermitted;
+	}
+	USBLog(2, "AppleUSBHub[%p]::TakeDoPortActionLock - calling through to ChangeDoPortActionLock", this);
+	return _gate->runAction(ChangeDoPortActionLock, (void*)true);
+}
+
+
+
+IOReturn			
+AppleUSBHub::ReleaseDoPortActionLock(void)
+{
+	if (!_workLoop || !_gate)
+	{
+		USBLog(1, "AppleUSBHub[%p]::TakeDoPortActionLock - no WorkLoop or no gate!", this);
+		return kIOReturnNotPermitted;
+	}
+	USBLog(2, "AppleUSBHub[%p]::ReleaseDoPortActionLock - calling through to ChangeDoPortActionLock", this);
+	return _gate->runAction(ChangeDoPortActionLock, (void*)false);
+}
+
+
+#define DO_PORT_ACTION_DEADLINE_IN_SECONDS	30
+IOReturn		
+AppleUSBHub::ChangeDoPortActionLock(OSObject *target, void *param1, void *param2, void *param3, void *param4)
+{
+    AppleUSBHub		*me = OSDynamicCast(AppleUSBHub, target);
+    bool			takeLock = (bool)param1;
+	IOReturn		retVal = kIOReturnSuccess;
+	
+	if (takeLock)
+	{
+		while (me->_doPortActionLock and (retVal == kIOReturnSuccess))
+		{
+			IOReturn		kr;
+
+			USBLog(2, "AppleUSBHub[%p]::ChangeDoPortActionLock - _doPortActionLock held by someone else - calling commandSleep to wait for lock", me);
+			kr = me->_gate->commandSleep(&me->_doPortActionLock, THREAD_ABORTSAFE);
+			switch (kr)
+			{
+				case THREAD_AWAKENED:
+					// usually this status means that we have been awakened and the lock is now free for us to take 
+					// however, if for some reason we were awakened normally and the lock is no longer free, we will spin 
+					// around the loop again
+					USBLog(2,"AppleUSBHub[%p]::ChangeDoPortActionLock commandSleep woke up normally (THREAD_AWAKENED) _doPortActionLock(%s)", me, me->_doPortActionLock ? "true" : "false");
+					break;
+
+				case THREAD_TIMED_OUT:
+					USBLog(2,"AppleUSBHub[%p]::ChangeDoPortActionLock commandSleep timeout out (THREAD_TIMED_OUT) _doPortActionLock(%s)", me, me->_doPortActionLock ? "true" : "false");
+					retVal = kIOReturnNotPermitted;
+					break;
+
+				case THREAD_INTERRUPTED:
+					USBLog(2,"AppleUSBHub[%p]::ChangeDoPortActionLock commandSleep interrupted (THREAD_INTERRUPTED) _doPortActionLock(%s)", me, me->_doPortActionLock ? "true" : "false");
+					retVal = kIOReturnNotPermitted;
+					break;
+
+				case THREAD_RESTART:
+					USBLog(2,"AppleUSBHub[%p]::ChangeDoPortActionLock commandSleep restarted (THREAD_RESTART) _doPortActionLock(%s)", me, me->_doPortActionLock ? "true" : "false");
+					retVal = kIOReturnNotPermitted;
+					break;
+
+				case kIOReturnNotPermitted:
+					USBLog(2,"AppleUSBHub[%p]::ChangeDoPortActionLock woke up with status (kIOReturnNotPermitted) - we do not hold the WL!", me);
+					retVal = kr;
+					break;
+					
+				default:
+					USBLog(2,"AppleUSBHub[%p]::ChangeDoPortActionLock woke up with unknown status %p",  me, (void*)kr);
+					retVal = kIOReturnNotPermitted;
+			}
+		}
+		if (retVal == kIOReturnSuccess)
+		{
+			USBLog(2, "AppleUSBHub[%p]::ChangeDoPortActionLock - setting _doPortActionLock to true", me);
+			me->_doPortActionLock = true;
+		}
+	}
+	else
+	{
+		USBLog(2, "AppleUSBHub[%p]::ChangeDoPortActionLock - setting _doPortActionLock to false and calling commandWakeup", me);
+		me->_doPortActionLock = false;
+		me->_gate->commandWakeup(&me->_doPortActionLock, true);
+	}
+	return retVal;
 }
 
 

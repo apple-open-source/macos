@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,25 +26,26 @@
 #include "config.h"
 #include "JSHTMLFormElement.h"
 
+#include "Frame.h"
 #include "HTMLCollection.h"
 #include "HTMLFormElement.h"
+#include "JSDOMWindowCustom.h"
 #include "JSNamedNodesCollection.h"
-#include "kjs_dom.h"
 
-using namespace KJS;
+using namespace JSC;
 
 namespace WebCore {
 
-bool JSHTMLFormElement::canGetItemsForName(ExecState* exec, HTMLFormElement* form, const Identifier& propertyName)
+bool JSHTMLFormElement::canGetItemsForName(ExecState*, HTMLFormElement* form, const Identifier& propertyName)
 {
     Vector<RefPtr<Node> > namedItems;
     form->getNamedElements(propertyName, namedItems);
     return namedItems.size();
 }
 
-JSValue* JSHTMLFormElement::nameGetter(ExecState* exec, JSObject*, const Identifier& propertyName, const PropertySlot& slot)
+JSValue JSHTMLFormElement::nameGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot& slot)
 {
-    HTMLFormElement* form = static_cast<HTMLFormElement*>(static_cast<JSHTMLElement*>(slot.slotBase())->impl());
+    HTMLFormElement* form = static_cast<HTMLFormElement*>(static_cast<JSHTMLElement*>(asObject(slot.slotBase()))->impl());
     
     Vector<RefPtr<Node> > namedItems;
     form->getNamedElements(propertyName, namedItems);
@@ -52,7 +53,16 @@ JSValue* JSHTMLFormElement::nameGetter(ExecState* exec, JSObject*, const Identif
     if (namedItems.size() == 1)
         return toJS(exec, namedItems[0].get());
     if (namedItems.size() > 1) 
-        return new JSNamedNodesCollection(exec->lexicalGlobalObject()->objectPrototype(), namedItems);
+        return new (exec) JSNamedNodesCollection(exec, namedItems);
+    return jsUndefined();
+}
+
+JSValue JSHTMLFormElement::submit(ExecState* exec, const ArgList&)
+{
+    Frame* activeFrame = asJSDOMWindow(exec->dynamicGlobalObject())->impl()->frame();
+    if (!activeFrame)
+        return jsUndefined();
+    static_cast<HTMLFormElement*>(impl())->submit(0, false, !activeFrame->script()->anyPageIsProcessingUserGesture(), false);
     return jsUndefined();
 }
 

@@ -40,7 +40,7 @@ SVGFontFaceSrcElement::SVGFontFaceSrcElement(const QualifiedName& tagName, Docum
 
 PassRefPtr<CSSValueList> SVGFontFaceSrcElement::srcValue() const
 {
-    RefPtr<CSSValueList> list = new CSSValueList;
+    RefPtr<CSSValueList> list = CSSValueList::createCommaSeparated();
     for (Node* child = firstChild(); child; child = child->nextSibling()) {
         if (child->hasTagName(font_face_uriTag))
             list->append(static_cast<SVGFontFaceUriElement*>(child)->srcValue());
@@ -50,9 +50,9 @@ PassRefPtr<CSSValueList> SVGFontFaceSrcElement::srcValue() const
     return list;
 }
 
-void SVGFontFaceSrcElement::childrenChanged(bool changedByParser)
+void SVGFontFaceSrcElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
 {
-    SVGElement::childrenChanged(changedByParser);
+    SVGElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
     if (parentNode() && parentNode()->hasTagName(font_faceTag))
         static_cast<SVGFontFaceElement*>(parentNode())->rebuildFontFace();
 }

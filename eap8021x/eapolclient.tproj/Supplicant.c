@@ -1771,6 +1771,10 @@ Supplicant_logoff(SupplicantRef supp, SupplicantEvent event, void * evdata)
 				 NULL, 0, NULL, TRUE);
 	    supp->logoff_sent = TRUE;
 	    Supplicant_report_status(supp);
+	    if (EAPOLSocket_is_wireless(supp->sock) == FALSE) {
+		/* 5900529: wait for 1/2 second before the force renew */
+		usleep(500 * 1000);
+	    }
 	    Supplicant_force_renew(supp);
 	}
 	break;
@@ -1914,6 +1918,11 @@ S_set_user_password(SupplicantRef supp)
     if (name_cf != NULL) {
 	name = my_CFStringToCString(name_cf, kCFStringEncodingUTF8);
     }
+    if (name == NULL) {
+	/* no username specified, ask EAP types if they can come up with one */
+	name = eap_method_user_name(&supp->eap_accept,
+				    supp->config_dict);
+    }
     if (my_strcmp(supp->username, name) != 0) {
 	change = TRUE;
     }
@@ -1992,15 +2001,6 @@ S_set_user_password(SupplicantRef supp)
     }
     else {
 	supp->identity_length = 0;
-    }
-
-    /* if no username specified, ask EAP types if they can come up with one */
-    if (supp->username == NULL) {
-	supp->username = eap_method_user_name(&supp->eap_accept,
-					      supp->config_dict);
-	if (supp->username != NULL) {
-	    supp->username_length = strlen(supp->username);
-	}
     }
     return (change);
 }

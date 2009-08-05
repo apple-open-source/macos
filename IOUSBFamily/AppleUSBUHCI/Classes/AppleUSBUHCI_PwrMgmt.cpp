@@ -446,7 +446,7 @@ AppleUSBUHCI::DozeController(void)
 {
 	showRegisters(7, "+DozeController -  stopping controller");
 	Run(false);
-
+	
 	_myBusState = kUSBBusStateSuspended;
 	return kIOReturnSuccess;
 }

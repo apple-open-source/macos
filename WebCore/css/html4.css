@@ -271,7 +271,7 @@ ol ul, ul ol, ul ul, ol ol {
 
 form {
     display: block;
-    margin: 0__qem 0 1em 0
+    margin-top: 0__qem
 }
 
 label {
@@ -332,18 +332,22 @@ input[type="search"] {
 
 input[type="search"]::-webkit-search-cancel-button {
     -webkit-appearance: searchfield-cancel-button;
+    display: inline-block;
 }
 
 input[type="search"]::-webkit-search-decoration {
     -webkit-appearance: searchfield-decoration;
+    display: inline-block;
 }
 
 input[type="search"]::-webkit-search-results-decoration {
     -webkit-appearance: searchfield-results-decoration;
+    display: inline-block;
 }
 
 input[type="search"]::-webkit-search-results-button {
     -webkit-appearance: searchfield-results-button;
+    display: inline-block;
 }
 
 textarea {
@@ -355,6 +359,10 @@ textarea {
     -webkit-box-orient: vertical;
     resize: auto;
     cursor: auto;
+}
+
+input::-webkit-input-placeholder, isindex::-webkit-input-placeholder {
+    color: darkGray;
 }
 
 input[type="password"] {
@@ -370,6 +378,7 @@ input[type="hidden"], input[type="image"], input[type="file"] {
 
 input[type="file"] {
     -webkit-box-align: baseline;
+    text-align: start !important;
 }
 
 input:-webkit-autofill {
@@ -584,75 +593,8 @@ iframe {
     border: 2px inset
 }
 
-/* media controls */
-/* FIXME this is not the final styling */
-
-audio {
-    width: 200px;
-    height: 16px;
-}
-
-audio::-webkit-media-controls-panel, video::-webkit-media-controls-panel {
-    position: absolute;
-    bottom: 0;
-    width: 100%;
-    height: 16px;
-    -webkit-user-select: none;
-}
-
-audio::-webkit-media-controls-mute-button, video::-webkit-media-controls-mute-button {
-    -webkit-appearance: media-mute-button;
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 17px;
-    height: 16px;
-}
-
-audio::-webkit-media-controls-play-button, video::-webkit-media-controls-play-button {
-    -webkit-appearance: media-play-button;
-    position: absolute;
-    top: 0;
-    left: 16px;
-    width: 17px;
-    height: 16px;
-}
-
-audio::-webkit-media-controls-time-display, video::-webkit-media-controls-time-display {
-    display: none;
-}
-
-audio::-webkit-media-controls-timeline, video::-webkit-media-controls-timeline {
-    -webkit-appearance: media-slider;
-    position: absolute;
-    top: 0;
-    left: 32px;
-    right: 32px;
-    height: 16px;
-    padding: 0px 2px;
-}
-
-audio::-webkit-media-controls-seek-back-button, video::-webkit-media-controls-seek-back-button {
-    -webkit-appearance: media-seek-back-button;
-    position: absolute;
-    top: 0;
-    right: 16px;
-    width: 17px;
-    height: 16px;
-}
-
-
-audio::-webkit-media-controls-seek-forward-button, video::-webkit-media-controls-seek-forward-button {
-    -webkit-appearance: media-seek-forward-button;
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: 17px;
-    height: 16px;
-}
-
-audio::-webkit-media-controls-fullscreen-button, video::-webkit-media-controls-fullscreen-button {
-    display: none;
+img, input[type=image], video, iframe, object, embed, applet {
+    overflow: hidden;   /* Default to overflow:hidden so that border-radius clipping works on the foreground of these elements. */
 }
 
 /* noscript is handled internally, as it depends on settings */

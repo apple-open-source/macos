@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,72 +31,39 @@
 
 #if ENABLE(XSLT)
 
+#include "PlatformString.h"
 #include <libxslt/templates.h>
 #include <libxslt/xsltutils.h>
-
-#if USE(ICU_UNICODE)
-#include <unicode/ucnv.h>
-#include <unicode/ucol.h>
-#include <unicode/ustring.h>
-#define WTF_USE_ICU_COLLATION !UCONFIG_NO_COLLATION
-#endif
+#include <wtf/unicode/Collator.h>
 
 #if PLATFORM(MAC)
 #include "SoftLinking.h"
 #endif
 
 #if PLATFORM(MAC)
+
 SOFT_LINK_LIBRARY(libxslt)
 SOFT_LINK(libxslt, xsltComputeSortResult, xmlXPathObjectPtr*, (xsltTransformContextPtr ctxt, xmlNodePtr sort), (ctxt, sort))
 SOFT_LINK(libxslt, xsltEvalAttrValueTemplate, xmlChar*, (xsltTransformContextPtr ctxt, xmlNodePtr node, const xmlChar *name, const xmlChar *ns), (ctxt, node, name, ns))
 
-static void init_xsltTransformError(xsltTransformContextPtr ctxt, xsltStylesheetPtr style, xmlNodePtr node, const char *, ...) WTF_ATTRIBUTE_PRINTF(4, 5);
-static void (*softLink_xsltTransformError)(xsltTransformContextPtr ctxt, xsltStylesheetPtr style, xmlNodePtr node, const char *, ...) WTF_ATTRIBUTE_PRINTF(4, 5) = init_xsltTransformError;
+static void xsltTransformErrorTrampoline(xsltTransformContextPtr, xsltStylesheetPtr, xmlNodePtr, const char* message, ...) WTF_ATTRIBUTE_PRINTF(4, 5);
 
-static void init_xsltTransformError(xsltTransformContextPtr ctxt, xsltStylesheetPtr style, xmlNodePtr node, const char* msg, ...)
-{
-    softLink_xsltTransformError = (void (*) (xsltTransformContextPtr ctxt, xsltStylesheetPtr style, xmlNodePtr node, const char *, ...))dlsym(libxsltLibrary(), "xsltTransformError");
-    ASSERT(softLink_xsltTransformError);
-
-    va_list args;
-    va_start(args, msg);
-#if PLATFORM(WIN_OS)
-    char str[1024];
-    vsnprintf(str, sizeof(str) - 1, msg, args);
-#else
-    char* str;
-    vasprintf(&str, msg, args);
-#endif
-    va_end(args);
-
-    softLink_xsltTransformError(ctxt, style, node, "%s", str);
-
-#if !PLATFORM(WIN_OS)
-    free(str);
-#endif
-}
-
-inline void xsltTransformError(xsltTransformContextPtr ctxt, xsltStylesheetPtr style, xmlNodePtr node, const char* msg, ...) WTF_ATTRIBUTE_PRINTF(4, 5);
-
-inline void xsltTransformError(xsltTransformContextPtr ctxt, xsltStylesheetPtr style, xmlNodePtr node, const char* msg, ...)
+void xsltTransformErrorTrampoline(xsltTransformContextPtr context, xsltStylesheetPtr style, xmlNodePtr node, const char* message, ...)
 {
     va_list args;
-    va_start(args, msg);
-#if PLATFORM(WIN_OS)
-    char str[1024];
-    vsnprintf(str, sizeof(str) - 1, msg, args);
-#else
-    char* str;
-    vasprintf(&str, msg, args);
-#endif
+    va_start(args, message);
+    char* messageWithArgs;
+    vasprintf(&messageWithArgs, message, args);
     va_end(args);
 
-    softLink_xsltTransformError(ctxt, style, node, "%s", str);
+    static void (*xsltTransformErrorPointer)(xsltTransformContextPtr, xsltStylesheetPtr, xmlNodePtr, const char*, ...) WTF_ATTRIBUTE_PRINTF(4, 5)
+        = reinterpret_cast<void (*)(xsltTransformContextPtr, xsltStylesheetPtr, xmlNodePtr, const char*, ...)>(dlsym(libxsltLibrary(), "xsltTransformError"));
+    xsltTransformErrorPointer(context, style, node, "%s", messageWithArgs);
 
-#if !PLATFORM(WIN_OS)
-    free(str);
-#endif
+    free(messageWithArgs);
 }
+
+#define xsltTransformError xsltTransformErrorTrampoline
 
 #endif
 
@@ -121,14 +88,6 @@ void xsltUnicodeSortFunction(xsltTransformContextPtr ctxt, xmlNodePtr *sorts, in
     xmlNodePtr node;
     xmlXPathObjectPtr tmp;    
     int tempstype[XSLT_MAX_SORT], temporder[XSLT_MAX_SORT];
-
-#if USE(ICU_COLLATION)
-    UCollator *coll = 0;
-    UConverter *conv;
-    UErrorCode status;
-    UChar *target,*target2;
-    int targetlen, target2len;
-#endif
 
     if ((ctxt == NULL) || (sorts == NULL) || (nbsorts <= 0) ||
         (nbsorts >= XSLT_MAX_SORT))
@@ -201,28 +160,12 @@ void xsltUnicodeSortFunction(xsltTransformContextPtr ctxt, xmlNodePtr *sorts, in
     if (results == NULL)
         return;
 
-#if USE(ICU_COLLATION)
-    status = U_ZERO_ERROR;
-    conv = ucnv_open("UTF8", &status);
-    if (U_FAILURE(status))
-        xsltTransformError(ctxt, NULL, NULL, "xsltICUSortFunction: Error opening converter\n");
-
-    if (comp->has_lang) 
-        coll = ucol_open((const char*)comp->lang, &status);
-    if (U_FAILURE(status) || !comp->has_lang) {
-        status = U_ZERO_ERROR;
-        coll = ucol_open("en", &status);
-    }
-    if (U_FAILURE(status))
-        xsltTransformError(ctxt, NULL, NULL, "xsltICUSortFunction: Error opening collator\n");
-
-    if (comp->lower_first) 
-        ucol_setAttribute(coll,UCOL_CASE_FIRST,UCOL_LOWER_FIRST,&status);
-    else 
-        ucol_setAttribute(coll,UCOL_CASE_FIRST,UCOL_UPPER_FIRST,&status);
-    if (U_FAILURE(status))
-        xsltTransformError(ctxt, NULL, NULL, "xsltICUSortFunction: Error setting collator attribute\n");
-#endif
+    // We are passing a language identifier to a function that expects a locale identifier.
+    // The implementation of Collator should be lenient, and accept both "en-US" and "en_US", for example.
+    // This lets an author to really specify sorting rules, e.g. "de_DE@collation=phonebook", which isn't
+    // possible with language alone.
+    Collator collator(comp->has_lang ? (const char*)comp->lang : "en");
+    collator.setOrderLowerFirst(comp->lower_first);
 
     /* Shell's sort of node-set */
     for (incr = len / 2; incr > 0; incr /= 2) {
@@ -253,20 +196,9 @@ void xsltUnicodeSortFunction(xsltTransformContextPtr ctxt, xmlNodePtr *sorts, in
                             tst = 1;
                         else tst = -1;
                     } else {
-#if USE(ICU_COLLATION)
-                        targetlen = xmlStrlen(results[j]->stringval) + 1;
-                        target2len = xmlStrlen(results[j + incr]->stringval) + 1;
-                        target = (UChar*)xmlMalloc(targetlen * sizeof(UChar));
-                        target2 = (UChar*)xmlMalloc(target2len * sizeof(UChar));
-                        targetlen = ucnv_toUChars(conv, target, targetlen, (const char*)results[j]->stringval, -1, &status);
-                        target2len = ucnv_toUChars(conv, target2, target2len, (const char*)results[j+incr]->stringval, -1, &status);
-                        tst = ucol_strcoll(coll, target, u_strlen(target), target2, u_strlen(target2));
-                        xmlFree(target);
-                        xmlFree(target2);
-#else
-                        tst = xmlStrcmp(results[j]->stringval,
-                            results[j + incr]->stringval); 
-#endif
+                        String str1 = String::fromUTF8((const char*)results[j]->stringval);
+                        String str2 = String::fromUTF8((const char*)results[j + incr]->stringval);
+                        tst = collator.collate(str1.characters(), str1.length(), str2.characters(), str2.length());
                     }
                     if (descending)
                         tst = -tst;
@@ -319,20 +251,9 @@ void xsltUnicodeSortFunction(xsltTransformContextPtr ctxt, xmlNodePtr *sorts, in
                                     tst = 1;
                                 else tst = -1;
                             } else {
-#if USE(ICU_COLLATION)
-                                targetlen = xmlStrlen(res[j]->stringval) + 1;
-                                target2len = xmlStrlen(res[j + incr]->stringval) + 1;
-                                target = (UChar*)xmlMalloc(targetlen * sizeof(UChar));
-                                target2 = (UChar*)xmlMalloc(target2len * sizeof(UChar));
-                                targetlen = ucnv_toUChars(conv, target, targetlen, (const char*)res[j]->stringval, -1, &status);
-                                target2len = ucnv_toUChars(conv, target2, target2len, (const char*)res[j+incr]->stringval, -1, &status);
-                                tst = ucol_strcoll(coll, target, u_strlen(target), target2, u_strlen(target2));
-                                xmlFree(target);
-                                xmlFree(target2);
-#else
-                                tst = xmlStrcmp(res[j]->stringval,
-                                    res[j + incr]->stringval); 
-#endif
+                                String str1 = String::fromUTF8((const char*)res[j]->stringval);
+                                String str2 = String::fromUTF8((const char*)res[j + incr]->stringval);
+                                tst = collator.collate(str1.characters(), str1.length(), str2.characters(), str2.length());
                             }
                             if (desc)
                                 tst = -tst;
@@ -375,11 +296,6 @@ void xsltUnicodeSortFunction(xsltTransformContextPtr ctxt, xmlNodePtr *sorts, in
             }
         }
     }
-
-#if USE(ICU_COLLATION)
-    ucol_close(coll);
-    ucnv_close(conv);
-#endif
 
     for (j = 0; j < nbsorts; j++) {
         comp = static_cast<xsltStylePreComp*>(sorts[j]->psvi);

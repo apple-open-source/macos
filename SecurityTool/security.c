@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2003-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -43,6 +43,8 @@
 #include "keychain_find.h"
 #include "keychain_import.h"
 #include "keychain_export.h"
+#include "identity_find.h"
+#include "identity_prefs.h"
 #include "mds_install.h"
 #include "trusted_cert_add.h"
 #include "trusted_cert_dump.h"
@@ -50,6 +52,7 @@
 #include "trust_settings_impexp.h"
 #include "verify_cert.h"
 #include "authz.h"
+#include "display_error_code.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -95,230 +98,327 @@ const command commands[] =
 {
 	{ "help", help,
 	  "[command ...]",
-	  "Show all commands. Or show usage for a command." },
+	  "Show all commands, or show usage for a command." },
     
 	{ "list-keychains", keychain_list,
 	  "[-d user|system|common|alternate] [-s [keychain...]]\n"
-	  "    -d    Use the specified domain.\n"
-	  "    -s    Set the searchlist to the specified keychains.\n"
-	  "With no parameters display the searchlist.",
+	  "    -d  Use the specified preference domain\n"
+	  "    -s  Set the search list to the specified keychains\n"
+	  "With no parameters, display the search list.",
 	  "Display or manipulate the keychain search list." },
 
 	{ "default-keychain", keychain_default,
 	  "[-d user|system|common|alternate] [-s [keychain]]\n"
-	  "    -d    Use the specified domain.\n"
-	  "    -s    Set the default keychain to the specified keychain.\n"
-	  "With no parameters display the default keychain.",
+	  "    -d  Use the specified preference domain\n"
+	  "    -s  Set the default keychain to the specified keychain\n"
+	  "With no parameters, display the default keychain.",
 	  "Display or set the default keychain." },
 
 	{ "login-keychain", keychain_login,
 	  "[-d user|system|common|alternate] [-s [keychain]]\n"
-	  "    -d    Use the specified domain.\n"
-	  "    -s    Set the login keychain to the specified keychain.\n"
-	  "With no parameters display the login keychain.",
+	  "    -d  Use the specified preference domain\n"
+	  "    -s  Set the login keychain to the specified keychain\n"
+	  "With no parameters, display the login keychain.",
 	  "Display or set the login keychain." },
 
 	{ "create-keychain", keychain_create,
 	  "[-P] [-p password] [keychains...]\n"
-	  "    -p    Use \"password\" as the password for the keychains being created.\n"
-	  "    -P    Prompt the user for a password using the SecurityAgent.",
+	  "    -p  Use \"password\" as the password for the keychains being created\n"
+	  "    -P  Prompt the user for a password using the SecurityAgent",
 	  "Create keychains and add them to the search list." },
 
 	{ "delete-keychain", keychain_delete,
 	  "[keychains...]",
 	  "Delete keychains and remove them from the search list." },
 
-    { "lock-keychain", keychain_lock,
-      "[-a | keychain]\n"
-      "     -a Lock all keychains.",
-      "Lock the specified keychain."},
+	{ "lock-keychain", keychain_lock,
+	  "[-a | keychain]\n"
+	  "    -a  Lock all keychains",
+	  "Lock the specified keychain."},
 
-    { "unlock-keychain", keychain_unlock,
-      "[-u] [-p password] [keychain]\n"
-      "     -p Use \"password\" as the password to unlock the keychain.\n"
-      "     -u Do not use the password.",
-      "Unlock the specified keychain."},
+	{ "unlock-keychain", keychain_unlock,
+	  "[-u] [-p password] [keychain]\n"
+	  "    -p  Use \"password\" as the password to unlock the keychain\n"
+	  "    -u  Do not use the password",
+	  "Unlock the specified keychain."},
 
-    { "set-keychain-settings", keychain_set_settings,
-      "[-lu] [-t locktimeout] [keychain]\n"
-      "     -l  Lock keychain when the system sleeps.\n"
-      "     -u  Lock keychain after certain period of time.\n"
-      "     -t  Timeout in seconds before the keychain locks.\n",
-      "Set settings for a keychain."},
+	{ "set-keychain-settings", keychain_set_settings,
+	  "[-lu] [-t timeout] [keychain]\n"
+	  "    -l  Lock keychain when the system sleeps\n"
+	  "    -u  Lock keychain after timeout interval\n"
+	  "    -t  Timeout in seconds (omitting this option specifies \"no timeout\")\n",
+	  "Set settings for a keychain."},
 
-    { "show-keychain-info", keychain_show_info,
+	{ "set-keychain-password", keychain_set_password,
+	  "[-o oldPassword] [-p newPassword] [keychain]\n"
+	  "    -o  Old keychain password (if not provided, will prompt)\n"
+	  "    -p  New keychain password (if not provided, will prompt)\n",
+	  "Set password for a keychain."},
+
+	{ "show-keychain-info", keychain_show_info,
 	  "[keychain]",
 	  "Show the settings for keychain." },
 
-    { "dump-keychain", keychain_dump,
+	{ "dump-keychain", keychain_dump,
 	  "[-adir] [keychain...]\n"
-      "     -a  Dump acl of items.\n"
-      "     -d  Dump data of items.\n"
-      "     -i  Interactive acl editing mode.\n"
-      "     -r  Dump the raw (encrypted) data of items.",
+	  "    -a  Dump access control list of items\n"
+	  "    -d  Dump (decrypted) data of items\n"
+	  "    -i  Interactive access control list editing mode\n"
+	  "    -r  Dump the raw (encrypted) data of items",
 	  "Dump the contents of one or more keychains." },
 
 #ifndef NDEBUG
-    { "recode-keychain", keychain_recode,
-      "keychain_to_recode keychain_to_get_secrets_from",
-      "Recode a keychain to use the secrets from another one."},
+	{ "recode-keychain", keychain_recode,
+	  "keychain_to_recode keychain_to_get_secrets_from",
+	  "Recode a keychain to use the secrets from another one."},
 #endif
 
-    { "create-keypair", key_create_pair,
-	  "[-a alg] [-s size] [-f date] [-t date] [-d days] [-k keychain] [-A|-T app1] description\n"
+	{ "create-keypair", key_create_pair,
+	  "[-a alg] [-s size] [-f date] [-t date] [-d days] [-k keychain] [-A|-T appPath] description\n"
 	  "    -a  Use alg as the algorithm, can be rsa, dh, dsa or fee (default rsa)\n"
 	  "    -s  Specify the keysize in bits (default 512)\n"
 	  "    -f  Make a key valid from the specified date\n"
 	  "    -t  Make a key valid to the specified date\n"
 	  "    -d  Make a key valid for the number of days specified from today\n"
 	  "    -k  Use the specified keychain rather than the default\n"
-	  "    -A  Allow any application to access without warning\n"
-	  "    -T  Allow the application specified to access without warning (multiple -T options are allowed).\n"
-	  "If no options are provided ask the user interactively",
+	  "    -A  Allow any application to access this key without warning (insecure, not recommended!)\n"
+	  "    -T  Specify an application which may access this key (multiple -T options are allowed)\n"
+	  "If no options are provided, ask the user interactively.",
 	  "Create an asymmetric key pair." },
 
 	#if 0
-	/* this was added in Michael's integration of PR-3420772, but this is an unimplemented command */
-    { "create-csr", csr_create,
-	  "[-a alg] [-s size] [-f date] [-t date] [-d days] [-k keychain] [-A|-T app1] description\n"
+	/* this was added in mb's integration of PR-3420772, but this is an unimplemented command */
+	{ "create-csr", csr_create,
+	  "[-a alg] [-s size] [-f date] [-t date] [-d days] [-k keychain] [-A|-T appPath] description\n"
 	  "    -a  Use alg as the algorithm, can be rsa, dh, dsa or fee (default rsa)\n"
 	  "    -s  Specify the keysize in bits (default 512)\n"
 	  "    -f  Make a key valid from the specified date\n"
 	  "    -t  Make a key valid to the specified date\n"
 	  "    -d  Make a key valid for the number of days specified from today\n"
 	  "    -k  Use the specified keychain rather than the default\n"
-	  "    -A  Allow any application to access without warning\n"
-	  "    -T  Allow the application specified to access without warning (multiple -T options are allowed).\n"
-	  "If no options are provided ask the user interactively",
+	  "    -A  Allow any application to access this key without warning (insecure, not recommended!)\n"
+	  "    -T  Specify an application which may access this key (multiple -T options are allowed)\n"
+	  "If no options are provided, ask the user interactively.",
 	  "Create a certificate signing request." },
 	#endif
 
-    { "add-internet-password", keychain_add_internet_password,
-	  "[-a accountName] [-d securityDomain] [-p path] [-P port] [-r protocol] [-s serverName] [-t authenticationType] [-w passwordData] [keychain]\n"
-	  "    -a Use \"accountName\".\n"
-	  "    -d Use \"securityDomain\".\n"
-	  "    -p Use \"path\".\n"
-	  "    -P Use \"port\".\n"
-	  "    -r Use \"protocol\".\n"
-	  "    -s Use \"serverName\".\n"
-	  "    -t Use \"authenticationType\".\n"
-      "    -w Use passwordData.\n"
-	  "If no keychains is specified the password is added to the default keychain.",
-      "Add an internet password item."},
-
 	{ "add-generic-password", keychain_add_generic_password,
-	  "[-a accountName] [-s serviceName] [-p passwordData] [keychain]\n"
-	  "    -a Use \"accountName\".\n"
-	  "    -s Use \"serviceName\".\n"  
-      "    -p Use passwordData.\n"
+	  "[-a account] [-s service] [-w password] [options...] [-A|-T appPath] [keychain]\n"
+	  "    -a  Specify account name (required)\n"
+	  "    -c  Specify item creator (optional four-character code)\n"
+	  "    -C  Specify item type (optional four-character code)\n"
+	  "    -D  Specify kind (default is \"application password\")\n"
+	  "    -G  Specify generic attribute (optional)\n"
+	  "    -j  Specify comment string (optional)\n"
+	  "    -l  Specify label (if omitted, service name is used as default label)\n"
+	  "    -s  Specify service name (required)\n"
+	  "    -p  Specify password to be added (legacy option, equivalent to -w)\n"
+	  "    -w  Specify password to be added\n"
+	  "    -A  Allow any application to access this item without warning (insecure, not recommended!)\n"
+	  "    -T  Specify an application which may access this item (multiple -T options are allowed)\n"
+	  "    -U  Update item if it already exists (if omitted, the item cannot already exist)\n"
+	  "\n"
+	  "By default, the application which creates an item is trusted to access its data without warning.\n"
+	  "You can remove this default access by explicitly specifying an empty app pathname: -T \"\"\n"
 	  "If no keychain is specified, the password is added to the default keychain.",
-      "Add a generic password item."},
+	  "Add a generic password item."},
       
+	{ "add-internet-password", keychain_add_internet_password,
+	  "[-a account] [-s server] [-w password] [options...] [-A|-T appPath] [keychain]\n"
+	  "    -a  Specify account name (required)\n"
+	  "    -c  Specify item creator (optional four-character code)\n"
+	  "    -C  Specify item type (optional four-character code)\n"
+	  "    -d  Specify security domain string (optional)\n"
+	  "    -D  Specify kind (default is \"Internet password\")\n"
+	  "    -j  Specify comment string (optional)\n"
+	  "    -l  Specify label (if omitted, server name is used as default label)\n"
+	  "    -p  Specify path string (optional)\n"
+	  "    -P  Specify port number (optional)\n"
+	  "    -r  Specify protocol (optional four-character SecProtocolType, e.g. \"http\", \"ftp \")\n"
+	  "    -s  Specify server name (required)\n"
+	  "    -t  Specify authentication type (as a four-character SecAuthenticationType, default is \"dflt\")\n"
+  	  "    -w  Specify password to be added\n"
+	  "    -A  Allow any application to access this item without warning (insecure, not recommended!)\n"
+	  "    -T  Specify an application which may access this item (multiple -T options are allowed)\n"
+	  "    -U  Update item if it already exists (if omitted, the item cannot already exist)\n"
+	  "\n"
+	  "By default, the application which creates an item is trusted to access its data without warning.\n"
+	  "You can remove this default access by explicitly specifying an empty app pathname: -T \"\"\n"
+	  "If no keychain is specified, the password is added to the default keychain.",
+	  "Add an internet password item."},
+
 	{ "add-certificates", keychain_add_certificates,
 	  "[-k keychain] file...\n"
-	  "If no keychains is specified the certificates are added to the default keychain.",
-      "Add certificates to a keychain."},
-
-	{ "find-internet-password", keychain_find_internet_password,
-	  "[-a accountName] [-d securityDomain] [-g] [-p path] [-P port] [-r protocol] [-s serverName] [-t authenticationType] [keychain...]\n"
-	  "    -a Match on \"accountName\" when searching.\n"
-	  "    -d Match on \"securityDomain\" when searching.\n"
-	  "    -g Display the password for the item found.\n"
-	  "    -p Match on \"path\" when searching.\n"
-	  "    -P Match on \"port\" when searching.\n"
-	  "    -r Match on \"protocol\" when searching.\n"
-	  "    -s Match on \"serverName\" when searching.\n"
-	  "    -t Match on \"authenticationType\" when searching.\n"
-	  "If no keychains are specified the default search list is used.",
-      "Find an internet password item."},
+	  "If no keychain is specified, the certificates are added to the default keychain.",
+	  "Add certificates to a keychain."},
 
 	{ "find-generic-password", keychain_find_generic_password,
-	  "[-a accountName] [-s serviceName] [keychain...]\n"
-	  "    -a Match on \"accountName\" when searching.\n"
-      "    -g Display the password for the item found.\n"
-	  "    -s Match on \"serviceName\" when searching.\n"
-	  	  "If no keychains are specified the default search list is used.",
-      "Find a generic password item."},
+	  "[-a account] [-s service] [options...] [-g] [keychain...]\n"
+	  "    -a  Match \"account\" string\n"
+	  "    -c  Match \"creator\" (four-character code)\n"
+	  "    -C  Match \"type\" (four-character code)\n"
+	  "    -D  Match \"kind\" string\n"
+	  "    -G  Match \"value\" string (generic attribute)\n"
+	  "    -j  Match \"comment\" string\n"
+	  "    -l  Match \"label\" string\n"
+	  "    -s  Match \"service\" string\n"
+	  "    -g  Display the password for the item found\n"
+	  "If no keychains are specified to search, the default search list is used.",
+	  "Find a generic password item."},
+
+	{ "find-internet-password", keychain_find_internet_password,
+	  "[-a account] [-s server] [options...] [-g] [keychain...]\n"
+	  "    -a  Match \"account\" string\n"
+	  "    -c  Match \"creator\" (four-character code)\n"
+	  "    -C  Match \"type\" (four-character code)\n"
+	  "    -d  Match \"securityDomain\" string\n"
+	  "    -D  Match \"kind\" string\n"
+	  "    -j  Match \"comment\" string\n"
+	  "    -l  Match \"label\" string\n"
+	  "    -p  Match \"path\" string\n"
+	  "    -P  Match port number\n"
+	  "    -r  Match \"protocol\" (four-character code)\n"
+	  "    -s  Match \"server\" string\n"
+	  "    -t  Match \"authenticationType\" (four-character code)\n"
+	  "    -g  Display the password for the item found\n"
+	  "If no keychains are specified to search, the default search list is used.",
+	  "Find an internet password item."},
 
 	{ "find-certificate", keychain_find_certificate,
-	  "[-a] [-e emailAddress] [-m] [-p] [keychain...]\n"
-	  "    -a Find all matching certificates, not just the first one.\n"
-	  "    -e Match on \"emailAddress\" when searching.\n"
-	  "    -m Show the \"emailAddresses\" in the certificate.\n"
-	  "    -p Output certificate in pem form.\n"
-	  	  "If no keychains are specified the default search list is used.",
-      "Find a certificate item."},
+	  "[-a] [-c name] [-e emailAddress] [-m] [-p] [-Z] [keychain...]\n"
+	  "    -a  Find all matching certificates, not just the first one\n"
+	  "    -c  Match on \"name\" when searching (optional)\n"
+	  "    -e  Match on \"emailAddress\" when searching (optional)\n"
+	  "    -m  Show the email addresses in the certificate\n"
+	  "    -p  Output certificate in pem format\n"
+	  "    -Z  Print SHA-1 hash of the certificate\n"
+	  "If no keychains are specified to search, the default search list is used.",
+	  "Find a certificate item."},
 
-    { "create-db", db_create,
+	{ "find-identity", keychain_find_identity,
+		"[-p policy] [-s string] [-v] [keychain...]\n"
+		"    -p  Specify policy to evaluate (multiple -p options are allowed)\n"
+		"        Supported policies: basic, ssl-client, ssl-server, smime, eap,\n"
+		"        ipsec, ichat, codesigning, sys-default, sys-kerberos-kdc\n"
+		"    -s  Specify optional policy-specific string (e.g. DNS hostname for SSL,\n"
+		"        or RFC822 email address for S/MIME)\n"
+		"    -v  Show valid identities only (default is to show all identities)\n"
+		"If no keychains are specified to search, the default search list is used.",
+	"Find an identity (certificate + private key)."},
+	
+	{ "delete-certificate", keychain_delete_certificate,
+	  "[-c name] [-Z hash] [-t] [keychain...]\n"
+	  "    -c  Specify certificate to delete by its common name\n"
+	  "    -Z  Specify certificate to delete by its SHA-1 hash value\n"
+	  "    -t  Also delete user trust settings for this certificate\n"
+	  "The certificate to be deleted must be uniquely specified either by a\n"
+	  "string found in its common name, or by its SHA-1 hash.\n"
+	  "If no keychains are specified to search, the default search list is used.",
+	  "Delete a certificate from a keychain."},
+
+	{ "set-identity-preference", set_identity_preference,
+	  "[-c identity] [-s service] [-u keyUsage] [-Z hash] [keychain...]\n"
+	  "    -c  Specify identity by common name of the certificate\n"
+	  "    -s  Specify service (may be a URL, RFC822 email address, DNS host, or\n"
+	  "        other name) for which this identity is to be preferred\n"
+	  "    -u  Specify key usage (optional) - see man page for values\n"
+	  "    -Z  Specify identity by SHA-1 hash of certificate (optional)\n",
+	  "Set the preferred identity to use for a service."},
+	
+	{ "get-identity-preference", get_identity_preference,
+		"[-s service] [-u keyUsage] [-p] [-c] [-Z] [keychain...]\n"
+		"    -s  Specify service (may be a URL, RFC822 email address, DNS host, or\n"
+		"        other name)\n"
+		"    -u  Specify key usage (optional) - see man page for values\n"
+		"    -p  Output identity certificate in pem format\n"
+		"    -c  Print common name of the preferred identity certificate\n"
+		"    -Z  Print SHA-1 hash of the preferred identity certificate\n",
+	"Get the preferred identity to use for a service."},
+
+	{ "create-db", db_create,
 	  "[-ao0] [-g dl|cspdl] [-m mode] [name]\n"
 	  "    -a  Turn off autocommit\n"
 	  "    -g  Attach to \"guid\" rather than the AppleFileDL\n"
 	  "    -m  Set the inital mode of the created db to \"mode\"\n"
 	  "    -o  Force using openparams argument\n"
 	  "    -0  Force using version 0 openparams\n"
-	  "If no name is provided ask the user interactively",
+	  "If no name is provided, ask the user interactively.",
 	  "Create a db using the DL." },
 
 	{ "export" , keychain_export,
-	  "[-k keychain] [-t item_type] [-f item_format] [-w] -p [-P passphrase] [-o outfile]\n"
+	  "[-k keychain] [-t type] [-f format] [-w] [-p] [-P passphrase] [-o outfile]\n"
 	  "    -k  keychain to export items from\n"
-	  "    -t  item_type = certs|allKeys|pubKeys|privKeys|identities|all  default=all\n"
-	  "    -f  format = openssl|openssh1|openssh2|bsafe|pkcs7|pkcs8|pkcs12|pemseq|x509\n"
+	  "    -t  Type = certs|allKeys|pubKeys|privKeys|identities|all  (Default: all)\n"
+	  "    -f  Format = openssl|openssh1|openssh2|bsafe|pkcs7|pkcs8|pkcs12|pemseq|x509\n"
 	  "        ...default format is pemseq for aggregate, openssl for single\n"
 	  "    -w  Private keys are wrapped\n"
-	  "    -p  PEM encode\n"
+	  "    -p  PEM encode the output\n"
 	  "    -P  Specify wrapping passphrase immediately (default is secure passphrase via GUI)\n"
-	  "    -o  Specify output file; default is stdout",
-	  "Export an item from a keychain." },
+	  "    -o  Specify output file (default is stdout)",
+	  "Export items from a keychain." },
 
-	{ "import" , keychain_import,
-	  "inputfile [-k keychain] [-t item_type] [-f item_format] [-w] [-P passphrase] [-a attrName attrValue]\n"
+	{ "import", keychain_import,
+	  "inputfile [-k keychain] [-t type] [-f format] [-w] [-P passphrase] [options...]\n"
 	  "    -k  Target keychain to import into\n"
-	  "    -t  item = pub|priv|session|cert|agg\n"
+	  "    -t  Type = pub|priv|session|cert|agg\n"
 	  "    -f  Format = openssl|openssh1|openssh2|bsafe|raw|pkcs7|pkcs8|pkcs12|netscape|pemseq\n"
-	  "    -w  Private keys are wrapped\n"
+	  "    -w  Specify that private keys are wrapped and must be unwrapped on import\n"
+	  "    -x  Specify that private keys are non-extractable after being imported\n"
 	  "    -P  Specify wrapping passphrase immediately (default is secure passphrase via GUI)\n"
-	  "    -a  Specify name and value of extended attribute. Can be used multiple times.\n",
-	  "Import an item into a keychain." },
+	  "    -a  Specify name and value of extended attribute (can be used multiple times)\n"
+	  "    -A  Allow any application to access the imported key without warning (insecure, not recommended!)\n"
+	  "    -T  Specify an application which may access the imported key (multiple -T options are allowed)\n",
+	  "Import items into a keychain." },
 
 	{ "cms", cms_util,
-        "[-D|-S|-E] [<options>] [-d dbdir] [-u certusage]\n"
-        "  -D           decode a CMS message\n"
-        "  -c content   use this detached content\n"
-        "  -n           suppress output of content\n"
-        "  -h num       generate email headers with info about CMS message\n"
-        "  -S           create a CMS signed message\n"
-        "  -G           include a signing time attribute\n"
-        "  -H hash      use hash (default:SHA1)\n"
-        "  -N nick      use certificate named \"nick\" for signing\n"
-        "  -P           include a SMIMECapabilities attribute\n"
-        "  -T           do not include content in CMS message\n"
-        "  -Y nick      include a EncryptionKeyPreference attribute with cert\n"
-        "                 (use \"NONE\" to omit)\n"
-        "  -E           create a CMS enveloped message (NYI)\n"
-        "  -r id,...    create envelope for these recipients,\n"
-        "               where id can be a certificate nickname or email address\n"
-        "  -k keychain  keychain to use\n"
-        "  -i infile    use infile as source of data (default: stdin)\n"
-        "  -o outfile   use outfile as destination of data (default: stdout)\n"
-        "  -p password  use password as key db password (default: prompt)\n"
-        "  -s           pass in data single byte at a time to cms layer\n"
-        "  -u certusage set type of certificate usage (default: certUsageEmailSigner)\n"
-        "  -v           print debugging information\n\n"
-        "Cert usage codes:\n"
-        "                           0 - certUsageSSLClient\n"
-        "                           1 - certUsageSSLServer\n"
-        "                           2 - certUsageSSLServerWithStepUp\n"
-        "                           3 - certUsageSSLCA\n"
-        "                           4 - certUsageEmailSigner\n"
-        "                           5 - certUsageEmailRecipient\n"
-        "                           6 - certUsageObjectSigner\n"
-        "                           7 - certUsageUserCertImport\n"
-        "                           8 - certUsageVerifyCA\n"
-        "                           9 - certUsageProtectedObjectSigner\n"
-        "                          10 - certUsageStatusResponder\n"
-        "                          11 - certUsageAnyCA",
-        "Manipulate cms messages."},
+	  "[-C|-D|-E|-S] [<options>]\n"
+	  "  -C           create a CMS encrypted message\n"
+	  "  -D           decode a CMS message\n"
+	  "  -E           create a CMS enveloped message\n"
+	  "  -S           create a CMS signed message\n"
+	  "\n"
+	  "Decoding options:\n"
+	  "  -c content   use this detached content file\n"
+	  "  -h level     generate email headers with info about CMS message\n"
+	  "                 (output level >= 0)\n"
+	  "  -n           suppress output of content\n"
+	  "\n"
+	  "Encoding options:\n"
+	  "  -r id,...    create envelope for these recipients,\n"
+	  "               where id can be a certificate nickname or email address\n"
+	  "  -G           include a signing time attribute\n"
+	  "  -H hash      hash = MD2|MD4|MD5|SHA1|SHA256|SHA384|SHA512 (default: SHA1)\n"
+	  "  -N nick      use certificate named \"nick\" for signing\n"
+	  "  -P           include a SMIMECapabilities attribute\n"
+	  "  -T           do not include content in CMS message\n"
+	  "  -Y nick      include an EncryptionKeyPreference attribute with certificate\n"
+	  "                 (use \"NONE\" to omit)\n"
+	  "  -Z hash      find a certificate by subject key ID\n"
+	  "\n"
+	  "Common options:\n"
+	  "  -e envelope  specify envelope file (valid with -D or -E)\n"
+	  "  -k keychain  specify keychain to use\n"
+	  "  -i infile    use infile as source of data (default: stdin)\n"
+	  "  -o outfile   use outfile as destination of data (default: stdout)\n"
+	  "  -p password  use password as key db password (default: prompt)\n"
+	  "  -s           pass data a single byte at a time to CMS\n"
+	  "  -u certusage set type of certificate usage (default: certUsageEmailSigner)\n"
+	  "  -v           print debugging information\n"
+	  "\n"
+	  "Cert usage codes:\n"
+	  "                  0 - certUsageSSLClient\n"
+	  "                  1 - certUsageSSLServer\n"
+	  "                  2 - certUsageSSLServerWithStepUp\n"
+	  "                  3 - certUsageSSLCA\n"
+	  "                  4 - certUsageEmailSigner\n"
+	  "                  5 - certUsageEmailRecipient\n"
+	  "                  6 - certUsageObjectSigner\n"
+	  "                  7 - certUsageUserCertImport\n"
+	  "                  8 - certUsageVerifyCA\n"
+	  "                  9 - certUsageProtectedObjectSigner\n"
+	  "                 10 - certUsageStatusResponder\n"
+	  "                 11 - certUsageAnyCA",
+	  "Encode or decode CMS messages." },
     
 	{ "install-mds" , mds_install,
 	  "",		/* no options */
@@ -333,45 +433,59 @@ const command commands[] =
 	  "                              basic, swUpdate, pkgSign, pkinitClient, pkinitServer, eap)\n"
 	  "    -a appPath          Specify application constraint\n"
 	  "    -s policyString     Specify policy-specific string\n"
-	  "    -e allowedError     Specify allowed error, an integer\n"
+	  "    -e allowedError     Specify allowed error (certExpired, hostnameMismatch) or integer\n"
   	  "    -u keyUsage         Specify key usage, an integer\n"
 	  "    -k keychain         Specify keychain to which cert is added\n"
 	  "    -i settingsFileIn   Input trust settings file; default is user domain\n"
 	  "    -o settingsFileOut  Output trust settings file; default is user domain\n"
-      "    -D                  Add default setting instead of per-cert setting\n"
+	  "    -D                  Add default setting instead of per-cert setting\n"
 	  "    certFile            Certificate(s)",
 	  "Add trusted certificate(s)." },
 
 	{ "remove-trusted-cert" , trusted_cert_remove,
 	  " [-d] [-D] [certFile]\n"
-	  "    -d                  Remove from admin cert store; default is user\n"
-      "    -D                  Remove default setting instead of per-cert setting\n"
+	  "    -d                  Remove from admin cert store (default is user)\n"
+	  "    -D                  Remove default setting instead of per-cert setting\n"
 	  "    certFile            Certificate(s)",
 	  "Remove trusted certificate(s)." },
 
 	{ "dump-trust-settings" , trusted_cert_dump,
 	  " [-s] [-d]\n"
-	  "    -s                  Display trusted system certs; default is user\n"
-	  "    -d                  Display trusted admin certs; default is user\n",
-	  "Display Trust Settings." },
+	  "    -s                  Display trusted system certs (default is user)\n"
+	  "    -d                  Display trusted admin certs (default is user)\n",
+	  "Display contents of trust settings." },
 
 	{ "user-trust-settings-enable", user_trust_enable,
 	  "[-d] [-e]\n"
-	  "    -d    Disable user-level Trust Settings.\n"
-	  "    -e    Ensable user-level Trust Settings.\n"
-	  "With no parameters, show current state of user-level Trust Settings enable.",
-	  "Display or manipulate user-level Trust Settings." },
+	  "    -d                  Disable user-level trust Settings\n"
+	  "    -e                  Enable user-level trust Settings\n"
+	  "With no parameters, show current enable state of user-level trust settings.",
+	  "Display or manipulate user-level trust settings." },
 
 	{ "trust-settings-export", trust_settings_export,
 	  " [-s] [-d] settings_file\n"
-	  "    -s                  Export system trust settings; default is user\n"
-	  "    -d                  Export admin trust settings; default is user\n",
+	  "    -s                  Export system trust settings (default is user)\n"
+	  "    -d                  Export admin trust settings (default is user)\n",
 	  "Export trust settings." },
 
 	{ "trust-settings-import", trust_settings_import,
 	  " [-d] settings_file\n"
-	  "    -d                  Import admin trust settings; default is user\n",
+	  "    -d                  Import admin trust settings (default is user)\n",
 	  "Import trust settings." },
+
+	{ "verify-cert" , verify_cert,
+	  " [<options>]\n"
+	  "    -c certFile         Certificate to verify. Can be specified multiple times, leaf first.\n"
+	  "    -r rootCertFile     Root Certificate. Can be specified multiple times.\n"
+	  "    -p policy           Verify Policy (basic, ssl, smime, codeSign, IPSec, iChat, swUpdate\n"
+	  "                              pkgSign, pkinitClient, pkinitServer, eap); default is basic.\n"
+	  "    -k keychain         Keychain. Can be called multiple times. Default is default search list.\n"
+	  "    -n                  No keychain search list.\n"
+	  "    -l                  Leaf cert is a CA (normally an error, unless this option is given).\n"
+	  "    -e emailAddress     Email address for smime policy.\n"
+	  "    -s sslHost          SSL host name for ssl policy.\n"
+	  "    -q                  Quiet.\n",
+	  "Verify certificate(s)." },
 
 	{ "authorize" , authorize,
 	  "[<options>] <right(s)...>\n"
@@ -397,35 +511,28 @@ const command commands[] =
 	  "       authorizationdb remove <right-name>\n"
 	  "       authorizationdb write <right-name> [allow|deny|<rulename>]\n"
 	  "If no rulename is specified, write will read a plist from stdin.",
-	  "Perform authorization-db operations." },
+	  "Make changes to the authorization policy database." },
 
 	{ "execute-with-privileges" , execute_with_privileges,
 	  "<program> [args...]\n"
-	  "On success stdin will be read and forwarded to the tool.",
+	  "On success, stdin will be read and forwarded to the tool.",
 	  "Execute tool with privileges." },
-
-	{ "verify-cert" , verify_cert,
-	  " [<options>]\n"
-	  "    -c certFile         Certificate to verify. Can be specified multiple times, leaf first.\n"
-	  "    -r rootCertFile     Root Certificate. Can be specified multiple times.\n"
-	  "    -p policy           Verify Policy (basic, ssl, smime, codeSign, IPSec, iChat, swUpdate\n"
-	  "                              pkgSign, pkinitClient, pkinitServer, eap); default is basic.\n"
-	  "    -k keychain         Keychain. Can be called multiple times. Default is default search list.\n"
-	  "    -n                  No keychain search list.\n"
-	  "    -l                  Leaf cert is a CA.\n"
-	  "    -e emailAddress     Email address for smime policy.\n"
-	  "    -s sslHost          SSL host name for ssl policy.\n"
-	  "    -q                  Quiet.\n",
-	  "Verify certificate(s)." },
 
 	{ "leaks", leaks,
 	  "[-cycles] [-nocontext] [-nostacks] [-exclude symbol]\n"
-	  "    -cycles       Use a stricter algorithm (Man leaks for details).\n"
-	  "    -nocontext    Withhold the hex dumps of the leaked memory.\n"
-	  "    -nostacks     Don't show stack traces fo leaked memory.\n"
-	  "    -exclude      Ignore leaks called from \"symbol\".\n"
+	  "    -cycles       Use a stricter algorithm (\"man leaks\" for details)\n"
+	  "    -nocontext    Withhold hex dumps of the leaked memory\n"
+	  "    -nostacks     Don't show stack traces of leaked memory\n"
+	  "    -exclude      Ignore leaks called from \"symbol\"\n"
 	  "(Set the environment variable MallocStackLogging to get symbolic traces.)",
-	  "Run /usr/bin/leaks on this proccess." },
+	  "Run /usr/bin/leaks on this process." },
+
+	{ "error", display_error_code,
+	  "<error code(s)...>\n"
+	  "Display an error string for the given security-related error code.\n"
+	  "The error can be in decimal or hex, e.g. 1234 or 0x1234. Multiple "
+	  "errors can be separated by spaces.",
+	  "Display a descriptive message for the given error code(s)." },
 
 	{}
 };

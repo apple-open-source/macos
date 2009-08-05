@@ -40,7 +40,11 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <notify.h>
+#include <mach/mach.h>
+#include <mach/mach_port.h>
+#include <asl.h>
 
+#include "powermanagementServer.h" // mig generated
 #include "BatteryTimeRemaining.h"
 #include "PrivateLib.h"
 
@@ -72,6 +76,33 @@
 #define kIOPSDynamicStoreLowBattPathKey "/IOKit/LowBatteryWarning"
 #endif
 
+extern CFMachPortRef            pmServerMachPort;
+
+/* OpaqueIOPSPowerSourceID 
+ *      == PSTracker (in this file) 
+ *      == IOPSPowerSourceID (in IOPowerSourcesPrivate.h)
+ * Structure layout of OpaqueIOPSPowerSourceID must mirror the layout 
+ * of identical struct OpaqueIOPSPowerSourceID defined in IOPMPowerSourcesPrivate.c
+ */
+typedef struct  {
+    mach_port_t     connection;
+    CFStringRef     scdsKey;
+} OpaqueIOPSPowerSourceID;
+
+/* kPSMaxTrackedPowerSources
+ * Allow for 1 battery, 1 UPS, 16 other
+ */
+#define kPSMaxTrackedPowerSources   20
+
+static      OpaqueIOPSPowerSourceID      gPSList[kPSMaxTrackedPowerSources];
+typedef     OpaqueIOPSPowerSourceID     *PSTracker;
+
+/* kPSMaxSCDSKeyLength
+ * Estimated size of SCDynamicStoreKey strings
+ */
+#define kPSMaxSCDSKeyLength   100
+
+
 // Return values from calculateTRWithCurrent
 enum {
     kNothingToSeeHere = 0,
@@ -102,6 +133,8 @@ static void     _discontinuityOccurred(void);
 __private_extern__ void
 BatteryTimeRemaining_prime(void)
 {
+    bzero(gPSList, sizeof(gPSList));
+    
     // setup battery calculation global variables
     _initializeBatteryCalculations();
     return;
@@ -325,6 +358,8 @@ BatteryTimeRemainingBatteriesHaveChanged(IOPMBattery **batteries)
 
     _packageBatteryInfo(result);
 
+    store = _getSharedPMDynamicStore();
+
     if (!lowBatteryKey) {
         lowBatteryKey = SCDynamicStoreKeyCreate(
                             kCFAllocatorDefault, 
@@ -350,8 +385,6 @@ BatteryTimeRemainingBatteriesHaveChanged(IOPMBattery **batteries)
         _systemBatteryWarningLevel = newWarningLevel;
     }
 
-    store = _getSharedPMDynamicStore();
-    
     for(i=0; i<batCount; i++) {
         if(result[i]) {   
             // Determine if CFDictionary is new or has changed...
@@ -580,8 +613,12 @@ void _setBatteryHealthConfidence(
     }
 
     double compareRatioTo = 0.80;
-    double capRatio =  ((double)b->maxCap + kSmartBattReserve_mAh)
-                        /  (double)b->designCap;
+    double capRatio = 1.0; 
+    
+    if (0 != b->designCap)
+    {
+        capRatio =  ((double)b->maxCap + kSmartBattReserve_mAh) / (double)b->designCap;
+    }
     bool cyclesExceedStandard = false;
 
     if (b->markedDeclining) {
@@ -596,17 +633,24 @@ void _setBatteryHealthConfidence(
 
     if (capRatio >= compareRatioTo) {
         b->markedDeclining = 0;
-        // Good
+        // Good = CapRatio > 80% (plus or minus the 3% hysteresis mentioned above)
         CFDictionarySetValue(outDict, 
                 CFSTR(kIOPSBatteryHealthKey), CFSTR(kIOPSGoodValue));
     } else {
         b->markedDeclining = 1;
         if (cyclesExceedStandard) {
-            // Fair
-            CFDictionarySetValue(outDict, 
-                    CFSTR(kIOPSBatteryHealthKey), CFSTR(kIOPSFairValue));
+			if (capRatio >= 0.50)
+			{
+				// Fair = ExceedingCycles && CapRatio >= 50% && CapRatio < 80%
+				CFDictionarySetValue(outDict, 
+						CFSTR(kIOPSBatteryHealthKey), CFSTR(kIOPSFairValue));
+			} else {
+				// Poor = ExceedingCycles && CapRatio < 50%
+				CFDictionarySetValue(outDict, 
+						CFSTR(kIOPSBatteryHealthKey), CFSTR(kIOPSPoorValue));
+			}
         } else {
-            // Check battery
+            // Check battery = NOT ExceedingCycles && CapRatio < 80%
             CFDictionarySetValue(outDict, 
                     CFSTR(kIOPSBatteryHealthKey), CFSTR(kIOPSCheckBatteryValue));
         }    
@@ -627,6 +671,7 @@ void _packageBatteryInfo(CFDictionaryRef *ret)
     int             temp;
     int             minutes;
     int             set_capacity, set_charge;
+    bool            is_charged;
     IOPMBattery     *b;
     IOPMBattery     **batts = _batteries();
     int             batCount = _batteryCount();
@@ -717,6 +762,13 @@ void _packageBatteryInfo(CFDictionaryRef *ret)
         // Set isPresent flag
         CFDictionarySetValue(mutDict, CFSTR(kIOPSIsPresentKey), 
                     b->isPresent ? kCFBooleanTrue:kCFBooleanFalse);
+
+    
+        // Set isCharged to false by default
+        // In the if statement below, we may override this and set isCharged to true, if in fact
+        // the battery is fully charged.
+        CFDictionarySetValue(mutDict, CFSTR(kIOPSIsChargedKey), kCFBooleanFalse);
+
         
         // Set _isCharging and time remaining
         minutes = b->swCalculatedTR;
@@ -731,46 +783,52 @@ void _packageBatteryInfo(CFDictionaryRef *ret)
             CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToEmptyKey), n0);
         } else {
             // A battery is installed
-            if (-1 == minutes) 
-            {
-                // If we are still calculating then our time remaining
-                // numbers aren't valid yet. Stuff with -1.
-                CFDictionarySetValue(mutDict, CFSTR(kIOPSIsChargingKey), 
-                        b->isCharging ? kCFBooleanTrue : kCFBooleanFalse);
-                CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToFullChargeKey), nneg1);
-                CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToEmptyKey), nneg1);
-            } else {   
-                // else there IS a battery installed, and remaining time 
-                // calculation makes sense.
-                if(b->isCharging) {
-                    // Set _isCharging to True
-                    CFDictionarySetValue(mutDict, CFSTR(kIOPSIsChargingKey), kCFBooleanTrue);
-                    n = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &minutes);
-                    if(n) {
-                        CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToFullChargeKey), n);
-                        CFRelease(n);
+			if(b->isCharging) {
+				// Set _isCharging to True
+				CFDictionarySetValue(mutDict, CFSTR(kIOPSIsChargingKey), kCFBooleanTrue);
+				// Set IsFinishingCharge
+				CFDictionarySetValue(mutDict, CFSTR(kIOPSIsFinishingChargeKey), 
+						(b->maxCap && (99 <= (100*b->currentCap/b->maxCap))) ? kCFBooleanTrue:kCFBooleanFalse);
+				n = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &minutes);
+				if(n) {
+					CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToFullChargeKey), n);
+					CFRelease(n);
+				}
+				CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToEmptyKey), n0);
+			} else {
+				// Not Charging
+				// Set _isCharging to False
+				CFDictionarySetValue(mutDict, CFSTR(kIOPSIsChargingKey), kCFBooleanFalse);
+				// But are we plugged in?
+				if(b->externalConnected)
+				{
+					// plugged in but not charging == fully charged
+					CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToFullChargeKey), n0);
+					CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToEmptyKey), n0);
+
+					// Set IsCharged if capacity >= 95% and not charging and plugged in.
+					// - Some portables will not initiate a battery charge if AC is 
+					//   connected when copacity is >= 95%. 
+					// - We consider > 95% to be fully charged; the battery will not charge 
+					//   any higher until AC is unplugged and re-attached.
+					// - IsCharged should be true when the external power adapter LED is Green; 
+					//   should be false when the external power adapter LED is Orange.
+                    if (0 != b->maxCap) {
+                        is_charged = ((100*b->currentCap/b->maxCap) >= 95);
+                    } else { 
+                        is_charged = false;
                     }
-                    CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToEmptyKey), n0);
-                } else {
-                    // Not Charging
-                    // Set _isCharging to False
-                    CFDictionarySetValue(mutDict, CFSTR(kIOPSIsChargingKey), kCFBooleanFalse);
-                    // But are we plugged in?
-                    if(b->externalConnected)
-                    {
-                        // plugged in but not charging == fully charged
-                        CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToFullChargeKey), n0);
-                        CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToEmptyKey), n0);
-                    } else {
-                        // not charging, not plugged in == d_isCharging
-                        n = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &minutes);
-                        if(n) {
-                            CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToEmptyKey), n);
-                            CFRelease(n);
-                        }
-                        CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToFullChargeKey), n0);
-                    }
-                }
+                    CFDictionarySetValue(mutDict, CFSTR(kIOPSIsChargedKey), 
+                        is_charged ? kCFBooleanTrue:kCFBooleanFalse);
+				} else {
+					// not charging, not plugged in == d_isCharging
+					n = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &minutes);
+					if(n) {
+						CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToEmptyKey), n);
+						CFRelease(n);
+					}
+					CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToFullChargeKey), n0);
+				}
             }
             
         }
@@ -791,4 +849,176 @@ void _packageBatteryInfo(CFDictionaryRef *ret)
     }
 
     return;
+}
+
+/**** User-space power source code lives below here ********************************/
+/***********************************************************************************/
+/***********************************************************************************/
+/***********************************************************************************/
+
+
+/***********************************************************************************/
+/* newKeyForType
+ * Assigns a unique string as the key for the power source type.
+ * The name should reflect the power source's type, and should have a unique
+ * integer appended to unique it within the system.
+ */
+static CFStringRef _newKeyForType(char *type)
+{
+    CFStringRef         scKey = NULL;
+    CFStringRef         typeString = NULL;
+    static const unsigned long long kCounterWrapAround = 100000;
+    static unsigned long long psCounter = 1000;
+
+    typeString = CFStringCreateWithCString(0, type, kCFStringEncodingMacRoman);
+    if (!typeString) 
+        return NULL;
+
+    /* Note: There is a small chance of issuing a name that is already in use on the system.
+     * This is only if psCounter exceeds 100,000; which would imply that around 99,000 power sources
+     * were created and destroyed. That's unlikely.
+     */
+     
+    if (psCounter > kCounterWrapAround)
+        psCounter = 1000;
+     
+    scKey = SCDynamicStoreKeyCreate(
+                            kCFAllocatorDefault, 
+                            CFSTR("%@%@/%@-%ld"),
+                            kSCDynamicStoreDomainState, 
+                            CFSTR(kIOPSDynamicStorePath), 
+                            typeString,
+                            psCounter++);
+
+    CFRelease(typeString);
+    return scKey;
+}
+
+/***********************************************************************************/
+static IOReturn _new_psTracker(PSTracker *new_ps)
+{
+    int             i = 0;
+
+    *new_ps = NULL;
+
+    for (i=0; i<kPSMaxTrackedPowerSources; i++)
+    {
+        if (MACH_PORT_NULL == gPSList[i].connection)
+            break;    
+    }
+
+    if (i >= kPSMaxTrackedPowerSources) {
+        return kIOReturnNoMemory;
+    }
+
+    *new_ps = &gPSList[i];
+    
+    return kIOReturnSuccess;
+}
+
+static PSTracker _psTrackerForPort(mach_port_t target_port)
+{
+    int i;
+
+    for (i=0; i<kPSMaxTrackedPowerSources; i++)
+    {
+        if (target_port == gPSList[i].connection)
+            break;    
+    }
+
+    if (i >= kPSMaxTrackedPowerSources) {
+        return NULL;
+    }
+
+    return &gPSList[i];
+}
+
+
+
+/***********************************************************************************/
+/*** Destroy an existing power source ***/
+/***********************************************************************************/
+
+__private_extern__ bool BatteryHandleDeadName(mach_port_t deadName)
+{
+    SCDynamicStoreRef           ds = NULL;
+    PSTracker                   reap_me = _psTrackerForPort(deadName);
+
+    if (!reap_me) {
+        // Nothing to be done. This is not a battery-tracked port. 
+        // Return false to indicate we didn't handle it.
+        return false;
+    }
+
+    if (reap_me->scdsKey)
+    {
+        ds = _getSharedPMDynamicStore();
+        SCDynamicStoreRemoveValue(ds, reap_me->scdsKey);
+        CFRelease(reap_me->scdsKey); 
+    }
+    
+    if (reap_me->connection != MACH_PORT_NULL)
+    {
+        mach_port_destroy(mach_task_self(), reap_me->connection);
+    }
+    
+    reap_me->scdsKey = NULL;
+    reap_me->connection = MACH_PORT_NULL;
+
+    return true;
+}
+
+/***********************************************************************************/
+// MIG handler - back end for IOKit API IOPSCreatePowerSource
+kern_return_t _io_pm_new_pspowersource(
+    mach_port_t                 server,
+    mach_port_t                 clientport,
+    string_t                    clienttype,         // in
+    string_t                    dskey,              // out
+    int                         *result)
+{
+    PSTracker                   new_tracker = NULL;
+    static const int            kDSKeyMIGBufferSize = 1024;
+    mach_port_t                 oldNotify;
+    
+    if (MACH_PORT_NULL == clientport 
+        || NULL == clienttype
+        || NULL == result 
+        || NULL == dskey) 
+    {
+        if (result) *result = kIOReturnBadArgument;
+        goto exit;
+    }
+
+    if (kIOReturnSuccess != _new_psTracker(&new_tracker)) 
+    {
+        *result = kIOReturnNoSpace;
+        goto exit;
+    }
+
+    new_tracker->connection = clientport;
+
+    mach_port_request_notification(
+                mach_task_self(),           // task
+                clientport,                 // port that will die
+                MACH_NOTIFY_DEAD_NAME,      // msgid
+                1,                          // make-send count
+                CFMachPortGetPort(pmServerMachPort),        // notify port
+                MACH_MSG_TYPE_MAKE_SEND_ONCE,               // notifyPoly
+                &oldNotify);                                // previous
+
+  
+    new_tracker->scdsKey = _newKeyForType(clienttype);
+    
+    if (new_tracker->scdsKey) 
+    {
+        // We copy the string directly into the reply mach mesage at the address provided at 'dskey'
+        CFStringGetCString(new_tracker->scdsKey, (void *)dskey, 
+                                kDSKeyMIGBufferSize, kCFStringEncodingUTF8);
+    }
+
+    *result = kIOReturnSuccess;
+    
+exit:
+    return KERN_SUCCESS;
 }

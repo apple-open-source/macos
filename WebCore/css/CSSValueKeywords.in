@@ -45,6 +45,8 @@ status-bar
 #normal
 italic
 oblique
+# The following is only allowed in @font-face:
+all
 #
 # CSS_PROP_FONT_VARIANT:
 #
@@ -155,6 +157,7 @@ window
 windowframe
 windowtext
 -webkit-focus-ring-color
+currentcolor
 #
 # colors in non strict mode
 grey
@@ -294,6 +297,8 @@ text
 wait
 help
 all-scroll
+-webkit-grab
+-webkit-grabbing
 # none
 #
 # CSS_PROP_DIRECTION:
@@ -501,20 +506,13 @@ media-seek-back-button
 media-seek-forward-button
 media-slider
 media-sliderthumb
+media-timeline-container
+media-current-time-display
+media-time-remaining-display
 menulist
 menulist-button
 menulist-text
 menulist-textfield
-scrollbarbutton-up
-scrollbarbutton-down
-scrollbarbutton-left
-scrollbarbutton-right
-scrollbartrack-horizontal
-scrollbartrack-vertical
-scrollbarthumb-horizontal
-scrollbarthumb-vertical
-scrollbargripper-horizontal
-scrollbargripper-vertical
 slider-horizontal
 slider-vertical
 sliderthumb-horizontal
@@ -527,6 +525,7 @@ searchfield-results-button
 searchfield-cancel-button
 textfield
 textarea
+caps-lock-indicator
 
 #
 # CSS_PROP_BORDER_IMAGE
@@ -538,9 +537,13 @@ round
 #
 # CSS_PROP_BACKGROUND_CLIP/ORIGIN
 #
+# border/content/padding are deprecated and ultimately will only apply to the -webkit- form of these properties.
+# border-box/content-box/padding-box should be used instead.
+#
 border
 content
 padding
+padding-box
 
 #
 # CSS_PROP_BOX_SIZING
@@ -560,9 +563,52 @@ visual
 lines
 
 #
-# CSS_PROP__WEBKIT_TRANSITION_TIMING_FUNCTION
+# CSS_PROP__WEBKIT_ANIMATION_DIRECTION
 #
+# alternate
+
+#
+# CSS_PROP__WEBKIT_ANIMATION_ITERATION_COUNT
+#
+# infinite
+
+#
+# CSS_PROP__WEBKIT_ANIMATION_PLAY_STATE
+#
+running
+paused
+
+#
+# CSS_PROP__WEBKIT_TRANSFORM_STYLE
+#
+flat
+preserve-3d
+
+#
+# CSS_PROP__WEBKIT_TRANSITION_TIMING_FUNCTION
+# CSS_PROP__WEBKIT_ANIMATION_TIMING_FUNCTION
+#
+ease
 linear
 ease-in
 ease-out
 ease-in-out
+
+#
+# CSS_PROP_ZOOM
+#
+document
+reset
+
+#
+# CSS_PROP_POINTER_EVENTS
+#
+visiblePainted
+visibleFill
+visibleStroke
+#visible
+painted
+fill
+stroke
+#all
+#none

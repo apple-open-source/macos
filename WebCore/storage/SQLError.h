@@ -29,22 +29,28 @@
 #ifndef SQLError_h
 #define SQLError_h
 
+#if ENABLE(DATABASE)
+
 #include "PlatformString.h"
-#include "Threading.h"
+#include <wtf/Threading.h>
 
 namespace WebCore {
 
 class SQLError : public ThreadSafeShared<SQLError> {
 public:
-    SQLError(unsigned code, const String& message) : m_code(code), m_message(message.copy()) { }
+    static PassRefPtr<SQLError> create(unsigned code, const String& message) { return adoptRef(new SQLError(code, message)); }
+
     unsigned code() const { return m_code; }
     String message() const { return m_message.copy(); }
     
 private:
+    SQLError(unsigned code, const String& message) : m_code(code), m_message(message.copy()) { }
     unsigned m_code;
     String m_message;
 };
 
 }
+
+#endif
 
 #endif // SQLError_h

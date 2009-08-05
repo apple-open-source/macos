@@ -1,6 +1,6 @@
 /*
     Copyright (C) 2004, 2005, 2008 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
+                  2004, 2005, 2006, 2007, 2008 Rob Buis <buis@kde.org>
 
     This file is part of the KDE project
 
@@ -25,19 +25,22 @@
 #if ENABLE(SVG)
 #include "SVGTextPositioningElement.h"
 
+#include "MappedAttribute.h"
 #include "SVGLengthList.h"
 #include "SVGNames.h"
 #include "SVGNumberList.h"
 
 namespace WebCore {
 
+char SVGTextPositioningElementIdentifier[] = "SVGTextPositioningElement";
+
 SVGTextPositioningElement::SVGTextPositioningElement(const QualifiedName& tagName, Document* doc)
     : SVGTextContentElement(tagName, doc)
-    , m_x(new SVGLengthList(SVGNames::xAttr))
-    , m_y(new SVGLengthList(SVGNames::yAttr))
-    , m_dx(new SVGLengthList(SVGNames::dxAttr))
-    , m_dy(new SVGLengthList(SVGNames::dyAttr))
-    , m_rotate(new SVGNumberList(SVGNames::rotateAttr))
+    , m_x(this, SVGNames::xAttr, SVGLengthList::create(SVGNames::xAttr))
+    , m_y(this, SVGNames::yAttr, SVGLengthList::create(SVGNames::yAttr))
+    , m_dx(this, SVGNames::dxAttr, SVGLengthList::create(SVGNames::dxAttr))
+    , m_dy(this, SVGNames::dyAttr, SVGLengthList::create(SVGNames::dyAttr))
+    , m_rotate(this, SVGNames::rotateAttr, SVGNumberList::create(SVGNames::rotateAttr))
 {
 }
 
@@ -45,26 +48,30 @@ SVGTextPositioningElement::~SVGTextPositioningElement()
 {
 }
 
-ANIMATED_PROPERTY_DEFINITIONS(SVGTextPositioningElement, SVGLengthList*, LengthList, lengthList, X, x, SVGNames::xAttr, m_x.get())
-ANIMATED_PROPERTY_DEFINITIONS(SVGTextPositioningElement, SVGLengthList*, LengthList, lengthList, Y, y, SVGNames::yAttr, m_y.get())
-ANIMATED_PROPERTY_DEFINITIONS(SVGTextPositioningElement, SVGLengthList*, LengthList, lengthList, Dx, dx, SVGNames::dxAttr, m_dx.get())
-ANIMATED_PROPERTY_DEFINITIONS(SVGTextPositioningElement, SVGLengthList*, LengthList, lengthList, Dy, dy, SVGNames::dyAttr, m_dy.get())
-ANIMATED_PROPERTY_DEFINITIONS(SVGTextPositioningElement, SVGNumberList*, NumberList, numberList, Rotate, rotate, SVGNames::rotateAttr, m_rotate.get())
-
 void SVGTextPositioningElement::parseMappedAttribute(MappedAttribute* attr)
 {
     if (attr->name() == SVGNames::xAttr)
-        xBaseValue()->parse(attr->value(), this, LengthModeWidth);
+        xBaseValue()->parse(attr->value(), LengthModeWidth);
     else if (attr->name() == SVGNames::yAttr)
-        yBaseValue()->parse(attr->value(), this, LengthModeHeight);
+        yBaseValue()->parse(attr->value(), LengthModeHeight);
     else if (attr->name() == SVGNames::dxAttr)
-        dxBaseValue()->parse(attr->value(), this, LengthModeWidth);
+        dxBaseValue()->parse(attr->value(), LengthModeWidth);
     else if (attr->name() == SVGNames::dyAttr)
-        dyBaseValue()->parse(attr->value(), this, LengthModeHeight);
+        dyBaseValue()->parse(attr->value(), LengthModeHeight);
     else if (attr->name() == SVGNames::rotateAttr)
         rotateBaseValue()->parse(attr->value());
     else
         SVGTextContentElement::parseMappedAttribute(attr);
+}
+
+bool SVGTextPositioningElement::isKnownAttribute(const QualifiedName& attrName)
+{
+    return (attrName.matches(SVGNames::xAttr) ||
+            attrName.matches(SVGNames::yAttr) ||
+            attrName.matches(SVGNames::dxAttr) ||
+            attrName.matches(SVGNames::dyAttr) ||
+            attrName.matches(SVGNames::rotateAttr) ||
+            SVGTextContentElement::isKnownAttribute(attrName));
 }
 
 }

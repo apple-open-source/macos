@@ -109,7 +109,7 @@ bool UniNEnet::allocateMemory()
 		ALRT( 0, 0, 'mpR-', "UniNEnet::allocateMemory - alloc Rx mbuf pointers failed" );
 		return false;
 	}
-	bzero( fRxMbuf, sizeof( mbuf* ) * fRxRingElements );	// clear out all the fRxMbuf pointers
+	bzero( fRxMbuf, sizeof( mbuf_t ) * fRxRingElements );	// clear out all the fRxMbuf pointers
 
 	ELG( fTxMbuf, fRxMbuf, 'arys', "UniNEnet::allocateMemory - mbuf pointer arrays" );
     return true;
@@ -154,8 +154,8 @@ bool UniNEnet::initTxRing()
         }
 	}
 
-    txIntCnt  = 0;
-    txWDCount = 0;
+    fTxIntCnt	= 0;
+    txWDCount	= 0;
 
     return true;
 }/* end initTxRing */
@@ -277,9 +277,9 @@ void UniNEnet::startChip()
 	WRITE_REGISTER( RxMACConfiguration, fRxMACConfiguration );
 
 #ifdef LATER 
-	WRITE_REGISTER( InterruptMask, ~(kStatus_TX_INT_ME | kStatus_RX_DONE | kStatus_MIF_Interrupt) );
+	WRITE_REGISTER( InterruptMask, ~(kStatus_TX_ALL | kStatus_TX_INT_ME | kStatus_RX_DONE | kStatus_MIF_Interrupt) );
 #else
-	WRITE_REGISTER( InterruptMask, ~(kStatus_TX_INT_ME | kStatus_RX_DONE) );
+	WRITE_REGISTER( InterruptMask, ~(kStatus_TX_ALL | kStatus_TX_INT_ME | kStatus_RX_DONE) );
 #endif // LATER
 
 	return;
@@ -997,7 +997,7 @@ void UniNEnet::restartReceiver()
 	WRITE_REGISTER( RxBlanking,			fRxBlanking );
 	WRITE_REGISTER( PauseThresholds,	fPauseThresholds );
 
-    rxCommandHead = 0;
+	rxCommandHead = 0;
 	WRITE_REGISTER( RxKick, fRxRingElements - 4 );
 
 	WRITE_REGISTER( MACControlConfiguration, fMACControlConfiguration );// Pause etc bits
@@ -1011,6 +1011,7 @@ void UniNEnet::restartReceiver()
 	fRxConfiguration |= kRxConfiguration_Rx_DMA_Enable;
 	WRITE_REGISTER( RxConfiguration, fRxConfiguration );
 
+///	fpELG->evLogFlag = 0;	/// stop event logging so we can see what lead up to this problem.
 	return;
 }/* end restartReceiver */
 
@@ -1028,9 +1029,8 @@ bool UniNEnet::transmitPacket( mbuf_t packet )
 	bool			needSegs = true;	// may need MbufCursor physical segments
 	UInt32			txElementsAvail;
 
-
 	txElementsAvail = (txCommandHead + fTxRingElements - txCommandTail - 1) & (fTxRingElements-1);
-    for ( m = packet; mbuf_next( m ); m = mbuf_next( m ) )
+	for ( m = packet; mbuf_next( m ); m = mbuf_next( m ) )
 		segCount++;
 
 	ELG( READ_REGISTER( TxCompletion ), txElementsAvail << 16 | segCount, '  Tx', "UniNEnet::transmitPacket" );
@@ -1038,21 +1038,27 @@ bool UniNEnet::transmitPacket( mbuf_t packet )
 	if ( segCount > txElementsAvail )
 	{
 		ELG( txElementsAvail << 16 | segCount, packet, ' Tx-', "UniNEnet::transmitPacket - not enough elements avail." );
-		return false;
+		if ( segCount < (fTxRingElements - 2) )
+			return false;		// Tell the Family to stuff it.
+
+		ELG( txElementsAvail << 16 | segCount, packet, 'Tx--', "UniNEnet::transmitPacket - way too many elements req'd." );
+		freePacket( packet );	// Pretend we Tx'd it just to get rid of it and
+		return true;			// prevent the transmitter from being permanently blocked.
+								/// Should return kIOReturnOutputDropped from outputPacket.
 	}
 
 	k = j = txCommandTail;
 
-	txIntCnt += segCount;
+	fTxIntCnt += segCount;
 
-    m = packet;
+	m = packet;
 
-    for ( i = 0; i < segCount; i++ )
-    {
+	for ( i = 0; i < segCount; i++ )
+	{
 		k = j;		// k will be the index to the last element on loop exit
 
 		length		= mbuf_len( m );
-        dataPhys	= (addr64_t)mbuf_data_to_physical( mbuf_data( m ) );
+		dataPhys	= (addr64_t)mbuf_data_to_physical( mbuf_data( m ) );
 		if ( dataPhys == 0 )
 		{		/* AppleTalk printing, for example, will come through here.	*/
 				/* txDebuggerPkt did until bcopy of data.					*/
@@ -1063,26 +1069,26 @@ bool UniNEnet::transmitPacket( mbuf_t packet )
 			ELG( segCount, i, 'mbp-', "UniNEnet::transmitPacket - mbuf segment lacking physical address" );
 			dataPhys	= (addr64_t)fTxSegment[ i ].location;
 			length		= fTxSegment[ i ].length;
-		//	ELG( dataPhys, length, 'LocL', "UniNEnet::transmitPacket - location and length." );
+			ELG( length, dataPhys, 'LocL', "UniNEnet::transmitPacket - length and location." );
 		}
 
 		dp = &fTxDescriptorRing[ j ];
-		OSWriteLittleInt64( dp, offsetof( TxDescriptor, bufferAddr ),   dataPhys );
-		OSWriteLittleInt32( dp, offsetof( TxDescriptor, flags0       ), length );
+		OSWriteLittleInt64( dp, offsetof( TxDescriptor, bufferAddr ), dataPhys );
+		OSWriteLittleInt32( dp, offsetof( TxDescriptor, flags0     ), length );
 		dp->flags1 = 0;
 		j = (j + 1) & (fTxRingElements - 1);
 		m = mbuf_next( m );
-    }/* end FOR */
+	}/* end FOR each segment */
 
 	fTxMbuf[ k ] = packet;		// save the packet mbuf address in the last segment's index
 
 	fTxDescriptorRing[ k ].flags0             |= OSSwapHostToLittleConstInt32( kGEMTxDescFlags0_EndOfFrame );
 	fTxDescriptorRing[ txCommandTail ].flags0 |= OSSwapHostToLittleConstInt32( kGEMTxDescFlags0_StartOfFrame );
-    if ( txIntCnt >= TX_DESC_PER_INT )
-    {
+	if ( fTxIntCnt >= TX_DESC_PER_INT )
+	{
+		fTxIntCnt = 0;
 		fTxDescriptorRing[ txCommandTail ].flags1 |= OSSwapHostToLittleConstInt32( kGEMTxDescFlags1_Int );
-        txIntCnt = txIntCnt % TX_DESC_PER_INT;
-    }
+	}
 
 	getChecksumDemand(	packet,
 						kChecksumFamilyTCPIP,
@@ -1097,10 +1103,10 @@ bool UniNEnet::transmitPacket( mbuf_t packet )
 											|	param1 << kGEMTxDescFlags0_ChecksumStuff_Shift );
 	}
 
-    txCommandTail = j;
+	txCommandTail = j;
 	WRITE_REGISTER( TxKick, j );
 
-    return true;          
+	return true;          
 }/* end transmitPacket */
 
 
@@ -1124,23 +1130,23 @@ void UniNEnet::receivePacket( void *pkt, UInt32 *pkt_len, UInt32 timeout )
 
 //  ELG( timeout, pkt, 'kdRx', "receivePacket - kernel debugger routine" );
 
-    *pkt_len = 0;
+	*pkt_len = 0;
 
-    if ( fReady == false )
-        return;
+	if ( fReady == false )
+		return;
 
 #if USE_ELG
 	UInt32		elgFlag = fpELG->evLogFlag;	// if kernel debugging, turn off ELG
 	fpELG->evLogFlag = 0;
 #endif // USE_ELG
 
-    debuggerPkt     = pkt;		// this points to the data buffer not an mbuf.
-    debuggerPktSize = 0;
+	debuggerPkt     = pkt;		// this points to the data buffer not an mbuf.
+	debuggerPktSize = 0;
 
 	IOGetTime( &startTime );
-    do
-    {
-        receivePackets( true );
+	do
+	{
+		receivePackets( true );
 
 		IOGetTime( &currentTime );
 		if ( currentTime.tv_nsec < startTime.tv_nsec )
@@ -1151,7 +1157,7 @@ void UniNEnet::receivePacket( void *pkt, UInt32 *pkt_len, UInt32 timeout )
 		elapsedTimeMS  = (currentTime.tv_sec  - startTime.tv_sec)  * 1000;
 		elapsedTimeMS += (currentTime.tv_nsec - startTime.tv_nsec) / 1000000;
 	}
-    while ( (debuggerPktSize == 0) && (elapsedTimeMS < timeout) );
+	while ( (debuggerPktSize == 0) && (elapsedTimeMS < timeout) );
 
     *pkt_len = debuggerPktSize;
 #if USE_ELG
@@ -1319,6 +1325,7 @@ bool UniNEnet::receivePackets( bool debuggerParam )
 
         receivedFrameSize	= dmaFlags & kGEMRxDescFrameSize_Mask;
 		rxPktStatus			= OSReadLittleInt32( &fRxDescriptorRing[ i ].flags, 0 );
+
 	///	ELG( rxPktStatus, receivedFrameSize, 'Rx P', "UniNEnet::receivePackets - rx'd packet" );
 		ELG( READ_REGISTER( RxCompletion ), receivedFrameSize, 'Rx P', "UniNEnet::receivePackets - rx'd packet" );
 
@@ -1432,7 +1439,6 @@ bool UniNEnet::receivePackets( bool debuggerParam )
 									0,					// validMask
 									checksum,			// param0: actual cksum
 									cksumOffset );		// param1: 1st byte cksum'd
-
 			ELG( packet, receivedFrameSize << 16 | last, 'RxP+', "UniNEnet::receivePackets - packet up." );
 			networkInterface->inputPacket( packet, receivedFrameSize, true );
 			NETWORK_STAT_ADD( inputPackets );
@@ -1450,6 +1456,8 @@ bool UniNEnet::receivePackets( bool debuggerParam )
 bool UniNEnet::transmitInterruptOccurred()
 {
 	ELG( txCommandHead, fTxCompletion, ' Tx+', "UniNEnet::transmitInterruptOccurred" );
+
+	fTxIntCnt = 0;		// Reset coalescing Tx Interrupt count
 
 	if( txCommandHead == fTxCompletion )
 		return false;
@@ -1476,8 +1484,7 @@ bool UniNEnet::transmitInterruptOccurred()
 		txCommandHead = (txCommandHead + 1) & (fTxRingElements - 1);
 	}/* end WHILE */
 
-	fpNetStats->outputPackets += releaseFreePackets();	
-
+	fpNetStats->outputPackets += releaseFreePackets();
 	return true;
 }/* end transmitInterruptOccurred */
 
@@ -1802,10 +1809,12 @@ void UniNEnet::monitorLinkStatus( bool firstPoll )
 			setLinkStatus( kIONetworkLinkValid, medium, 0 );	// valid but not kIONetworkLinkActive
 			ELG( kIONetworkLinkValid, medium, 'SLS-', "UniNEnet::monitorLinkStatus -  setLinkStatus." );
 
+		    transmitQueue->flush();	/* Flush all packets currently in the output queue.	*/
+
 			if ( fLinkStatus != kLinkStatusUnknown )
 			   IOLog( "UniNEnet::monitorLinkStatus - Link is down.\n" );
 
-			txIntCnt = 0;
+			fTxIntCnt = 0;
 
 			if ( txCommandHead != txCommandTail )
 			{

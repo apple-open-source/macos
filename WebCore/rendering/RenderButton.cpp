@@ -30,6 +30,11 @@
 #include "RenderTextFragment.h"
 #include "RenderTheme.h"
 
+#if ENABLE(WML)
+#include "WMLDoElement.h"
+#include "WMLNames.h"
+#endif
+
 namespace WebCore {
 
 using namespace HTMLNames;
@@ -48,7 +53,7 @@ void RenderButton::addChild(RenderObject* newChild, RenderObject* beforeChild)
         // Create an anonymous block.
         ASSERT(!firstChild());
         m_inner = createAnonymousBlock();
-        m_inner->style()->setBoxFlex(1.0f);
+        setupInnerStyle(m_inner->style());
         RenderFlexibleBox::addChild(m_inner);
     }
     
@@ -64,13 +69,26 @@ void RenderButton::removeChild(RenderObject* oldChild)
         m_inner->removeChild(oldChild);
 }
 
-void RenderButton::setStyle(RenderStyle* style)
+void RenderButton::styleWillChange(StyleDifference diff, const RenderStyle* newStyle)
 {
-    RenderBlock::setStyle(style);
+    if (m_inner) {
+        // RenderBlock::setStyle is going to apply a new style to the inner block, which
+        // will have the initial box flex value, 0. The current value is 1, because we set
+        // it right below. Here we change it back to 0 to avoid getting a spurious layout hint
+        // because of the difference.
+        m_inner->style()->setBoxFlex(0);
+    }
+    RenderBlock::styleWillChange(diff, newStyle);
+}
+
+void RenderButton::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
+{
+    RenderBlock::styleDidChange(diff, oldStyle);
+
     if (m_buttonText)
-        m_buttonText->setStyle(style);
+        m_buttonText->setStyle(style());
     if (m_inner) // RenderBlock handled updating the anonymous block's style.
-        m_inner->style()->setBoxFlex(1.0f);
+        setupInnerStyle(m_inner->style());
     setReplaced(isInline());
 
     if (!m_default && theme()->isDefault(this)) {
@@ -84,14 +102,40 @@ void RenderButton::setStyle(RenderStyle* style)
     }
 }
 
+void RenderButton::setupInnerStyle(RenderStyle* innerStyle) 
+{
+    ASSERT(innerStyle->refCount() == 1);
+    // RenderBlock::createAnonymousBlock creates a new RenderStyle, so this is
+    // safe to modify.
+    innerStyle->setBoxFlex(1.0f);
+
+    innerStyle->setPaddingTop(Length(theme()->buttonInternalPaddingTop(), Fixed));
+    innerStyle->setPaddingRight(Length(theme()->buttonInternalPaddingRight(), Fixed));
+    innerStyle->setPaddingBottom(Length(theme()->buttonInternalPaddingBottom(), Fixed));
+    innerStyle->setPaddingLeft(Length(theme()->buttonInternalPaddingLeft(), Fixed));
+}
+
 void RenderButton::updateFromElement()
 {
     // If we're an input element, we may need to change our button text.
-    if (element()->hasTagName(inputTag)) {
-        HTMLInputElement* input = static_cast<HTMLInputElement*>(element());
+    if (node()->hasTagName(inputTag)) {
+        HTMLInputElement* input = static_cast<HTMLInputElement*>(node());
         String value = input->valueWithDefault();
         setText(value);
     }
+
+
+#if ENABLE(WML)
+    else if (node()->hasTagName(WMLNames::doTag)) {
+        WMLDoElement* doElement = static_cast<WMLDoElement*>(node());
+
+        String value = doElement->label();
+        if (value.isEmpty())
+            value = doElement->name();
+
+        setText(value);
+    }
+#endif
 }
 
 bool RenderButton::canHaveChildren() const
@@ -99,7 +143,7 @@ bool RenderButton::canHaveChildren() const
     // Input elements can't have children, but button elements can.  We'll
     // write the code assuming any other button types that might emerge in the future
     // can also have children.
-    return !element()->hasTagName(inputTag);
+    return !node()->hasTagName(inputTag);
 }
 
 void RenderButton::setText(const String& str)
@@ -120,22 +164,29 @@ void RenderButton::setText(const String& str)
     }
 }
 
-void RenderButton::updateBeforeAfterContent(RenderStyle::PseudoId type)
+void RenderButton::updateBeforeAfterContent(PseudoId type)
 {
     if (m_inner)
-        m_inner->updateBeforeAfterContentForContainer(type, this);
+        m_inner->children()->updateBeforeAfterContent(m_inner, type, this);
     else
-        updateBeforeAfterContentForContainer(type, this);
+        children()->updateBeforeAfterContent(this, type);
 }
 
 IntRect RenderButton::controlClipRect(int tx, int ty) const
 {
     // Clip to the padding box to at least give content the extra padding space.
-    return IntRect(tx + borderLeft(), ty + borderTop(), m_width - borderLeft() - borderRight(), m_height - borderTop() - borderBottom());
+    return IntRect(tx + borderLeft(), ty + borderTop(), width() - borderLeft() - borderRight(), height() - borderTop() - borderBottom());
 }
 
 void RenderButton::timerFired(Timer<RenderButton>*)
 {
+    // FIXME Bug 25110: Ideally we would stop our timer when our Document
+    // enters the page cache. But we currently have no way of being notified
+    // when that happens, so we'll just ignore the timer firing as long as
+    // we're in the cache.
+    if (document()->inPageCache())
+        return;
+
     repaint();
 }
 

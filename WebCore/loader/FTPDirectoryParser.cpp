@@ -24,18 +24,17 @@
 #if ENABLE(FTPDIR)
 #include "FTPDirectoryParser.h"
 
-// On Win, the threadsafe *_r functions need to be gotten from pthreads. 
-#if COMPILER(MSVC) && USE(PTHREADS)
+#if PLATFORM(QT)
+#include <QDateTime>
+// On Windows, use the threadsafe *_r functions provided by pthread.
+#elif PLATFORM(WIN_OS) && (USE(PTHREADS) || HAVE(PTHREAD_H))
 #include <pthread.h>
 #endif
 
 #include <wtf/ASCIICType.h>
+#include <stdio.h>
 
 using namespace WTF;
-
-#if PLATFORM(QT)
-#include <QDateTime>
-#endif
 
 namespace WebCore {
 #if PLATFORM(QT) && defined(Q_WS_WIN32)
@@ -50,8 +49,9 @@ static struct tm *gmtimeQt(const time_t *const timep, struct tm *result)
 }
 
 #define gmtime_r(x, y) gmtimeQt(x, y)
+#elif PLATFORM(WIN_OS) && !defined(gmtime_r)
+#define gmtime_r(x, y) gmtime_s((y), (x))
 #endif
-
 
 FTPEntryType parseOneFTPLine(const char* line, ListState& state, ListResult& result)
 {

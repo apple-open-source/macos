@@ -34,13 +34,18 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <CoreFoundation/CoreFoundation.h>
 #include <Security/SecKeychain.h>
+
+// SecKeychainCopyBlob, SecKeychainRecodeKeychain
 #include <Security/SecKeychainPriv.h>
+
 
 static int
 do_recode(const char *keychainName1, const char *keychainName2)
 {
 	SecKeychainRef keychain1 = NULL, keychain2 = NULL;
+	CFMutableArrayRef dbBlobArray = NULL;
 	CFDataRef dbBlob = NULL, extraData = NULL;
 	OSStatus result;
 
@@ -70,13 +75,24 @@ do_recode(const char *keychainName1, const char *keychainName2)
 	}
 
 	extraData = CFDataCreate(NULL, NULL, 0);
+	
+	dbBlobArray = CFArrayCreateMutable(NULL, 1, &kCFTypeArrayCallBacks);
+	if (dbBlobArray) {
+		CFArrayAppendValue(dbBlobArray, dbBlob);
+	}
 
+#if !defined MAC_OS_X_VERSION_10_6 || MAC_OS_X_VERSION_MAX_ALLOWED < MAC_OS_X_VERSION_10_6
 	result = SecKeychainRecodeKeychain(keychain1, dbBlob, extraData);
+#else
+	result = SecKeychainRecodeKeychain(keychain1, dbBlobArray, extraData);
+#endif
 	if (result)
 		sec_error("SecKeychainRecodeKeychain %s, %s: %s", keychainName1,
 			keychainName2, sec_errstr(result));
 
 loser:
+	if (dbBlobArray)
+		CFRelease(dbBlobArray);
 	if (dbBlob)
 		CFRelease(dbBlob);
 	if (extraData)

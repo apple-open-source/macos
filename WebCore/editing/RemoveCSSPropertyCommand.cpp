@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,36 +31,25 @@
 
 namespace WebCore {
 
-RemoveCSSPropertyCommand::RemoveCSSPropertyCommand(Document* document, CSSStyleDeclaration* decl, int property)
-    : EditCommand(document)
-    , m_decl(decl->makeMutable())
+RemoveCSSPropertyCommand::RemoveCSSPropertyCommand(Document* document, PassRefPtr<CSSMutableStyleDeclaration> style, CSSPropertyID property)
+    : SimpleEditCommand(document)
+    , m_style(style)
     , m_property(property)
     , m_important(false)
 {
-    ASSERT(m_decl);
-}
-
-RemoveCSSPropertyCommand::~RemoveCSSPropertyCommand()
-{
+    ASSERT(m_style);
 }
 
 void RemoveCSSPropertyCommand::doApply()
 {
-    ASSERT(m_decl);
-
-    m_oldValue = m_decl->getPropertyValue(m_property);
-    ASSERT(!m_oldValue.isNull());
-
-    m_important = m_decl->getPropertyPriority(m_property);
-    m_decl->removeProperty(m_property);
+    m_oldValue = m_style->getPropertyValue(m_property);
+    m_important = m_style->getPropertyPriority(m_property);
+    m_style->removeProperty(m_property);
 }
 
 void RemoveCSSPropertyCommand::doUnapply()
 {
-    ASSERT(m_decl);
-    ASSERT(!m_oldValue.isNull());
-
-    m_decl->setProperty(m_property, m_oldValue, m_important);
+    m_style->setProperty(m_property, m_oldValue, m_important);
 }
 
 } // namespace WebCore

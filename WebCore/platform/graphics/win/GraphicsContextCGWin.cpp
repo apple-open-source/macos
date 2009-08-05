@@ -26,8 +26,7 @@
 #include "config.h"
 #include "GraphicsContext.h"
 
-#include "AffineTransform.h"
-#include "NotImplemented.h"
+#include "TransformationMatrix.h"
 #include "Path.h"
 
 #include <CoreGraphics/CGBitmapContext.h>
@@ -38,7 +37,7 @@ using namespace std;
 
 namespace WebCore {
 
-static CGContextRef CGContextWithHDC(HDC hdc)
+static CGContextRef CGContextWithHDC(HDC hdc, bool hasAlpha)
 {
     HBITMAP bitmap = static_cast<HBITMAP>(GetCurrentObject(hdc, OBJ_BITMAP));
     CGColorSpaceRef deviceRGB = CGColorSpaceCreateDeviceRGB();
@@ -46,8 +45,10 @@ static CGContextRef CGContextWithHDC(HDC hdc)
 
     GetObject(bitmap, sizeof(info), &info);
     ASSERT(info.bmBitsPixel == 32);
+
+    CGBitmapInfo bitmapInfo = kCGBitmapByteOrder32Little | (hasAlpha ? kCGImageAlphaPremultipliedFirst : kCGImageAlphaNoneSkipFirst);
     CGContextRef context = CGBitmapContextCreate(info.bmBits, info.bmWidth, info.bmHeight, 8,
-                                                 info.bmWidthBytes, deviceRGB, kCGBitmapByteOrder32Little | kCGImageAlphaNoneSkipFirst);
+                                                 info.bmWidthBytes, deviceRGB, bitmapInfo);
     CGColorSpaceRelease(deviceRGB);
 
     // Flip coords
@@ -60,9 +61,9 @@ static CGContextRef CGContextWithHDC(HDC hdc)
     return context;
 }
 
-GraphicsContext::GraphicsContext(HDC hdc)
+GraphicsContext::GraphicsContext(HDC hdc, bool hasAlpha)
     : m_common(createGraphicsContextPrivate())
-    , m_data(new GraphicsContextPlatformPrivate(CGContextWithHDC(hdc)))
+    , m_data(new GraphicsContextPlatformPrivate(CGContextWithHDC(hdc, hasAlpha)))
 {
     CGContextRelease(m_data->m_cgContext);
     m_data->m_hdc = hdc;
@@ -74,11 +75,12 @@ GraphicsContext::GraphicsContext(HDC hdc)
     }
 }
 
-bool GraphicsContext::inTransparencyLayer() const { return m_data->m_transparencyCount; }
-
-HDC GraphicsContext::getWindowsContext(const IntRect& dstRect, bool supportAlphaBlend)
+// FIXME: Is it possible to merge getWindowsContext and createWindowsBitmap into a single API
+// suitable for all clients?
+HDC GraphicsContext::getWindowsContext(const IntRect& dstRect, bool supportAlphaBlend, bool mayCreateBitmap)
 {
-    if (inTransparencyLayer()) {
+    // FIXME: Should a bitmap be created also when a shadow is set?
+    if (mayCreateBitmap && inTransparencyLayer()) {
         if (dstRect.isEmpty())
             return 0;
 
@@ -133,9 +135,9 @@ HDC GraphicsContext::getWindowsContext(const IntRect& dstRect, bool supportAlpha
     return m_data->m_hdc;
 }
 
-void GraphicsContext::releaseWindowsContext(HDC hdc, const IntRect& dstRect, bool supportAlphaBlend)
+void GraphicsContext::releaseWindowsContext(HDC hdc, const IntRect& dstRect, bool supportAlphaBlend, bool mayCreateBitmap)
 {
-    if (hdc && inTransparencyLayer()) {
+    if (mayCreateBitmap && hdc && inTransparencyLayer()) {
         if (dstRect.isEmpty())
             return;
 
@@ -168,78 +170,65 @@ void GraphicsContext::releaseWindowsContext(HDC hdc, const IntRect& dstRect, boo
     m_data->restore();
 }
 
-void GraphicsContextPlatformPrivate::save()
+GraphicsContext::WindowsBitmap::WindowsBitmap(HDC hdc, IntSize size)
+    : m_hdc(0)
+    , m_size(size)
 {
-    if (!m_hdc)
+    BITMAPINFO bitmapInfo;
+    bitmapInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bitmapInfo.bmiHeader.biWidth = m_size.width(); 
+    bitmapInfo.bmiHeader.biHeight = m_size.height();
+    bitmapInfo.bmiHeader.biPlanes = 1;
+    bitmapInfo.bmiHeader.biBitCount = 32;
+    bitmapInfo.bmiHeader.biCompression = BI_RGB;
+    bitmapInfo.bmiHeader.biSizeImage = 0;
+    bitmapInfo.bmiHeader.biXPelsPerMeter = 0;
+    bitmapInfo.bmiHeader.biYPelsPerMeter = 0;
+    bitmapInfo.bmiHeader.biClrUsed = 0;
+    bitmapInfo.bmiHeader.biClrImportant = 0;
+
+    m_bitmap = CreateDIBSection(0, &bitmapInfo, DIB_RGB_COLORS, reinterpret_cast<void**>(&m_bitmapBuffer), 0, 0);
+    if (!m_bitmap)
         return;
-    SaveDC(m_hdc);
+
+    m_hdc = CreateCompatibleDC(hdc);
+    SelectObject(m_hdc, m_bitmap);
+
+    BITMAP bmpInfo;
+    GetObject(m_bitmap, sizeof(bmpInfo), &bmpInfo);
+    m_bytesPerRow = bmpInfo.bmWidthBytes;
+    m_bitmapBufferLength = bmpInfo.bmWidthBytes * bmpInfo.bmHeight;
+
+    SetGraphicsMode(m_hdc, GM_ADVANCED);
 }
 
-void GraphicsContextPlatformPrivate::restore()
+GraphicsContext::WindowsBitmap::~WindowsBitmap()
 {
-    if (!m_hdc)
+    if (!m_bitmap)
         return;
-    RestoreDC(m_hdc, -1);
+
+    DeleteDC(m_hdc);
+    DeleteObject(m_bitmap);
 }
 
-void GraphicsContextPlatformPrivate::clip(const IntRect& clipRect)
+GraphicsContext::WindowsBitmap* GraphicsContext::createWindowsBitmap(IntSize size)
 {
-    if (!m_hdc)
-        return;
-    IntersectClipRect(m_hdc, clipRect.x(), clipRect.y(), clipRect.right(), clipRect.bottom());
+    return new WindowsBitmap(m_data->m_hdc, size);
 }
 
-void GraphicsContextPlatformPrivate::clip(const Path&)
+void GraphicsContext::drawWindowsBitmap(WindowsBitmap* image, const IntPoint& point)
 {
-    notImplemented();
+    RetainPtr<CGColorSpaceRef> deviceRGB(AdoptCF, CGColorSpaceCreateDeviceRGB());
+    // FIXME: Creating CFData is non-optimal, but needed to avoid crashing when printing.  Ideally we should 
+    // make a custom CGDataProvider that controls the WindowsBitmap lifetime.  see <rdar://6394455>
+    RetainPtr<CFDataRef> imageData(AdoptCF, CFDataCreate(kCFAllocatorDefault, image->buffer(), image->bufferLength()));
+    RetainPtr<CGDataProviderRef> dataProvider(AdoptCF, CGDataProviderCreateWithCFData(imageData.get()));
+    RetainPtr<CGImageRef> cgImage(AdoptCF, CGImageCreate(image->size().width(), image->size().height(), 8, 32, image->bytesPerRow(), deviceRGB.get(),
+                                                         kCGBitmapByteOrder32Little | kCGImageAlphaFirst, dataProvider.get(), 0, true, kCGRenderingIntentDefault));
+    CGContextDrawImage(m_data->m_cgContext, CGRectMake(point.x(), point.y(), image->size().width(), image->size().height()), cgImage.get());   
 }
 
-void GraphicsContextPlatformPrivate::scale(const FloatSize& size)
-{
-    if (!m_hdc)
-        return;
-    XFORM xform;
-    xform.eM11 = size.width();
-    xform.eM12 = 0.0f;
-    xform.eM21 = 0.0f;
-    xform.eM22 = size.height();
-    xform.eDx = 0.0f;
-    xform.eDy = 0.0f;
-    ModifyWorldTransform(m_hdc, &xform, MWT_LEFTMULTIPLY);
-}
-
-static const double deg2rad = 0.017453292519943295769; // pi/180
-
-void GraphicsContextPlatformPrivate::rotate(float degreesAngle)
-{
-    float radiansAngle = degreesAngle * deg2rad;
-    float cosAngle = cosf(radiansAngle);
-    float sinAngle = sinf(radiansAngle);
-    XFORM xform;
-    xform.eM11 = cosAngle;
-    xform.eM12 = -sinAngle;
-    xform.eM21 = sinAngle;
-    xform.eM22 = cosAngle;
-    xform.eDx = 0.0f;
-    xform.eDy = 0.0f;
-    ModifyWorldTransform(m_hdc, &xform, MWT_LEFTMULTIPLY);
-}
-
-void GraphicsContextPlatformPrivate::translate(float x , float y)
-{
-    if (!m_hdc)
-        return;
-    XFORM xform;
-    xform.eM11 = 1.0f;
-    xform.eM12 = 0.0f;
-    xform.eM21 = 0.0f;
-    xform.eM22 = 1.0f;
-    xform.eDx = x;
-    xform.eDy = y;
-    ModifyWorldTransform(m_hdc, &xform, MWT_LEFTMULTIPLY);
-}
-
-void GraphicsContextPlatformPrivate::concatCTM(const AffineTransform& transform)
+void GraphicsContextPlatformPrivate::concatCTM(const TransformationMatrix& transform)
 {
     if (!m_hdc)
         return;
@@ -263,7 +252,7 @@ void GraphicsContext::drawFocusRing(const Color& color)
 
     float radius = (focusRingWidth() - 1) / 2.0f;
     int offset = radius + focusRingOffset();
-    CGColorRef colorRef = color.isValid() ? cgColor(color) : 0;
+    CGColorRef colorRef = color.isValid() ? createCGColor(color) : 0;
 
     CGMutablePathRef focusRingPath = CGPathCreateMutable();
     const Vector<IntRect>& rects = focusRingRects();

@@ -21,31 +21,16 @@
  */
 
 #include "config.h"
-
-#ifdef AVOID_STATIC_CONSTRUCTORS
-#define DOM_EVENT_NAMES_HIDE_GLOBALS 1
-#endif
-
 #include "EventNames.h"
-#include "StaticConstructors.h"
 
-namespace WebCore { namespace EventNames {
+namespace WebCore {
 
-#define DEFINE_EVENT_GLOBAL(name) \
-    DEFINE_GLOBAL(AtomicString, name##Event, #name)
-DOM_EVENT_NAMES_FOR_EACH(DEFINE_EVENT_GLOBAL)
-
-void init()
+#define INITIALIZE_EVENT_NAME(name) \
+    , name##Event(#name)
+EventNames::EventNames()
+    : dummy(0)
+DOM_EVENT_NAMES_FOR_EACH(INITIALIZE_EVENT_NAME)
 {
-    static bool initialized;
-    if (!initialized) {
-        // Use placement new to initialize the globals.
-        
-        AtomicString::init();
-        #define INITIALIZE_GLOBAL(name) new ((void*)&name##Event) AtomicString(#name);
-        DOM_EVENT_NAMES_FOR_EACH(INITIALIZE_GLOBAL)
-        initialized = true;
-    }
 }
 
-} }
+}

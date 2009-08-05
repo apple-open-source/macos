@@ -398,23 +398,23 @@ Completion Code         Error Returned              Description
 @discussion  Messages specific to the IOUSBFamily.  Note that the iokit_usb_msg(x) translates to 0xe0004xxx, where xxx is the value in parenthesis as a hex number.
 */
 #define iokit_usb_msg(message)						(UInt32)(sys_iokit|sub_iokit_usb|message)
-#define kIOUSBMessageHubResetPort					iokit_usb_msg(0x01)		// 0xe00004001  Message sent to a hub to reset a particular port
-#define kIOUSBMessageHubSuspendPort					iokit_usb_msg(0x02)		// 0xe00004002  Message sent to a hub to suspend a particular port
-#define kIOUSBMessageHubResumePort					iokit_usb_msg(0x03)		// 0xe00004003  Message sent to a hub to resume a particular port
-#define kIOUSBMessageHubIsDeviceConnected			iokit_usb_msg(0x04)		// 0xe00004004  Message sent to a hub to inquire whether a particular port has a device connected or not
-#define kIOUSBMessageHubIsPortEnabled				iokit_usb_msg(0x05)		// 0xe00004005  Message sent to a hub to inquire whether a particular port is enabled or not
-#define kIOUSBMessageHubReEnumeratePort				iokit_usb_msg(0x06)		// 0xe00004006  Message sent to a hub to reenumerate the device attached to a particular port
-#define kIOUSBMessagePortHasBeenReset				iokit_usb_msg(0x0a)		// 0xe0000400a  Message sent to a device indicating that the port it is attached to has been reset
-#define kIOUSBMessagePortHasBeenResumed				iokit_usb_msg(0x0b)		// 0xe0000400b  Message sent to a device indicating that the port it is attached to has been resumed
-#define kIOUSBMessageHubPortClearTT					iokit_usb_msg(0x0c)		// 0xe0000400c  Message sent to a hub to clear the transaction translator
-#define kIOUSBMessagePortHasBeenSuspended			iokit_usb_msg(0x0d)		// 0xe0000400d  Message sent to a device indicating that the port it is attached to has been suspended
-#define kIOUSBMessageFromThirdParty					iokit_usb_msg(0x0e)		// 0xe0000400e  Message sent from a third party.  Uses IOUSBThirdPartyParam to encode the sender's ID
-#define kIOUSBMessagePortWasNotSuspended			iokit_usb_msg(0x0f)		// 0xe0000400f  Message indicating that the hub driver received a resume request for a port that was not suspended
-#define kIOUSBMessageExpressCardCantWake			iokit_usb_msg(0x10)		// 0xe00004010  Message from a driver to a bus that an express card will disconnect on sleep and thus shouldn't wake
-#define kIOUSBMessageCompositeDriverReconfigured    iokit_usb_msg(0x11)		// 0xe00004011  Message from the composite driver indicating that it has finished re-configuring the device after a reset
-#define kIOUSBMessageHubSetPortRecoveryTime			iokit_usb_msg(0x12)		// 0xe00004012  Message sent to a hub to set the # of ms required when resuming a particular port
-#define kIOUSBMessageOvercurrentCondition			iokit_usb_msg(0x13)     // 0xe00004013  Message sent to the clients of the device's hub parent, when a device causes an overcurrent condition.  The message argument contains the locationID of the device
-#define kIOUSBMessageNotEnoughPower					iokit_usb_msg(0x14)     // 0xe00004014  Message sent to the clients of the device's hub parent, when a device causes an low power notice to be displayed.  The message argument contains the locationID of the device
+#define kIOUSBMessageHubResetPort					iokit_usb_msg(0x01)		// 0xe0004001  Message sent to a hub to reset a particular port
+#define kIOUSBMessageHubSuspendPort					iokit_usb_msg(0x02)		// 0xe0004002  Message sent to a hub to suspend a particular port
+#define kIOUSBMessageHubResumePort					iokit_usb_msg(0x03)		// 0xe0004003  Message sent to a hub to resume a particular port
+#define kIOUSBMessageHubIsDeviceConnected			iokit_usb_msg(0x04)		// 0xe0004004  Message sent to a hub to inquire whether a particular port has a device connected or not
+#define kIOUSBMessageHubIsPortEnabled				iokit_usb_msg(0x05)		// 0xe0004005  Message sent to a hub to inquire whether a particular port is enabled or not
+#define kIOUSBMessageHubReEnumeratePort				iokit_usb_msg(0x06)		// 0xe0004006  Message sent to a hub to reenumerate the device attached to a particular port
+#define kIOUSBMessagePortHasBeenReset				iokit_usb_msg(0x0a)		// 0xe000400a  Message sent to a device indicating that the port it is attached to has been reset
+#define kIOUSBMessagePortHasBeenResumed				iokit_usb_msg(0x0b)		// 0xe000400b  Message sent to a device indicating that the port it is attached to has been resumed
+#define kIOUSBMessageHubPortClearTT					iokit_usb_msg(0x0c)		// 0xe000400c  Message sent to a hub to clear the transaction translator
+#define kIOUSBMessagePortHasBeenSuspended			iokit_usb_msg(0x0d)		// 0xe000400d  Message sent to a device indicating that the port it is attached to has been suspended
+#define kIOUSBMessageFromThirdParty					iokit_usb_msg(0x0e)		// 0xe000400e  Message sent from a third party.  Uses IOUSBThirdPartyParam to encode the sender's ID
+#define kIOUSBMessagePortWasNotSuspended			iokit_usb_msg(0x0f)		// 0xe000400f  Message indicating that the hub driver received a resume request for a port that was not suspended
+#define kIOUSBMessageExpressCardCantWake			iokit_usb_msg(0x10)		// 0xe0004010  Message from a driver to a bus that an express card will disconnect on sleep and thus shouldn't wake
+#define kIOUSBMessageCompositeDriverReconfigured    iokit_usb_msg(0x11)		// 0xe0004011  Message from the composite driver indicating that it has finished re-configuring the device after a reset
+#define kIOUSBMessageHubSetPortRecoveryTime			iokit_usb_msg(0x12)		// 0xe0004012  Message sent to a hub to set the # of ms required when resuming a particular port
+#define kIOUSBMessageOvercurrentCondition			iokit_usb_msg(0x13)     // 0xe0004013  Message sent to the clients of the device's hub parent, when a device causes an overcurrent condition.  The message argument contains the locationID of the device
+#define kIOUSBMessageNotEnoughPower					iokit_usb_msg(0x14)     // 0xe0004014  Message sent to the clients of the device's hub parent, when a device causes an low power notice to be displayed.  The message argument contains the locationID of the device
 
 // Obsolete
 //
@@ -942,8 +942,8 @@ struct LowLatencyUserBufferInfo {
     LowLatencyUserBufferInfo *	nextBuffer;
 };
 
-// This structure is used to pass information for the low latency calls between user space and the kernel.  
-//
+// This structure is DEPRECATED.  See the LowLatencyUserBufferInfoV3  
+
 typedef struct LowLatencyUserBufferInfoV2 LowLatencyUserBufferInfoV2;
 
 struct LowLatencyUserBufferInfoV2 
@@ -957,8 +957,24 @@ struct LowLatencyUserBufferInfoV2
     LowLatencyUserBufferInfoV2 *	nextBuffer;
 };
 
+	
+// This structure is used to pass information for the low latency calls between user space and the kernel.  
+//
+typedef struct LowLatencyUserBufferInfoV3 LowLatencyUserBufferInfoV3;
 
-/*!
+struct LowLatencyUserBufferInfoV3 
+{
+	uint64_t						cookie;
+	mach_vm_address_t				bufferAddress;
+	mach_vm_size_t					bufferSize;
+	uint64_t						bufferType;
+	uint64_t						isPrepared;
+	mach_vm_address_t				mappedUHCIAddress;
+	LowLatencyUserBufferInfoV3 *	nextBuffer;
+};
+	
+	
+	/*!
     @enum USBLowLatencyBufferType
     @discussion Used to specify what kind of buffer to create when calling LowLatencyCreateBuffer(). 
     @constant	kUSBLowLatencyWriteBuffer	The buffer will be used to write data out to a device.
@@ -1035,7 +1051,18 @@ typedef enum {
 		kUSBInformationDeviceOvercurrentBit				= 7,
 		kUSBInformationDevicePortIsInTestModeBit		= 8,
 		kUSBInformationDeviceIsRootHub					= 9,
-		kUSBInformationRootHubisBuiltIn					= 10
+		kUSBInformationRootHubisBuiltIn					= 10,
+		kUSBInformationDeviceIsCaptiveMask				= (1 << kUSBInformationDeviceIsCaptiveBit),
+		kUSBInformationDeviceIsAttachedToRootHubMask	= (1 << kUSBInformationDeviceIsAttachedToRootHubBit),
+		kUSBInformationDeviceIsInternalMask				= (1 << kUSBInformationDeviceIsInternalBit),
+		kUSBInformationDeviceIsConnectedMask			= (1 << kUSBInformationDeviceIsConnectedBit),
+		kUSBInformationDeviceIsEnabledMask				= (1 << kUSBInformationDeviceIsEnabledBit),
+		kUSBInformationDeviceIsSuspendedMask			= (1 << kUSBInformationDeviceIsSuspendedBit),
+		kUSBInformationDeviceIsInResetMask				= (1 << kUSBInformationDeviceIsInResetBit),
+		kUSBInformationDeviceOvercurrentMask			= (1 << kUSBInformationDeviceOvercurrentBit),
+		kUSBInformationDevicePortIsInTestModeMask		= (1 << kUSBInformationDevicePortIsInTestModeBit),
+		kUSBInformationDeviceIsRootHubMask				= (1 << kUSBInformationDeviceIsRootHub),
+		kUSBInformationRootHubisBuiltInMask				= (1 << kUSBInformationRootHubisBuiltIn)
 	} USBDeviceInformationBits;
 	
 	/*!

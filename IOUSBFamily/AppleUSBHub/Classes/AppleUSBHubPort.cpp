@@ -238,12 +238,26 @@ AppleUSBHubPort::stop(void)
 			}
 			else
 			{
+				IOReturn kr;
+				
 				USBLog(2, "AppleUSBHubPort[%p]::stop - trying command sleep (%d/%d).", this, _statusChangedThreadActive, _initThreadActive);
 				_inCommandSleep = true;
 				if (_statusChangedThreadActive)
-					gate->commandSleep(&_statusChangedThreadActive, THREAD_UNINT);
+				{
+					kr = gate->commandSleep(&_statusChangedThreadActive);
+					if (kr != THREAD_AWAKENED)
+					{
+						USBLog(5,"AppleUSBHubPort[%p]::stop  _statusChangedThreadActive commandSleep returned %d", this, kr);
+					}
+				}
 				else if (_initThreadActive)
-					gate->commandSleep(&_initThreadActive, THREAD_UNINT);
+				{
+					kr = gate->commandSleep(&_initThreadActive);
+					if (kr != THREAD_AWAKENED)
+					{
+						USBLog(5,"AppleUSBHubPort[%p]::stop  _initThreadActive commandSleep returned %d", this, kr);
+					}
+				}
 				_inCommandSleep = false;
 				USBLog(2, "AppleUSBHubPort[%p]::stop - returned from command sleep (%d,%d)!!", this, _statusChangedThreadActive, _initThreadActive);
 			}

@@ -29,6 +29,7 @@
 #include "RenderListItem.h"
 #include "RenderListMarker.h"
 #include "RenderStyle.h"
+#include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
@@ -41,7 +42,7 @@ static CounterNode* counter(RenderObject*, const AtomicString& counterName, bool
 
 static CounterMaps& counterMaps()
 {
-    static CounterMaps staticCounterMaps;
+    DEFINE_STATIC_LOCAL(CounterMaps, staticCounterMaps, ());
     return staticCounterMaps;
 }
 
@@ -115,7 +116,7 @@ static bool planCounter(RenderObject* object, const AtomicString& counterName, b
             isReset = false;
             return true;
         }
-        if (Node* e = object->element()) {
+        if (Node* e = object->node()) {
             if (e->hasTagName(olTag)) {
                 value = static_cast<HTMLOListElement*>(e)->start();
                 isReset = true;
@@ -219,7 +220,7 @@ const char* RenderCounter::renderName() const
     return "RenderCounter";
 }
 
-bool RenderCounter::isRenderCounter() const
+bool RenderCounter::isCounter() const
 {
     return true;
 }
@@ -250,17 +251,16 @@ PassRefPtr<StringImpl> RenderCounter::originalText() const
     return text.impl();
 }
 
-void RenderCounter::dirtyLineBoxes(bool fullLayout, bool dummy)
-{
-    if (prefWidthsDirty())
-        calcPrefWidths(0);
-    RenderText::dirtyLineBoxes(fullLayout, dummy);
-}
-
 void RenderCounter::calcPrefWidths(int lead)
 {
     setTextInternal(originalText());
     RenderText::calcPrefWidths(lead);
+}
+
+void RenderCounter::invalidate()
+{
+    m_counterNode = 0;
+    setNeedsLayoutAndPrefWidthsRecalc();
 }
 
 static void destroyCounterNodeChildren(AtomicStringImpl* identifier, CounterNode* node)
@@ -271,6 +271,11 @@ static void destroyCounterNodeChildren(AtomicStringImpl* identifier, CounterNode
         child->parent()->removeChild(child);
         ASSERT(counterMaps().get(child->renderer())->get(identifier) == child);
         counterMaps().get(child->renderer())->remove(identifier);
+        if (!child->renderer()->documentBeingDestroyed()) {
+            RenderObjectChildList* children = child->renderer()->virtualChildren();
+            if (children)
+                children->invalidateCounters(child->renderer());
+        }
         delete child;
     }
 }

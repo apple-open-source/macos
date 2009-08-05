@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005 Nikolas Zimmermann <wildfox@kde.org>
                   2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -37,8 +35,8 @@
 
 namespace WebCore {
 
-SVGDocument::SVGDocument(DOMImplementation* i, Frame* frame)
-    : Document(i, frame)
+SVGDocument::SVGDocument(Frame* frame)
+    : Document(frame, false)
 {
 }
 
@@ -59,7 +57,7 @@ void SVGDocument::dispatchZoomEvent(float prevScale, float newScale)
 {
     ExceptionCode ec = 0;
     RefPtr<SVGZoomEvent> event = static_pointer_cast<SVGZoomEvent>(createEvent("SVGZoomEvents", ec));
-    event->initEvent(EventNames::zoomEvent, true, false);
+    event->initEvent(eventNames().zoomEvent, true, false);
     event->setPreviousScale(prevScale);
     event->setNewScale(newScale);
     rootElement()->dispatchEvent(event.release(), ec);
@@ -69,7 +67,7 @@ void SVGDocument::dispatchScrollEvent()
 {
     ExceptionCode ec = 0;
     RefPtr<Event> event = createEvent("SVGEvents", ec);
-    event->initEvent(EventNames::scrollEvent, true, false);
+    event->initEvent(eventNames().scrollEvent, true, false);
     rootElement()->dispatchEvent(event.release(), ec);
 }
 

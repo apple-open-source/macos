@@ -39,18 +39,18 @@
 
 namespace WebCore {
 
-CIVector* getVectorForChannel(SVGChannelSelectorType channel)
+CIVector* getVectorForChannel(ChannelSelectorType channel)
 {
     switch (channel) {
-    case SVG_CHANNEL_UNKNOWN:
+    case CHANNEL_UNKNOWN:
         return nil;    
-    case SVG_CHANNEL_R:
+    case CHANNEL_R:
         return [CIVector vectorWithX:1.0f Y:0.0f Z:0.0f W:0.0f];
-    case SVG_CHANNEL_G:
+    case CHANNEL_G:
         return [CIVector vectorWithX:0.0f Y:1.0f Z:0.0f W:0.0f];
-    case SVG_CHANNEL_B:
+    case CHANNEL_B:
         return [CIVector vectorWithX:0.0f Y:0.0f Z:1.0f W:0.0f];
-    case SVG_CHANNEL_A:
+    case CHANNEL_A:
         return [CIVector vectorWithX:0.0f Y:0.0f Z:0.0f W:1.0f];
     default:
         return [CIVector vectorWithX:0.0f Y:0.0f Z:0.0f W:0.0f];
@@ -59,7 +59,7 @@ CIVector* getVectorForChannel(SVGChannelSelectorType channel)
 
 CIColor* ciColor(const Color& c)
 {
-    CGColorRef colorCG = cgColor(c);
+    CGColorRef colorCG = createCGColor(c);
     CIColor* colorCI = [CIColor colorWithCGColor:colorCG];
     CGColorRelease(colorCG);
     return colorCI;
@@ -82,7 +82,7 @@ CIFilter* getPointLightVectors(CIFilter* normals, CIVector* lightPosition, float
     return nil;
 }
 
-CIFilter* getLightVectors(CIFilter* normals, const SVGLightSource* light, float surfaceScale)
+CIFilter* getLightVectors(CIFilter* normals, const LightSource* light, float surfaceScale)
 {
     [WKDistantLightFilter class];
     [WKPointLightFilter class];
@@ -94,7 +94,7 @@ CIFilter* getLightVectors(CIFilter* normals, const SVGLightSource* light, float 
     switch (light->type()) {
     case LS_DISTANT:
     {
-        const SVGDistantLightSource* dlight = static_cast<const SVGDistantLightSource*>(light);
+        const DistantLightSource* dlight = static_cast<const DistantLightSource*>(light);
 
         filter = [CIFilter filterWithName:@"WKDistantLight"];
         if (!filter)
@@ -115,12 +115,12 @@ CIFilter* getLightVectors(CIFilter* normals, const SVGLightSource* light, float 
     }
     case LS_POINT:
     {
-        const SVGPointLightSource* plight = static_cast<const SVGPointLightSource*>(light);
+        const PointLightSource* plight = static_cast<const PointLightSource*>(light);
         return getPointLightVectors(normals, [CIVector vectorWithX:plight->position().x() Y:plight->position().y() Z:plight->position().z()], surfaceScale);
     }
     case LS_SPOT:
     {
-        const SVGSpotLightSource* slight = static_cast<const SVGSpotLightSource*>(light);
+        const SpotLightSource* slight = static_cast<const SpotLightSource*>(light);
         filter = [CIFilter filterWithName:@"WKSpotLight"];
         if (!filter)
             return nil;

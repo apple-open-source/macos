@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2003, 2006, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,7 +26,8 @@
 
 #include "config.h"
 #include "CString.h"
-#include "DeprecatedCString.h"
+
+using std::min;
 
 namespace WebCore {
 
@@ -40,19 +41,14 @@ CString::CString(const char* str, unsigned length)
     init(str, length);
 }
 
-CString::CString(const DeprecatedCString& str)
-{
-    init(str.data(), str.length());
-}
-
 void CString::init(const char* str, unsigned length)
 {
     if (!str)
         return;
     
-    m_buffer = new CStringBuffer(length + 1);
-    memcpy(m_buffer->data(), str, length); 
-    m_buffer->data()[length] = '\0';
+    m_buffer = CStringBuffer::create(length + 1);
+    memcpy(m_buffer->mutableData(), str, length); 
+    m_buffer->mutableData()[length] = '\0';
 }
 
 const char* CString::data() const
@@ -65,24 +61,19 @@ char* CString::mutableData()
     copyBufferIfNeeded();
     if (!m_buffer)
         return 0;
-    return m_buffer->data();
+    return m_buffer->mutableData();
 }
     
 unsigned CString::length() const
 {
     return m_buffer ? m_buffer->length() - 1 : 0;
 }
-
-DeprecatedCString CString::deprecatedCString() const
-{
-    return DeprecatedCString(data(), length() + 1);
-}
     
 CString CString::newUninitialized(size_t length, char*& characterBuffer)
 {
     CString result;
-    result.m_buffer = new CStringBuffer(length + 1);
-    char* bytes = result.m_buffer->data();
+    result.m_buffer = CStringBuffer::create(length + 1);
+    char* bytes = result.m_buffer->mutableData();
     bytes[length] = '\0';
     characterBuffer = bytes;
     return result;
@@ -95,8 +86,8 @@ void CString::copyBufferIfNeeded()
         
     int len = m_buffer->length();
     RefPtr<CStringBuffer> m_temp = m_buffer;
-    m_buffer = new CStringBuffer(len);
-    memcpy(m_buffer->data(), m_temp->data(), len);
+    m_buffer = CStringBuffer::create(len);
+    memcpy(m_buffer->mutableData(), m_temp->data(), len);
 }
 
 bool operator==(const CString& a, const CString& b)
@@ -108,4 +99,4 @@ bool operator==(const CString& a, const CString& b)
     return !strncmp(a.data(), b.data(), min(a.length(), b.length()));
 }
 
-}
+} // namespace WebCore

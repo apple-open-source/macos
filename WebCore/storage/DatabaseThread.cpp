@@ -25,8 +25,11 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 #include "config.h"
 #include "DatabaseThread.h"
+
+#if ENABLE(DATABASE)
 
 #include "AutodrainedPool.h"
 #include "Database.h"
@@ -35,7 +38,7 @@
 
 namespace WebCore {
 
-DatabaseThread::DatabaseThread(Document* document)
+DatabaseThread::DatabaseThread()
     : m_threadID(0)
 {
     m_selfRef = this;
@@ -48,10 +51,12 @@ DatabaseThread::~DatabaseThread()
 
 bool DatabaseThread::start()
 {
+    MutexLocker lock(m_threadCreationMutex);
+
     if (m_threadID)
         return true;
 
-    m_threadID = createThread(DatabaseThread::databaseThreadStart, this);
+    m_threadID = createThread(DatabaseThread::databaseThreadStart, this, "WebCore: Database");
 
     return m_threadID;
 }
@@ -75,7 +80,11 @@ void* DatabaseThread::databaseThreadStart(void* vDatabaseThread)
 
 void* DatabaseThread::databaseThread()
 {
-    LOG(StorageAPI, "Starting DatabaseThread %p", this);
+    {
+        // Wait for DatabaseThread::start() to complete.
+        MutexLocker lock(m_threadCreationMutex);
+        LOG(StorageAPI, "Started DatabaseThread %p", this);
+    }
 
     AutodrainedPool pool;
     while (true) {
@@ -99,12 +108,12 @@ void* DatabaseThread::databaseThread()
     return 0;
 }
 
-void DatabaseThread::scheduleTask(DatabaseTask* task)
+void DatabaseThread::scheduleTask(PassRefPtr<DatabaseTask> task)
 {
     m_queue.append(task);
 }
 
-void DatabaseThread::scheduleImmediateTask(DatabaseTask* task)
+void DatabaseThread::scheduleImmediateTask(PassRefPtr<DatabaseTask> task)
 {
     m_queue.prepend(task);
 }
@@ -128,3 +137,4 @@ void DatabaseThread::unscheduleDatabaseTasks(Database* database)
 }
 
 } // namespace WebCore
+#endif

@@ -24,33 +24,33 @@
 #ifndef HTMLTextAreaElement_h
 #define HTMLTextAreaElement_h
 
-#include "HTMLGenericFormElement.h"
+#include "HTMLFormControlElement.h"
 
 namespace WebCore {
 
-class Selection;
+class VisibleSelection;
 
 class HTMLTextAreaElement : public HTMLFormControlElementWithState {
 public:
-    enum WrapMethod { ta_NoWrap, ta_Virtual, ta_Physical };
-
-    HTMLTextAreaElement(Document*, HTMLFormElement* = 0);
+    HTMLTextAreaElement(const QualifiedName&, Document*, HTMLFormElement* = 0);
 
     virtual bool checkDTD(const Node* newChild) { return newChild->isTextNode(); }
 
     int cols() const { return m_cols; }
     int rows() const { return m_rows; }
 
-    WrapMethod wrap() const { return m_wrap; }
+    bool shouldWrapText() const { return m_wrap != NoWrap; }
 
     virtual bool isEnumeratable() const { return true; }
 
-    virtual const AtomicString& type() const;
+    virtual const AtomicString& formControlType() const;
 
-    virtual bool saveState(String& value) const;
-    virtual void restoreState(const String&);
+    virtual bool saveFormControlState(String& value) const;
+    virtual void restoreFormControlState(const String&);
 
-    bool readOnly() const { return isReadOnlyControl(); }
+    bool readOnly() const { return isReadOnlyFormControl(); }
+
+    virtual bool isTextFormControl() const { return true; }
 
     int selectionStart();
     int selectionEnd();
@@ -61,7 +61,7 @@ public:
     void select();
     void setSelectionRange(int, int);
 
-    virtual void childrenChanged(bool changedByParser = false);
+    virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
     virtual void parseMappedAttribute(MappedAttribute*);
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
     virtual bool appendFormData(FormDataList&, bool);
@@ -80,25 +80,28 @@ public:
     
     virtual void accessKeyAction(bool sendToAnyElement);
     
-    String accessKey() const;
+    const AtomicString& accessKey() const;
     void setAccessKey(const String&);
 
     void setCols(int);
     void setRows(int);
     
-    void cacheSelection(int s, int e) { cachedSelStart = s; cachedSelEnd = e; };
-    Selection selection() const;
+    void cacheSelection(int s, int e) { m_cachedSelectionStart = s; m_cachedSelectionEnd = e; };
+    VisibleSelection selection() const;
 
     virtual bool shouldUseInputMethod() const;
+
 private:
+    enum WrapMethod { NoWrap, SoftWrap, HardWrap };
+
     void updateValue() const;
 
     int m_rows;
     int m_cols;
     WrapMethod m_wrap;
     mutable String m_value;
-    int cachedSelStart;
-    int cachedSelEnd;
+    int m_cachedSelectionStart;
+    int m_cachedSelectionEnd;
 };
 
 } //namespace

@@ -1,9 +1,7 @@
 /*
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2004, 2006 Apple Computer, Inc.
+ * Copyright (C) 2004, 2006, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -27,12 +25,6 @@
 
 #include "HTMLPlugInElement.h"
 
-#if USE(JAVASCRIPTCORE_BINDINGS)
-#include <bindings/runtime.h>
-#else
-namespace KJS { namespace Bindings { class Instance; } }
-#endif
-
 namespace WebCore {
 
 class HTMLFormElement;
@@ -41,7 +33,7 @@ class HTMLImageLoader;
 class HTMLAppletElement : public HTMLPlugInElement
 {
 public:
-    HTMLAppletElement(Document*);
+    HTMLAppletElement(const QualifiedName&, Document*);
     ~HTMLAppletElement();
 
     virtual int tagPriority() const { return 1; }
@@ -51,11 +43,8 @@ public:
     virtual bool rendererIsNeeded(RenderStyle*);
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
     virtual void finishParsingChildren();
-    virtual void detach();
     
-#if USE(JAVASCRIPTCORE_BINDINGS)
-    virtual KJS::Bindings::Instance* getInstance() const;
-#endif
+    virtual RenderWidget* renderWidgetForJSBindings() const;
 
     String alt() const;
     void setAlt(const String&);
@@ -84,7 +73,7 @@ public:
     virtual void removedFromDocument();
 
 private:
-    String oldIdAttr;
+    AtomicString m_id;
 };
 
 }

@@ -31,7 +31,7 @@
 
 #include "EventListener.h"
 #include "EventNames.h"
-#include "EventTargetNode.h"
+#include "Node.h"
 #include "ExceptionCode.h"
 #include "XPathEvaluator.h"
 #include "XPathException.h"
@@ -42,18 +42,20 @@ using namespace XPath;
 
 class InvalidatingEventListener : public EventListener {
 public:
-    InvalidatingEventListener(XPathResult* result) : m_result(result) { }
+    static PassRefPtr<InvalidatingEventListener> create(XPathResult* result) { return adoptRef(new InvalidatingEventListener(result)); }
     virtual void handleEvent(Event*, bool) { m_result->invalidateIteratorState(); }
+
 private:
+    InvalidatingEventListener(XPathResult* result) : m_result(result) { }
     XPathResult* m_result;
 };
 
-XPathResult::XPathResult(EventTargetNode* eventTarget, const Value& value)
+XPathResult::XPathResult(Node* eventTarget, const Value& value)
     : m_value(value)
     , m_eventTarget(eventTarget)
 {
-    m_eventListener = new InvalidatingEventListener(this);
-    m_eventTarget->addEventListener(EventNames::DOMSubtreeModifiedEvent, m_eventListener, false);
+    m_eventListener = InvalidatingEventListener::create(this);
+    m_eventTarget->addEventListener(eventNames().DOMSubtreeModifiedEvent, m_eventListener, false);
     switch (m_value.type()) {
         case Value::BooleanValue:
             m_resultType = BOOLEAN_TYPE;
@@ -77,7 +79,7 @@ XPathResult::XPathResult(EventTargetNode* eventTarget, const Value& value)
 XPathResult::~XPathResult()
 {
     if (m_eventTarget)
-        m_eventTarget->removeEventListener(EventNames::DOMSubtreeModifiedEvent, m_eventListener.get(), false);
+        m_eventTarget->removeEventListener(eventNames().DOMSubtreeModifiedEvent, m_eventListener.get(), false);
 }
 
 void XPathResult::convertTo(unsigned short type, ExceptionCode& ec)
@@ -179,7 +181,7 @@ void XPathResult::invalidateIteratorState()
     ASSERT(m_eventTarget);
     ASSERT(m_eventListener);
     
-    m_eventTarget->removeEventListener(EventNames::DOMSubtreeModifiedEvent, m_eventListener.get(), false);
+    m_eventTarget->removeEventListener(eventNames().DOMSubtreeModifiedEvent, m_eventListener.get(), false);
     
     m_eventTarget = 0;
 }
